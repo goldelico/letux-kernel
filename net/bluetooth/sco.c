@@ -83,7 +83,6 @@ static void sco_sock_timeout(unsigned long arg)
 	sk->sk_state_change(sk);
 	bh_unlock_sock(sk);
 
-	sco_sock_kill(sk);
 	sock_put(sk);
 }
 
@@ -175,7 +174,6 @@ static void sco_conn_del(struct hci_conn *hcon, int err)
 		sco_sock_clear_timer(sk);
 		sco_chan_del(sk, err);
 		bh_unlock_sock(sk);
-		sco_sock_kill(sk);
 		sock_put(sk);
 	}
 
@@ -444,7 +442,6 @@ static void sco_sock_close(struct sock *sk)
 	lock_sock(sk);
 	__sco_sock_close(sk);
 	release_sock(sk);
-	sco_sock_kill(sk);
 }
 
 static void sco_sock_init(struct sock *sk, struct sock *parent)
@@ -759,6 +756,11 @@ static void sco_conn_defer_accept(struct hci_conn *conn, u16 setting)
 			cp.retrans_effort = 0x02;
 			break;
 		case SCO_AIRMODE_CVSD:
+			cp.max_latency = cpu_to_le16(0xffff);
+			cp.retrans_effort = 0xff;
+			break;
+		default:
+			/* use CVSD settings as fallback */
 			cp.max_latency = cpu_to_le16(0xffff);
 			cp.retrans_effort = 0xff;
 			break;

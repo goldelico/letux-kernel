@@ -713,6 +713,8 @@ static int ethoc_open(struct net_device *dev)
 	if (ret)
 		return ret;
 
+	napi_enable(&priv->napi);
+
 	ethoc_init_ring(priv, dev->mem_start);
 	ethoc_reset(priv);
 
@@ -725,7 +727,6 @@ static int ethoc_open(struct net_device *dev)
 	}
 
 	phy_start(priv->phy);
-	napi_enable(&priv->napi);
 
 	if (netif_msg_ifup(priv)) {
 		dev_info(&dev->dev, "I/O: %08lx Memory: %08lx-%08lx\n",
@@ -1087,7 +1088,7 @@ static int ethoc_probe(struct platform_device *pdev)
 	if (!priv->iobase) {
 		dev_err(&pdev->dev, "cannot remap I/O memory space\n");
 		ret = -ENXIO;
-		goto error;
+		goto free;
 	}
 
 	if (netdev->mem_end) {
@@ -1096,7 +1097,7 @@ static int ethoc_probe(struct platform_device *pdev)
 		if (!priv->membase) {
 			dev_err(&pdev->dev, "cannot remap memory space\n");
 			ret = -ENXIO;
-			goto error;
+			goto free;
 		}
 	} else {
 		/* Allocate buffer memory */
@@ -1107,7 +1108,7 @@ static int ethoc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "cannot allocate %dB buffer\n",
 				buffer_size);
 			ret = -ENOMEM;
-			goto error;
+			goto free;
 		}
 		netdev->mem_end = netdev->mem_start + buffer_size;
 		priv->dma_alloc = buffer_size;
@@ -1121,7 +1122,7 @@ static int ethoc_probe(struct platform_device *pdev)
 		128, (netdev->mem_end - netdev->mem_start + 1) / ETHOC_BUFSIZ);
 	if (num_bd < 4) {
 		ret = -ENODEV;
-		goto error;
+		goto free;
 	}
 	priv->num_bd = num_bd;
 	/* num_tx must be a power of two */
@@ -1134,7 +1135,7 @@ static int ethoc_probe(struct platform_device *pdev)
 	priv->vma = devm_kzalloc(&pdev->dev, num_bd*sizeof(void *), GFP_KERNEL);
 	if (!priv->vma) {
 		ret = -ENOMEM;
-		goto error;
+		goto free;
 	}
 
 	/* Allow the platform setup code to pass in a MAC address. */

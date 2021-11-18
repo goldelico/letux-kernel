@@ -482,6 +482,7 @@ emit_cond_jmp:
 		case BPF_JGE:
 			jmp_cond = A64_COND_CS;
 			break;
+		case BPF_JSET:
 		case BPF_JNE:
 			jmp_cond = A64_COND_NE;
 			break;
@@ -728,14 +729,14 @@ static int build_body(struct jit_ctx *ctx)
 		int ret;
 
 		ret = build_insn(insn, ctx);
-
-		if (ctx->image == NULL)
-			ctx->offset[i] = ctx->idx;
-
 		if (ret > 0) {
 			i++;
+			if (ctx->image == NULL)
+				ctx->offset[i] = ctx->idx;
 			continue;
 		}
+		if (ctx->image == NULL)
+			ctx->offset[i] = ctx->idx;
 		if (ret)
 			return ret;
 	}

@@ -610,13 +610,13 @@ int nci_core_conn_create(struct nci_dev *ndev, u8 destination_type,
 	struct nci_core_conn_create_cmd *cmd;
 	struct core_conn_create_data data;
 
+	if (!number_destination_params)
+		return -EINVAL;
+
 	data.length = params_len + sizeof(struct nci_core_conn_create_cmd);
 	cmd = kzalloc(data.length, GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
-
-	if (!number_destination_params)
-		return -EINVAL;
 
 	cmd->destination_type = destination_type;
 	cmd->number_destination_params = number_destination_params;
@@ -1084,8 +1084,7 @@ struct nci_dev *nci_allocate_device(struct nci_ops *ops,
 	return ndev;
 
 free_nfc:
-	kfree(ndev->nfc_dev);
-
+	nfc_free_device(ndev->nfc_dev);
 free_nci:
 	kfree(ndev);
 	return NULL;
@@ -1100,6 +1099,7 @@ EXPORT_SYMBOL(nci_allocate_device);
 void nci_free_device(struct nci_dev *ndev)
 {
 	nfc_free_device(ndev->nfc_dev);
+	nci_hci_deallocate(ndev);
 	kfree(ndev);
 }
 EXPORT_SYMBOL(nci_free_device);

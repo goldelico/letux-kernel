@@ -48,12 +48,11 @@
 #include <linux/tipc_netlink.h>
 #include "core.h"
 #include "bearer.h"
-#include "msg.h"
 
 /* IANA assigned UDP port */
 #define UDP_PORT_DEFAULT	6118
 
-#define UDP_MIN_HEADROOM        28
+#define UDP_MIN_HEADROOM        48
 
 static const struct nla_policy tipc_nl_udp_policy[TIPC_NLA_UDP_MAX + 1] = {
 	[TIPC_NLA_UDP_UNSPEC]	= {.type = NLA_UNSPEC},
@@ -201,10 +200,13 @@ static int tipc_udp_send_msg(struct net *net, struct sk_buff *skb,
 			.saddr = src->ipv6,
 			.flowi6_proto = IPPROTO_UDP
 		};
-		err = ipv6_stub->ipv6_dst_lookup(net, ub->ubsock->sk, &ndst,
-						 &fl6);
-		if (err)
+		ndst = ipv6_stub->ipv6_dst_lookup_flow(net,
+						       ub->ubsock->sk,
+						       &fl6, NULL);
+		if (IS_ERR(ndst)) {
+			err = PTR_ERR(ndst);
 			goto tx_error;
+		}
 		ttl = ip6_dst_hoplimit(ndst);
 		err = udp_tunnel6_xmit_skb(ndst, ub->ubsock->sk, skb,
 					   ndst->dev, &src->ipv6,
@@ -224,10 +226,6 @@ static int tipc_udp_recv(struct sock *sk, struct sk_buff *skb)
 {
 	struct udp_bearer *ub;
 	struct tipc_bearer *b;
-	int usr = msg_user(buf_msg(skb));
-
-	if ((usr == LINK_PROTOCOL) || (usr == NAME_DISTRIBUTOR))
-		skb_linearize(skb);
 
 	ub = rcu_dereference_sk_user_data(sk);
 	if (!ub) {
@@ -381,6 +379,11 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
 		udp_conf.local_ip.s_addr = htonl(INADDR_ANY);
 		udp_conf.use_udp_checksums = false;
 		ub->ifindex = dev->ifindex;
+		if (tipc_mtu_bad(dev, sizeof(struct iphdr) +
+				      sizeof(struct udphdr))) {
+			err = -EINVAL;
+			goto err;
+		}
 		b->mtu = dev->mtu - sizeof(struct iphdr)
 			- sizeof(struct udphdr);
 #if IS_ENABLED(CONFIG_IPV6)
@@ -405,10 +408,13 @@ static int tipc_udp_enable(struct net *net, struct tipc_bearer *b,
 	tuncfg.encap_destroy = NULL;
 	setup_udp_tunnel_sock(net, ub->ubsock, &tuncfg);
 
-	if (enable_mcast(ub, remote))
+	err = enable_mcast(ub, remote);
+	if (err)
 		goto err;
 	return 0;
 err:
+	if (ub->ubsock)
+		udp_tunnel_sock_release(ub->ubsock);
 	kfree(ub);
 	return err;
 }

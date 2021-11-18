@@ -98,7 +98,7 @@ static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 
 	if (!(type & ICMPV6_INFOMSG_MASK))
 		if (icmp6->icmp6_type == ICMPV6_ECHO_REQUEST)
-			ping_err(skb, offset, info);
+			ping_err(skb, offset, ntohl(info));
 }
 
 static int icmpv6_rcv(struct sk_buff *skb);
@@ -445,6 +445,10 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
 
 	if (__ipv6_addr_needs_scope_id(addr_type))
 		iif = skb->dev->ifindex;
+	else {
+		dst = skb_dst(skb);
+		iif = l3mdev_master_ifindex(dst ? dst->dev : skb->dev);
+	}
 
 	/*
 	 *	Must not send error if the source does not uniquely
@@ -498,9 +502,6 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
 		fl6.flowi6_oif = np->mcast_oif;
 	else if (!fl6.flowi6_oif)
 		fl6.flowi6_oif = np->ucast_oif;
-
-	if (!fl6.flowi6_oif)
-		fl6.flowi6_oif = l3mdev_master_ifindex(skb->dev);
 
 	dst = icmpv6_route_lookup(net, skb, sk, &fl6);
 	if (IS_ERR(dst))

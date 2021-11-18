@@ -57,6 +57,7 @@ static bool enable_6lowpan;
 /* We are listening incoming connections via this channel
  */
 static struct l2cap_chan *listen_chan;
+static DEFINE_MUTEX(set_lock);
 
 struct lowpan_peer {
 	struct list_head list;
@@ -184,10 +185,16 @@ static inline struct lowpan_peer *peer_lookup_dst(struct lowpan_dev *dev,
 	}
 
 	if (!rt) {
-		nexthop = &lowpan_cb(skb)->gw;
-
-		if (ipv6_addr_any(nexthop))
-			return NULL;
+		if (ipv6_addr_any(&lowpan_cb(skb)->gw)) {
+			/* There is neither route nor gateway,
+			 * probably the destination is a direct peer.
+			 */
+			nexthop = daddr;
+		} else {
+			/* There is a known gateway
+			 */
+			nexthop = &lowpan_cb(skb)->gw;
+		}
 	} else {
 		nexthop = rt6_nexthop(rt, daddr);
 
@@ -307,6 +314,9 @@ static int recv_pkt(struct sk_buff *skb, struct net_device *dev,
 
 	/* check that it's our buffer */
 	if (lowpan_is_ipv6(*skb_network_header(skb))) {
+		/* Pull off the 1-byte of 6lowpan header. */
+		skb_pull(skb, 1);
+
 		/* Copy the packet so that the IPv6 header is
 		 * properly aligned.
 		 */
@@ -317,6 +327,7 @@ static int recv_pkt(struct sk_buff *skb, struct net_device *dev,
 
 		local_skb->protocol = htons(ETH_P_IPV6);
 		local_skb->pkt_type = PACKET_HOST;
+		local_skb->dev = dev;
 
 		skb_set_transport_header(local_skb, sizeof(struct ipv6hdr));
 
@@ -335,6 +346,8 @@ static int recv_pkt(struct sk_buff *skb, struct net_device *dev,
 		if (!local_skb)
 			goto drop;
 
+		local_skb->dev = dev;
+
 		ret = iphc_decompress(local_skb, dev, chan);
 		if (ret < 0) {
 			kfree_skb(local_skb);
@@ -343,7 +356,6 @@ static int recv_pkt(struct sk_buff *skb, struct net_device *dev,
 
 		local_skb->protocol = htons(ETH_P_IPV6);
 		local_skb->pkt_type = PACKET_HOST;
-		local_skb->dev = dev;
 
 		if (give_skb_to_upper(local_skb, dev)
 				!= NET_RX_SUCCESS) {
@@ -1184,12 +1196,14 @@ static void do_enable_set(struct work_struct *work)
 
 	enable_6lowpan = set_enable->flag;
 
+	mutex_lock(&set_lock);
 	if (listen_chan) {
 		l2cap_chan_close(listen_chan, 0);
 		l2cap_chan_put(listen_chan);
 	}
 
 	listen_chan = bt_6lowpan_listen();
+	mutex_unlock(&set_lock);
 
 	kfree(set_enable);
 }
@@ -1241,11 +1255,13 @@ static ssize_t lowpan_control_write(struct file *fp,
 		if (ret == -EINVAL)
 			return ret;
 
+		mutex_lock(&set_lock);
 		if (listen_chan) {
 			l2cap_chan_close(listen_chan, 0);
 			l2cap_chan_put(listen_chan);
 			listen_chan = NULL;
 		}
+		mutex_unlock(&set_lock);
 
 		if (conn) {
 			struct lowpan_peer *peer;

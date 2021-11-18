@@ -941,10 +941,13 @@ static void rfkill_sync_work(struct work_struct *work)
 int __must_check rfkill_register(struct rfkill *rfkill)
 {
 	static unsigned long rfkill_no;
-	struct device *dev = &rfkill->dev;
+	struct device *dev;
 	int error;
 
-	BUG_ON(!rfkill);
+	if (!rfkill)
+		return -EINVAL;
+
+	dev = &rfkill->dev;
 
 	mutex_lock(&rfkill_global_mutex);
 
@@ -1095,17 +1098,6 @@ static unsigned int rfkill_fop_poll(struct file *file, poll_table *wait)
 	return res;
 }
 
-static bool rfkill_readable(struct rfkill_data *data)
-{
-	bool r;
-
-	mutex_lock(&data->mtx);
-	r = !list_empty(&data->events);
-	mutex_unlock(&data->mtx);
-
-	return r;
-}
-
 static ssize_t rfkill_fop_read(struct file *file, char __user *buf,
 			       size_t count, loff_t *pos)
 {
@@ -1122,8 +1114,11 @@ static ssize_t rfkill_fop_read(struct file *file, char __user *buf,
 			goto out;
 		}
 		mutex_unlock(&data->mtx);
+		/* since we re-check and it just compares pointers,
+		 * using !list_empty() without locking isn't a problem
+		 */
 		ret = wait_event_interruptible(data->read_wait,
-					       rfkill_readable(data));
+					       !list_empty(&data->events));
 		mutex_lock(&data->mtx);
 
 		if (ret)

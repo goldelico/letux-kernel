@@ -270,8 +270,9 @@ struct dst_entry *inet_csk_route_child_sock(const struct sock *sk,
 					    struct sock *newsk,
 					    const struct request_sock *req);
 
-void inet_csk_reqsk_queue_add(struct sock *sk, struct request_sock *req,
-			      struct sock *child);
+struct sock *inet_csk_reqsk_queue_add(struct sock *sk,
+				      struct request_sock *req,
+				      struct sock *child);
 void inet_csk_reqsk_queue_hash_add(struct sock *sk, struct request_sock *req,
 				   unsigned long timeout);
 struct sock *inet_csk_complete_hashdance(struct sock *sk, struct sock *child,
@@ -286,11 +287,6 @@ static inline void inet_csk_reqsk_queue_added(struct sock *sk)
 static inline int inet_csk_reqsk_queue_len(const struct sock *sk)
 {
 	return reqsk_queue_len(&inet_csk(sk)->icsk_accept_queue);
-}
-
-static inline int inet_csk_reqsk_queue_young(const struct sock *sk)
-{
-	return reqsk_queue_len_young(&inet_csk(sk)->icsk_accept_queue);
 }
 
 static inline int inet_csk_reqsk_queue_is_full(const struct sock *sk)
@@ -322,6 +318,10 @@ int inet_csk_compat_getsockopt(struct sock *sk, int level, int optname,
 			       char __user *optval, int __user *optlen);
 int inet_csk_compat_setsockopt(struct sock *sk, int level, int optname,
 			       char __user *optval, unsigned int optlen);
+
+/* update the fast reuse flag when adding a socket */
+void inet_csk_update_fastreuse(struct inet_bind_bucket *tb,
+			       struct sock *sk);
 
 struct dst_entry *inet_csk_update_pmtu(struct sock *sk, u32 mtu);
 #endif /* _INET_CONNECTION_SOCK_H */

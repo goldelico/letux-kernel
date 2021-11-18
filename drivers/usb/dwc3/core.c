@@ -801,6 +801,9 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 		/* do nothing */
 		break;
 	}
+
+	/* de-assert DRVVBUS for HOST and OTG mode */
+	dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
@@ -867,7 +870,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->regs_size	= resource_size(res);
 
 	/* default to highest possible threshold */
-	lpm_nyet_threshold = 0xff;
+	lpm_nyet_threshold = 0xf;
 
 	/* default to -3.5dB de-emphasis */
 	tx_de_emphasis = 1;

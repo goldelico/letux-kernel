@@ -137,7 +137,6 @@ static struct usb_function *f_msg_rndis;
 
 static int rndis_do_config(struct usb_configuration *c)
 {
-	struct fsg_opts *fsg_opts;
 	int ret;
 
 	if (gadget_is_otg(c->cdev->gadget)) {
@@ -168,11 +167,6 @@ static int rndis_do_config(struct usb_configuration *c)
 		ret = PTR_ERR(f_msg_rndis);
 		goto err_fsg;
 	}
-
-	fsg_opts = fsg_opts_from_func_inst(fi_msg);
-	ret = fsg_common_run_thread(fsg_opts->common);
-	if (ret)
-		goto err_run;
 
 	ret = usb_add_function(c, f_msg_rndis);
 	if (ret)
@@ -225,7 +219,6 @@ static struct usb_function *f_msg_multi;
 
 static int cdc_do_config(struct usb_configuration *c)
 {
-	struct fsg_opts *fsg_opts;
 	int ret;
 
 	if (gadget_is_otg(c->cdev->gadget)) {
@@ -257,11 +250,6 @@ static int cdc_do_config(struct usb_configuration *c)
 		ret = PTR_ERR(f_msg_multi);
 		goto err_fsg;
 	}
-
-	fsg_opts = fsg_opts_from_func_inst(fi_msg);
-	ret = fsg_common_run_thread(fsg_opts->common);
-	if (ret)
-		goto err_run;
 
 	ret = usb_add_function(c, f_msg_multi);
 	if (ret)
@@ -498,7 +486,7 @@ static struct usb_composite_driver multi_driver = {
 	.name		= "g_multi",
 	.dev		= &device_desc,
 	.strings	= dev_strings,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_SUPER,
 	.bind		= multi_bind,
 	.unbind		= multi_unbind,
 	.needs_serial	= 1,

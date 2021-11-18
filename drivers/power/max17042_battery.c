@@ -457,13 +457,16 @@ static inline void max17042_write_model_data(struct max17042_chip *chip,
 }
 
 static inline void max17042_read_model_data(struct max17042_chip *chip,
-					u8 addr, u32 *data, int size)
+					u8 addr, u16 *data, int size)
 {
 	struct regmap *map = chip->regmap;
 	int i;
+	u32 tmp;
 
-	for (i = 0; i < size; i++)
-		regmap_read(map, addr + i, &data[i]);
+	for (i = 0; i < size; i++) {
+		regmap_read(map, addr + i, &tmp);
+		data[i] = (u16)tmp;
+	}
 }
 
 static inline int max17042_model_data_compare(struct max17042_chip *chip,
@@ -486,7 +489,7 @@ static int max17042_init_model(struct max17042_chip *chip)
 {
 	int ret;
 	int table_size = ARRAY_SIZE(chip->pdata->config_data->cell_char_tbl);
-	u32 *temp_data;
+	u16 *temp_data;
 
 	temp_data = kcalloc(table_size, sizeof(*temp_data), GFP_KERNEL);
 	if (!temp_data)
@@ -501,7 +504,7 @@ static int max17042_init_model(struct max17042_chip *chip)
 	ret = max17042_model_data_compare(
 		chip,
 		chip->pdata->config_data->cell_char_tbl,
-		(u16 *)temp_data,
+		temp_data,
 		table_size);
 
 	max10742_lock_model(chip);
@@ -514,7 +517,7 @@ static int max17042_verify_model_lock(struct max17042_chip *chip)
 {
 	int i;
 	int table_size = ARRAY_SIZE(chip->pdata->config_data->cell_char_tbl);
-	u32 *temp_data;
+	u16 *temp_data;
 	int ret = 0;
 
 	temp_data = kcalloc(table_size, sizeof(*temp_data), GFP_KERNEL);
@@ -641,7 +644,7 @@ static inline void max17042_override_por_values(struct max17042_chip *chip)
 	struct max17042_config_data *config = chip->pdata->config_data;
 
 	max17042_override_por(map, MAX17042_TGAIN, config->tgain);
-	max17042_override_por(map, MAx17042_TOFF, config->toff);
+	max17042_override_por(map, MAX17042_TOFF, config->toff);
 	max17042_override_por(map, MAX17042_CGAIN, config->cgain);
 	max17042_override_por(map, MAX17042_COFF, config->coff);
 
@@ -757,8 +760,12 @@ static irqreturn_t max17042_thread_handler(int id, void *dev)
 {
 	struct max17042_chip *chip = dev;
 	u32 val;
+	int ret;
 
-	regmap_read(chip->regmap, MAX17042_STATUS, &val);
+	ret = regmap_read(chip->regmap, MAX17042_STATUS, &val);
+	if (ret)
+		return IRQ_HANDLED;
+
 	if ((val & STATUS_INTR_SOCMIN_BIT) ||
 		(val & STATUS_INTR_SOCMAX_BIT)) {
 		dev_info(&chip->client->dev, "SOC threshold INTR\n");

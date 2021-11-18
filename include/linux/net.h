@@ -245,7 +245,16 @@ do {								\
 	net_ratelimited_function(pr_warn, fmt, ##__VA_ARGS__)
 #define net_info_ratelimited(fmt, ...)				\
 	net_ratelimited_function(pr_info, fmt, ##__VA_ARGS__)
-#if defined(DEBUG)
+#if defined(CONFIG_DYNAMIC_DEBUG)
+#define net_dbg_ratelimited(fmt, ...)					\
+do {									\
+	DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, fmt);			\
+	if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT) &&	\
+	    net_ratelimit())						\
+		__dynamic_pr_debug(&descriptor, pr_fmt(fmt),		\
+		                   ##__VA_ARGS__);			\
+} while (0)
+#elif defined(DEBUG)
 #define net_dbg_ratelimited(fmt, ...)				\
 	net_ratelimited_function(pr_debug, fmt, ##__VA_ARGS__)
 #else
@@ -281,6 +290,9 @@ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
 		    size_t size, int flags);
 int kernel_sock_ioctl(struct socket *sock, int cmd, unsigned long arg);
 int kernel_sock_shutdown(struct socket *sock, enum sock_shutdown_cmd how);
+
+/* Routine returns the IP overhead imposed by a (caller-protected) socket. */
+u32 kernel_sock_ip_overhead(struct sock *sk);
 
 #define MODULE_ALIAS_NETPROTO(proto) \
 	MODULE_ALIAS("net-pf-" __stringify(proto))

@@ -268,10 +268,11 @@ static volatile u32 good_2byte_insns[256 / 32] = {
 
 static bool is_prefix_bad(struct insn *insn)
 {
+	insn_byte_t p;
 	int i;
 
-	for (i = 0; i < insn->prefixes.nbytes; i++) {
-		switch (insn->prefixes.bytes[i]) {
+	for_each_insn_prefix(insn, i, p) {
+		switch (p) {
 		case 0x26:	/* INAT_PFX_ES   */
 		case 0x2E:	/* INAT_PFX_CS   */
 		case 0x36:	/* INAT_PFX_DS   */
@@ -290,10 +291,14 @@ static int uprobe_init_insn(struct arch_uprobe *auprobe, struct insn *insn, bool
 	insn_init(insn, auprobe->insn, sizeof(auprobe->insn), x86_64);
 	/* has the side-effect of processing the entire instruction */
 	insn_get_length(insn);
-	if (WARN_ON_ONCE(!insn_complete(insn)))
+	if (!insn_complete(insn))
 		return -ENOEXEC;
 
 	if (is_prefix_bad(insn))
+		return -ENOTSUPP;
+
+	/* We should not singlestep on the exception masking instructions */
+	if (insn_masking_exception(insn))
 		return -ENOTSUPP;
 
 	if (x86_64)
@@ -357,20 +362,22 @@ static void riprel_analyze(struct arch_uprobe *auprobe, struct insn *insn)
 		*cursor &= 0xfe;
 	}
 	/*
-	 * Similar treatment for VEX3 prefix.
-	 * TODO: add XOP/EVEX treatment when insn decoder supports them
+	 * Similar treatment for VEX3/EVEX prefix.
+	 * TODO: add XOP treatment when insn decoder supports them
 	 */
-	if (insn->vex_prefix.nbytes == 3) {
+	if (insn->vex_prefix.nbytes >= 3) {
 		/*
 		 * vex2:     c5    rvvvvLpp   (has no b bit)
 		 * vex3/xop: c4/8f rxbmmmmm wvvvvLpp
 		 * evex:     62    rxbR00mm wvvvv1pp zllBVaaa
-		 *   (evex will need setting of both b and x since
-		 *   in non-sib encoding evex.x is 4th bit of MODRM.rm)
-		 * Setting VEX3.b (setting because it has inverted meaning):
+		 * Setting VEX3.b (setting because it has inverted meaning).
+		 * Setting EVEX.x since (in non-SIB encoding) EVEX.x
+		 * is the 4th bit of MODRM.rm, and needs the same treatment.
+		 * For VEX3-encoded insns, VEX3.x value has no effect in
+		 * non-SIB encoding, the change is superfluous but harmless.
 		 */
 		cursor = auprobe->insn + insn_offset_vex_prefix(insn) + 1;
-		*cursor |= 0x20;
+		*cursor |= 0x60;
 	}
 
 	/*
@@ -415,12 +422,10 @@ static void riprel_analyze(struct arch_uprobe *auprobe, struct insn *insn)
 
 	reg = MODRM_REG(insn);	/* Fetch modrm.reg */
 	reg2 = 0xff;		/* Fetch vex.vvvv */
-	if (insn->vex_prefix.nbytes == 2)
-		reg2 = insn->vex_prefix.bytes[1];
-	else if (insn->vex_prefix.nbytes == 3)
+	if (insn->vex_prefix.nbytes)
 		reg2 = insn->vex_prefix.bytes[2];
 	/*
-	 * TODO: add XOP, EXEV vvvv reading.
+	 * TODO: add XOP vvvv reading.
 	 *
 	 * vex.vvvv field is in bits 6-3, bits are inverted.
 	 * But in 32-bit mode, high-order bit may be ignored.
@@ -514,9 +519,12 @@ struct uprobe_xol_ops {
 	void	(*abort)(struct arch_uprobe *, struct pt_regs *);
 };
 
-static inline int sizeof_long(void)
+static inline int sizeof_long(struct pt_regs *regs)
 {
-	return is_ia32_task() ? 4 : 8;
+	/*
+	 * Check registers for mode as in_xxx_syscall() does not apply here.
+	 */
+	return user_64bit_mode(regs) ? 8 : 4;
 }
 
 static int default_pre_xol_op(struct arch_uprobe *auprobe, struct pt_regs *regs)
@@ -527,9 +535,9 @@ static int default_pre_xol_op(struct arch_uprobe *auprobe, struct pt_regs *regs)
 
 static int push_ret_address(struct pt_regs *regs, unsigned long ip)
 {
-	unsigned long new_sp = regs->sp - sizeof_long();
+	unsigned long new_sp = regs->sp - sizeof_long(regs);
 
-	if (copy_to_user((void __user *)new_sp, &ip, sizeof_long()))
+	if (copy_to_user((void __user *)new_sp, &ip, sizeof_long(regs)))
 		return -EFAULT;
 
 	regs->sp = new_sp;
@@ -562,7 +570,7 @@ static int default_post_xol_op(struct arch_uprobe *auprobe, struct pt_regs *regs
 		long correction = utask->vaddr - utask->xol_vaddr;
 		regs->ip += correction;
 	} else if (auprobe->defparam.fixups & UPROBE_FIX_CALL) {
-		regs->sp += sizeof_long(); /* Pop incorrect return address */
+		regs->sp += sizeof_long(regs); /* Pop incorrect return address */
 		if (push_ret_address(regs, utask->vaddr + auprobe->defparam.ilen))
 			return -ERESTART;
 	}
@@ -671,7 +679,7 @@ static int branch_post_xol_op(struct arch_uprobe *auprobe, struct pt_regs *regs)
 	 * "call" insn was executed out-of-line. Just restore ->sp and restart.
 	 * We could also restore ->ip and try to call branch_emulate_op() again.
 	 */
-	regs->sp += sizeof_long();
+	regs->sp += sizeof_long(regs);
 	return -ERESTART;
 }
 
@@ -704,6 +712,7 @@ static struct uprobe_xol_ops branch_xol_ops = {
 static int branch_setup_xol_ops(struct arch_uprobe *auprobe, struct insn *insn)
 {
 	u8 opc1 = OPCODE1(insn);
+	insn_byte_t p;
 	int i;
 
 	switch (opc1) {
@@ -734,8 +743,8 @@ static int branch_setup_xol_ops(struct arch_uprobe *auprobe, struct insn *insn)
 	 * Intel and AMD behavior differ in 64-bit mode: Intel ignores 66 prefix.
 	 * No one uses these insns, reject any branch insns with such prefix.
 	 */
-	for (i = 0; i < insn->prefixes.nbytes; i++) {
-		if (insn->prefixes.bytes[i] == 0x66)
+	for_each_insn_prefix(insn, i, p) {
+		if (p == 0x66)
 			return -ENOTSUPP;
 	}
 
@@ -962,7 +971,7 @@ bool arch_uprobe_skip_sstep(struct arch_uprobe *auprobe, struct pt_regs *regs)
 unsigned long
 arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr, struct pt_regs *regs)
 {
-	int rasize = sizeof_long(), nleft;
+	int rasize = sizeof_long(regs), nleft;
 	unsigned long orig_ret_vaddr = 0; /* clear high bits for 32-bit apps */
 
 	if (copy_from_user(&orig_ret_vaddr, (void __user *)regs->sp, rasize))
@@ -980,7 +989,7 @@ arch_uretprobe_hijack_return_addr(unsigned long trampoline_vaddr, struct pt_regs
 		pr_err("uprobe: return address clobbered: pid=%d, %%sp=%#lx, "
 			"%%ip=%#lx\n", current->pid, regs->sp, regs->ip);
 
-		force_sig_info(SIGSEGV, SEND_SIG_FORCED, current);
+		force_sig(SIGSEGV, current);
 	}
 
 	return -1;

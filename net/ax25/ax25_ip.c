@@ -114,6 +114,7 @@ netdev_tx_t ax25_ip_xmit(struct sk_buff *skb)
 	dst = (ax25_address *)(bp + 1);
 	src = (ax25_address *)(bp + 8);
 
+	ax25_route_lock_use();
 	route = ax25_get_route(dst, NULL);
 	if (route) {
 		digipeat = route->digipeat;
@@ -206,9 +207,8 @@ netdev_tx_t ax25_ip_xmit(struct sk_buff *skb)
 	ax25_queue_xmit(skb, dev);
 
 put:
-	if (route)
-		ax25_put_route(route);
 
+	ax25_route_lock_unuse();
 	return NETDEV_TX_OK;
 }
 
@@ -228,8 +228,23 @@ netdev_tx_t ax25_ip_xmit(struct sk_buff *skb)
 }
 #endif
 
+static bool ax25_validate_header(const char *header, unsigned int len)
+{
+	ax25_digi digi;
+
+	if (!len)
+		return false;
+
+	if (header[0])
+		return true;
+
+	return ax25_addr_parse(header + 1, len - 1, NULL, NULL, &digi, NULL,
+			       NULL);
+}
+
 const struct header_ops ax25_header_ops = {
 	.create = ax25_hard_header,
+	.validate = ax25_validate_header,
 };
 
 EXPORT_SYMBOL(ax25_header_ops);

@@ -779,7 +779,7 @@ static int bcm2835_pctl_dt_node_to_map(struct pinctrl_dev *pctldev,
 		}
 		if (num_pulls) {
 			err = of_property_read_u32_index(np, "brcm,pull",
-					(num_funcs > 1) ? i : 0, &pull);
+					(num_pulls > 1) ? i : 0, &pull);
 			if (err)
 				goto out;
 			err = bcm2835_pctl_dt_node_to_map_pull(pc, np, pin,
@@ -795,7 +795,7 @@ static int bcm2835_pctl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	return 0;
 
 out:
-	kfree(maps);
+	bcm2835_pctl_dt_free_map(pctldev, maps, num_pins * maps_per_pin);
 	return err;
 }
 

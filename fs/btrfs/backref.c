@@ -1221,6 +1221,7 @@ static int __btrfs_find_all_roots(struct btrfs_trans_handle *trans,
 		if (ret < 0 && ret != -ENOENT) {
 			ulist_free(tmp);
 			ulist_free(*roots);
+			*roots = NULL;
 			return ret;
 		}
 		node = ulist_next(tmp, &uiter);
@@ -1417,7 +1418,8 @@ char *btrfs_ref_to_path(struct btrfs_root *fs_root, struct btrfs_path *path,
 			read_extent_buffer(eb, dest + bytes_left,
 					   name_off, name_len);
 		if (eb != eb_in) {
-			btrfs_tree_read_unlock_blocking(eb);
+			if (!path->skip_locking)
+				btrfs_tree_read_unlock_blocking(eb);
 			free_extent_buffer(eb);
 		}
 		ret = btrfs_find_item(fs_root, path, parent, 0,
@@ -1437,9 +1439,10 @@ char *btrfs_ref_to_path(struct btrfs_root *fs_root, struct btrfs_path *path,
 		eb = path->nodes[0];
 		/* make sure we can use eb after releasing the path */
 		if (eb != eb_in) {
-			atomic_inc(&eb->refs);
-			btrfs_tree_read_lock(eb);
-			btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
+			if (!path->skip_locking)
+				btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
+			path->nodes[0] = NULL;
+			path->locks[0] = 0;
 		}
 		btrfs_release_path(path);
 		iref = btrfs_item_ptr(eb, slot, struct btrfs_inode_ref);
@@ -1683,13 +1686,19 @@ int iterate_extent_inodes(struct btrfs_fs_info *fs_info,
 			extent_item_objectid);
 
 	if (!search_commit_root) {
-		trans = btrfs_join_transaction(fs_info->extent_root);
-		if (IS_ERR(trans))
-			return PTR_ERR(trans);
-		btrfs_get_tree_mod_seq(fs_info, &tree_mod_seq_elem);
-	} else {
-		down_read(&fs_info->commit_root_sem);
+		trans = btrfs_attach_transaction(fs_info->extent_root);
+		if (IS_ERR(trans)) {
+			if (PTR_ERR(trans) != -ENOENT &&
+			    PTR_ERR(trans) != -EROFS)
+				return PTR_ERR(trans);
+			trans = NULL;
+		}
 	}
+
+	if (trans)
+		btrfs_get_tree_mod_seq(fs_info, &tree_mod_seq_elem);
+	else
+		down_read(&fs_info->commit_root_sem);
 
 	ret = btrfs_find_all_leafs(trans, fs_info, extent_item_objectid,
 				   tree_mod_seq_elem.seq, &refs,
@@ -1719,7 +1728,7 @@ int iterate_extent_inodes(struct btrfs_fs_info *fs_info,
 
 	free_leaf_list(refs);
 out:
-	if (!search_commit_root) {
+	if (trans) {
 		btrfs_put_tree_mod_seq(fs_info, &tree_mod_seq_elem);
 		btrfs_end_transaction(trans, fs_info->extent_root);
 	} else {

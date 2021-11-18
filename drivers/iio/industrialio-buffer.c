@@ -107,9 +107,10 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 {
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 	size_t datum_size;
 	size_t to_wait;
-	int ret;
+	int ret = 0;
 
 	if (!indio_dev->info)
 		return -ENODEV;
@@ -131,19 +132,29 @@ ssize_t iio_buffer_read_first_n_outer(struct file *filp, char __user *buf,
 	else
 		to_wait = min_t(size_t, n / datum_size, rb->watermark);
 
+	add_wait_queue(&rb->pollq, &wait);
 	do {
-		ret = wait_event_interruptible(rb->pollq,
-		      iio_buffer_ready(indio_dev, rb, to_wait, n / datum_size));
-		if (ret)
-			return ret;
+		if (!indio_dev->info) {
+			ret = -ENODEV;
+			break;
+		}
 
-		if (!indio_dev->info)
-			return -ENODEV;
+		if (!iio_buffer_ready(indio_dev, rb, to_wait, n / datum_size)) {
+			if (signal_pending(current)) {
+				ret = -ERESTARTSYS;
+				break;
+			}
+
+			wait_woken(&wait, TASK_INTERRUPTIBLE,
+				   MAX_SCHEDULE_TIMEOUT);
+			continue;
+		}
 
 		ret = rb->access->read_first_n(rb, n, buf);
 		if (ret == 0 && (filp->f_flags & O_NONBLOCK))
 			ret = -EAGAIN;
-	 } while (ret == 0);
+	} while (ret == 0);
+	remove_wait_queue(&rb->pollq, &wait);
 
 	return ret;
 }
@@ -163,7 +174,7 @@ unsigned int iio_buffer_poll(struct file *filp,
 	struct iio_dev *indio_dev = filp->private_data;
 	struct iio_buffer *rb = indio_dev->buffer;
 
-	if (!indio_dev->info)
+	if (!indio_dev->info || rb == NULL)
 		return 0;
 
 	poll_wait(filp, &rb->pollq, wait);
@@ -516,7 +527,7 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 {
 	const struct iio_chan_spec *ch;
 	unsigned bytes = 0;
-	int length, i;
+	int length, i, largest = 0;
 
 	/* How much space will the demuxed element take? */
 	for_each_set_bit(i, mask,
@@ -529,6 +540,7 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 			length = ch->scan_type.storagebits / 8;
 		bytes = ALIGN(bytes, length);
 		bytes += length;
+		largest = max(largest, length);
 	}
 	if (timestamp) {
 		ch = iio_find_channel_from_si(indio_dev,
@@ -540,7 +552,10 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 			length = ch->scan_type.storagebits / 8;
 		bytes = ALIGN(bytes, length);
 		bytes += length;
+		largest = max(largest, length);
 	}
+
+	bytes = ALIGN(bytes, largest);
 	return bytes;
 }
 
@@ -1266,9 +1281,6 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				       indio_dev->masklength,
 				       in_ind + 1);
 		while (in_ind != out_ind) {
-			in_ind = find_next_bit(indio_dev->active_scan_mask,
-					       indio_dev->masklength,
-					       in_ind + 1);
 			ch = iio_find_channel_from_si(indio_dev, in_ind);
 			if (ch->scan_type.repeat > 1)
 				length = ch->scan_type.storagebits / 8 *
@@ -1277,6 +1289,9 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				length = ch->scan_type.storagebits / 8;
 			/* Make sure we are aligned */
 			in_loc = roundup(in_loc, length) + length;
+			in_ind = find_next_bit(indio_dev->active_scan_mask,
+					       indio_dev->masklength,
+					       in_ind + 1);
 		}
 		ch = iio_find_channel_from_si(indio_dev, in_ind);
 		if (ch->scan_type.repeat > 1)

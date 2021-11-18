@@ -304,9 +304,17 @@ void eeh_slot_error_detail(struct eeh_pe *pe, int severity)
 	 *
 	 * For pHyp, we have to enable IO for log retrieval. Otherwise,
 	 * 0xFF's is always returned from PCI config space.
+	 *
+	 * When the @severity is EEH_LOG_PERM, the PE is going to be
+	 * removed. Prior to that, the drivers for devices included in
+	 * the PE will be closed. The drivers rely on working IO path
+	 * to bring the devices to quiet state. Otherwise, PCI traffic
+	 * from those devices after they are removed is like to cause
+	 * another unexpected EEH error.
 	 */
 	if (!(pe->type & EEH_PE_PHB)) {
-		if (eeh_has_flag(EEH_ENABLE_IO_FOR_LOG))
+		if (eeh_has_flag(EEH_ENABLE_IO_FOR_LOG) ||
+		    severity == EEH_LOG_PERM)
 			eeh_pci_enable(pe, EEH_OPT_THAW_MMIO);
 
 		/*
@@ -355,10 +363,16 @@ static inline unsigned long eeh_token_to_phys(unsigned long token)
 					   NULL, &hugepage_shift);
 	if (!ptep)
 		return token;
-	WARN_ON(hugepage_shift);
-	pa = pte_pfn(*ptep) << PAGE_SHIFT;
 
-	return pa | (token & (PAGE_SIZE-1));
+	pa = pte_pfn(*ptep);
+
+	/* On radix we can do hugepage mappings for io, so handle that */
+	if (!hugepage_shift)
+		hugepage_shift = PAGE_SHIFT;
+
+	pa <<= PAGE_SHIFT;
+	pa |= token & ((1ul << hugepage_shift) - 1);
+	return pa;
 }
 
 /*
@@ -677,7 +691,7 @@ int eeh_pci_enable(struct eeh_pe *pe, int function)
 	/* Check if the request is finished successfully */
 	if (active_flag) {
 		rc = eeh_ops->wait_state(pe, PCI_BUS_RESET_WAIT_MSEC);
-		if (rc <= 0)
+		if (rc < 0)
 			return rc;
 
 		if (rc & active_flag)
@@ -1072,7 +1086,7 @@ void eeh_add_device_early(struct pci_dn *pdn)
 	struct pci_controller *phb;
 	struct eeh_dev *edev = pdn_to_eeh_dev(pdn);
 
-	if (!edev || !eeh_enabled())
+	if (!edev)
 		return;
 
 	if (!eeh_has_flag(EEH_PROBE_MODE_DEVTREE))

@@ -124,7 +124,8 @@ static const struct serial8250_config uart_config[] = {
 		.name		= "16C950/954",
 		.fifo_size	= 128,
 		.tx_loadsz	= 128,
-		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
+		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_01,
+		.rxtrig_bytes	= {16, 32, 112, 120},
 		/* UART_CAP_EFR breaks billionon CF bluetooth card. */
 		.flags		= UART_CAP_FIFO | UART_CAP_SLEEP,
 	},
@@ -274,7 +275,11 @@ configured less than Maximum supported fifo bytes */
 /* Uart divisor latch read */
 static int default_serial_dl_read(struct uart_8250_port *up)
 {
-	return serial_in(up, UART_DLL) | serial_in(up, UART_DLM) << 8;
+	/* Assign these in pieces to truncate any bits above 7.  */
+	unsigned char dll = serial_in(up, UART_DLL);
+	unsigned char dlm = serial_in(up, UART_DLM);
+
+	return dll | dlm << 8;
 }
 
 /* Uart divisor latch write */
@@ -713,22 +718,16 @@ static int size_fifo(struct uart_8250_port *up)
  */
 static unsigned int autoconfig_read_divisor_id(struct uart_8250_port *p)
 {
-	unsigned char old_dll, old_dlm, old_lcr;
-	unsigned int id;
+	unsigned char old_lcr;
+	unsigned int id, old_dl;
 
 	old_lcr = serial_in(p, UART_LCR);
 	serial_out(p, UART_LCR, UART_LCR_CONF_MODE_A);
+	old_dl = serial_dl_read(p);
+	serial_dl_write(p, 0);
+	id = serial_dl_read(p);
+	serial_dl_write(p, old_dl);
 
-	old_dll = serial_in(p, UART_DLL);
-	old_dlm = serial_in(p, UART_DLM);
-
-	serial_out(p, UART_DLL, 0);
-	serial_out(p, UART_DLM, 0);
-
-	id = serial_in(p, UART_DLL) | serial_in(p, UART_DLM) << 8;
-
-	serial_out(p, UART_DLL, old_dll);
-	serial_out(p, UART_DLM, old_dlm);
 	serial_out(p, UART_LCR, old_lcr);
 
 	return id;
@@ -1166,9 +1165,11 @@ static void autoconfig(struct uart_8250_port *up)
 	serial_out(up, UART_LCR, 0);
 
 	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO);
-	scratch = serial_in(up, UART_IIR) >> 6;
 
-	switch (scratch) {
+	/* Assign this as it is to truncate any bits above 7.  */
+	scratch = serial_in(up, UART_IIR);
+
+	switch (scratch >> 6) {
 	case 0:
 		autoconfig_8250(up);
 		break;
@@ -1908,6 +1909,10 @@ int serial8250_do_startup(struct uart_port *port)
 
 	if (port->irq) {
 		unsigned char iir1;
+
+		if (port->irqflags & IRQF_SHARED)
+			disable_irq_nosync(port->irq);
+
 		/*
 		 * Test for UARTs that do not reassert THRE when the
 		 * transmitter is idle and the interrupt has already
@@ -1917,8 +1922,6 @@ int serial8250_do_startup(struct uart_port *port)
 		 * allow register changes to become visible.
 		 */
 		spin_lock_irqsave(&port->lock, flags);
-		if (up->port.irqflags & IRQF_SHARED)
-			disable_irq_nosync(port->irq);
 
 		wait_for_xmitr(up, UART_LSR_THRE);
 		serial_port_out_sync(port, UART_IER, UART_IER_THRI);
@@ -1930,9 +1933,10 @@ int serial8250_do_startup(struct uart_port *port)
 		iir = serial_port_in(port, UART_IIR);
 		serial_port_out(port, UART_IER, 0);
 
+		spin_unlock_irqrestore(&port->lock, flags);
+
 		if (port->irqflags & IRQF_SHARED)
 			enable_irq(port->irq);
-		spin_unlock_irqrestore(&port->lock, flags);
 
 		/*
 		 * If the interrupt is not reasserted, or we otherwise
@@ -2229,8 +2233,11 @@ static void serial8250_set_divisor(struct uart_port *port, unsigned int baud,
 	serial_dl_write(up, quot);
 
 	/* XR17V35x UARTs have an extra fractional divisor register (DLD) */
-	if (up->port.type == PORT_XR17V35X)
+	if (up->port.type == PORT_XR17V35X) {
+		/* Preserve bits not related to baudrate; DLD[7:4]. */
+		quot_frac |= serial_port_in(port, 0x2) & 0xf0;
 		serial_port_out(port, 0x2, quot_frac);
+	}
 }
 
 static unsigned int

@@ -128,7 +128,7 @@
 
 #define CCK_GROUP					\
 	[MINSTREL_CCK_GROUP] = {			\
-		.streams = 0,				\
+		.streams = 1,				\
 		.flags = 0,				\
 		.duration = {				\
 			CCK_DURATION_LIST(false),	\
@@ -546,7 +546,7 @@ minstrel_ht_update_stats(struct minstrel_priv *mp, struct minstrel_ht_sta *mi)
 
 		/* (re)Initialize group rate indexes */
 		for(j = 0; j < MAX_THR_RATES; j++)
-			tmp_group_tp_rate[j] = group;
+			tmp_group_tp_rate[j] = MCS_GROUP_RATES * group;
 
 		for (i = 0; i < MCS_GROUP_RATES; i++) {
 			if (!(mg->supported & BIT(i)))
@@ -691,7 +691,7 @@ minstrel_aggr_check(struct ieee80211_sta *pubsta, struct sk_buff *skb)
 	if (likely(sta->ampdu_mlme.tid_tx[tid]))
 		return;
 
-	ieee80211_start_tx_ba_session(pubsta, tid, 5000);
+	ieee80211_start_tx_ba_session(pubsta, tid, 0);
 }
 
 static void
@@ -871,7 +871,7 @@ minstrel_ht_set_rate(struct minstrel_priv *mp, struct minstrel_ht_sta *mi,
 	 *  - if station is in dynamic SMPS (and streams > 1)
 	 *  - for fallback rates, to increase chances of getting through
 	 */
-	if (offset > 0 &&
+	if (offset > 0 ||
 	    (mi->sta->smps_mode == IEEE80211_SMPS_DYNAMIC &&
 	     group->streams > 1)) {
 		ratetbl->rate[offset].count = ratetbl->rate[offset].count_rts;
@@ -1334,7 +1334,8 @@ static u32 minstrel_ht_get_expected_throughput(void *priv_sta)
 	prob = mi->groups[i].rates[j].prob_ewma;
 
 	/* convert tp_avg from pkt per second in kbps */
-	tp_avg = minstrel_ht_get_tp_avg(mi, i, j, prob) * AVG_PKT_SIZE * 8 / 1024;
+	tp_avg = minstrel_ht_get_tp_avg(mi, i, j, prob) * 10;
+	tp_avg = tp_avg * AVG_PKT_SIZE * 8 / 1024;
 
 	return tp_avg;
 }

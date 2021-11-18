@@ -661,9 +661,8 @@ int mwifiex_ret_802_11_associate(struct mwifiex_private *priv,
 	priv->assoc_rsp_size = min(le16_to_cpu(resp->size) - S_DS_GEN,
 				   sizeof(priv->assoc_rsp_buf));
 
-	memcpy(priv->assoc_rsp_buf, &resp->params, priv->assoc_rsp_size);
-
 	assoc_rsp->a_id = cpu_to_le16(aid);
+	memcpy(priv->assoc_rsp_buf, &resp->params, priv->assoc_rsp_size);
 
 	if (status_code) {
 		priv->adapter->dbg.num_cmd_assoc_failure++;
@@ -857,6 +856,8 @@ mwifiex_cmd_802_11_ad_hoc_start(struct mwifiex_private *priv,
 
 	memset(adhoc_start->ssid, 0, IEEE80211_MAX_SSID_LEN);
 
+	if (req_ssid->ssid_len > IEEE80211_MAX_SSID_LEN)
+		req_ssid->ssid_len = IEEE80211_MAX_SSID_LEN;
 	memcpy(adhoc_start->ssid, req_ssid->ssid, req_ssid->ssid_len);
 
 	mwifiex_dbg(adapter, INFO, "info: ADHOC_S_CMD: SSID = %s\n",

@@ -182,9 +182,9 @@ config NR_CPUS
 	int "Maximum number of CPUs"
 	depends on SMP
 	range 2 32 if SPARC32
-	range 2 1024 if SPARC64
+	range 2 4096 if SPARC64
 	default 32 if SPARC32
-	default 64 if SPARC64
+	default 4096 if SPARC64
 
 source kernel/Kconfig.hz
 
@@ -539,7 +539,7 @@ config COMPAT
 	bool
 	depends on SPARC64
 	default y
-	select COMPAT_BINFMT_ELF
+	select COMPAT_BINFMT_ELF if BINFMT_ELF
 	select HAVE_UID16
 	select ARCH_WANT_OLD_COMPAT_IPC
 	select COMPAT_OLD_SIGACTION
@@ -548,9 +548,6 @@ config SYSVIPC_COMPAT
 	bool
 	depends on COMPAT && SYSVIPC
 	default y
-
-config KEYS_COMPAT
-	def_bool y if COMPAT && KEYS
 
 endmenu
 

@@ -35,21 +35,6 @@ static inline void op##_bit(unsigned long nr, volatile unsigned long *m)\
 									\
 	m += nr >> 5;							\
 									\
-	/*								\
-	 * ARC ISA micro-optimization:					\
-	 *								\
-	 * Instructions dealing with bitpos only consider lower 5 bits	\
-	 * e.g (x << 33) is handled like (x << 1) by ASL instruction	\
-	 *  (mem pointer still needs adjustment to point to next word)	\
-	 *								\
-	 * Hence the masking to clamp @nr arg can be elided in general.	\
-	 *								\
-	 * However if @nr is a constant (above assumed in a register),	\
-	 * and greater than 31, gcc can optimize away (x << 33) to 0,	\
-	 * as overflow, given the 32-bit ISA. Thus masking needs to be	\
-	 * done for const @nr, but no code is generated due to gcc	\
-	 * const prop.							\
-	 */								\
 	nr &= 0x1f;							\
 									\
 	__asm__ __volatile__(						\
@@ -301,7 +286,7 @@ static inline __attribute__ ((const)) int __fls(unsigned long x)
 /*
  * __ffs: Similar to ffs, but zero based (0-31)
  */
-static inline __attribute__ ((const)) int __ffs(unsigned long word)
+static inline __attribute__ ((const)) unsigned long __ffs(unsigned long word)
 {
 	if (!word)
 		return word;
@@ -361,9 +346,9 @@ static inline __attribute__ ((const)) int ffs(unsigned long x)
 /*
  * __ffs: Similar to ffs, but zero based (0-31)
  */
-static inline __attribute__ ((const)) int __ffs(unsigned long x)
+static inline __attribute__ ((const)) unsigned long __ffs(unsigned long x)
 {
-	int n;
+	unsigned long n;
 
 	asm volatile(
 	"	ffs.f	%0, %1		\n"  /* 0:31; 31(Z) if src 0 */

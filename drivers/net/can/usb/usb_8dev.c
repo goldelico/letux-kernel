@@ -148,7 +148,8 @@ struct usb_8dev_priv {
 	u8 *cmd_msg_buffer;
 
 	struct mutex usb_8dev_cmd_lock;
-
+	void *rxbuf[MAX_RX_URBS];
+	dma_addr_t rxbuf_dma[MAX_RX_URBS];
 };
 
 /* tx frame */
@@ -524,6 +525,8 @@ static void usb_8dev_read_bulk_callback(struct urb *urb)
 		break;
 
 	case -ENOENT:
+	case -EPIPE:
+	case -EPROTO:
 	case -ESHUTDOWN:
 		return;
 
@@ -744,6 +747,7 @@ static int usb_8dev_start(struct usb_8dev_priv *priv)
 	for (i = 0; i < MAX_RX_URBS; i++) {
 		struct urb *urb = NULL;
 		u8 *buf;
+		dma_addr_t buf_dma;
 
 		/* create a URB, and a buffer for it */
 		urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -754,13 +758,15 @@ static int usb_8dev_start(struct usb_8dev_priv *priv)
 		}
 
 		buf = usb_alloc_coherent(priv->udev, RX_BUFFER_SIZE, GFP_KERNEL,
-					 &urb->transfer_dma);
+					 &buf_dma);
 		if (!buf) {
 			netdev_err(netdev, "No memory left for USB buffer\n");
 			usb_free_urb(urb);
 			err = -ENOMEM;
 			break;
 		}
+
+		urb->transfer_dma = buf_dma;
 
 		usb_fill_bulk_urb(urb, priv->udev,
 				  usb_rcvbulkpipe(priv->udev,
@@ -778,6 +784,9 @@ static int usb_8dev_start(struct usb_8dev_priv *priv)
 			usb_free_urb(urb);
 			break;
 		}
+
+		priv->rxbuf[i] = buf;
+		priv->rxbuf_dma[i] = buf_dma;
 
 		/* Drop reference, USB core will take care of freeing it */
 		usb_free_urb(urb);
@@ -847,6 +856,10 @@ static void unlink_all_urbs(struct usb_8dev_priv *priv)
 	int i;
 
 	usb_kill_anchored_urbs(&priv->rx_submitted);
+
+	for (i = 0; i < MAX_RX_URBS; ++i)
+		usb_free_coherent(priv->udev, RX_BUFFER_SIZE,
+				  priv->rxbuf[i], priv->rxbuf_dma[i]);
 
 	usb_kill_anchored_urbs(&priv->tx_submitted);
 	atomic_set(&priv->active_tx_urbs, 0);
@@ -954,8 +967,8 @@ static int usb_8dev_probe(struct usb_interface *intf,
 	for (i = 0; i < MAX_TX_URBS; i++)
 		priv->tx_contexts[i].echo_index = MAX_TX_URBS;
 
-	priv->cmd_msg_buffer = kzalloc(sizeof(struct usb_8dev_cmd_msg),
-				      GFP_KERNEL);
+	priv->cmd_msg_buffer = devm_kzalloc(&intf->dev, sizeof(struct usb_8dev_cmd_msg),
+					    GFP_KERNEL);
 	if (!priv->cmd_msg_buffer)
 		goto cleanup_candev;
 
@@ -969,7 +982,7 @@ static int usb_8dev_probe(struct usb_interface *intf,
 	if (err) {
 		netdev_err(netdev,
 			"couldn't register CAN device: %d\n", err);
-		goto cleanup_cmd_msg_buffer;
+		goto cleanup_candev;
 	}
 
 	err = usb_8dev_cmd_version(priv, &version);
@@ -990,9 +1003,6 @@ static int usb_8dev_probe(struct usb_interface *intf,
 cleanup_unregister_candev:
 	unregister_netdev(priv->netdev);
 
-cleanup_cmd_msg_buffer:
-	kfree(priv->cmd_msg_buffer);
-
 cleanup_candev:
 	free_candev(netdev);
 
@@ -1011,9 +1021,8 @@ static void usb_8dev_disconnect(struct usb_interface *intf)
 		netdev_info(priv->netdev, "device disconnected\n");
 
 		unregister_netdev(priv->netdev);
-		free_candev(priv->netdev);
-
 		unlink_all_urbs(priv);
+		free_candev(priv->netdev);
 	}
 
 }

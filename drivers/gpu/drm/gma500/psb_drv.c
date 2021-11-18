@@ -325,6 +325,8 @@ static int psb_driver_load(struct drm_device *dev, unsigned long flags)
 	if (ret)
 		goto out_err;
 
+	ret = -ENOMEM;
+
 	dev_priv->mmu = psb_mmu_driver_init(dev, 1, 0, 0);
 	if (!dev_priv->mmu)
 		goto out_err;
@@ -484,6 +486,9 @@ static const struct file_operations psb_gem_fops = {
 	.open = drm_open,
 	.release = drm_release,
 	.unlocked_ioctl = psb_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = drm_compat_ioctl,
+#endif
 	.mmap = drm_gem_mmap,
 	.poll = drm_poll,
 	.read = drm_read,

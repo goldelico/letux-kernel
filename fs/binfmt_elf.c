@@ -604,28 +604,30 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 			 * Do the same thing for the memory mapping - between
 			 * elf_bss and last_bss is the bss section.
 			 */
-			k = load_addr + eppnt->p_memsz + eppnt->p_vaddr;
+			k = load_addr + eppnt->p_vaddr + eppnt->p_memsz;
 			if (k > last_bss)
 				last_bss = k;
 		}
 	}
 
+	/*
+	 * Now fill out the bss section: first pad the last page from
+	 * the file up to the page boundary, and zero it from elf_bss
+	 * up to the end of the page.
+	 */
+	if (padzero(elf_bss)) {
+		error = -EFAULT;
+		goto out;
+	}
+	/*
+	 * Next, align both the file and mem bss up to the page size,
+	 * since this is where elf_bss was just zeroed up to, and where
+	 * last_bss will end after the vm_brk() below.
+	 */
+	elf_bss = ELF_PAGEALIGN(elf_bss);
+	last_bss = ELF_PAGEALIGN(last_bss);
+	/* Finally, if there is still more bss to allocate, do it. */
 	if (last_bss > elf_bss) {
-		/*
-		 * Now fill out the bss section.  First pad the last page up
-		 * to the page boundary, and then perform a mmap to make sure
-		 * that there are zero-mapped pages up to and including the
-		 * last bss page.
-		 */
-		if (padzero(elf_bss)) {
-			error = -EFAULT;
-			goto out;
-		}
-
-		/* What we have mapped so far */
-		elf_bss = ELF_PAGESTART(elf_bss + ELF_MIN_ALIGN - 1);
-
-		/* Map the last of the bss segment */
 		error = vm_brk(elf_bss, last_bss - elf_bss);
 		if (BAD_ADDR(error))
 			goto out;
@@ -848,6 +850,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		current->flags |= PF_RANDOMIZE;
 
 	setup_new_exec(bprm);
+	install_exec_creds(bprm);
 
 	/* Do this so that we can load the interpreter, if need be.  We will
 	   change some of these later */
@@ -905,17 +908,60 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		elf_flags = MAP_PRIVATE | MAP_DENYWRITE | MAP_EXECUTABLE;
 
 		vaddr = elf_ppnt->p_vaddr;
+		/*
+		 * If we are loading ET_EXEC or we have already performed
+		 * the ET_DYN load_addr calculations, proceed normally.
+		 */
 		if (loc->elf_ex.e_type == ET_EXEC || load_addr_set) {
 			elf_flags |= MAP_FIXED;
 		} else if (loc->elf_ex.e_type == ET_DYN) {
-			/* Try and get dynamic programs out of the way of the
-			 * default mmap base, as well as whatever program they
-			 * might try to exec.  This is because the brk will
-			 * follow the loader, and is not movable.  */
-			load_bias = ELF_ET_DYN_BASE - vaddr;
-			if (current->flags & PF_RANDOMIZE)
-				load_bias += arch_mmap_rnd();
-			load_bias = ELF_PAGESTART(load_bias);
+			/*
+			 * This logic is run once for the first LOAD Program
+			 * Header for ET_DYN binaries to calculate the
+			 * randomization (load_bias) for all the LOAD
+			 * Program Headers, and to calculate the entire
+			 * size of the ELF mapping (total_size). (Note that
+			 * load_addr_set is set to true later once the
+			 * initial mapping is performed.)
+			 *
+			 * There are effectively two types of ET_DYN
+			 * binaries: programs (i.e. PIE: ET_DYN with INTERP)
+			 * and loaders (ET_DYN without INTERP, since they
+			 * _are_ the ELF interpreter). The loaders must
+			 * be loaded away from programs since the program
+			 * may otherwise collide with the loader (especially
+			 * for ET_EXEC which does not have a randomized
+			 * position). For example to handle invocations of
+			 * "./ld.so someprog" to test out a new version of
+			 * the loader, the subsequent program that the
+			 * loader loads must avoid the loader itself, so
+			 * they cannot share the same load range. Sufficient
+			 * room for the brk must be allocated with the
+			 * loader as well, since brk must be available with
+			 * the loader.
+			 *
+			 * Therefore, programs are loaded offset from
+			 * ELF_ET_DYN_BASE and loaders are loaded into the
+			 * independently randomized mmap region (0 load_bias
+			 * without MAP_FIXED).
+			 */
+			if (elf_interpreter) {
+				load_bias = ELF_ET_DYN_BASE;
+				if (current->flags & PF_RANDOMIZE)
+					load_bias += arch_mmap_rnd();
+				elf_flags |= MAP_FIXED;
+			} else
+				load_bias = 0;
+
+			/*
+			 * Since load_bias is used for all subsequent loading
+			 * calculations, we must lower it by the first vaddr
+			 * so that the remaining calculations based on the
+			 * ELF vaddrs will be correctly offset. The result
+			 * is then page aligned.
+			 */
+			load_bias = ELF_PAGESTART(load_bias - vaddr);
+
 			total_size = total_mapping_size(elf_phdata,
 							loc->elf_ex.e_phnum);
 			if (!total_size) {
@@ -1039,7 +1085,6 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		goto out;
 #endif /* ARCH_HAS_SETUP_ADDITIONAL_PAGES */
 
-	install_exec_creds(bprm);
 	retval = create_elf_tables(bprm, &loc->elf_ex,
 			  load_addr, interp_load_addr);
 	if (retval < 0)
@@ -1052,6 +1097,18 @@ static int load_elf_binary(struct linux_binprm *bprm)
 	current->mm->start_stack = bprm->p;
 
 	if ((current->flags & PF_RANDOMIZE) && (randomize_va_space > 1)) {
+		/*
+		 * For architectures with ELF randomization, when executing
+		 * a loader directly (i.e. no interpreter listed in ELF
+		 * headers), move the brk area out of the mmap region
+		 * (since it grows up, and may collide early with the stack
+		 * growing down), and into the unused ELF_ET_DYN_BASE region.
+		 */
+		if (IS_ENABLED(CONFIG_ARCH_HAS_ELF_RANDOMIZE) &&
+		    loc->elf_ex.e_type == ET_DYN && !interpreter)
+			current->mm->brk = current->mm->start_brk =
+				ELF_ET_DYN_BASE;
+
 		current->mm->brk = current->mm->start_brk =
 			arch_randomize_brk(current->mm);
 #ifdef compat_brk_randomized
@@ -1169,11 +1226,13 @@ static int load_elf_library(struct file *file)
 		goto out_free_ph;
 	}
 
-	len = ELF_PAGESTART(eppnt->p_filesz + eppnt->p_vaddr +
-			    ELF_MIN_ALIGN - 1);
-	bss = eppnt->p_memsz + eppnt->p_vaddr;
-	if (bss > len)
-		vm_brk(len, bss - len);
+	len = ELF_PAGEALIGN(eppnt->p_filesz + eppnt->p_vaddr);
+	bss = ELF_PAGEALIGN(eppnt->p_memsz + eppnt->p_vaddr);
+	if (bss > len) {
+		error = vm_brk(len, bss - len);
+		if (BAD_ADDR(error))
+			goto out_free_ph;
+	}
 	error = 0;
 
 out_free_ph:
@@ -1664,10 +1723,10 @@ static int fill_thread_core_info(struct elf_thread_core_info *t,
 		const struct user_regset *regset = &view->regsets[i];
 		do_thread_regset_writeback(t->task, regset);
 		if (regset->core_note_type && regset->get &&
-		    (!regset->active || regset->active(t->task, regset))) {
+		    (!regset->active || regset->active(t->task, regset) > 0)) {
 			int ret;
 			size_t size = regset->n * regset->size;
-			void *data = kmalloc(size, GFP_KERNEL);
+			void *data = kzalloc(size, GFP_KERNEL);
 			if (unlikely(!data))
 				return 0;
 			ret = regset->get(t->task, regset,
@@ -2295,6 +2354,7 @@ static int elf_core_dump(struct coredump_params *cprm)
 				goto end_coredump;
 		}
 	}
+	dump_truncate(cprm);
 
 	if (!elf_core_write_extra_data(cprm))
 		goto end_coredump;

@@ -283,11 +283,11 @@ static int iscsi_check_tmf_restrictions(struct iscsi_task *task, int opcode)
 		 */
 		if (opcode != ISCSI_OP_SCSI_DATA_OUT) {
 			iscsi_conn_printk(KERN_INFO, conn,
-					  "task [op %x/%x itt "
+					  "task [op %x itt "
 					  "0x%x/0x%x] "
 					  "rejected.\n",
-					  task->hdr->opcode, opcode,
-					  task->itt, task->hdr_itt);
+					  opcode, task->itt,
+					  task->hdr_itt);
 			return -EACCES;
 		}
 		/*
@@ -296,10 +296,10 @@ static int iscsi_check_tmf_restrictions(struct iscsi_task *task, int opcode)
 		 */
 		if (conn->session->fast_abort) {
 			iscsi_conn_printk(KERN_INFO, conn,
-					  "task [op %x/%x itt "
+					  "task [op %x itt "
 					  "0x%x/0x%x] fast abort.\n",
-					  task->hdr->opcode, opcode,
-					  task->itt, task->hdr_itt);
+					  opcode, task->itt,
+					  task->hdr_itt);
 			return -EACCES;
 		}
 		break;
@@ -560,14 +560,18 @@ static void iscsi_complete_task(struct iscsi_task *task, int state)
 	WARN_ON_ONCE(task->state == ISCSI_TASK_FREE);
 	task->state = state;
 
-	if (!list_empty(&task->running))
+	spin_lock_bh(&conn->taskqueuelock);
+	if (!list_empty(&task->running)) {
+		pr_debug_once("%s while task on list", __func__);
 		list_del_init(&task->running);
+	}
+	spin_unlock_bh(&conn->taskqueuelock);
 
 	if (conn->task == task)
 		conn->task = NULL;
 
-	if (conn->ping_task == task)
-		conn->ping_task = NULL;
+	if (READ_ONCE(conn->ping_task) == task)
+		WRITE_ONCE(conn->ping_task, NULL);
 
 	/* release get from queueing */
 	__iscsi_put_task(task);
@@ -776,6 +780,9 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
 						   task->conn->session->age);
 	}
 
+	if (unlikely(READ_ONCE(conn->ping_task) == INVALID_SCSI_TASK))
+		WRITE_ONCE(conn->ping_task, task);
+
 	if (!ihost->workq) {
 		if (iscsi_prep_mgmt_task(conn, task))
 			goto free_task;
@@ -783,7 +790,9 @@ __iscsi_conn_send_pdu(struct iscsi_conn *conn, struct iscsi_hdr *hdr,
 		if (session->tt->xmit_task(task))
 			goto free_task;
 	} else {
+		spin_lock_bh(&conn->taskqueuelock);
 		list_add_tail(&task->running, &conn->mgmtqueue);
+		spin_unlock_bh(&conn->taskqueuelock);
 		iscsi_conn_queue_work(conn);
 	}
 
@@ -981,8 +990,11 @@ static int iscsi_send_nopout(struct iscsi_conn *conn, struct iscsi_nopin *rhdr)
         struct iscsi_nopout hdr;
 	struct iscsi_task *task;
 
-	if (!rhdr && conn->ping_task)
-		return -EINVAL;
+	if (!rhdr) {
+		if (READ_ONCE(conn->ping_task))
+			return -EINVAL;
+		WRITE_ONCE(conn->ping_task, INVALID_SCSI_TASK);
+	}
 
 	memset(&hdr, 0, sizeof(struct iscsi_nopout));
 	hdr.opcode = ISCSI_OP_NOOP_OUT | ISCSI_OP_IMMEDIATE;
@@ -997,11 +1009,12 @@ static int iscsi_send_nopout(struct iscsi_conn *conn, struct iscsi_nopin *rhdr)
 
 	task = __iscsi_conn_send_pdu(conn, (struct iscsi_hdr *)&hdr, NULL, 0);
 	if (!task) {
+		if (!rhdr)
+			WRITE_ONCE(conn->ping_task, NULL);
 		iscsi_conn_printk(KERN_ERR, conn, "Could not send nopout\n");
 		return -EIO;
 	} else if (!rhdr) {
 		/* only track our nops */
-		conn->ping_task = task;
 		conn->last_ping = jiffies;
 	}
 
@@ -1014,7 +1027,7 @@ static int iscsi_nop_out_rsp(struct iscsi_task *task,
 	struct iscsi_conn *conn = task->conn;
 	int rc = 0;
 
-	if (conn->ping_task != task) {
+	if (READ_ONCE(conn->ping_task) != task) {
 		/*
 		 * If this is not in response to one of our
 		 * nops then it must be from userspace.
@@ -1371,7 +1384,6 @@ void iscsi_session_failure(struct iscsi_session *session,
 			   enum iscsi_err err)
 {
 	struct iscsi_conn *conn;
-	struct device *dev;
 
 	spin_lock_bh(&session->frwd_lock);
 	conn = session->leadconn;
@@ -1380,10 +1392,8 @@ void iscsi_session_failure(struct iscsi_session *session,
 		return;
 	}
 
-	dev = get_device(&conn->cls_conn->dev);
+	iscsi_get_conn(conn->cls_conn);
 	spin_unlock_bh(&session->frwd_lock);
-	if (!dev)
-	        return;
 	/*
 	 * if the host is being removed bypass the connection
 	 * recovery initialization because we are going to kill
@@ -1393,7 +1403,7 @@ void iscsi_session_failure(struct iscsi_session *session,
 		iscsi_conn_error_event(conn->cls_conn, err);
 	else
 		iscsi_conn_failure(conn, err);
-	put_device(dev);
+	iscsi_put_conn(conn->cls_conn);
 }
 EXPORT_SYMBOL_GPL(iscsi_session_failure);
 
@@ -1442,7 +1452,13 @@ static int iscsi_xmit_task(struct iscsi_conn *conn)
 	if (test_bit(ISCSI_SUSPEND_BIT, &conn->suspend_tx))
 		return -ENODATA;
 
+	spin_lock_bh(&conn->session->back_lock);
+	if (conn->task == NULL) {
+		spin_unlock_bh(&conn->session->back_lock);
+		return -ENODATA;
+	}
 	__iscsi_get_task(task);
+	spin_unlock_bh(&conn->session->back_lock);
 	spin_unlock_bh(&conn->session->frwd_lock);
 	rc = conn->session->tt->xmit_task(task);
 	spin_lock_bh(&conn->session->frwd_lock);
@@ -1474,8 +1490,10 @@ void iscsi_requeue_task(struct iscsi_task *task)
 	 * this may be on the requeue list already if the xmit_task callout
 	 * is handling the r2ts while we are adding new ones
 	 */
+	spin_lock_bh(&conn->taskqueuelock);
 	if (list_empty(&task->running))
 		list_add_tail(&task->running, &conn->requeue);
+	spin_unlock_bh(&conn->taskqueuelock);
 	iscsi_conn_queue_work(conn);
 }
 EXPORT_SYMBOL_GPL(iscsi_requeue_task);
@@ -1512,22 +1530,26 @@ static int iscsi_data_xmit(struct iscsi_conn *conn)
 	 * only have one nop-out as a ping from us and targets should not
 	 * overflow us with nop-ins
 	 */
+	spin_lock_bh(&conn->taskqueuelock);
 check_mgmt:
 	while (!list_empty(&conn->mgmtqueue)) {
 		conn->task = list_entry(conn->mgmtqueue.next,
 					 struct iscsi_task, running);
 		list_del_init(&conn->task->running);
+		spin_unlock_bh(&conn->taskqueuelock);
 		if (iscsi_prep_mgmt_task(conn, conn->task)) {
 			/* regular RX path uses back_lock */
 			spin_lock_bh(&conn->session->back_lock);
 			__iscsi_put_task(conn->task);
 			spin_unlock_bh(&conn->session->back_lock);
 			conn->task = NULL;
+			spin_lock_bh(&conn->taskqueuelock);
 			continue;
 		}
 		rc = iscsi_xmit_task(conn);
 		if (rc)
 			goto done;
+		spin_lock_bh(&conn->taskqueuelock);
 	}
 
 	/* process pending command queue */
@@ -1535,19 +1557,19 @@ check_mgmt:
 		conn->task = list_entry(conn->cmdqueue.next, struct iscsi_task,
 					running);
 		list_del_init(&conn->task->running);
+		spin_unlock_bh(&conn->taskqueuelock);
 		if (conn->session->state == ISCSI_STATE_LOGGING_OUT) {
 			fail_scsi_task(conn->task, DID_IMM_RETRY);
+			spin_lock_bh(&conn->taskqueuelock);
 			continue;
 		}
 		rc = iscsi_prep_scsi_cmd_pdu(conn->task);
 		if (rc) {
-			if (rc == -ENOMEM || rc == -EACCES) {
-				list_add_tail(&conn->task->running,
-					      &conn->cmdqueue);
-				conn->task = NULL;
-				goto done;
-			} else
+			if (rc == -ENOMEM || rc == -EACCES)
+				fail_scsi_task(conn->task, DID_IMM_RETRY);
+			else
 				fail_scsi_task(conn->task, DID_ABORT);
+			spin_lock_bh(&conn->taskqueuelock);
 			continue;
 		}
 		rc = iscsi_xmit_task(conn);
@@ -1558,6 +1580,7 @@ check_mgmt:
 		 * we need to check the mgmt queue for nops that need to
 		 * be sent to aviod starvation
 		 */
+		spin_lock_bh(&conn->taskqueuelock);
 		if (!list_empty(&conn->mgmtqueue))
 			goto check_mgmt;
 	}
@@ -1577,12 +1600,15 @@ check_mgmt:
 		conn->task = task;
 		list_del_init(&conn->task->running);
 		conn->task->state = ISCSI_TASK_RUNNING;
+		spin_unlock_bh(&conn->taskqueuelock);
 		rc = iscsi_xmit_task(conn);
 		if (rc)
 			goto done;
+		spin_lock_bh(&conn->taskqueuelock);
 		if (!list_empty(&conn->mgmtqueue))
 			goto check_mgmt;
 	}
+	spin_unlock_bh(&conn->taskqueuelock);
 	spin_unlock_bh(&conn->session->frwd_lock);
 	return -ENODATA;
 
@@ -1674,6 +1700,15 @@ int iscsi_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *sc)
 		 */
 		switch (session->state) {
 		case ISCSI_STATE_FAILED:
+			/*
+			 * cmds should fail during shutdown, if the session
+			 * state is bad, allowing completion to happen
+			 */
+			if (unlikely(system_state != SYSTEM_RUNNING)) {
+				reason = FAILURE_SESSION_FAILED;
+				sc->result = DID_NO_CONNECT << 16;
+				break;
+			}
 		case ISCSI_STATE_IN_RECOVERY:
 			reason = FAILURE_SESSION_IN_RECOVERY;
 			sc->result = DID_IMM_RETRY << 16;
@@ -1706,7 +1741,7 @@ int iscsi_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *sc)
 
 	if (test_bit(ISCSI_SUSPEND_BIT, &conn->suspend_tx)) {
 		reason = FAILURE_SESSION_IN_RECOVERY;
-		sc->result = DID_REQUEUE;
+		sc->result = DID_REQUEUE << 16;
 		goto fault;
 	}
 
@@ -1738,7 +1773,9 @@ int iscsi_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *sc)
 			goto prepd_reject;
 		}
 	} else {
+		spin_lock_bh(&conn->taskqueuelock);
 		list_add_tail(&task->running, &conn->cmdqueue);
+		spin_unlock_bh(&conn->taskqueuelock);
 		iscsi_conn_queue_work(conn);
 	}
 
@@ -1922,7 +1959,7 @@ static void iscsi_start_tx(struct iscsi_conn *conn)
  */
 static int iscsi_has_ping_timed_out(struct iscsi_conn *conn)
 {
-	if (conn->ping_task &&
+	if (READ_ONCE(conn->ping_task) &&
 	    time_before_eq(conn->last_recv + (conn->recv_timeout * HZ) +
 			   (conn->ping_timeout * HZ), jiffies))
 		return 1;
@@ -1944,7 +1981,7 @@ static enum blk_eh_timer_return iscsi_eh_cmd_timed_out(struct scsi_cmnd *sc)
 
 	ISCSI_DBG_EH(session, "scsi cmd %p timedout\n", sc);
 
-	spin_lock(&session->frwd_lock);
+	spin_lock_bh(&session->frwd_lock);
 	task = (struct iscsi_task *)sc->SCp.ptr;
 	if (!task) {
 		/*
@@ -1956,6 +1993,19 @@ static enum blk_eh_timer_return iscsi_eh_cmd_timed_out(struct scsi_cmnd *sc)
 	}
 
 	if (session->state != ISCSI_STATE_LOGGED_IN) {
+		/*
+		 * During shutdown, if session is prematurely disconnected,
+		 * recovery won't happen and there will be hung cmds. Not
+		 * handling cmds would trigger EH, also bad in this case.
+		 * Instead, handle cmd, allow completion to happen and let
+		 * upper layer to deal with the result.
+		 */
+		if (unlikely(system_state != SYSTEM_RUNNING)) {
+			sc->result = DID_NO_CONNECT << 16;
+			ISCSI_DBG_EH(session, "sc on shutdown, handled\n");
+			rc = BLK_EH_HANDLED;
+			goto done;
+		}
 		/*
 		 * We are probably in the middle of iscsi recovery so let
 		 * that complete and handle the error.
@@ -2044,7 +2094,7 @@ static enum blk_eh_timer_return iscsi_eh_cmd_timed_out(struct scsi_cmnd *sc)
 	 * Checking the transport already or nop from a cmd timeout still
 	 * running
 	 */
-	if (conn->ping_task) {
+	if (READ_ONCE(conn->ping_task)) {
 		task->have_checked_conn = true;
 		rc = BLK_EH_RESET_TIMER;
 		goto done;
@@ -2058,9 +2108,9 @@ static enum blk_eh_timer_return iscsi_eh_cmd_timed_out(struct scsi_cmnd *sc)
 done:
 	if (task)
 		task->last_timeout = jiffies;
-	spin_unlock(&session->frwd_lock);
+	spin_unlock_bh(&session->frwd_lock);
 	ISCSI_DBG_EH(session, "return %s\n", rc == BLK_EH_RESET_TIMER ?
-		     "timer reset" : "nh");
+		     "timer reset" : "shutdown or nh");
 	return rc;
 }
 
@@ -2371,8 +2421,8 @@ int iscsi_eh_session_reset(struct scsi_cmnd *sc)
 failed:
 		ISCSI_DBG_EH(session,
 			     "failing session reset: Could not log back into "
-			     "%s, %s [age %d]\n", session->targetname,
-			     conn->persistent_address, session->age);
+			     "%s [age %d]\n", session->targetname,
+			     session->age);
 		spin_unlock_bh(&session->frwd_lock);
 		mutex_unlock(&session->eh_mutex);
 		return FAILED;
@@ -2900,6 +2950,7 @@ iscsi_conn_setup(struct iscsi_cls_session *cls_session, int dd_size,
 	INIT_LIST_HEAD(&conn->mgmtqueue);
 	INIT_LIST_HEAD(&conn->cmdqueue);
 	INIT_LIST_HEAD(&conn->requeue);
+	spin_lock_init(&conn->taskqueuelock);
 	INIT_WORK(&conn->xmitwork, iscsi_xmitworker);
 
 	/* allocate login_task used for the login/text sequences */
@@ -3312,125 +3363,125 @@ int iscsi_session_get_param(struct iscsi_cls_session *cls_session,
 
 	switch(param) {
 	case ISCSI_PARAM_FAST_ABORT:
-		len = sprintf(buf, "%d\n", session->fast_abort);
+		len = sysfs_emit(buf, "%d\n", session->fast_abort);
 		break;
 	case ISCSI_PARAM_ABORT_TMO:
-		len = sprintf(buf, "%d\n", session->abort_timeout);
+		len = sysfs_emit(buf, "%d\n", session->abort_timeout);
 		break;
 	case ISCSI_PARAM_LU_RESET_TMO:
-		len = sprintf(buf, "%d\n", session->lu_reset_timeout);
+		len = sysfs_emit(buf, "%d\n", session->lu_reset_timeout);
 		break;
 	case ISCSI_PARAM_TGT_RESET_TMO:
-		len = sprintf(buf, "%d\n", session->tgt_reset_timeout);
+		len = sysfs_emit(buf, "%d\n", session->tgt_reset_timeout);
 		break;
 	case ISCSI_PARAM_INITIAL_R2T_EN:
-		len = sprintf(buf, "%d\n", session->initial_r2t_en);
+		len = sysfs_emit(buf, "%d\n", session->initial_r2t_en);
 		break;
 	case ISCSI_PARAM_MAX_R2T:
-		len = sprintf(buf, "%hu\n", session->max_r2t);
+		len = sysfs_emit(buf, "%hu\n", session->max_r2t);
 		break;
 	case ISCSI_PARAM_IMM_DATA_EN:
-		len = sprintf(buf, "%d\n", session->imm_data_en);
+		len = sysfs_emit(buf, "%d\n", session->imm_data_en);
 		break;
 	case ISCSI_PARAM_FIRST_BURST:
-		len = sprintf(buf, "%u\n", session->first_burst);
+		len = sysfs_emit(buf, "%u\n", session->first_burst);
 		break;
 	case ISCSI_PARAM_MAX_BURST:
-		len = sprintf(buf, "%u\n", session->max_burst);
+		len = sysfs_emit(buf, "%u\n", session->max_burst);
 		break;
 	case ISCSI_PARAM_PDU_INORDER_EN:
-		len = sprintf(buf, "%d\n", session->pdu_inorder_en);
+		len = sysfs_emit(buf, "%d\n", session->pdu_inorder_en);
 		break;
 	case ISCSI_PARAM_DATASEQ_INORDER_EN:
-		len = sprintf(buf, "%d\n", session->dataseq_inorder_en);
+		len = sysfs_emit(buf, "%d\n", session->dataseq_inorder_en);
 		break;
 	case ISCSI_PARAM_DEF_TASKMGMT_TMO:
-		len = sprintf(buf, "%d\n", session->def_taskmgmt_tmo);
+		len = sysfs_emit(buf, "%d\n", session->def_taskmgmt_tmo);
 		break;
 	case ISCSI_PARAM_ERL:
-		len = sprintf(buf, "%d\n", session->erl);
+		len = sysfs_emit(buf, "%d\n", session->erl);
 		break;
 	case ISCSI_PARAM_TARGET_NAME:
-		len = sprintf(buf, "%s\n", session->targetname);
+		len = sysfs_emit(buf, "%s\n", session->targetname);
 		break;
 	case ISCSI_PARAM_TARGET_ALIAS:
-		len = sprintf(buf, "%s\n", session->targetalias);
+		len = sysfs_emit(buf, "%s\n", session->targetalias);
 		break;
 	case ISCSI_PARAM_TPGT:
-		len = sprintf(buf, "%d\n", session->tpgt);
+		len = sysfs_emit(buf, "%d\n", session->tpgt);
 		break;
 	case ISCSI_PARAM_USERNAME:
-		len = sprintf(buf, "%s\n", session->username);
+		len = sysfs_emit(buf, "%s\n", session->username);
 		break;
 	case ISCSI_PARAM_USERNAME_IN:
-		len = sprintf(buf, "%s\n", session->username_in);
+		len = sysfs_emit(buf, "%s\n", session->username_in);
 		break;
 	case ISCSI_PARAM_PASSWORD:
-		len = sprintf(buf, "%s\n", session->password);
+		len = sysfs_emit(buf, "%s\n", session->password);
 		break;
 	case ISCSI_PARAM_PASSWORD_IN:
-		len = sprintf(buf, "%s\n", session->password_in);
+		len = sysfs_emit(buf, "%s\n", session->password_in);
 		break;
 	case ISCSI_PARAM_IFACE_NAME:
-		len = sprintf(buf, "%s\n", session->ifacename);
+		len = sysfs_emit(buf, "%s\n", session->ifacename);
 		break;
 	case ISCSI_PARAM_INITIATOR_NAME:
-		len = sprintf(buf, "%s\n", session->initiatorname);
+		len = sysfs_emit(buf, "%s\n", session->initiatorname);
 		break;
 	case ISCSI_PARAM_BOOT_ROOT:
-		len = sprintf(buf, "%s\n", session->boot_root);
+		len = sysfs_emit(buf, "%s\n", session->boot_root);
 		break;
 	case ISCSI_PARAM_BOOT_NIC:
-		len = sprintf(buf, "%s\n", session->boot_nic);
+		len = sysfs_emit(buf, "%s\n", session->boot_nic);
 		break;
 	case ISCSI_PARAM_BOOT_TARGET:
-		len = sprintf(buf, "%s\n", session->boot_target);
+		len = sysfs_emit(buf, "%s\n", session->boot_target);
 		break;
 	case ISCSI_PARAM_AUTO_SND_TGT_DISABLE:
-		len = sprintf(buf, "%u\n", session->auto_snd_tgt_disable);
+		len = sysfs_emit(buf, "%u\n", session->auto_snd_tgt_disable);
 		break;
 	case ISCSI_PARAM_DISCOVERY_SESS:
-		len = sprintf(buf, "%u\n", session->discovery_sess);
+		len = sysfs_emit(buf, "%u\n", session->discovery_sess);
 		break;
 	case ISCSI_PARAM_PORTAL_TYPE:
-		len = sprintf(buf, "%s\n", session->portal_type);
+		len = sysfs_emit(buf, "%s\n", session->portal_type);
 		break;
 	case ISCSI_PARAM_CHAP_AUTH_EN:
-		len = sprintf(buf, "%u\n", session->chap_auth_en);
+		len = sysfs_emit(buf, "%u\n", session->chap_auth_en);
 		break;
 	case ISCSI_PARAM_DISCOVERY_LOGOUT_EN:
-		len = sprintf(buf, "%u\n", session->discovery_logout_en);
+		len = sysfs_emit(buf, "%u\n", session->discovery_logout_en);
 		break;
 	case ISCSI_PARAM_BIDI_CHAP_EN:
-		len = sprintf(buf, "%u\n", session->bidi_chap_en);
+		len = sysfs_emit(buf, "%u\n", session->bidi_chap_en);
 		break;
 	case ISCSI_PARAM_DISCOVERY_AUTH_OPTIONAL:
-		len = sprintf(buf, "%u\n", session->discovery_auth_optional);
+		len = sysfs_emit(buf, "%u\n", session->discovery_auth_optional);
 		break;
 	case ISCSI_PARAM_DEF_TIME2WAIT:
-		len = sprintf(buf, "%d\n", session->time2wait);
+		len = sysfs_emit(buf, "%d\n", session->time2wait);
 		break;
 	case ISCSI_PARAM_DEF_TIME2RETAIN:
-		len = sprintf(buf, "%d\n", session->time2retain);
+		len = sysfs_emit(buf, "%d\n", session->time2retain);
 		break;
 	case ISCSI_PARAM_TSID:
-		len = sprintf(buf, "%u\n", session->tsid);
+		len = sysfs_emit(buf, "%u\n", session->tsid);
 		break;
 	case ISCSI_PARAM_ISID:
-		len = sprintf(buf, "%02x%02x%02x%02x%02x%02x\n",
+		len = sysfs_emit(buf, "%02x%02x%02x%02x%02x%02x\n",
 			      session->isid[0], session->isid[1],
 			      session->isid[2], session->isid[3],
 			      session->isid[4], session->isid[5]);
 		break;
 	case ISCSI_PARAM_DISCOVERY_PARENT_IDX:
-		len = sprintf(buf, "%u\n", session->discovery_parent_idx);
+		len = sysfs_emit(buf, "%u\n", session->discovery_parent_idx);
 		break;
 	case ISCSI_PARAM_DISCOVERY_PARENT_TYPE:
 		if (session->discovery_parent_type)
-			len = sprintf(buf, "%s\n",
+			len = sysfs_emit(buf, "%s\n",
 				      session->discovery_parent_type);
 		else
-			len = sprintf(buf, "\n");
+			len = sysfs_emit(buf, "\n");
 		break;
 	default:
 		return -ENOSYS;
@@ -3462,16 +3513,16 @@ int iscsi_conn_get_addr_param(struct sockaddr_storage *addr,
 	case ISCSI_PARAM_CONN_ADDRESS:
 	case ISCSI_HOST_PARAM_IPADDRESS:
 		if (sin)
-			len = sprintf(buf, "%pI4\n", &sin->sin_addr.s_addr);
+			len = sysfs_emit(buf, "%pI4\n", &sin->sin_addr.s_addr);
 		else
-			len = sprintf(buf, "%pI6\n", &sin6->sin6_addr);
+			len = sysfs_emit(buf, "%pI6\n", &sin6->sin6_addr);
 		break;
 	case ISCSI_PARAM_CONN_PORT:
 	case ISCSI_PARAM_LOCAL_PORT:
 		if (sin)
-			len = sprintf(buf, "%hu\n", be16_to_cpu(sin->sin_port));
+			len = sysfs_emit(buf, "%hu\n", be16_to_cpu(sin->sin_port));
 		else
-			len = sprintf(buf, "%hu\n",
+			len = sysfs_emit(buf, "%hu\n",
 				      be16_to_cpu(sin6->sin6_port));
 		break;
 	default:
@@ -3490,88 +3541,88 @@ int iscsi_conn_get_param(struct iscsi_cls_conn *cls_conn,
 
 	switch(param) {
 	case ISCSI_PARAM_PING_TMO:
-		len = sprintf(buf, "%u\n", conn->ping_timeout);
+		len = sysfs_emit(buf, "%u\n", conn->ping_timeout);
 		break;
 	case ISCSI_PARAM_RECV_TMO:
-		len = sprintf(buf, "%u\n", conn->recv_timeout);
+		len = sysfs_emit(buf, "%u\n", conn->recv_timeout);
 		break;
 	case ISCSI_PARAM_MAX_RECV_DLENGTH:
-		len = sprintf(buf, "%u\n", conn->max_recv_dlength);
+		len = sysfs_emit(buf, "%u\n", conn->max_recv_dlength);
 		break;
 	case ISCSI_PARAM_MAX_XMIT_DLENGTH:
-		len = sprintf(buf, "%u\n", conn->max_xmit_dlength);
+		len = sysfs_emit(buf, "%u\n", conn->max_xmit_dlength);
 		break;
 	case ISCSI_PARAM_HDRDGST_EN:
-		len = sprintf(buf, "%d\n", conn->hdrdgst_en);
+		len = sysfs_emit(buf, "%d\n", conn->hdrdgst_en);
 		break;
 	case ISCSI_PARAM_DATADGST_EN:
-		len = sprintf(buf, "%d\n", conn->datadgst_en);
+		len = sysfs_emit(buf, "%d\n", conn->datadgst_en);
 		break;
 	case ISCSI_PARAM_IFMARKER_EN:
-		len = sprintf(buf, "%d\n", conn->ifmarker_en);
+		len = sysfs_emit(buf, "%d\n", conn->ifmarker_en);
 		break;
 	case ISCSI_PARAM_OFMARKER_EN:
-		len = sprintf(buf, "%d\n", conn->ofmarker_en);
+		len = sysfs_emit(buf, "%d\n", conn->ofmarker_en);
 		break;
 	case ISCSI_PARAM_EXP_STATSN:
-		len = sprintf(buf, "%u\n", conn->exp_statsn);
+		len = sysfs_emit(buf, "%u\n", conn->exp_statsn);
 		break;
 	case ISCSI_PARAM_PERSISTENT_PORT:
-		len = sprintf(buf, "%d\n", conn->persistent_port);
+		len = sysfs_emit(buf, "%d\n", conn->persistent_port);
 		break;
 	case ISCSI_PARAM_PERSISTENT_ADDRESS:
-		len = sprintf(buf, "%s\n", conn->persistent_address);
+		len = sysfs_emit(buf, "%s\n", conn->persistent_address);
 		break;
 	case ISCSI_PARAM_STATSN:
-		len = sprintf(buf, "%u\n", conn->statsn);
+		len = sysfs_emit(buf, "%u\n", conn->statsn);
 		break;
 	case ISCSI_PARAM_MAX_SEGMENT_SIZE:
-		len = sprintf(buf, "%u\n", conn->max_segment_size);
+		len = sysfs_emit(buf, "%u\n", conn->max_segment_size);
 		break;
 	case ISCSI_PARAM_KEEPALIVE_TMO:
-		len = sprintf(buf, "%u\n", conn->keepalive_tmo);
+		len = sysfs_emit(buf, "%u\n", conn->keepalive_tmo);
 		break;
 	case ISCSI_PARAM_LOCAL_PORT:
-		len = sprintf(buf, "%u\n", conn->local_port);
+		len = sysfs_emit(buf, "%u\n", conn->local_port);
 		break;
 	case ISCSI_PARAM_TCP_TIMESTAMP_STAT:
-		len = sprintf(buf, "%u\n", conn->tcp_timestamp_stat);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_timestamp_stat);
 		break;
 	case ISCSI_PARAM_TCP_NAGLE_DISABLE:
-		len = sprintf(buf, "%u\n", conn->tcp_nagle_disable);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_nagle_disable);
 		break;
 	case ISCSI_PARAM_TCP_WSF_DISABLE:
-		len = sprintf(buf, "%u\n", conn->tcp_wsf_disable);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_wsf_disable);
 		break;
 	case ISCSI_PARAM_TCP_TIMER_SCALE:
-		len = sprintf(buf, "%u\n", conn->tcp_timer_scale);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_timer_scale);
 		break;
 	case ISCSI_PARAM_TCP_TIMESTAMP_EN:
-		len = sprintf(buf, "%u\n", conn->tcp_timestamp_en);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_timestamp_en);
 		break;
 	case ISCSI_PARAM_IP_FRAGMENT_DISABLE:
-		len = sprintf(buf, "%u\n", conn->fragment_disable);
+		len = sysfs_emit(buf, "%u\n", conn->fragment_disable);
 		break;
 	case ISCSI_PARAM_IPV4_TOS:
-		len = sprintf(buf, "%u\n", conn->ipv4_tos);
+		len = sysfs_emit(buf, "%u\n", conn->ipv4_tos);
 		break;
 	case ISCSI_PARAM_IPV6_TC:
-		len = sprintf(buf, "%u\n", conn->ipv6_traffic_class);
+		len = sysfs_emit(buf, "%u\n", conn->ipv6_traffic_class);
 		break;
 	case ISCSI_PARAM_IPV6_FLOW_LABEL:
-		len = sprintf(buf, "%u\n", conn->ipv6_flow_label);
+		len = sysfs_emit(buf, "%u\n", conn->ipv6_flow_label);
 		break;
 	case ISCSI_PARAM_IS_FW_ASSIGNED_IPV6:
-		len = sprintf(buf, "%u\n", conn->is_fw_assigned_ipv6);
+		len = sysfs_emit(buf, "%u\n", conn->is_fw_assigned_ipv6);
 		break;
 	case ISCSI_PARAM_TCP_XMIT_WSF:
-		len = sprintf(buf, "%u\n", conn->tcp_xmit_wsf);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_xmit_wsf);
 		break;
 	case ISCSI_PARAM_TCP_RECV_WSF:
-		len = sprintf(buf, "%u\n", conn->tcp_recv_wsf);
+		len = sysfs_emit(buf, "%u\n", conn->tcp_recv_wsf);
 		break;
 	case ISCSI_PARAM_LOCAL_IPADDR:
-		len = sprintf(buf, "%s\n", conn->local_ipaddr);
+		len = sysfs_emit(buf, "%s\n", conn->local_ipaddr);
 		break;
 	default:
 		return -ENOSYS;
@@ -3589,13 +3640,13 @@ int iscsi_host_get_param(struct Scsi_Host *shost, enum iscsi_host_param param,
 
 	switch (param) {
 	case ISCSI_HOST_PARAM_NETDEV_NAME:
-		len = sprintf(buf, "%s\n", ihost->netdev);
+		len = sysfs_emit(buf, "%s\n", ihost->netdev);
 		break;
 	case ISCSI_HOST_PARAM_HWADDRESS:
-		len = sprintf(buf, "%s\n", ihost->hwaddress);
+		len = sysfs_emit(buf, "%s\n", ihost->hwaddress);
 		break;
 	case ISCSI_HOST_PARAM_INITIATOR_NAME:
-		len = sprintf(buf, "%s\n", ihost->initiatorname);
+		len = sysfs_emit(buf, "%s\n", ihost->initiatorname);
 		break;
 	default:
 		return -ENOSYS;

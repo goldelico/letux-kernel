@@ -50,15 +50,6 @@
 #define RBD_DEBUG	/* Activate rbd_assert() calls */
 
 /*
- * The basic unit of block I/O is a sector.  It is interpreted in a
- * number of contexts in Linux (blk, bio, genhd), but the default is
- * universally 512 bytes.  These symbols are just slightly more
- * meaningful than the bare numbers they represent.
- */
-#define	SECTOR_SHIFT	9
-#define	SECTOR_SIZE	(1ULL << SECTOR_SHIFT)
-
-/*
  * Increment the given counter and return its updated value.
  * If the counter is already 0 it will not be incremented.
  * If the counter is already at its maximum value returns
@@ -1955,7 +1946,7 @@ static struct ceph_osd_request *rbd_osd_req_create(
 
 	osdc = &rbd_dev->rbd_client->client->osdc;
 	osd_req = ceph_osdc_alloc_request(osdc, snapc, num_ops, false,
-					  GFP_ATOMIC);
+					  GFP_NOIO);
 	if (!osd_req)
 		return NULL;	/* ENOMEM */
 
@@ -2004,7 +1995,7 @@ rbd_osd_req_create_copyup(struct rbd_obj_request *obj_request)
 	rbd_dev = img_request->rbd_dev;
 	osdc = &rbd_dev->rbd_client->client->osdc;
 	osd_req = ceph_osdc_alloc_request(osdc, snapc, num_osd_ops,
-						false, GFP_ATOMIC);
+						false, GFP_NOIO);
 	if (!osd_req)
 		return NULL;	/* ENOMEM */
 
@@ -2506,7 +2497,7 @@ static int rbd_img_request_fill(struct rbd_img_request *img_request,
 					bio_chain_clone_range(&bio_list,
 								&bio_offset,
 								clone_size,
-								GFP_ATOMIC);
+								GFP_NOIO);
 			if (!obj_request->bio_list)
 				goto out_unwind;
 		} else if (type == OBJ_REQUEST_PAGES) {
@@ -2736,7 +2727,7 @@ static int rbd_img_obj_parent_read_full(struct rbd_obj_request *obj_request)
 	 * from the parent.
 	 */
 	page_count = (u32)calc_pages_for(0, length);
-	pages = ceph_alloc_page_vector(page_count, GFP_KERNEL);
+	pages = ceph_alloc_page_vector(page_count, GFP_NOIO);
 	if (IS_ERR(pages)) {
 		result = PTR_ERR(pages);
 		pages = NULL;
@@ -2863,7 +2854,7 @@ static int rbd_img_obj_exists_submit(struct rbd_obj_request *obj_request)
 	 */
 	size = sizeof (__le64) + sizeof (__le32) + sizeof (__le32);
 	page_count = (u32)calc_pages_for(0, size);
-	pages = ceph_alloc_page_vector(page_count, GFP_KERNEL);
+	pages = ceph_alloc_page_vector(page_count, GFP_NOIO);
 	if (IS_ERR(pages))
 		return PTR_ERR(pages);
 
@@ -3767,7 +3758,7 @@ static int rbd_init_disk(struct rbd_device *rbd_dev)
 	segment_size = rbd_obj_bytes(&rbd_dev->header);
 	blk_queue_max_hw_sectors(q, segment_size / SECTOR_SIZE);
 	q->limits.max_sectors = queue_max_hw_sectors(q);
-	blk_queue_max_segments(q, segment_size / SECTOR_SIZE);
+	blk_queue_max_segments(q, USHRT_MAX);
 	blk_queue_max_segment_size(q, segment_size);
 	blk_queue_io_min(q, segment_size);
 	blk_queue_io_opt(q, segment_size);
@@ -3944,6 +3935,9 @@ static ssize_t rbd_image_refresh(struct device *dev,
 {
 	struct rbd_device *rbd_dev = dev_to_rbd_dev(dev);
 	int ret;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	ret = rbd_dev_refresh(rbd_dev);
 	if (ret)
@@ -5404,6 +5398,9 @@ static ssize_t do_rbd_add(struct bus_type *bus,
 	bool read_only;
 	int rc;
 
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	if (!try_module_get(THIS_MODULE))
 		return -ENODEV;
 
@@ -5547,6 +5544,9 @@ static ssize_t do_rbd_remove(struct bus_type *bus,
 	unsigned long ul;
 	bool already = false;
 	int ret;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	ret = kstrtoul(buf, 10, &ul);
 	if (ret)

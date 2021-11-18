@@ -34,6 +34,7 @@
 #include "disk-io.h"
 #include "btrfs_inode.h"
 #include "transaction.h"
+#include "xattr.h"
 
 static int g_verbose = 0;
 
@@ -1469,7 +1470,21 @@ static int read_symlink(struct btrfs_root *root,
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
 	if (ret < 0)
 		goto out;
-	BUG_ON(ret);
+	if (ret) {
+		/*
+		 * An empty symlink inode. Can happen in rare error paths when
+		 * creating a symlink (transaction committed before the inode
+		 * eviction handler removed the symlink inode items and a crash
+		 * happened in between or the subvol was snapshoted in between).
+		 * Print an informative message to dmesg/syslog so that the user
+		 * can delete the symlink.
+		 */
+		btrfs_err(root->fs_info,
+			  "Found empty symlink inode %llu at root %llu",
+			  ino, root->root_key.objectid);
+		ret = -EIO;
+		goto out;
+	}
 
 	ei = btrfs_item_ptr(path->nodes[0], path->slots[0],
 			struct btrfs_file_extent_item);
@@ -1633,6 +1648,9 @@ out:
 static int is_inode_existent(struct send_ctx *sctx, u64 ino, u64 gen)
 {
 	int ret;
+
+	if (ino == BTRFS_FIRST_FREE_OBJECTID)
+		return 1;
 
 	ret = get_cur_inode_state(sctx, ino, gen);
 	if (ret < 0)
@@ -1819,7 +1837,7 @@ static int will_overwrite_ref(struct send_ctx *sctx, u64 dir, u64 dir_gen,
 	 * not delted and then re-created, if it was then we have no overwrite
 	 * and we can just unlink this entry.
 	 */
-	if (sctx->parent_root) {
+	if (sctx->parent_root && dir != BTRFS_FIRST_FREE_OBJECTID) {
 		ret = get_inode_info(sctx->parent_root, dir, NULL, &gen, NULL,
 				     NULL, NULL, NULL);
 		if (ret < 0 && ret != -ENOENT)
@@ -3215,7 +3233,8 @@ static void free_pending_move(struct send_ctx *sctx, struct pending_dir_move *m)
 	kfree(m);
 }
 
-static void tail_append_pending_moves(struct pending_dir_move *moves,
+static void tail_append_pending_moves(struct send_ctx *sctx,
+				      struct pending_dir_move *moves,
 				      struct list_head *stack)
 {
 	if (list_empty(&moves->list)) {
@@ -3225,6 +3244,10 @@ static void tail_append_pending_moves(struct pending_dir_move *moves,
 		list_splice_init(&moves->list, &list);
 		list_add_tail(&moves->list, stack);
 		list_splice_tail(&list, stack);
+	}
+	if (!RB_EMPTY_NODE(&moves->node)) {
+		rb_erase(&moves->node, &sctx->pending_dir_moves);
+		RB_CLEAR_NODE(&moves->node);
 	}
 }
 
@@ -3240,7 +3263,7 @@ static int apply_children_dir_moves(struct send_ctx *sctx)
 		return 0;
 
 	INIT_LIST_HEAD(&stack);
-	tail_append_pending_moves(pm, &stack);
+	tail_append_pending_moves(sctx, pm, &stack);
 
 	while (!list_empty(&stack)) {
 		pm = list_first_entry(&stack, struct pending_dir_move, list);
@@ -3251,7 +3274,7 @@ static int apply_children_dir_moves(struct send_ctx *sctx)
 			goto out;
 		pm = get_pending_dir_moves(sctx, parent_ino);
 		if (pm)
-			tail_append_pending_moves(pm, &stack);
+			tail_append_pending_moves(sctx, pm, &stack);
 	}
 	return 0;
 
@@ -4172,6 +4195,10 @@ static int __process_new_xattr(int num, struct btrfs_key *di_key,
 	struct fs_path *p;
 	posix_acl_xattr_header dummy_acl;
 
+	/* Capabilities are emitted by finish_inode_if_needed */
+	if (!strncmp(name, XATTR_NAME_CAPS, name_len))
+		return 0;
+
 	p = fs_path_alloc();
 	if (!p)
 		return -ENOMEM;
@@ -4657,6 +4684,9 @@ static int send_hole(struct send_ctx *sctx, u64 end)
 	u64 len;
 	int ret = 0;
 
+	if (sctx->flags & BTRFS_SEND_FLAG_NO_FILE_DATA)
+		return send_update_extent(sctx, offset, end - offset);
+
 	p = fs_path_alloc();
 	if (!p)
 		return -ENOMEM;
@@ -4706,6 +4736,64 @@ static int send_extent_data(struct send_ctx *sctx,
 		sent += ret;
 	}
 	return 0;
+}
+
+/*
+ * Search for a capability xattr related to sctx->cur_ino. If the capability is
+ * found, call send_set_xattr function to emit it.
+ *
+ * Return 0 if there isn't a capability, or when the capability was emitted
+ * successfully, or < 0 if an error occurred.
+ */
+static int send_capabilities(struct send_ctx *sctx)
+{
+	struct fs_path *fspath = NULL;
+	struct btrfs_path *path;
+	struct btrfs_dir_item *di;
+	struct extent_buffer *leaf;
+	unsigned long data_ptr;
+	char *buf = NULL;
+	int buf_len;
+	int ret = 0;
+
+	path = alloc_path_for_send();
+	if (!path)
+		return -ENOMEM;
+
+	di = btrfs_lookup_xattr(NULL, sctx->send_root, path, sctx->cur_ino,
+				XATTR_NAME_CAPS, strlen(XATTR_NAME_CAPS), 0);
+	if (!di) {
+		/* There is no xattr for this inode */
+		goto out;
+	} else if (IS_ERR(di)) {
+		ret = PTR_ERR(di);
+		goto out;
+	}
+
+	leaf = path->nodes[0];
+	buf_len = btrfs_dir_data_len(leaf, di);
+
+	fspath = fs_path_alloc();
+	buf = kmalloc(buf_len, GFP_KERNEL);
+	if (!fspath || !buf) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = get_cur_path(sctx, sctx->cur_ino, sctx->cur_inode_gen, fspath);
+	if (ret < 0)
+		goto out;
+
+	data_ptr = (unsigned long)(di + 1) + btrfs_dir_name_len(leaf, di);
+	read_extent_buffer(leaf, buf, data_ptr, buf_len);
+
+	ret = send_set_xattr(sctx, fspath, XATTR_NAME_CAPS,
+			strlen(XATTR_NAME_CAPS), buf, buf_len);
+out:
+	kfree(buf);
+	fs_path_free(fspath);
+	btrfs_free_path(path);
+	return ret;
 }
 
 static int clone_range(struct send_ctx *sctx,
@@ -4991,15 +5079,18 @@ static int is_extent_unchanged(struct send_ctx *sctx,
 	while (key.offset < ekey->offset + left_len) {
 		ei = btrfs_item_ptr(eb, slot, struct btrfs_file_extent_item);
 		right_type = btrfs_file_extent_type(eb, ei);
-		if (right_type != BTRFS_FILE_EXTENT_REG) {
+		if (right_type != BTRFS_FILE_EXTENT_REG &&
+		    right_type != BTRFS_FILE_EXTENT_INLINE) {
 			ret = 0;
 			goto out;
 		}
 
-		right_disknr = btrfs_file_extent_disk_bytenr(eb, ei);
-		right_len = btrfs_file_extent_num_bytes(eb, ei);
-		right_offset = btrfs_file_extent_offset(eb, ei);
-		right_gen = btrfs_file_extent_generation(eb, ei);
+		if (right_type == BTRFS_FILE_EXTENT_INLINE) {
+			right_len = btrfs_file_extent_inline_len(eb, slot, ei);
+			right_len = PAGE_ALIGN(right_len);
+		} else {
+			right_len = btrfs_file_extent_num_bytes(eb, ei);
+		}
 
 		/*
 		 * Are we at extent 8? If yes, we know the extent is changed.
@@ -5010,6 +5101,23 @@ static int is_extent_unchanged(struct send_ctx *sctx,
 			ret = (left_disknr) ? 0 : 1;
 			goto out;
 		}
+
+		/*
+		 * We just wanted to see if when we have an inline extent, what
+		 * follows it is a regular extent (wanted to check the above
+		 * condition for inline extents too). This should normally not
+		 * happen but it's possible for example when we have an inline
+		 * compressed extent representing data with a size matching
+		 * the page size (currently the same as sector size).
+		 */
+		if (right_type == BTRFS_FILE_EXTENT_INLINE) {
+			ret = 0;
+			goto out;
+		}
+
+		right_disknr = btrfs_file_extent_disk_bytenr(eb, ei);
+		right_offset = btrfs_file_extent_offset(eb, ei);
+		right_gen = btrfs_file_extent_generation(eb, ei);
 
 		left_offset_fixed = left_offset;
 		if (key.offset < ekey->offset) {
@@ -5398,6 +5506,10 @@ static int finish_inode_if_needed(struct send_ctx *sctx, int at_end)
 		if (ret < 0)
 			goto out;
 	}
+
+	ret = send_capabilities(sctx);
+	if (ret < 0)
+		goto out;
 
 	/*
 	 * If other directory inodes depended on our current directory

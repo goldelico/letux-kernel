@@ -188,7 +188,7 @@ static inline bool i40e_vc_isvalid_vsi_id(struct i40e_vf *vf, u16 vsi_id)
  * check for the valid queue id
  **/
 static inline bool i40e_vc_isvalid_queue_id(struct i40e_vf *vf, u16 vsi_id,
-					    u8 qid)
+					    u16 qid)
 {
 	struct i40e_pf *pf = vf->pf;
 	struct i40e_vsi *vsi = i40e_find_vsi_from_id(pf, vsi_id);
@@ -203,7 +203,7 @@ static inline bool i40e_vc_isvalid_queue_id(struct i40e_vf *vf, u16 vsi_id,
  *
  * check for the valid vector id
  **/
-static inline bool i40e_vc_isvalid_vector_id(struct i40e_vf *vf, u8 vector_id)
+static inline bool i40e_vc_isvalid_vector_id(struct i40e_vf *vf, u32 vector_id)
 {
 	struct i40e_pf *pf = vf->pf;
 
@@ -549,12 +549,15 @@ static int i40e_alloc_vsi_res(struct i40e_vf *vf, enum i40e_vsi_type type)
 			i40e_vsi_add_pvid(vsi, vf->port_vlan_id);
 
 		spin_lock_bh(&vsi->mac_filter_list_lock);
-		f = i40e_add_filter(vsi, vf->default_lan_addr.addr,
-				    vf->port_vlan_id ? vf->port_vlan_id : -1,
-				    true, false);
-		if (!f)
-			dev_info(&pf->pdev->dev,
-				 "Could not allocate VF MAC addr\n");
+		if (is_valid_ether_addr(vf->default_lan_addr.addr)) {
+			f = i40e_add_filter(vsi, vf->default_lan_addr.addr,
+				       vf->port_vlan_id ? vf->port_vlan_id : -1,
+				       true, false);
+			if (!f)
+				dev_info(&pf->pdev->dev,
+					 "Could not add MAC filter %pM for VF %d\n",
+					vf->default_lan_addr.addr, vf->vf_id);
+		}
 		f = i40e_add_filter(vsi, brdcast,
 				    vf->port_vlan_id ? vf->port_vlan_id : -1,
 				    true, false);
@@ -1674,14 +1677,28 @@ static int i40e_vc_del_mac_addr_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
 			ret = I40E_ERR_INVALID_MAC_ADDR;
 			goto error_param;
 		}
+
+		if (vf->pf_set_mac &&
+		    ether_addr_equal(al->list[i].addr,
+				     vf->default_lan_addr.addr)) {
+			dev_err(&pf->pdev->dev,
+				"MAC addr %pM has been set by PF, cannot delete it for VF %d, reset VF to change MAC addr\n",
+				vf->default_lan_addr.addr, vf->vf_id);
+			ret = I40E_ERR_PARAM;
+			goto error_param;
+		}
 	}
 	vsi = pf->vsi[vf->lan_vsi_idx];
 
 	spin_lock_bh(&vsi->mac_filter_list_lock);
 	/* delete addresses from the list */
 	for (i = 0; i < al->num_elements; i++)
-		i40e_del_filter(vsi, al->list[i].addr,
-				I40E_VLAN_ANY, true, false);
+		if (i40e_del_mac_all_vlan(vsi, al->list[i].addr, true, false)) {
+			ret = I40E_ERR_INVALID_MAC_ADDR;
+			spin_unlock_bh(&vsi->mac_filter_list_lock);
+			goto error_param;
+		}
+
 	spin_unlock_bh(&vsi->mac_filter_list_lock);
 
 	/* program the updated filter list */

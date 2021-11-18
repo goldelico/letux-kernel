@@ -173,7 +173,6 @@ static irqreturn_t evtchn_interrupt(int irq, void *data)
 	     "Interrupt for port %d, but apparently not enabled; per-user %p\n",
 	     evtchn->port, u);
 
-	disable_irq_nosync(irq);
 	evtchn->enabled = false;
 
 	spin_lock(&u->ring_prod_lock);
@@ -299,7 +298,7 @@ static ssize_t evtchn_write(struct file *file, const char __user *buf,
 		evtchn = find_evtchn(u, port);
 		if (evtchn && !evtchn->enabled) {
 			evtchn->enabled = true;
-			enable_irq(irq_from_evtchn(port));
+			xen_irq_lateeoi(irq_from_evtchn(port), 0);
 		}
 	}
 
@@ -316,7 +315,6 @@ static int evtchn_resize_ring(struct per_user_data *u)
 {
 	unsigned int new_size;
 	evtchn_port_t *new_ring, *old_ring;
-	unsigned int p, c;
 
 	/*
 	 * Ensure the ring is large enough to capture all possible
@@ -346,20 +344,17 @@ static int evtchn_resize_ring(struct per_user_data *u)
 	/*
 	 * Copy the old ring contents to the new ring.
 	 *
-	 * If the ring contents crosses the end of the current ring,
-	 * it needs to be copied in two chunks.
+	 * To take care of wrapping, a full ring, and the new index
+	 * pointing into the second half, simply copy the old contents
+	 * twice.
 	 *
 	 * +---------+    +------------------+
-	 * |34567  12| -> |       1234567    |
-	 * +-----p-c-+    +------------------+
+	 * |34567  12| -> |34567  1234567  12|
+	 * +-----p-c-+    +-------c------p---+
 	 */
-	p = evtchn_ring_offset(u, u->ring_prod);
-	c = evtchn_ring_offset(u, u->ring_cons);
-	if (p < c) {
-		memcpy(new_ring + c, u->ring + c, (u->ring_size - c) * sizeof(*u->ring));
-		memcpy(new_ring + u->ring_size, u->ring, p * sizeof(*u->ring));
-	} else
-		memcpy(new_ring + c, u->ring + c, (p - c) * sizeof(*u->ring));
+	memcpy(new_ring, old_ring, u->ring_size * sizeof(*u->ring));
+	memcpy(new_ring + u->ring_size, old_ring,
+	       u->ring_size * sizeof(*u->ring));
 
 	u->ring = new_ring;
 	u->ring_size = new_size;
@@ -403,8 +398,8 @@ static int evtchn_bind_to_user(struct per_user_data *u, int port)
 	if (rc < 0)
 		goto err;
 
-	rc = bind_evtchn_to_irqhandler(port, evtchn_interrupt, 0,
-				       u->name, evtchn);
+	rc = bind_evtchn_to_irqhandler_lateeoi(port, evtchn_interrupt, 0,
+					       u->name, evtchn);
 	if (rc < 0)
 		goto err;
 

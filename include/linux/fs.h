@@ -65,6 +65,8 @@ extern struct inodes_stat_t inodes_stat;
 extern int leases_enable, lease_break_time;
 extern int sysctl_protected_symlinks;
 extern int sysctl_protected_hardlinks;
+extern int sysctl_protected_fifos;
+extern int sysctl_protected_regular;
 
 struct buffer_head;
 typedef int (get_block_t)(struct inode *inode, sector_t iblock,
@@ -137,6 +139,9 @@ typedef void (dax_iodone_t)(struct buffer_head *bh_map, int uptodate);
 #define FMODE_CAN_READ          ((__force fmode_t)0x20000)
 /* Has write method(s) */
 #define FMODE_CAN_WRITE         ((__force fmode_t)0x40000)
+
+/* File is stream-like */
+#define FMODE_STREAM		((__force fmode_t)0x200000)
 
 /* File was opened by fanotify and shouldn't generate fanotify events */
 #define FMODE_NONOTIFY		((__force fmode_t)0x4000000)
@@ -226,6 +231,7 @@ typedef void (dax_iodone_t)(struct buffer_head *bh_map, int uptodate);
 #define ATTR_KILL_PRIV	(1 << 14)
 #define ATTR_OPEN	(1 << 15) /* Truncating from open(O_TRUNC) */
 #define ATTR_TIMES_SET	(1 << 16)
+#define ATTR_TOUCH	(1 << 17)
 
 /*
  * Whiteout is represented by a char device.  The following constants define the
@@ -652,6 +658,7 @@ struct inode {
 		struct rcu_head		i_rcu;
 	};
 	u64			i_version;
+	atomic64_t		i_sequence; /* see futex */
 	atomic_t		i_count;
 	atomic_t		i_dio_count;
 	atomic_t		i_writecount;
@@ -678,6 +685,11 @@ struct inode {
 
 	void			*i_private; /* fs or device private pointer */
 };
+
+static inline unsigned int i_blocksize(const struct inode *node)
+{
+	return (1 << node->i_blkbits);
+}
 
 static inline int inode_unhashed(struct inode *inode)
 {
@@ -709,6 +721,31 @@ enum inode_i_mutex_lock_class
 	I_MUTEX_NONDIR2,
 	I_MUTEX_PARENT2,
 };
+
+static inline void inode_lock(struct inode *inode)
+{
+	mutex_lock(&inode->i_mutex);
+}
+
+static inline void inode_unlock(struct inode *inode)
+{
+	mutex_unlock(&inode->i_mutex);
+}
+
+static inline int inode_trylock(struct inode *inode)
+{
+	return mutex_trylock(&inode->i_mutex);
+}
+
+static inline int inode_is_locked(struct inode *inode)
+{
+	return mutex_is_locked(&inode->i_mutex);
+}
+
+static inline void inode_lock_nested(struct inode *inode, unsigned subclass)
+{
+	mutex_lock_nested(&inode->i_mutex, subclass);
+}
 
 void lock_two_nondirectories(struct inode *, struct inode*);
 void unlock_two_nondirectories(struct inode *, struct inode*);
@@ -878,7 +915,7 @@ struct file_handle {
 	__u32 handle_bytes;
 	int handle_type;
 	/* file identifier */
-	unsigned char f_handle[0];
+	unsigned char f_handle[];
 };
 
 static inline struct file *get_file(struct file *f)
@@ -895,9 +932,9 @@ static inline struct file *get_file(struct file *f)
 /* Page cache limit. The filesystems should put that into their s_maxbytes 
    limits, otherwise bad things can happen in VM. */ 
 #if BITS_PER_LONG==32
-#define MAX_LFS_FILESIZE	(((loff_t)PAGE_CACHE_SIZE << (BITS_PER_LONG-1))-1) 
+#define MAX_LFS_FILESIZE	((loff_t)ULONG_MAX << PAGE_SHIFT)
 #elif BITS_PER_LONG==64
-#define MAX_LFS_FILESIZE 	((loff_t)0x7fffffffffffffffLL)
+#define MAX_LFS_FILESIZE 	((loff_t)LLONG_MAX)
 #endif
 
 #define FL_POSIX	1
@@ -1207,6 +1244,16 @@ static inline struct inode *file_inode(const struct file *f)
 	return f->f_inode;
 }
 
+static inline struct dentry *file_dentry(const struct file *file)
+{
+	struct dentry *dentry = file->f_path.dentry;
+
+	if (unlikely(dentry->d_flags & DCACHE_OP_REAL))
+		return dentry->d_op->d_real(dentry, file_inode(file));
+	else
+		return dentry;
+}
+
 static inline int locks_lock_file_wait(struct file *filp, struct file_lock *fl)
 {
 	return locks_lock_inode_wait(file_inode(filp), fl);
@@ -1254,6 +1301,7 @@ struct mm_struct;
 /* sb->s_iflags */
 #define SB_I_CGROUPWB	0x00000001	/* cgroup-aware writeback enabled */
 #define SB_I_NOEXEC	0x00000002	/* Ignore executables on this fs */
+#define SB_I_MULTIROOT	0x00000008	/* Multiple roots to the dentry tree */
 
 /* Possible states of 'frozen' field */
 enum {
@@ -1834,6 +1882,10 @@ struct super_operations {
  *			wb stat updates to grab mapping->tree_lock.  See
  *			inode_switch_wb_work_fn() for details.
  *
+ * I_SYNC_QUEUED	Inode is queued in b_io or b_more_io writeback lists.
+ *			Used to detect that mark_inode_dirty() should not move
+ * 			inode between dirty lists.
+ *
  * Q: What is the difference between I_WILL_FREE and I_FREEING?
  */
 #define I_DIRTY_SYNC		(1 << 0)
@@ -1851,9 +1903,9 @@ struct super_operations {
 #define I_DIO_WAKEUP		(1 << __I_DIO_WAKEUP)
 #define I_LINKABLE		(1 << 10)
 #define I_DIRTY_TIME		(1 << 11)
-#define __I_DIRTY_TIME_EXPIRED	12
-#define I_DIRTY_TIME_EXPIRED	(1 << __I_DIRTY_TIME_EXPIRED)
+#define I_DIRTY_TIME_EXPIRED	(1 << 12)
 #define I_WB_SWITCH		(1 << 13)
+#define I_SYNC_QUEUED		(1 << 17)
 
 #define I_DIRTY (I_DIRTY_SYNC | I_DIRTY_DATASYNC | I_DIRTY_PAGES)
 #define I_DIRTY_ALL (I_DIRTY | I_DIRTY_TIME)
@@ -2217,7 +2269,7 @@ extern long do_sys_open(int dfd, const char __user *filename, int flags,
 extern struct file *file_open_name(struct filename *, int, umode_t);
 extern struct file *filp_open(const char *, int, umode_t);
 extern struct file *file_open_root(struct dentry *, struct vfsmount *,
-				   const char *, int);
+				   const char *, int, umode_t);
 extern struct file * dentry_open(const struct path *, int, const struct cred *);
 extern int filp_close(struct file *, fl_owner_t id);
 
@@ -2662,6 +2714,7 @@ extern loff_t fixed_size_llseek(struct file *file, loff_t offset,
 		int whence, loff_t size);
 extern int generic_file_open(struct inode * inode, struct file * filp);
 extern int nonseekable_open(struct inode * inode, struct file * filp);
+extern int stream_open(struct inode * inode, struct file * filp);
 
 #ifdef CONFIG_BLOCK
 typedef void (dio_submit_t)(int rw, struct bio *bio, struct inode *inode,
@@ -3019,11 +3072,12 @@ static inline bool dir_emit_dots(struct file *file, struct dir_context *ctx)
 }
 static inline bool dir_relax(struct inode *inode)
 {
-	mutex_unlock(&inode->i_mutex);
-	mutex_lock(&inode->i_mutex);
+	inode_unlock(inode);
+	inode_lock(inode);
 	return !IS_DEADDIR(inode);
 }
 
 extern bool path_noexec(const struct path *path);
+extern void inode_nohighmem(struct inode *inode);
 
 #endif /* _LINUX_FS_H */

@@ -771,9 +771,6 @@ static void activate_amp(struct hda_codec *codec, hda_nid_t nid, int dir,
 	unsigned int caps;
 	unsigned int mask, val;
 
-	if (!enable && is_active_nid(codec, nid, dir, idx_to_check))
-		return;
-
 	caps = query_amp_caps(codec, nid, dir);
 	val = get_amp_val_to_activate(codec, nid, dir, caps, enable);
 	mask = get_amp_mask_to_modify(codec, nid, dir, idx_to_check, caps);
@@ -784,12 +781,22 @@ static void activate_amp(struct hda_codec *codec, hda_nid_t nid, int dir,
 	update_amp(codec, nid, dir, idx, mask, val);
 }
 
+static void check_and_activate_amp(struct hda_codec *codec, hda_nid_t nid,
+				   int dir, int idx, int idx_to_check,
+				   bool enable)
+{
+	/* check whether the given amp is still used by others */
+	if (!enable && is_active_nid(codec, nid, dir, idx_to_check))
+		return;
+	activate_amp(codec, nid, dir, idx, idx_to_check, enable);
+}
+
 static void activate_amp_out(struct hda_codec *codec, struct nid_path *path,
 			     int i, bool enable)
 {
 	hda_nid_t nid = path->path[i];
 	init_amp(codec, nid, HDA_OUTPUT, 0);
-	activate_amp(codec, nid, HDA_OUTPUT, 0, 0, enable);
+	check_and_activate_amp(codec, nid, HDA_OUTPUT, 0, 0, enable);
 }
 
 static void activate_amp_in(struct hda_codec *codec, struct nid_path *path,
@@ -817,19 +824,26 @@ static void activate_amp_in(struct hda_codec *codec, struct nid_path *path,
 	 * when aa-mixer is available, we need to enable the path as well
 	 */
 	for (n = 0; n < nums; n++) {
-		if (n != idx && (!add_aamix || conn[n] != spec->mixer_merge_nid))
-			continue;
-		activate_amp(codec, nid, HDA_INPUT, n, idx, enable);
+		if (n != idx) {
+			if (conn[n] != spec->mixer_merge_nid)
+				continue;
+			/* when aamix is disabled, force to off */
+			if (!add_aamix) {
+				activate_amp(codec, nid, HDA_INPUT, n, n, false);
+				continue;
+			}
+		}
+		check_and_activate_amp(codec, nid, HDA_INPUT, n, idx, enable);
 	}
 }
 
-/* sync power of each widget in the the given path */
+/* sync power of each widget in the given path */
 static hda_nid_t path_power_update(struct hda_codec *codec,
 				   struct nid_path *path,
 				   bool allow_powerdown)
 {
 	hda_nid_t nid, changed = 0;
-	int i, state;
+	int i, state, power;
 
 	for (i = 0; i < path->depth; i++) {
 		nid = path->path[i];
@@ -841,7 +855,9 @@ static hda_nid_t path_power_update(struct hda_codec *codec,
 			state = AC_PWRST_D0;
 		else
 			state = AC_PWRST_D3;
-		if (!snd_hda_check_power_state(codec, nid, state)) {
+		power = snd_hda_codec_read(codec, nid, 0,
+					   AC_VERB_GET_POWER_STATE, 0);
+		if (power != (state | (state << 4))) {
 			snd_hda_codec_write(codec, nid, 0,
 					    AC_VERB_SET_POWER_STATE, state);
 			changed = nid;
@@ -1166,11 +1182,17 @@ static const char *get_line_out_pfx(struct hda_codec *codec, int ch,
 		*index = ch;
 		return "Headphone";
 	case AUTO_PIN_LINE_OUT:
-		/* This deals with the case where we have two DACs and
-		 * one LO, one HP and one Speaker */
-		if (!ch && cfg->speaker_outs && cfg->hp_outs) {
-			bool hp_lo_shared = !path_has_mixer(codec, spec->hp_paths[0], ctl_type);
-			bool spk_lo_shared = !path_has_mixer(codec, spec->speaker_paths[0], ctl_type);
+		/* This deals with the case where one HP or one Speaker or
+		 * one HP + one Speaker need to share the DAC with LO
+		 */
+		if (!ch) {
+			bool hp_lo_shared = false, spk_lo_shared = false;
+
+			if (cfg->speaker_outs)
+				spk_lo_shared = !path_has_mixer(codec,
+								spec->speaker_paths[0],	ctl_type);
+			if (cfg->hp_outs)
+				hp_lo_shared = !path_has_mixer(codec, spec->hp_paths[0], ctl_type);
 			if (hp_lo_shared && spk_lo_shared)
 				return spec->vmaster_mute.hook ? "PCM" : "Master";
 			if (hp_lo_shared)
@@ -1328,16 +1350,20 @@ static int try_assign_dacs(struct hda_codec *codec, int num_outs,
 		struct nid_path *path;
 		hda_nid_t pin = pins[i];
 
-		path = snd_hda_get_path_from_idx(codec, path_idx[i]);
-		if (path) {
-			badness += assign_out_path_ctls(codec, path);
-			continue;
+		if (!spec->obey_preferred_dacs) {
+			path = snd_hda_get_path_from_idx(codec, path_idx[i]);
+			if (path) {
+				badness += assign_out_path_ctls(codec, path);
+				continue;
+			}
 		}
 
 		dacs[i] = get_preferred_dac(codec, pin);
 		if (dacs[i]) {
 			if (is_dac_already_used(codec, dacs[i]))
 				badness += bad->shared_primary;
+		} else if (spec->obey_preferred_dacs) {
+			badness += BAD_NO_PRIMARY_DAC;
 		}
 
 		if (!dacs[i])
@@ -1578,6 +1604,12 @@ static bool map_singles(struct hda_codec *codec, int outs,
 		}
 	}
 	return found;
+}
+
+static inline bool has_aamix_out_paths(struct hda_gen_spec *spec)
+{
+	return spec->aamix_out_paths[0] || spec->aamix_out_paths[1] ||
+		spec->aamix_out_paths[2];
 }
 
 /* create a new path including aamix if available, and return its index */
@@ -2422,25 +2454,51 @@ static void update_aamix_paths(struct hda_codec *codec, bool do_mix,
 	}
 }
 
+/* re-initialize the output paths; only called from loopback_mixing_put() */
+static void update_output_paths(struct hda_codec *codec, int num_outs,
+				const int *paths)
+{
+	struct hda_gen_spec *spec = codec->spec;
+	struct nid_path *path;
+	int i;
+
+	for (i = 0; i < num_outs; i++) {
+		path = snd_hda_get_path_from_idx(codec, paths[i]);
+		if (path)
+			snd_hda_activate_path(codec, path, path->active,
+					      spec->aamix_mode);
+	}
+}
+
 static int loopback_mixing_put(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct hda_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct hda_gen_spec *spec = codec->spec;
+	const struct auto_pin_cfg *cfg = &spec->autocfg;
 	unsigned int val = ucontrol->value.enumerated.item[0];
 
 	if (val == spec->aamix_mode)
 		return 0;
 	spec->aamix_mode = val;
-	update_aamix_paths(codec, val, spec->out_paths[0],
-			   spec->aamix_out_paths[0],
-			   spec->autocfg.line_out_type);
-	update_aamix_paths(codec, val, spec->hp_paths[0],
-			   spec->aamix_out_paths[1],
-			   AUTO_PIN_HP_OUT);
-	update_aamix_paths(codec, val, spec->speaker_paths[0],
-			   spec->aamix_out_paths[2],
-			   AUTO_PIN_SPEAKER_OUT);
+	if (has_aamix_out_paths(spec)) {
+		update_aamix_paths(codec, val, spec->out_paths[0],
+				   spec->aamix_out_paths[0],
+				   cfg->line_out_type);
+		update_aamix_paths(codec, val, spec->hp_paths[0],
+				   spec->aamix_out_paths[1],
+				   AUTO_PIN_HP_OUT);
+		update_aamix_paths(codec, val, spec->speaker_paths[0],
+				   spec->aamix_out_paths[2],
+				   AUTO_PIN_SPEAKER_OUT);
+	} else {
+		update_output_paths(codec, cfg->line_outs, spec->out_paths);
+		if (cfg->line_out_type != AUTO_PIN_HP_OUT)
+			update_output_paths(codec, cfg->hp_outs, spec->hp_paths);
+		if (cfg->line_out_type != AUTO_PIN_SPEAKER_OUT)
+			update_output_paths(codec, cfg->speaker_outs,
+					    spec->speaker_paths);
+	}
 	return 1;
 }
 
@@ -2458,12 +2516,13 @@ static int create_loopback_mixing_ctl(struct hda_codec *codec)
 
 	if (!spec->mixer_nid)
 		return 0;
-	if (!(spec->aamix_out_paths[0] || spec->aamix_out_paths[1] ||
-	      spec->aamix_out_paths[2]))
-		return 0;
 	if (!snd_hda_gen_add_kctl(spec, NULL, &loopback_mixing_enum))
 		return -ENOMEM;
 	spec->have_aamix_ctl = 1;
+	/* if no explicit aamix path is present (e.g. for Realtek codecs),
+	 * enable aamix as default -- just for compatibility
+	 */
+	spec->aamix_mode = !has_aamix_out_paths(spec);
 	return 0;
 }
 
@@ -3141,6 +3200,7 @@ static int check_dyn_adc_switch(struct hda_codec *codec)
 						spec->input_paths[i][nums]);
 					spec->input_paths[i][nums] =
 						spec->input_paths[i][n];
+					spec->input_paths[i][n] = 0;
 				}
 			}
 			nums++;
@@ -3382,7 +3442,7 @@ static int cap_put_caller(struct snd_kcontrol *kcontrol,
 	struct hda_gen_spec *spec = codec->spec;
 	const struct hda_input_mux *imux;
 	struct nid_path *path;
-	int i, adc_idx, err = 0;
+	int i, adc_idx, ret, err = 0;
 
 	imux = &spec->input_mux;
 	adc_idx = kcontrol->id.index;
@@ -3392,9 +3452,13 @@ static int cap_put_caller(struct snd_kcontrol *kcontrol,
 		if (!path || !path->ctls[type])
 			continue;
 		kcontrol->private_value = path->ctls[type];
-		err = func(kcontrol, ucontrol);
-		if (err < 0)
+		ret = func(kcontrol, ucontrol);
+		if (ret < 0) {
+			err = ret;
 			break;
+		}
+		if (ret > 0)
+			err = 1;
 	}
 	mutex_unlock(&codec->control_mutex);
 	if (err >= 0 && spec->cap_sync_hook)
@@ -3945,6 +4009,8 @@ static hda_nid_t set_path_power(struct hda_codec *codec, hda_nid_t nid,
 
 	for (n = 0; n < spec->paths.used; n++) {
 		path = snd_array_elem(&spec->paths, n);
+		if (!path->depth)
+			continue;
 		if (path->path[0] == nid ||
 		    path->path[path->depth - 1] == nid) {
 			bool pin_old = path->pin_enabled;
@@ -3998,9 +4064,9 @@ static void pin_power_callback(struct hda_codec *codec,
 			       struct hda_jack_callback *jack,
 			       bool on)
 {
-	if (jack && jack->tbl->nid)
+	if (jack && jack->nid)
 		sync_power_state_change(codec,
-					set_pin_power_jack(codec, jack->tbl->nid, on));
+					set_pin_power_jack(codec, jack->nid, on));
 }
 
 /* callback only doing power up -- called at first */
@@ -5664,6 +5730,8 @@ static void init_aamix_paths(struct hda_codec *codec)
 
 	if (!spec->have_aamix_ctl)
 		return;
+	if (!has_aamix_out_paths(spec))
+		return;
 	update_aamix_paths(codec, spec->aamix_mode, spec->out_paths[0],
 			   spec->aamix_out_paths[0],
 			   spec->autocfg.line_out_type);
@@ -5772,7 +5840,8 @@ int snd_hda_gen_init(struct hda_codec *codec)
 	if (spec->init_hook)
 		spec->init_hook(codec);
 
-	snd_hda_apply_verbs(codec);
+	if (!spec->skip_verbs)
+		snd_hda_apply_verbs(codec);
 
 	init_multi_out(codec);
 	init_extra_out(codec);
@@ -5863,7 +5932,7 @@ static int snd_hda_parse_generic_codec(struct hda_codec *codec)
 
 	err = snd_hda_parse_pin_defcfg(codec, &spec->autocfg, NULL, 0);
 	if (err < 0)
-		return err;
+		goto error;
 
 	err = snd_hda_gen_parse_auto_config(codec, &spec->autocfg);
 	if (err < 0)

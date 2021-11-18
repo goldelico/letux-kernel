@@ -454,9 +454,14 @@ static void _rtl_init_mac80211(struct ieee80211_hw *hw)
 	}
 }
 
-static void _rtl_init_deferred_work(struct ieee80211_hw *hw)
+static int _rtl_init_deferred_work(struct ieee80211_hw *hw)
 {
 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+	struct workqueue_struct *wq;
+
+	wq = alloc_workqueue("%s", 0, 0, rtlpriv->cfg->name);
+	if (!wq)
+		return -ENOMEM;
 
 	/* <1> timer */
 	setup_timer(&rtlpriv->works.watchdog_timer,
@@ -465,7 +470,8 @@ static void _rtl_init_deferred_work(struct ieee80211_hw *hw)
 		    rtl_easy_concurrent_retrytimer_callback, (unsigned long)hw);
 	/* <2> work queue */
 	rtlpriv->works.hw = hw;
-	rtlpriv->works.rtl_wq = alloc_workqueue("%s", 0, 0, rtlpriv->cfg->name);
+	rtlpriv->works.rtl_wq = wq;
+
 	INIT_DELAYED_WORK(&rtlpriv->works.watchdog_wq,
 			  (void *)rtl_watchdog_wq_callback);
 	INIT_DELAYED_WORK(&rtlpriv->works.ips_nic_off_wq,
@@ -476,7 +482,7 @@ static void _rtl_init_deferred_work(struct ieee80211_hw *hw)
 			  (void *)rtl_swlps_rfon_wq_callback);
 	INIT_DELAYED_WORK(&rtlpriv->works.fwevt_wq,
 			  (void *)rtl_fwevt_wq_callback);
-
+	return 0;
 }
 
 void rtl_deinit_deferred_work(struct ieee80211_hw *hw)
@@ -568,9 +574,7 @@ int rtl_init_core(struct ieee80211_hw *hw)
 	rtlmac->link_state = MAC80211_NOLINK;
 
 	/* <6> init deferred work */
-	_rtl_init_deferred_work(hw);
-
-	return 0;
+	return _rtl_init_deferred_work(hw);
 }
 EXPORT_SYMBOL_GPL(rtl_init_core);
 
@@ -1303,12 +1307,13 @@ EXPORT_SYMBOL_GPL(rtl_action_proc);
 
 static void setup_arp_tx(struct rtl_priv *rtlpriv, struct rtl_ps_ctl *ppsc)
 {
+	struct ieee80211_hw *hw = rtlpriv->hw;
+
 	rtlpriv->ra.is_special_data = true;
 	if (rtlpriv->cfg->ops->get_btc_status())
 		rtlpriv->btcoexist.btc_ops->btc_special_packet_notify(
 					rtlpriv, 1);
-	rtlpriv->enter_ps = false;
-	schedule_work(&rtlpriv->works.lps_change_work);
+	rtl_lps_leave(hw);
 	ppsc->last_delaylps_stamp_jiffies = jiffies;
 }
 
@@ -1381,8 +1386,7 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx,
 
 		if (is_tx) {
 			rtlpriv->ra.is_special_data = true;
-			rtlpriv->enter_ps = false;
-			schedule_work(&rtlpriv->works.lps_change_work);
+			rtl_lps_leave(hw);
 			ppsc->last_delaylps_stamp_jiffies = jiffies;
 		}
 
@@ -1660,9 +1664,9 @@ void rtl_watchdog_wq_callback(void *data)
 		if (((rtlpriv->link_info.num_rx_inperiod +
 		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
 		    (rtlpriv->link_info.num_rx_inperiod > 2))
-			rtl_lps_enter(hw);
-		else
 			rtl_lps_leave(hw);
+		else
+			rtl_lps_enter(hw);
 	}
 
 	rtlpriv->link_info.num_rx_inperiod = 0;

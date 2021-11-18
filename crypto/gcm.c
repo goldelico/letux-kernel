@@ -117,7 +117,7 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 	struct crypto_ablkcipher *ctr = ctx->ctr;
 	struct {
 		be128 hash;
-		u8 iv[8];
+		u8 iv[16];
 
 		struct crypto_gcm_setkey_result result;
 
@@ -152,10 +152,8 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 
 	err = crypto_ablkcipher_encrypt(&data->req);
 	if (err == -EINPROGRESS || err == -EBUSY) {
-		err = wait_for_completion_interruptible(
-			&data->result.completion);
-		if (!err)
-			err = data->result.err;
+		wait_for_completion(&data->result.completion);
+		err = data->result.err;
 	}
 
 	if (err)
@@ -618,7 +616,6 @@ static void crypto_gcm_free(struct aead_instance *inst)
 
 static int crypto_gcm_create_common(struct crypto_template *tmpl,
 				    struct rtattr **tb,
-				    const char *full_name,
 				    const char *ctr_name,
 				    const char *ghash_name)
 {
@@ -639,7 +636,9 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 
 	ghash_alg = crypto_find_alg(ghash_name, &crypto_ahash_type,
 				    CRYPTO_ALG_TYPE_HASH,
-				    CRYPTO_ALG_TYPE_AHASH_MASK);
+				    CRYPTO_ALG_TYPE_AHASH_MASK |
+				    crypto_requires_sync(algt->type,
+							 algt->mask));
 	if (IS_ERR(ghash_alg))
 		return PTR_ERR(ghash_alg);
 
@@ -657,7 +656,8 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 		goto err_free_inst;
 
 	err = -EINVAL;
-	if (ghash->digestsize != 16)
+	if (strcmp(ghash->base.cra_name, "ghash") != 0 ||
+	    ghash->digestsize != 16)
 		goto err_drop_ghash;
 
 	crypto_set_skcipher_spawn(&ctx->ctr, aead_crypto_instance(inst));
@@ -669,23 +669,23 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 
 	ctr = crypto_skcipher_spawn_alg(&ctx->ctr);
 
-	/* We only support 16-byte blocks. */
-	if (ctr->cra_ablkcipher.ivsize != 16)
-		goto out_put_ctr;
-
-	/* Not a stream cipher? */
+	/* The skcipher algorithm must be CTR mode, using 16-byte blocks. */
 	err = -EINVAL;
-	if (ctr->cra_blocksize != 1)
+	if (strncmp(ctr->cra_name, "ctr(", 4) != 0 ||
+	    ctr->cra_ablkcipher.ivsize != 16 ||
+	    ctr->cra_blocksize != 1)
 		goto out_put_ctr;
 
 	err = -ENAMETOOLONG;
+	if (snprintf(inst->alg.base.cra_name, CRYPTO_MAX_ALG_NAME,
+		     "gcm(%s", ctr->cra_name + 4) >= CRYPTO_MAX_ALG_NAME)
+		goto out_put_ctr;
+
 	if (snprintf(inst->alg.base.cra_driver_name, CRYPTO_MAX_ALG_NAME,
 		     "gcm_base(%s,%s)", ctr->cra_driver_name,
 		     ghash_alg->cra_driver_name) >=
 	    CRYPTO_MAX_ALG_NAME)
 		goto out_put_ctr;
-
-	memcpy(inst->alg.base.cra_name, full_name, CRYPTO_MAX_ALG_NAME);
 
 	inst->alg.base.cra_flags = (ghash->base.cra_flags | ctr->cra_flags) &
 				   CRYPTO_ALG_ASYNC;
@@ -727,7 +727,6 @@ static int crypto_gcm_create(struct crypto_template *tmpl, struct rtattr **tb)
 {
 	const char *cipher_name;
 	char ctr_name[CRYPTO_MAX_ALG_NAME];
-	char full_name[CRYPTO_MAX_ALG_NAME];
 
 	cipher_name = crypto_attr_alg_name(tb[1]);
 	if (IS_ERR(cipher_name))
@@ -737,12 +736,7 @@ static int crypto_gcm_create(struct crypto_template *tmpl, struct rtattr **tb)
 	    CRYPTO_MAX_ALG_NAME)
 		return -ENAMETOOLONG;
 
-	if (snprintf(full_name, CRYPTO_MAX_ALG_NAME, "gcm(%s)", cipher_name) >=
-	    CRYPTO_MAX_ALG_NAME)
-		return -ENAMETOOLONG;
-
-	return crypto_gcm_create_common(tmpl, tb, full_name,
-					ctr_name, "ghash");
+	return crypto_gcm_create_common(tmpl, tb, ctr_name, "ghash");
 }
 
 static struct crypto_template crypto_gcm_tmpl = {
@@ -756,7 +750,6 @@ static int crypto_gcm_base_create(struct crypto_template *tmpl,
 {
 	const char *ctr_name;
 	const char *ghash_name;
-	char full_name[CRYPTO_MAX_ALG_NAME];
 
 	ctr_name = crypto_attr_alg_name(tb[1]);
 	if (IS_ERR(ctr_name))
@@ -766,12 +759,7 @@ static int crypto_gcm_base_create(struct crypto_template *tmpl,
 	if (IS_ERR(ghash_name))
 		return PTR_ERR(ghash_name);
 
-	if (snprintf(full_name, CRYPTO_MAX_ALG_NAME, "gcm_base(%s,%s)",
-		     ctr_name, ghash_name) >= CRYPTO_MAX_ALG_NAME)
-		return -ENAMETOOLONG;
-
-	return crypto_gcm_create_common(tmpl, tb, full_name,
-					ctr_name, ghash_name);
+	return crypto_gcm_create_common(tmpl, tb, ctr_name, ghash_name);
 }
 
 static struct crypto_template crypto_gcm_base_tmpl = {

@@ -443,9 +443,9 @@ static int btt_log_init(struct arena_info *arena)
 
 static int btt_freelist_init(struct arena_info *arena)
 {
-	int old, new, ret;
+	int new, ret;
 	u32 i, map_entry;
-	struct log_entry log_new, log_old;
+	struct log_entry log_new;
 
 	arena->freelist = kcalloc(arena->nfree, sizeof(struct free_entry),
 					GFP_KERNEL);
@@ -453,10 +453,6 @@ static int btt_freelist_init(struct arena_info *arena)
 		return -ENOMEM;
 
 	for (i = 0; i < arena->nfree; i++) {
-		old = btt_log_read(arena, i, &log_old, LOG_OLD_ENT);
-		if (old < 0)
-			return old;
-
 		new = btt_log_read(arena, i, &log_new, LOG_NEW_ENT);
 		if (new < 0)
 			return new;
@@ -1205,10 +1201,13 @@ static int btt_rw_page(struct block_device *bdev, sector_t sector,
 		struct page *page, int rw)
 {
 	struct btt *btt = bdev->bd_disk->private_data;
+	int rc;
 
-	btt_do_bvec(btt, NULL, page, PAGE_CACHE_SIZE, 0, rw, sector);
-	page_endio(page, rw & WRITE, 0);
-	return 0;
+	rc = btt_do_bvec(btt, NULL, page, PAGE_CACHE_SIZE, 0, rw, sector);
+	if (rc == 0)
+		page_endio(page, rw & WRITE, 0);
+
+	return rc;
 }
 
 

@@ -852,7 +852,7 @@ static int wm_adsp_create_control(struct wm_adsp *dsp,
 	ctl_work = kzalloc(sizeof(*ctl_work), GFP_KERNEL);
 	if (!ctl_work) {
 		ret = -ENOMEM;
-		goto err_ctl_cache;
+		goto err_list_del;
 	}
 
 	ctl_work->dsp = dsp;
@@ -862,7 +862,8 @@ static int wm_adsp_create_control(struct wm_adsp *dsp,
 
 	return 0;
 
-err_ctl_cache:
+err_list_del:
+	list_del(&ctl->list);
 	kfree(ctl->cache);
 err_ctl_name:
 	kfree(ctl->name);
@@ -1060,7 +1061,7 @@ static int wm_adsp_load(struct wm_adsp *dsp)
 	const struct wmfw_region *region;
 	const struct wm_adsp_region *mem;
 	const char *region_name;
-	char *file, *text;
+	char *file, *text = NULL;
 	struct wm_adsp_buf *buf;
 	unsigned int reg;
 	int regions = 0;
@@ -1221,10 +1222,21 @@ static int wm_adsp_load(struct wm_adsp *dsp)
 			 regions, le32_to_cpu(region->len), offset,
 			 region_name);
 
+		if ((pos + le32_to_cpu(region->len) + sizeof(*region)) >
+		    firmware->size) {
+			adsp_err(dsp,
+				 "%s.%d: %s region len %d bytes exceeds file length %zu\n",
+				 file, regions, region_name,
+				 le32_to_cpu(region->len), firmware->size);
+			ret = -EINVAL;
+			goto out_fw;
+		}
+
 		if (text) {
 			memcpy(text, region->data, le32_to_cpu(region->len));
 			adsp_info(dsp, "%s: %s\n", file, text);
 			kfree(text);
+			text = NULL;
 		}
 
 		if (reg) {
@@ -1269,6 +1281,7 @@ out_fw:
 	regmap_async_complete(regmap);
 	wm_adsp_buf_free(&buf_list);
 	release_firmware(firmware);
+	kfree(text);
 out:
 	kfree(file);
 
@@ -1730,6 +1743,17 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 		}
 
 		if (reg) {
+			if ((pos + le32_to_cpu(blk->len) + sizeof(*blk)) >
+			    firmware->size) {
+				adsp_err(dsp,
+					 "%s.%d: %s region len %d bytes exceeds file length %zu\n",
+					 file, blocks, region_name,
+					 le32_to_cpu(blk->len),
+					 firmware->size);
+				ret = -EINVAL;
+				goto out_fw;
+			}
+
 			buf = wm_adsp_buf_alloc(blk->data,
 						le32_to_cpu(blk->len),
 						&buf_list);

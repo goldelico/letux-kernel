@@ -2278,6 +2278,17 @@ static int sync_toggles(struct mlx4_dev *dev)
 		rd_toggle = swab32(readl(&priv->mfunc.comm->slave_read));
 		if (wr_toggle == 0xffffffff || rd_toggle == 0xffffffff) {
 			/* PCI might be offline */
+
+			/* If device removal has been requested,
+			 * do not continue retrying.
+			 */
+			if (dev->persist->interface_state &
+			    MLX4_INTERFACE_STATE_NOWAIT) {
+				mlx4_warn(dev,
+					  "communication channel is offline\n");
+				return -EIO;
+			}
+
 			msleep(100);
 			wr_toggle = swab32(readl(&priv->mfunc.comm->
 					   slave_write));
@@ -2440,6 +2451,7 @@ err_comm_admin:
 	kfree(priv->mfunc.master.slave_state);
 err_comm:
 	iounmap(priv->mfunc.comm);
+	priv->mfunc.comm = NULL;
 err_vhcr:
 	dma_free_coherent(&dev->persist->pdev->dev, PAGE_SIZE,
 			  priv->mfunc.vhcr,
@@ -2507,6 +2519,13 @@ void mlx4_report_internal_err_comm_event(struct mlx4_dev *dev)
 	int slave;
 	u32 slave_read;
 
+	/* If the comm channel has not yet been initialized,
+	 * skip reporting the internal error event to all
+	 * the communication channels.
+	 */
+	if (!priv->mfunc.comm)
+		return;
+
 	/* Report an internal error event to all
 	 * communication channels.
 	 */
@@ -2541,6 +2560,7 @@ void mlx4_multi_func_cleanup(struct mlx4_dev *dev)
 	}
 
 	iounmap(priv->mfunc.comm);
+	priv->mfunc.comm = NULL;
 }
 
 void mlx4_cmd_cleanup(struct mlx4_dev *dev, int cleanup_mask)
@@ -2625,6 +2645,7 @@ void mlx4_cmd_use_polling(struct mlx4_dev *dev)
 		down(&priv->cmd.event_sem);
 
 	kfree(priv->cmd.context);
+	priv->cmd.context = NULL;
 
 	up(&priv->cmd.poll_sem);
 }

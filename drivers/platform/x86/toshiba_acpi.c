@@ -34,6 +34,7 @@
 #define TOSHIBA_ACPI_VERSION	"0.23"
 #define PROC_INTERFACE_VERSION	1
 
+#include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -131,7 +132,7 @@ MODULE_LICENSE("GPL");
 /* Field definitions */
 #define HCI_ACCEL_MASK			0x7fff
 #define HCI_HOTKEY_DISABLE		0x0b
-#define HCI_HOTKEY_ENABLE		0x01
+#define HCI_HOTKEY_ENABLE		0x09
 #define HCI_HOTKEY_SPECIAL_FUNCTIONS	0x10
 #define HCI_LCD_BRIGHTNESS_BITS		3
 #define HCI_LCD_BRIGHTNESS_SHIFT	(16-HCI_LCD_BRIGHTNESS_BITS)
@@ -1472,7 +1473,7 @@ static const struct file_operations keys_proc_fops = {
 	.write		= keys_proc_write,
 };
 
-static int version_proc_show(struct seq_file *m, void *v)
+static int __maybe_unused version_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "driver:                  %s\n", TOSHIBA_ACPI_VERSION);
 	seq_printf(m, "proc_interface:          %d\n", PROC_INTERFACE_VERSION);
@@ -2447,6 +2448,7 @@ static int toshiba_acpi_setup_keyboard(struct toshiba_acpi_dev *dev)
 
 	if (!dev->info_supported && !dev->system_event_supported) {
 		pr_warn("No hotkey query interface found\n");
+		error = -EINVAL;
 		goto err_remove_filter;
 	}
 
@@ -2484,6 +2486,14 @@ static int toshiba_acpi_setup_backlight(struct toshiba_acpi_dev *dev)
 	brightness = __get_lcd_brightness(dev);
 	if (brightness < 0)
 		return 0;
+	/*
+	 * If transflective backlight is supported and the brightness is zero
+	 * (lowest brightness level), the set_lcd_brightness function will
+	 * activate the transflective backlight, making the LCD appear to be
+	 * turned off, simply increment the brightness level to avoid that.
+	 */
+	if (dev->tr_backlight_supported && brightness == 0)
+		brightness++;
 	ret = set_lcd_brightness(dev, brightness);
 	if (ret) {
 		pr_debug("Backlight method is read-only, disabling backlight support\n");

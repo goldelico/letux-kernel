@@ -1548,7 +1548,8 @@ static int add_oui_reg_req(struct ib_mad_reg_req *mad_reg_req,
 			    mad_reg_req->oui, 3)) {
 			method = &(*vendor_table)->vendor_class[
 						vclass]->method_table[i];
-			BUG_ON(!*method);
+			if (!*method)
+				goto error3;
 			goto check_in_use;
 		}
 	}
@@ -1558,10 +1559,12 @@ static int add_oui_reg_req(struct ib_mad_reg_req *mad_reg_req,
 				vclass]->oui[i])) {
 			method = &(*vendor_table)->vendor_class[
 				vclass]->method_table[i];
-			BUG_ON(*method);
 			/* Allocate method table for this OUI */
-			if ((ret = allocate_method_table(method)))
-				goto error3;
+			if (!*method) {
+				ret = allocate_method_table(method);
+				if (ret)
+					goto error3;
+			}
 			memcpy((*vendor_table)->vendor_class[vclass]->oui[i],
 			       mad_reg_req->oui, 3);
 			goto check_in_use;
@@ -1745,7 +1748,7 @@ find_mad_agent(struct ib_mad_port_private *port_priv,
 			if (!class)
 				goto out;
 			if (convert_mgmt_class(mad_hdr->mgmt_class) >=
-			    IB_MGMT_MAX_METHODS)
+			    ARRAY_SIZE(class->method_table))
 				goto out;
 			method = class->method_table[convert_mgmt_class(
 							mad_hdr->mgmt_class)];
@@ -2909,6 +2912,7 @@ static int ib_mad_post_receive_mads(struct ib_mad_qp_info *qp_info,
 						 DMA_FROM_DEVICE);
 		if (unlikely(ib_dma_mapping_error(qp_info->port_priv->device,
 						  sg_list.addr))) {
+			kfree(mad_priv);
 			ret = -ENOMEM;
 			break;
 		}

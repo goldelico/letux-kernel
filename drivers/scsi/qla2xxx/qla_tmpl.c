@@ -395,6 +395,10 @@ qla27xx_fwdt_entry_t263(struct scsi_qla_host *vha,
 	if (ent->t263.queue_type == T263_QUEUE_TYPE_REQ) {
 		for (i = 0; i < vha->hw->max_req_queues; i++) {
 			struct req_que *req = vha->hw->req_q_map[i];
+
+			if (!test_bit(i, vha->hw->req_qid_map))
+				continue;
+
 			if (req || !buf) {
 				length = req ?
 				    req->length : REQUEST_ENTRY_CNT_24XX;
@@ -408,6 +412,10 @@ qla27xx_fwdt_entry_t263(struct scsi_qla_host *vha,
 	} else if (ent->t263.queue_type == T263_QUEUE_TYPE_RSP) {
 		for (i = 0; i < vha->hw->max_rsp_queues; i++) {
 			struct rsp_que *rsp = vha->hw->rsp_q_map[i];
+
+			if (!test_bit(i, vha->hw->rsp_qid_map))
+				continue;
+
 			if (rsp || !buf) {
 				length = rsp ?
 				    rsp->length : RESPONSE_ENTRY_CNT_MQ;
@@ -634,6 +642,10 @@ qla27xx_fwdt_entry_t274(struct scsi_qla_host *vha,
 	if (ent->t274.queue_type == T274_QUEUE_TYPE_REQ_SHAD) {
 		for (i = 0; i < vha->hw->max_req_queues; i++) {
 			struct req_que *req = vha->hw->req_q_map[i];
+
+			if (!test_bit(i, vha->hw->req_qid_map))
+				continue;
+
 			if (req || !buf) {
 				qla27xx_insert16(i, buf, len);
 				qla27xx_insert16(1, buf, len);
@@ -645,6 +657,10 @@ qla27xx_fwdt_entry_t274(struct scsi_qla_host *vha,
 	} else if (ent->t274.queue_type == T274_QUEUE_TYPE_RSP_SHAD) {
 		for (i = 0; i < vha->hw->max_rsp_queues; i++) {
 			struct rsp_que *rsp = vha->hw->rsp_q_map[i];
+
+			if (!test_bit(i, vha->hw->rsp_qid_map))
+				continue;
+
 			if (rsp || !buf) {
 				qla27xx_insert16(i, buf, len);
 				qla27xx_insert16(1, buf, len);
@@ -855,7 +871,8 @@ qla27xx_template_checksum(void *p, ulong size)
 static inline int
 qla27xx_verify_template_checksum(struct qla27xx_fwdt_template *tmp)
 {
-	return qla27xx_template_checksum(tmp, tmp->template_size) == 0;
+	return qla27xx_template_checksum(tmp,
+		le32_to_cpu(tmp->template_size)) == 0;
 }
 
 static inline int
@@ -871,7 +888,7 @@ qla27xx_execute_fwdt_template(struct scsi_qla_host *vha)
 	ulong len;
 
 	if (qla27xx_fwdt_template_valid(tmp)) {
-		len = tmp->template_size;
+		len = le32_to_cpu(tmp->template_size);
 		tmp = memcpy(vha->hw->fw_dump, tmp, len);
 		ql27xx_edit_template(vha, tmp);
 		qla27xx_walk_template(vha, tmp, tmp, &len);
@@ -887,7 +904,7 @@ qla27xx_fwdt_calculate_dump_size(struct scsi_qla_host *vha)
 	ulong len = 0;
 
 	if (qla27xx_fwdt_template_valid(tmp)) {
-		len = tmp->template_size;
+		len = le32_to_cpu(tmp->template_size);
 		qla27xx_walk_template(vha, tmp, NULL, &len);
 	}
 
@@ -899,7 +916,7 @@ qla27xx_fwdt_template_size(void *p)
 {
 	struct qla27xx_fwdt_template *tmp = p;
 
-	return tmp->template_size;
+	return le32_to_cpu(tmp->template_size);
 }
 
 ulong

@@ -141,14 +141,6 @@ static int reconfig_codec(struct hda_codec *codec)
 	err = snd_hda_codec_configure(codec);
 	if (err < 0)
 		goto error;
-	/* rebuild PCMs */
-	err = snd_hda_codec_build_pcms(codec);
-	if (err < 0)
-		goto error;
-	/* rebuild mixers */
-	err = snd_hda_codec_build_controls(codec);
-	if (err < 0)
-		goto error;
 	err = snd_card_register(codec->card);
  error:
 	snd_hda_power_down(codec);
@@ -229,7 +221,7 @@ static ssize_t init_verbs_show(struct device *dev,
 	mutex_lock(&codec->user_mutex);
 	for (i = 0; i < codec->init_verbs.used; i++) {
 		struct hda_verb *v = snd_array_elem(&codec->init_verbs, i);
-		len += snprintf(buf + len, PAGE_SIZE - len,
+		len += scnprintf(buf + len, PAGE_SIZE - len,
 				"0x%02x 0x%03x 0x%04x\n",
 				v->nid, v->verb, v->param);
 	}
@@ -279,7 +271,7 @@ static ssize_t hints_show(struct device *dev,
 	mutex_lock(&codec->user_mutex);
 	for (i = 0; i < codec->hints.used; i++) {
 		struct hda_hint *hint = snd_array_elem(&codec->hints, i);
-		len += snprintf(buf + len, PAGE_SIZE - len,
+		len += scnprintf(buf + len, PAGE_SIZE - len,
 				"%s = %s\n", hint->key, hint->val);
 	}
 	mutex_unlock(&codec->user_mutex);

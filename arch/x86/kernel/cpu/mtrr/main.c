@@ -47,7 +47,7 @@
 #include <linux/smp.h>
 #include <linux/syscore_ops.h>
 
-#include <asm/processor.h>
+#include <asm/cpufeature.h>
 #include <asm/e820.h>
 #include <asm/mtrr.h>
 #include <asm/msr.h>
@@ -682,7 +682,7 @@ void __init mtrr_bp_init(void)
 
 	phys_addr = 32;
 
-	if (cpu_has_mtrr) {
+	if (boot_cpu_has(X86_FEATURE_MTRR)) {
 		mtrr_if = &generic_mtrr_ops;
 		size_or_mask = SIZE_OR_MASK_BITS(36);
 		size_and_mask = 0x00f00000;
@@ -699,8 +699,8 @@ void __init mtrr_bp_init(void)
 			if (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL &&
 			    boot_cpu_data.x86 == 0xF &&
 			    boot_cpu_data.x86_model == 0x3 &&
-			    (boot_cpu_data.x86_mask == 0x3 ||
-			     boot_cpu_data.x86_mask == 0x4))
+			    (boot_cpu_data.x86_stepping == 0x3 ||
+			     boot_cpu_data.x86_stepping == 0x4))
 				phys_addr = 36;
 
 			size_or_mask = SIZE_OR_MASK_BITS(phys_addr);
@@ -752,6 +752,9 @@ void __init mtrr_bp_init(void)
 			/* BIOS may override */
 			__mtrr_enabled = get_mtrr_state();
 
+			if (mtrr_enabled())
+				mtrr_bp_pat_init();
+
 			if (mtrr_cleanup(phys_addr)) {
 				changed_by_mtrr_cleanup = 1;
 				mtrr_if->set_all();
@@ -759,8 +762,16 @@ void __init mtrr_bp_init(void)
 		}
 	}
 
-	if (!mtrr_enabled())
+	if (!mtrr_enabled()) {
 		pr_info("MTRR: Disabled\n");
+
+		/*
+		 * PAT initialization relies on MTRR's rendezvous handler.
+		 * Skip PAT init until the handler can initialize both
+		 * features independently.
+		 */
+		pat_disable("MTRRs disabled, skipping PAT initialization too.");
+	}
 }
 
 void mtrr_ap_init(void)

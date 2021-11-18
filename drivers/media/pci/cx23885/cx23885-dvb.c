@@ -1452,8 +1452,9 @@ static int dvb_register(struct cx23885_tsport *port)
 		if (fe0->dvb.frontend != NULL) {
 			struct i2c_adapter *tun_i2c;
 
-			fe0->dvb.frontend->sec_priv = kmalloc(sizeof(dib7000p_ops), GFP_KERNEL);
-			memcpy(fe0->dvb.frontend->sec_priv, &dib7000p_ops, sizeof(dib7000p_ops));
+			fe0->dvb.frontend->sec_priv = kmemdup(&dib7000p_ops, sizeof(dib7000p_ops), GFP_KERNEL);
+			if (!fe0->dvb.frontend->sec_priv)
+				return -ENOMEM;
 			tun_i2c = dib7000p_ops.get_i2c_master(fe0->dvb.frontend, DIBX000_I2C_INTERFACE_TUNER, 1);
 			if (!dvb_attach(dib0070_attach, fe0->dvb.frontend, tun_i2c, &dib7070p_dib0070_config))
 				return -ENODEV;
@@ -2168,10 +2169,11 @@ static int dvb_register(struct cx23885_tsport *port)
 		}
 		port->i2c_client_tuner = client_tuner;
 		break;
-	case CX23885_BOARD_HAUPPAUGE_HVR5525:
-		switch (port->nr) {
+	case CX23885_BOARD_HAUPPAUGE_HVR5525: {
 		struct m88rs6000t_config m88rs6000t_config;
 		struct a8293_platform_data a8293_pdata = {};
+
+		switch (port->nr) {
 
 		/* port b - satellite */
 		case 1:
@@ -2267,6 +2269,7 @@ static int dvb_register(struct cx23885_tsport *port)
 			break;
 		}
 		break;
+	}
 	default:
 		printk(KERN_INFO "%s: The frontend of your DVB/ATSC card "
 			" isn't supported yet\n",

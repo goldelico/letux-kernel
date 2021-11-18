@@ -13,6 +13,7 @@
 			interrupts = <25>;
 			#dma-channels = <32>;
 			#dma-cells = <2>;
+			#dma-requests = <75>;
 			status = "okay";
 		};
 
@@ -26,7 +27,7 @@
 			clocks = <&clks CLK_NONE>;
 		};
 
-		pxa27x_ohci: usb@4c000000 {
+		usb0: usb@4c000000 {
 			compatible = "marvell,pxa-ohci";
 			reg = <0x4c000000 0x10000>;
 			interrupts = <3>;
@@ -62,7 +63,7 @@
 			clocks = <&clks CLK_PWM1>;
 		};
 
-		pwri2c: i2c@40f000180 {
+		pwri2c: i2c@40f00180 {
 			compatible = "mrvl,pxa-i2c";
 			reg = <0x40f00180 0x24>;
 			interrupts = <6>;

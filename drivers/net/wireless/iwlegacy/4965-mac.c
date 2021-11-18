@@ -4361,8 +4361,9 @@ il4965_synchronize_irq(struct il_priv *il)
 }
 
 static void
-il4965_irq_tasklet(struct il_priv *il)
+il4965_irq_tasklet(unsigned long data)
 {
+	struct il_priv *il = (struct il_priv *)data;
 	u32 inta, handled = 0;
 	u32 inta_fh;
 	unsigned long flags;
@@ -5982,12 +5983,14 @@ il4965_mac_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 
 int
 il4965_mac_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			enum ieee80211_ampdu_mlme_action action,
-			struct ieee80211_sta *sta, u16 tid, u16 * ssn,
-			u8 buf_size, bool amsdu)
+			struct ieee80211_ampdu_params *params)
 {
 	struct il_priv *il = hw->priv;
 	int ret = -EINVAL;
+	struct ieee80211_sta *sta = params->sta;
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
 
 	D_HT("A-MPDU action on addr %pM tid %d\n", sta->addr, tid);
 
@@ -6255,7 +6258,7 @@ il4965_setup_deferred_work(struct il_priv *il)
 	setup_timer(&il->watchdog, il_bg_watchdog, (unsigned long)il);
 
 	tasklet_init(&il->irq_tasklet,
-		     (void (*)(unsigned long))il4965_irq_tasklet,
+		     il4965_irq_tasklet,
 		     (unsigned long)il);
 }
 

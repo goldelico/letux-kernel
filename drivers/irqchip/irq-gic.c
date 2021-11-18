@@ -336,7 +336,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		irqstat = readl_relaxed(cpu_base + GIC_CPU_INTACK);
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
-		if (likely(irqnr > 15 && irqnr < 1021)) {
+		if (likely(irqnr > 15 && irqnr < 1020)) {
 			if (static_key_true(&supports_deactivate))
 				writel_relaxed(irqstat, cpu_base + GIC_CPU_EOI);
 			handle_domain_irq(gic->domain, irqnr, regs);
@@ -347,6 +347,14 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 			if (static_key_true(&supports_deactivate))
 				writel_relaxed(irqstat, cpu_base + GIC_CPU_DEACTIVATE);
 #ifdef CONFIG_SMP
+			/*
+			 * Ensure any shared data written by the CPU sending
+			 * the IPI is read after we've read the ACK register
+			 * on the GIC.
+			 *
+			 * Pairs with the write barrier in gic_raise_softirq
+			 */
+			smp_rmb();
 			handle_IPI(irqnr, regs);
 #endif
 			continue;

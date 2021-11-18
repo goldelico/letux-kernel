@@ -158,14 +158,17 @@ struct hd_struct *disk_part_iter_next(struct disk_part_iter *piter)
 		part = rcu_dereference(ptbl->part[piter->idx]);
 		if (!part)
 			continue;
+		get_device(part_to_dev(part));
+		piter->part = part;
 		if (!part_nr_sects_read(part) &&
 		    !(piter->flags & DISK_PITER_INCL_EMPTY) &&
 		    !(piter->flags & DISK_PITER_INCL_EMPTY_PART0 &&
-		      piter->idx == 0))
+		      piter->idx == 0)) {
+			put_device(part_to_dev(part));
+			piter->part = NULL;
 			continue;
+		}
 
-		get_device(part_to_dev(part));
-		piter->part = part;
 		piter->idx += inc;
 		break;
 	}
@@ -612,7 +615,7 @@ void add_disk(struct gendisk *disk)
 
 	/* Register BDI before referencing it from bdev */
 	bdi = &disk->queue->backing_dev_info;
-	bdi_register_dev(bdi, disk_devt(disk));
+	bdi_register_owner(bdi, disk_to_dev(disk));
 
 	blk_register_region(disk_devt(disk), disk->minors, NULL,
 			    exact_match, exact_lock, disk);
@@ -664,7 +667,6 @@ void del_gendisk(struct gendisk *disk)
 
 	kobject_put(disk->part0.holder_dir);
 	kobject_put(disk->slave_dir);
-	disk->driverfs_dev = NULL;
 	if (!sysfs_deprecated)
 		sysfs_remove_link(block_depr, dev_name(disk_to_dev(disk)));
 	pm_runtime_set_memalloc_noio(disk_to_dev(disk), false);
@@ -831,6 +833,7 @@ static void disk_seqf_stop(struct seq_file *seqf, void *v)
 	if (iter) {
 		class_dev_iter_exit(iter);
 		kfree(iter);
+		seqf->private = NULL;
 	}
 }
 

@@ -32,6 +32,7 @@
 #include <linux/list.h>
 #include <linux/hash.h>
 #include <linux/rcupdate.h>
+#include <linux/kprobes.h>
 
 #include <trace/events/sched.h>
 
@@ -636,8 +637,7 @@ static int function_stat_show(struct seq_file *m, void *v)
 	}
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
-	avg = rec->time;
-	do_div(avg, rec->counter);
+	avg = div64_ul(rec->time, rec->counter);
 	if (tracing_thresh && (avg < tracing_thresh))
 		goto out;
 #endif
@@ -663,7 +663,8 @@ static int function_stat_show(struct seq_file *m, void *v)
 		 * Divide only 1000 for ns^2 -> us^2 conversion.
 		 * trace_print_graph_duration will divide 1000 again.
 		 */
-		do_div(stddev, rec->counter * (rec->counter - 1) * 1000);
+		stddev = div64_ul(stddev,
+				  rec->counter * (rec->counter - 1) * 1000);
 	}
 
 	trace_seq_init(&s);
@@ -1942,12 +1943,18 @@ static int ftrace_hash_ipmodify_update(struct ftrace_ops *ops,
 
 static void print_ip_ins(const char *fmt, unsigned char *p)
 {
+	char ins[MCOUNT_INSN_SIZE];
 	int i;
+
+	if (probe_kernel_read(ins, p, MCOUNT_INSN_SIZE)) {
+		printk(KERN_CONT "%s[FAULT] %px\n", fmt, p);
+		return;
+	}
 
 	printk(KERN_CONT "%s", fmt);
 
 	for (i = 0; i < MCOUNT_INSN_SIZE; i++)
-		printk(KERN_CONT "%s%02x", i ? ":" : "", p[i]);
+		printk(KERN_CONT "%s%02x", i ? ":" : "", ins[i]);
 }
 
 static struct ftrace_ops *
@@ -2667,13 +2674,14 @@ static int ftrace_shutdown(struct ftrace_ops *ops, int command)
 
 	if (!command || !ftrace_enabled) {
 		/*
-		 * If these are control ops, they still need their
-		 * per_cpu field freed. Since, function tracing is
+		 * If these are dynamic or control ops, they still
+		 * need their data freed. Since, function tracing is
 		 * not currently active, we can just free them
 		 * without synchronizing all CPUs.
 		 */
-		if (ops->flags & FTRACE_OPS_FL_CONTROL)
-			control_ops_free(ops);
+		if (ops->flags & (FTRACE_OPS_FL_DYNAMIC | FTRACE_OPS_FL_CONTROL))
+			goto free_ops;
+
 		return 0;
 	}
 
@@ -2728,6 +2736,7 @@ static int ftrace_shutdown(struct ftrace_ops *ops, int command)
 	if (ops->flags & (FTRACE_OPS_FL_DYNAMIC | FTRACE_OPS_FL_CONTROL)) {
 		schedule_on_each_cpu(ftrace_sync);
 
+ free_ops:
 		arch_ftrace_trampoline_free(ops);
 
 		if (ops->flags & FTRACE_OPS_FL_CONTROL)
@@ -2820,8 +2829,11 @@ static int referenced_filters(struct dyn_ftrace *rec)
 	int cnt = 0;
 
 	for (ops = ftrace_ops_list; ops != &ftrace_list_end; ops = ops->next) {
-		if (ops_references_rec(ops, rec))
-		    cnt++;
+		if (ops_references_rec(ops, rec)) {
+			cnt++;
+			if (ops->flags & FTRACE_OPS_FL_SAVE_REGS)
+				rec->flags |= FTRACE_FL_REGS;
+		}
 	}
 
 	return cnt;
@@ -2871,7 +2883,7 @@ static int ftrace_update_code(struct module *mod, struct ftrace_page *new_pgs)
 			p = &pg->records[i];
 			if (test)
 				cnt += referenced_filters(p);
-			p->flags = cnt;
+			p->flags += cnt;
 
 			/*
 			 * Do the initial record conversion from mcount jump
@@ -3535,7 +3547,7 @@ match_records(struct ftrace_hash *hash, char *func, int len, char *mod)
 	int exclude_mod = 0;
 	int found = 0;
 	int ret;
-	int clear_filter;
+	int clear_filter = 0;
 
 	if (func) {
 		func_g.type = filter_parse_regex(func, len, &func_g.search,
@@ -3677,23 +3689,24 @@ static void __enable_ftrace_function_probe(struct ftrace_ops_hash *old_hash)
 	ftrace_probe_registered = 1;
 }
 
-static void __disable_ftrace_function_probe(void)
+static bool __disable_ftrace_function_probe(void)
 {
 	int i;
 
 	if (!ftrace_probe_registered)
-		return;
+		return false;
 
 	for (i = 0; i < FTRACE_FUNC_HASHSIZE; i++) {
 		struct hlist_head *hhd = &ftrace_func_hash[i];
 		if (hhd->first)
-			return;
+			return false;
 	}
 
 	/* no more funcs left */
 	ftrace_shutdown(&trace_probe_ops, 0);
 
 	ftrace_probe_registered = 0;
+	return true;
 }
 
 
@@ -3820,6 +3833,7 @@ static void
 __unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 				  void *data, int flags)
 {
+	struct ftrace_ops_hash old_hash_ops;
 	struct ftrace_func_entry *rec_entry;
 	struct ftrace_func_probe *entry;
 	struct ftrace_func_probe *p;
@@ -3831,6 +3845,7 @@ __unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 	struct hlist_node *tmp;
 	char str[KSYM_SYMBOL_LEN];
 	int i, ret;
+	bool disabled;
 
 	if (glob && (strcmp(glob, "*") == 0 || !strlen(glob)))
 		func_g.search = NULL;
@@ -3840,7 +3855,6 @@ __unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 		func_g.type = filter_parse_regex(glob, strlen(glob),
 						 &func_g.search, &not);
 		func_g.len = strlen(func_g.search);
-		func_g.search = glob;
 
 		/* we do not support '!' for function probes */
 		if (WARN_ON(not))
@@ -3848,6 +3862,10 @@ __unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 	}
 
 	mutex_lock(&trace_probe_ops.func_hash->regex_lock);
+
+	old_hash_ops.filter_hash = old_hash;
+	/* Probes only have filters */
+	old_hash_ops.notrace_hash = NULL;
 
 	hash = alloc_and_copy_ftrace_hash(FTRACE_HASH_DEFAULT_BITS, *orig_hash);
 	if (!hash)
@@ -3886,12 +3904,17 @@ __unregister_ftrace_function_probe(char *glob, struct ftrace_probe_ops *ops,
 		}
 	}
 	mutex_lock(&ftrace_lock);
-	__disable_ftrace_function_probe();
+	disabled = __disable_ftrace_function_probe();
 	/*
 	 * Remove after the disable is called. Otherwise, if the last
 	 * probe is removed, a null hash means *all enabled*.
 	 */
 	ret = ftrace_hash_move(&trace_probe_ops, 1, orig_hash, hash);
+
+	/* still need to update the function call sites */
+	if (ftrace_enabled && !disabled)
+		ftrace_run_modify_code(&trace_probe_ops, FTRACE_UPDATE_CALLS,
+				       &old_hash_ops);
 	synchronize_sched();
 	if (!ret)
 		free_ftrace_hash_rcu(old_hash);
@@ -4301,9 +4324,6 @@ static char ftrace_graph_buf[FTRACE_FILTER_SIZE] __initdata;
 static char ftrace_graph_notrace_buf[FTRACE_FILTER_SIZE] __initdata;
 static int ftrace_set_func(unsigned long *array, int *idx, int size, char *buffer);
 
-static unsigned long save_global_trampoline;
-static unsigned long save_global_flags;
-
 static int __init set_graph_function(char *str)
 {
 	strlcpy(ftrace_graph_buf, str, FTRACE_FILTER_SIZE);
@@ -4387,8 +4407,11 @@ int ftrace_regex_release(struct inode *inode, struct file *file)
 
 	parser = &iter->parser;
 	if (trace_parser_loaded(parser)) {
+		int enable = !(iter->flags & FTRACE_ITER_NOTRACE);
+
 		parser->buffer[parser->idx] = 0;
-		ftrace_match_records(iter->hash, parser->buffer, parser->idx);
+		ftrace_process_regex(iter->hash, parser->buffer,
+				     parser->idx, enable);
 	}
 
 	trace_parser_put(parser);
@@ -4757,6 +4780,7 @@ void ftrace_destroy_filter_files(struct ftrace_ops *ops)
 	if (ops->flags & FTRACE_OPS_FL_ENABLED)
 		ftrace_shutdown(ops, 0);
 	ops->flags |= FTRACE_OPS_FL_DELETED;
+	ftrace_free_filter(ops);
 	mutex_unlock(&ftrace_lock);
 }
 
@@ -5154,14 +5178,14 @@ static struct ftrace_ops control_ops = {
 	INIT_OPS_HASH(control_ops)
 };
 
-static inline void
+static nokprobe_inline void
 __ftrace_ops_list_func(unsigned long ip, unsigned long parent_ip,
 		       struct ftrace_ops *ignored, struct pt_regs *regs)
 {
 	struct ftrace_ops *op;
 	int bit;
 
-	bit = trace_test_and_set_recursion(TRACE_LIST_START, TRACE_LIST_MAX);
+	bit = trace_test_and_set_recursion(TRACE_LIST_START);
 	if (bit < 0)
 		return;
 
@@ -5203,11 +5227,13 @@ static void ftrace_ops_list_func(unsigned long ip, unsigned long parent_ip,
 {
 	__ftrace_ops_list_func(ip, parent_ip, NULL, regs);
 }
+NOKPROBE_SYMBOL(ftrace_ops_list_func);
 #else
 static void ftrace_ops_no_ops(unsigned long ip, unsigned long parent_ip)
 {
 	__ftrace_ops_list_func(ip, parent_ip, NULL, NULL);
 }
+NOKPROBE_SYMBOL(ftrace_ops_no_ops);
 #endif
 
 /*
@@ -5220,7 +5246,7 @@ static void ftrace_ops_recurs_func(unsigned long ip, unsigned long parent_ip,
 {
 	int bit;
 
-	bit = trace_test_and_set_recursion(TRACE_LIST_START, TRACE_LIST_MAX);
+	bit = trace_test_and_set_recursion(TRACE_LIST_START);
 	if (bit < 0)
 		return;
 
@@ -5228,6 +5254,7 @@ static void ftrace_ops_recurs_func(unsigned long ip, unsigned long parent_ip,
 
 	trace_clear_recursion(bit);
 }
+NOKPROBE_SYMBOL(ftrace_ops_recurs_func);
 
 /**
  * ftrace_ops_get_func - get the function a trampoline should call
@@ -5690,7 +5717,6 @@ static int alloc_retstack_tasklist(struct ftrace_ret_stack **ret_stack_list)
 		}
 
 		if (t->ret_stack == NULL) {
-			atomic_set(&t->tracing_graph_pause, 0);
 			atomic_set(&t->trace_overrun, 0);
 			t->curr_ret_stack = -1;
 			/* Make sure the tasks see the -1 first: */
@@ -5893,17 +5919,6 @@ void unregister_ftrace_graph(void)
 	unregister_pm_notifier(&ftrace_suspend_notifier);
 	unregister_trace_sched_switch(ftrace_graph_probe_sched_switch, NULL);
 
-#ifdef CONFIG_DYNAMIC_FTRACE
-	/*
-	 * Function graph does not allocate the trampoline, but
-	 * other global_ops do. We need to reset the ALLOC_TRAMP flag
-	 * if one was used.
-	 */
-	global_ops.trampoline = save_global_trampoline;
-	if (save_global_flags & FTRACE_OPS_FL_ALLOC_TRAMP)
-		global_ops.flags |= FTRACE_OPS_FL_ALLOC_TRAMP;
-#endif
-
  out:
 	mutex_unlock(&ftrace_lock);
 }
@@ -5913,7 +5928,6 @@ static DEFINE_PER_CPU(struct ftrace_ret_stack *, idle_ret_stack);
 static void
 graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack)
 {
-	atomic_set(&t->tracing_graph_pause, 0);
 	atomic_set(&t->trace_overrun, 0);
 	t->ftrace_timestamp = 0;
 	/* make curr_ret_stack visible before we add the ret_stack */

@@ -132,6 +132,8 @@ static irqreturn_t sunxi_ir_irq(int irqno, void *dev_id)
 	} else if (status & REG_RXINT_RPEI_EN) {
 		ir_raw_event_set_idle(ir->rc, true);
 		ir_raw_event_handle(ir->rc);
+	} else {
+		ir_raw_event_handle(ir->rc);
 	}
 
 	spin_unlock(&ir->ir_lock);
@@ -152,6 +154,8 @@ static int sunxi_ir_probe(struct platform_device *pdev)
 	ir = devm_kzalloc(dev, sizeof(struct sunxi_ir), GFP_KERNEL);
 	if (!ir)
 		return -ENOMEM;
+
+	spin_lock_init(&ir->ir_lock);
 
 	if (of_device_is_compatible(dn, "allwinner,sun5i-a13-ir"))
 		ir->fifo_size = 64;

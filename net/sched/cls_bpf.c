@@ -107,8 +107,9 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 		}
 
 		if (prog->exts_integrated) {
-			res->class = prog->res.class;
-			res->classid = qdisc_skb_cb(skb)->tc_classid;
+			res->class   = 0;
+			res->classid = TC_H_MAJ(prog->res.classid) |
+				       qdisc_skb_cb(skb)->tc_classid;
 
 			ret = cls_bpf_exec_opcode(filter_res);
 			if (ret == TC_ACT_UNSPEC)
@@ -118,10 +119,12 @@ static int cls_bpf_classify(struct sk_buff *skb, const struct tcf_proto *tp,
 
 		if (filter_res == 0)
 			continue;
-
-		*res = prog->res;
-		if (filter_res != -1)
+		if (filter_res != -1) {
+			res->class   = 0;
 			res->classid = filter_res;
+		} else {
+			*res = prog->res;
+		}
 
 		ret = tcf_exts_exec(skb, &prog->exts, res);
 		if (ret < 0)
@@ -199,7 +202,6 @@ static bool cls_bpf_destroy(struct tcf_proto *tp, bool force)
 		call_rcu(&prog->rcu, __cls_bpf_delete_prog);
 	}
 
-	RCU_INIT_POINTER(tp->root, NULL);
 	kfree_rcu(head, rcu);
 	return true;
 }
@@ -209,9 +211,6 @@ static unsigned long cls_bpf_get(struct tcf_proto *tp, u32 handle)
 	struct cls_bpf_head *head = rtnl_dereference(tp->root);
 	struct cls_bpf_prog *prog;
 	unsigned long ret = 0UL;
-
-	if (head == NULL)
-		return 0UL;
 
 	list_for_each_entry(prog, &head->plist, link) {
 		if (prog->handle == handle) {

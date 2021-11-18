@@ -290,7 +290,7 @@ static inline void bio_cnt_set(struct bio *bio, unsigned int count)
 {
 	if (count != 1) {
 		bio->bi_flags |= (1 << BIO_REFFED);
-		smp_mb__before_atomic();
+		smp_mb();
 	}
 	atomic_set(&bio->__bi_cnt, count);
 }
@@ -308,6 +308,38 @@ static inline void bio_set_flag(struct bio *bio, unsigned int bit)
 static inline void bio_clear_flag(struct bio *bio, unsigned int bit)
 {
 	bio->bi_flags &= ~(1U << bit);
+}
+
+static inline void bio_get_first_bvec(struct bio *bio, struct bio_vec *bv)
+{
+	*bv = bio_iovec(bio);
+}
+
+static inline void bio_get_last_bvec(struct bio *bio, struct bio_vec *bv)
+{
+	struct bvec_iter iter = bio->bi_iter;
+	int idx;
+
+	if (unlikely(!bio_multiple_segments(bio))) {
+		*bv = bio_iovec(bio);
+		return;
+	}
+
+	bio_advance_iter(bio, &iter, iter.bi_size);
+
+	if (!iter.bi_bvec_done)
+		idx = iter.bi_idx - 1;
+	else	/* in the middle of bvec */
+		idx = iter.bi_idx;
+
+	*bv = bio->bi_io_vec[idx];
+
+	/*
+	 * iter.bi_bvec_done records actual length of the last bvec
+	 * if this bio ends in the middle of one io vector
+	 */
+	if (iter.bi_bvec_done)
+		bv->bv_len = iter.bi_bvec_done;
 }
 
 enum bip_flags {
@@ -495,11 +527,14 @@ extern unsigned int bvec_nr_vecs(unsigned short idx);
 int bio_associate_blkcg(struct bio *bio, struct cgroup_subsys_state *blkcg_css);
 int bio_associate_current(struct bio *bio);
 void bio_disassociate_task(struct bio *bio);
+void bio_clone_blkcg_association(struct bio *dst, struct bio *src);
 #else	/* CONFIG_BLK_CGROUP */
 static inline int bio_associate_blkcg(struct bio *bio,
 			struct cgroup_subsys_state *blkcg_css) { return 0; }
 static inline int bio_associate_current(struct bio *bio) { return -ENOENT; }
 static inline void bio_disassociate_task(struct bio *bio) { }
+static inline void bio_clone_blkcg_association(struct bio *dst,
+			struct bio *src) { }
 #endif	/* CONFIG_BLK_CGROUP */
 
 #ifdef CONFIG_HIGHMEM

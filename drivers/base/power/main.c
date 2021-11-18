@@ -1022,6 +1022,8 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 	TRACE_DEVICE(dev);
 	TRACE_SUSPEND(0);
 
+	dpm_wait_for_children(dev, async);
+
 	if (async_error)
 		goto Complete;
 
@@ -1032,8 +1034,6 @@ static int __device_suspend_noirq(struct device *dev, pm_message_t state, bool a
 
 	if (dev->power.syscore || dev->power.direct_complete)
 		goto Complete;
-
-	dpm_wait_for_children(dev, async);
 
 	if (dev->pm_domain) {
 		info = "noirq power domain ";
@@ -1169,6 +1169,8 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 
 	__pm_runtime_disable(dev, false);
 
+	dpm_wait_for_children(dev, async);
+
 	if (async_error)
 		goto Complete;
 
@@ -1179,8 +1181,6 @@ static int __device_suspend_late(struct device *dev, pm_message_t state, bool as
 
 	if (dev->power.syscore || dev->power.direct_complete)
 		goto Complete;
-
-	dpm_wait_for_children(dev, async);
 
 	if (dev->pm_domain) {
 		info = "late power domain ";
@@ -1262,14 +1262,15 @@ int dpm_suspend_late(pm_message_t state)
 		error = device_suspend_late(dev);
 
 		mutex_lock(&dpm_list_mtx);
+		if (!list_empty(&dev->power.entry))
+			list_move(&dev->power.entry, &dpm_late_early_list);
+
 		if (error) {
 			pm_dev_err(dev, state, " late", error);
 			dpm_save_failed_dev(dev_name(dev));
 			put_device(dev);
 			break;
 		}
-		if (!list_empty(&dev->power.entry))
-			list_move(&dev->power.entry, &dpm_late_early_list);
 		put_device(dev);
 
 		if (async_error)
@@ -1354,25 +1355,36 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	dpm_wait_for_children(dev, async);
 
-	if (async_error)
+	if (async_error) {
+		dev->power.direct_complete = false;
 		goto Complete;
+	}
 
 	/*
-	 * If a device configured to wake up the system from sleep states
-	 * has been suspended at run time and there's a resume request pending
-	 * for it, this is equivalent to the device signaling wakeup, so the
-	 * system suspend operation should be aborted.
+	 * Wait for possible runtime PM transitions of the device in progress
+	 * to complete and if there's a runtime resume request pending for it,
+	 * resume it before proceeding with invoking the system-wide suspend
+	 * callbacks for it.
+	 *
+	 * If the system-wide suspend callbacks below change the configuration
+	 * of the device, they must disable runtime PM for it or otherwise
+	 * ensure that its runtime-resume callbacks will not be confused by that
+	 * change in case they are invoked going forward.
 	 */
-	if (pm_runtime_barrier(dev) && device_may_wakeup(dev))
-		pm_wakeup_event(dev, 0);
+	pm_runtime_barrier(dev);
 
 	if (pm_wakeup_pending()) {
+		dev->power.direct_complete = false;
 		async_error = -EBUSY;
 		goto Complete;
 	}
 
 	if (dev->power.syscore)
 		goto Complete;
+
+	/* Avoid direct_complete to let wakeup_path propagate. */
+	if (device_may_wakeup(dev) || dev->power.wakeup_path)
+		dev->power.direct_complete = false;
 
 	if (dev->power.direct_complete) {
 		if (pm_runtime_status_suspended(dev)) {

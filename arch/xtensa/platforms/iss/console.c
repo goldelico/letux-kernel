@@ -100,21 +100,23 @@ static void rs_poll(unsigned long priv)
 {
 	struct tty_port *port = (struct tty_port *)priv;
 	int i = 0;
+	int rd = 1;
 	unsigned char c;
 
 	spin_lock(&timer_lock);
 
 	while (simc_poll(0)) {
-		simc_read(0, &c, 1);
+		rd = simc_read(0, &c, 1);
+		if (rd <= 0)
+			break;
 		tty_insert_flip_char(port, c, TTY_NORMAL);
 		i++;
 	}
 
 	if (i)
 		tty_flip_buffer_push(port);
-
-
-	mod_timer(&serial_timer, jiffies + SERIAL_TIMER_VALUE);
+	if (rd)
+		mod_timer(&serial_timer, jiffies + SERIAL_TIMER_VALUE);
 	spin_unlock(&timer_lock);
 }
 
@@ -184,9 +186,13 @@ static const struct tty_operations serial_ops = {
 
 int __init rs_init(void)
 {
-	tty_port_init(&serial_port);
+	int ret;
 
 	serial_driver = alloc_tty_driver(SERIAL_MAX_NUM_LINES);
+	if (!serial_driver)
+		return -ENOMEM;
+
+	tty_port_init(&serial_port);
 
 	printk ("%s %s\n", serial_name, serial_version);
 
@@ -206,8 +212,15 @@ int __init rs_init(void)
 	tty_set_operations(serial_driver, &serial_ops);
 	tty_port_link_device(&serial_port, serial_driver, 0);
 
-	if (tty_register_driver(serial_driver))
-		panic("Couldn't register serial driver\n");
+	ret = tty_register_driver(serial_driver);
+	if (ret) {
+		pr_err("Couldn't register serial driver\n");
+		tty_driver_kref_put(serial_driver);
+		tty_port_destroy(&serial_port);
+
+		return ret;
+	}
+
 	return 0;
 }
 

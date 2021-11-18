@@ -4,11 +4,11 @@
  * Copyright (C) 2013 Nandita Dukkipati <nanditad@google.com>
  */
 
-#include <linux/jhash.h>
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/skbuff.h>
 #include <linux/vmalloc.h>
+#include <linux/siphash.h>
 #include <net/pkt_sched.h>
 #include <net/sock.h>
 
@@ -125,7 +125,7 @@ struct wdrr_bucket {
 
 struct hhf_sched_data {
 	struct wdrr_bucket buckets[WDRR_BUCKET_CNT];
-	u32		   perturbation;   /* hash perturbation */
+	siphash_key_t	   perturbation;   /* hash perturbation */
 	u32		   quantum;        /* psched_mtu(qdisc_dev(sch)); */
 	u32		   drop_overlimit; /* number of times max qdisc packet
 					    * limit was hit
@@ -263,7 +263,7 @@ static enum wdrr_bucket_idx hhf_classify(struct sk_buff *skb, struct Qdisc *sch)
 	}
 
 	/* Get hashed flow-id of the skb. */
-	hash = skb_get_hash_perturb(skb, q->perturbation);
+	hash = skb_get_hash_perturb(skb, &q->perturbation);
 
 	/* Check if this packet belongs to an already established HH flow. */
 	flow_pos = hash & HHF_BIT_MASK;
@@ -382,6 +382,7 @@ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	struct hhf_sched_data *q = qdisc_priv(sch);
 	enum wdrr_bucket_idx idx;
 	struct wdrr_bucket *bucket;
+	unsigned int prev_backlog;
 
 	idx = hhf_classify(skb, sch);
 
@@ -409,6 +410,7 @@ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	if (++sch->q.qlen <= sch->limit)
 		return NET_XMIT_SUCCESS;
 
+	prev_backlog = sch->qstats.backlog;
 	q->drop_overlimit++;
 	/* Return Congestion Notification only if we dropped a packet from this
 	 * bucket.
@@ -417,7 +419,7 @@ static int hhf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		return NET_XMIT_CN;
 
 	/* As we dropped a packet, better let upper stack know this. */
-	qdisc_tree_decrease_qlen(sch, 1);
+	qdisc_tree_reduce_backlog(sch, 1, prev_backlog - sch->qstats.backlog);
 	return NET_XMIT_SUCCESS;
 }
 
@@ -499,6 +501,9 @@ static void hhf_destroy(struct Qdisc *sch)
 		hhf_free(q->hhf_valid_bits[i]);
 	}
 
+	if (!q->hh_flows)
+		return;
+
 	for (i = 0; i < HH_FLOWS_CNT; i++) {
 		struct hh_flow_state *flow, *next;
 		struct list_head *head = &q->hh_flows[i];
@@ -527,7 +532,7 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct hhf_sched_data *q = qdisc_priv(sch);
 	struct nlattr *tb[TCA_HHF_MAX + 1];
-	unsigned int qlen;
+	unsigned int qlen, prev_backlog;
 	int err;
 	u64 non_hh_quantum;
 	u32 new_quantum = q->quantum;
@@ -547,7 +552,7 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
 		new_hhf_non_hh_weight = nla_get_u32(tb[TCA_HHF_NON_HH_WEIGHT]);
 
 	non_hh_quantum = (u64)new_quantum * new_hhf_non_hh_weight;
-	if (non_hh_quantum > INT_MAX)
+	if (non_hh_quantum == 0 || non_hh_quantum > INT_MAX)
 		return -EINVAL;
 
 	sch_tree_lock(sch);
@@ -577,12 +582,14 @@ static int hhf_change(struct Qdisc *sch, struct nlattr *opt)
 	}
 
 	qlen = sch->q.qlen;
+	prev_backlog = sch->qstats.backlog;
 	while (sch->q.qlen > sch->limit) {
 		struct sk_buff *skb = hhf_dequeue(sch);
 
 		kfree_skb(skb);
 	}
-	qdisc_tree_decrease_qlen(sch, qlen - sch->q.qlen);
+	qdisc_tree_reduce_backlog(sch, qlen - sch->q.qlen,
+				  prev_backlog - sch->qstats.backlog);
 
 	sch_tree_unlock(sch);
 	return 0;
@@ -595,7 +602,7 @@ static int hhf_init(struct Qdisc *sch, struct nlattr *opt)
 
 	sch->limit = 1000;
 	q->quantum = psched_mtu(qdisc_dev(sch));
-	q->perturbation = prandom_u32();
+	get_random_bytes(&q->perturbation, sizeof(q->perturbation));
 	INIT_LIST_HEAD(&q->new_buckets);
 	INIT_LIST_HEAD(&q->old_buckets);
 
@@ -632,7 +639,9 @@ static int hhf_init(struct Qdisc *sch, struct nlattr *opt)
 			q->hhf_arrays[i] = hhf_zalloc(HHF_ARRAYS_LEN *
 						      sizeof(u32));
 			if (!q->hhf_arrays[i]) {
-				hhf_destroy(sch);
+				/* Note: hhf_destroy() will be called
+				 * by our caller.
+				 */
 				return -ENOMEM;
 			}
 		}
@@ -643,7 +652,9 @@ static int hhf_init(struct Qdisc *sch, struct nlattr *opt)
 			q->hhf_valid_bits[i] = hhf_zalloc(HHF_ARRAYS_LEN /
 							  BITS_PER_BYTE);
 			if (!q->hhf_valid_bits[i]) {
-				hhf_destroy(sch);
+				/* Note: hhf_destroy() will be called
+				 * by our caller.
+				 */
 				return -ENOMEM;
 			}
 		}

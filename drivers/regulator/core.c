@@ -132,24 +132,24 @@ static bool have_full_constraints(void)
 	return has_full_constraints || of_have_populated_dt();
 }
 
+static inline struct regulator_dev *rdev_get_supply(struct regulator_dev *rdev)
+{
+	if (rdev && rdev->supply)
+		return rdev->supply->rdev;
+
+	return NULL;
+}
+
 /**
  * regulator_lock_supply - lock a regulator and its supplies
  * @rdev:         regulator source
  */
 static void regulator_lock_supply(struct regulator_dev *rdev)
 {
-	struct regulator *supply;
-	int i = 0;
+	int i;
 
-	while (1) {
-		mutex_lock_nested(&rdev->mutex, i++);
-		supply = rdev->supply;
-
-		if (!rdev->supply)
-			return;
-
-		rdev = supply->rdev;
-	}
+	for (i = 0; rdev; rdev = rdev_get_supply(rdev), i++)
+		mutex_lock_nested(&rdev->mutex, i);
 }
 
 /**
@@ -1057,18 +1057,18 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 
 	ret = machine_constraints_voltage(rdev, rdev->constraints);
 	if (ret != 0)
-		goto out;
+		return ret;
 
 	ret = machine_constraints_current(rdev, rdev->constraints);
 	if (ret != 0)
-		goto out;
+		return ret;
 
 	if (rdev->constraints->ilim_uA && ops->set_input_current_limit) {
 		ret = ops->set_input_current_limit(rdev,
 						   rdev->constraints->ilim_uA);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set input limit\n");
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1077,21 +1077,20 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = suspend_prepare(rdev, rdev->constraints->initial_state);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set suspend state\n");
-			goto out;
+			return ret;
 		}
 	}
 
 	if (rdev->constraints->initial_mode) {
 		if (!ops->set_mode) {
 			rdev_err(rdev, "no set_mode operation\n");
-			ret = -EINVAL;
-			goto out;
+			return -EINVAL;
 		}
 
 		ret = ops->set_mode(rdev, rdev->constraints->initial_mode);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set initial mode: %d\n", ret);
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1102,7 +1101,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = _regulator_do_enable(rdev);
 		if (ret < 0 && ret != -EINVAL) {
 			rdev_err(rdev, "failed to enable\n");
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1111,7 +1110,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = ops->set_ramp_delay(rdev, rdev->constraints->ramp_delay);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set ramp_delay\n");
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1119,7 +1118,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = ops->set_pull_down(rdev);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set pull down\n");
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1127,7 +1126,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = ops->set_soft_start(rdev);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set soft start\n");
-			goto out;
+			return ret;
 		}
 	}
 
@@ -1136,16 +1135,12 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		ret = ops->set_over_current_protection(rdev);
 		if (ret < 0) {
 			rdev_err(rdev, "failed to set over current protection\n");
-			goto out;
+			return ret;
 		}
 	}
 
 	print_constraints(rdev);
 	return 0;
-out:
-	kfree(rdev->constraints);
-	rdev->constraints = NULL;
-	return ret;
 }
 
 /**
@@ -1519,6 +1514,7 @@ static int regulator_resolve_supply(struct regulator_dev *rdev)
 		ret = regulator_enable(rdev->supply);
 		if (ret < 0) {
 			_regulator_put(rdev->supply);
+			rdev->supply = NULL;
 			return ret;
 		}
 	}
@@ -3982,7 +3978,7 @@ unset_supplies:
 
 scrub:
 	regulator_ena_gpio_free(rdev);
-	kfree(rdev->constraints);
+
 wash:
 	device_unregister(&rdev->dev);
 	/* device core frees rdev */
@@ -4273,12 +4269,13 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 	seq_puts(s, "\n");
 
 	list_for_each_entry(consumer, &rdev->consumer_list, list) {
-		if (consumer->dev->class == &regulator_class)
+		if (consumer->dev && consumer->dev->class == &regulator_class)
 			continue;
 
 		seq_printf(s, "%*s%-*s ",
 			   (level + 1) * 3 + 1, "",
-			   30 - (level + 1) * 3, dev_name(consumer->dev));
+			   30 - (level + 1) * 3,
+			   consumer->dev ? dev_name(consumer->dev) : "deviceless");
 
 		switch (rdev->desc->type) {
 		case REGULATOR_VOLTAGE:

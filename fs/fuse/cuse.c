@@ -90,7 +90,7 @@ static struct list_head *cuse_conntbl_head(dev_t devt)
 
 static ssize_t cuse_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 {
-	struct fuse_io_priv io = { .async = 0, .file = kiocb->ki_filp };
+	struct fuse_io_priv io = FUSE_IO_PRIV_SYNC(kiocb->ki_filp);
 	loff_t pos = 0;
 
 	return fuse_direct_io(&io, to, &pos, FUSE_DIO_CUSE);
@@ -98,7 +98,7 @@ static ssize_t cuse_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 
 static ssize_t cuse_write_iter(struct kiocb *kiocb, struct iov_iter *from)
 {
-	struct fuse_io_priv io = { .async = 0, .file = kiocb->ki_filp };
+	struct fuse_io_priv io = FUSE_IO_PRIV_SYNC(kiocb->ki_filp);
 	loff_t pos = 0;
 	/*
 	 * No locking or generic_write_checks(), the server is
@@ -513,6 +513,7 @@ static int cuse_channel_open(struct inode *inode, struct file *file)
 	rc = cuse_send_init(cc);
 	if (rc) {
 		fuse_dev_free(fud);
+		fuse_conn_put(&cc->fc);
 		return rc;
 	}
 	file->private_data = fud;
@@ -615,6 +616,8 @@ static int __init cuse_init(void)
 	cuse_channel_fops.owner		= THIS_MODULE;
 	cuse_channel_fops.open		= cuse_channel_open;
 	cuse_channel_fops.release	= cuse_channel_release;
+	/* CUSE is not prepared for FUSE_DEV_IOC_CLONE */
+	cuse_channel_fops.unlocked_ioctl	= NULL;
 
 	cuse_class = class_create(THIS_MODULE, "cuse");
 	if (IS_ERR(cuse_class))

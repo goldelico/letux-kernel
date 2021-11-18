@@ -359,6 +359,7 @@ struct pci_dev {
 	unsigned int	io_window_1k:1;	/* Intel P2P bridge 1K I/O windows */
 	unsigned int	irq_managed:1;
 	unsigned int	has_secondary_link:1;
+	unsigned int	non_compliant_bars:1;	/* broken BARs; ignore them */
 	pci_dev_flags_t dev_flags;
 	atomic_t	enable_cnt;	/* pci_enable_device has been called */
 
@@ -988,23 +989,6 @@ static inline int pci_is_managed(struct pci_dev *pdev)
 	return pdev->is_managed;
 }
 
-static inline void pci_set_managed_irq(struct pci_dev *pdev, unsigned int irq)
-{
-	pdev->irq = irq;
-	pdev->irq_managed = 1;
-}
-
-static inline void pci_reset_managed_irq(struct pci_dev *pdev)
-{
-	pdev->irq = 0;
-	pdev->irq_managed = 0;
-}
-
-static inline bool pci_has_managed_irq(struct pci_dev *pdev)
-{
-	return pdev->irq_managed && pdev->irq > 0;
-}
-
 void pci_disable_device(struct pci_dev *dev);
 
 extern unsigned int pcibios_max_latency;
@@ -1458,8 +1442,9 @@ static inline int pci_set_dma_seg_boundary(struct pci_dev *dev,
 { return -EIO; }
 static inline int pci_assign_resource(struct pci_dev *dev, int i)
 { return -EBUSY; }
-static inline int __pci_register_driver(struct pci_driver *drv,
-					struct module *owner)
+static inline int __must_check __pci_register_driver(struct pci_driver *drv,
+						     struct module *owner,
+						     const char *mod_name)
 { return 0; }
 static inline int pci_register_driver(struct pci_driver *drv)
 { return 0; }
@@ -1816,6 +1801,20 @@ static inline u16 pcie_caps_reg(const struct pci_dev *dev)
 static inline int pci_pcie_type(const struct pci_dev *dev)
 {
 	return (pcie_caps_reg(dev) & PCI_EXP_FLAGS_TYPE) >> 4;
+}
+
+static inline struct pci_dev *pcie_find_root_port(struct pci_dev *dev)
+{
+	while (1) {
+		if (!pci_is_pcie(dev))
+			break;
+		if (pci_pcie_type(dev) == PCI_EXP_TYPE_ROOT_PORT)
+			return dev;
+		if (!dev->bus->self)
+			break;
+		dev = dev->bus->self;
+	}
+	return NULL;
 }
 
 void pci_request_acs(void);

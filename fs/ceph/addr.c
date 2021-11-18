@@ -72,10 +72,6 @@ static int ceph_set_page_dirty(struct page *page)
 	struct inode *inode;
 	struct ceph_inode_info *ci;
 	struct ceph_snap_context *snapc;
-	int ret;
-
-	if (unlikely(!mapping))
-		return !TestSetPageDirty(page);
 
 	if (PageDirty(page)) {
 		dout("%p set_page_dirty %p idx %lu -- already dirty\n",
@@ -121,11 +117,7 @@ static int ceph_set_page_dirty(struct page *page)
 	page->private = (unsigned long)snapc;
 	SetPagePrivate(page);
 
-	ret = __set_page_dirty_nobuffers(page);
-	WARN_ON(!PageLocked(page));
-	WARN_ON(!page->mapping);
-
-	return ret;
+	return __set_page_dirty_nobuffers(page);
 }
 
 /*
@@ -189,7 +181,7 @@ static int ceph_releasepage(struct page *page, gfp_t g)
 /*
  * read a single page, without unlocking it.
  */
-static int readpage_nounlock(struct file *filp, struct page *page)
+static int ceph_do_readpage(struct file *filp, struct page *page)
 {
 	struct inode *inode = file_inode(filp);
 	struct ceph_inode_info *ci = ceph_inode(inode);
@@ -219,7 +211,7 @@ static int readpage_nounlock(struct file *filp, struct page *page)
 
 	err = ceph_readpage_from_fscache(inode, page);
 	if (err == 0)
-		goto out;
+		return -EINPROGRESS;
 
 	dout("readpage inode %p file %p page %p index %lu\n",
 	     inode, filp, page, page->index);
@@ -249,8 +241,11 @@ out:
 
 static int ceph_readpage(struct file *filp, struct page *page)
 {
-	int r = readpage_nounlock(filp, page);
-	unlock_page(page);
+	int r = ceph_do_readpage(filp, page);
+	if (r != -EINPROGRESS)
+		unlock_page(page);
+	else
+		r = 0;
 	return r;
 }
 
@@ -697,7 +692,7 @@ static int ceph_writepages_start(struct address_space *mapping,
 	struct pagevec pvec;
 	int done = 0;
 	int rc = 0;
-	unsigned wsize = 1 << inode->i_blkbits;
+	unsigned int wsize = i_blocksize(inode);
 	struct ceph_osd_request *req = NULL;
 	int do_sync = 0;
 	loff_t snap_size, i_size;
@@ -1094,7 +1089,7 @@ retry_locked:
 			goto retry_locked;
 		r = writepage_nounlock(page, NULL);
 		if (r < 0)
-			goto fail_nosnap;
+			goto fail_unlock;
 		goto retry_locked;
 	}
 
@@ -1122,11 +1117,14 @@ retry_locked:
 	}
 
 	/* we need to read it. */
-	r = readpage_nounlock(file, page);
-	if (r < 0)
-		goto fail_nosnap;
+	r = ceph_do_readpage(file, page);
+	if (r < 0) {
+		if (r == -EINPROGRESS)
+			return -EAGAIN;
+		goto fail_unlock;
+	}
 	goto retry_locked;
-fail_nosnap:
+fail_unlock:
 	unlock_page(page);
 	return r;
 }
@@ -1237,7 +1235,7 @@ static int ceph_filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct ceph_inode_info *ci = ceph_inode(inode);
 	struct ceph_file_info *fi = vma->vm_file->private_data;
 	struct page *pinned_page = NULL;
-	loff_t off = vmf->pgoff << PAGE_CACHE_SHIFT;
+	loff_t off = (loff_t)vmf->pgoff << PAGE_CACHE_SHIFT;
 	int want, got, ret;
 
 	dout("filemap_fault %p %llx.%llx %llu~%zd trying to get caps\n",

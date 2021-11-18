@@ -801,6 +801,16 @@ struct signal_struct {
 
 #define SIGNAL_UNKILLABLE	0x00000040 /* for init: ignore fatal signals */
 
+#define SIGNAL_STOP_MASK (SIGNAL_CLD_MASK | SIGNAL_STOP_STOPPED | \
+			  SIGNAL_STOP_CONTINUED)
+
+static inline void signal_set_stop_flags(struct signal_struct *sig,
+					 unsigned int flags)
+{
+	WARN_ON(sig->flags & (SIGNAL_GROUP_EXIT|SIGNAL_GROUP_COREDUMP));
+	sig->flags = (sig->flags & ~SIGNAL_STOP_MASK) | flags;
+}
+
 /* If true, all threads except ->group_exit_task have pending SIGKILL */
 static inline int signal_group_exit(const struct signal_struct *sig)
 {
@@ -831,6 +841,7 @@ struct user_struct {
 #endif
 	unsigned long locked_shm; /* How many pages of mlocked shm ? */
 	unsigned long unix_inflight;	/* How many files in flight in unix sockets */
+	atomic_long_t pipe_bufs;  /* how many pages are allocated in pipe buffers */
 
 #ifdef CONFIG_KEYS
 	struct key *uid_keyring;	/* UID specific keyring */
@@ -1302,6 +1313,7 @@ struct sched_dl_entity {
 	u64 dl_deadline;	/* relative deadline of each instance	*/
 	u64 dl_period;		/* separation of two instances (period) */
 	u64 dl_bw;		/* dl_runtime / dl_deadline		*/
+	u64 dl_density;		/* dl_runtime / dl_deadline		*/
 
 	/*
 	 * Actual scheduling parameters. Initialized with the values above,
@@ -1377,6 +1389,13 @@ struct tlbflush_unmap_batch {
 };
 
 struct task_struct {
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	/*
+	 * For reasons of header soup (see current_thread_info()), this
+	 * must be the first element of task_struct.
+	 */
+	struct thread_info thread_info;
+#endif
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
 	atomic_t usage;
@@ -1386,6 +1405,9 @@ struct task_struct {
 #ifdef CONFIG_SMP
 	struct llist_node wake_entry;
 	int on_cpu;
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	unsigned int cpu;	/* current CPU */
+#endif
 	unsigned int wakee_flips;
 	unsigned long wakee_flip_decay_ts;
 	struct task_struct *last_wakee;
@@ -1442,7 +1464,7 @@ struct task_struct {
 
 	struct mm_struct *mm, *active_mm;
 	/* per-thread vma caching */
-	u32 vmacache_seqnum;
+	u64 vmacache_seqnum;
 	struct vm_area_struct *vmacache[VMACACHE_SIZE];
 #if defined(SPLIT_RSS_COUNTING)
 	struct task_rss_stat	rss_stat;
@@ -1473,6 +1495,10 @@ struct task_struct {
 #endif
 #ifdef CONFIG_COMPAT_BRK
 	unsigned brk_randomized:1;
+#endif
+#ifdef CONFIG_CGROUPS
+	/* disallow userland-initiated cgroup migration */
+	unsigned no_cgroup_migration:1;
 #endif
 
 	unsigned long atomic_flags; /* Flags needing atomic access. */
@@ -1539,6 +1565,7 @@ struct task_struct {
 	struct list_head cpu_timers[3];
 
 /* process credentials */
+	const struct cred __rcu *ptracer_cred; /* Tracer's credentials at attach */
 	const struct cred __rcu *real_cred; /* objective and real subjective task
 					 * credentials (COW) */
 	const struct cred __rcu *cred;	/* effective (overridable) subjective task
@@ -1585,8 +1612,8 @@ struct task_struct {
 	struct seccomp seccomp;
 
 /* Thread group tracking */
-   	u32 parent_exec_id;
-   	u32 self_exec_id;
+	u64 parent_exec_id;
+	u64 self_exec_id;
 /* Protection of (de-)allocation: mm, files, fs, tty, keyrings, mems_allowed,
  * mempolicy */
 	spinlock_t alloc_lock;
@@ -1677,6 +1704,8 @@ struct task_struct {
 #endif
 	struct list_head pi_state_list;
 	struct futex_pi_state *pi_state_cache;
+	struct mutex futex_exit_mutex;
+	unsigned int futex_state;
 #endif
 #ifdef CONFIG_PERF_EVENTS
 	struct perf_event_context *perf_event_ctxp[perf_nr_task_contexts];
@@ -1843,7 +1872,7 @@ extern int arch_task_struct_size __read_mostly;
 extern void task_numa_fault(int last_node, int node, int pages, int flags);
 extern pid_t task_numa_group_id(struct task_struct *p);
 extern void set_numabalancing_state(bool enabled);
-extern void task_numa_free(struct task_struct *p);
+extern void task_numa_free(struct task_struct *p, bool final);
 extern bool should_numa_migrate_memory(struct task_struct *p, struct page *page,
 					int src_nid, int dst_cpu);
 #else
@@ -1858,7 +1887,7 @@ static inline pid_t task_numa_group_id(struct task_struct *p)
 static inline void set_numabalancing_state(bool enabled)
 {
 }
-static inline void task_numa_free(struct task_struct *p)
+static inline void task_numa_free(struct task_struct *p, bool final)
 {
 }
 static inline bool should_numa_migrate_memory(struct task_struct *p,
@@ -1933,31 +1962,8 @@ static inline pid_t task_tgid_nr(struct task_struct *tsk)
 	return tsk->tgid;
 }
 
-pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
-
-static inline pid_t task_tgid_vnr(struct task_struct *tsk)
-{
-	return pid_vnr(task_tgid(tsk));
-}
-
 
 static inline int pid_alive(const struct task_struct *p);
-static inline pid_t task_ppid_nr_ns(const struct task_struct *tsk, struct pid_namespace *ns)
-{
-	pid_t pid = 0;
-
-	rcu_read_lock();
-	if (pid_alive(tsk))
-		pid = task_tgid_nr_ns(rcu_dereference(tsk->real_parent), ns);
-	rcu_read_unlock();
-
-	return pid;
-}
-
-static inline pid_t task_ppid_nr(const struct task_struct *tsk)
-{
-	return task_ppid_nr_ns(tsk, &init_pid_ns);
-}
 
 static inline pid_t task_pgrp_nr_ns(struct task_struct *tsk,
 					struct pid_namespace *ns)
@@ -1980,6 +1986,33 @@ static inline pid_t task_session_nr_ns(struct task_struct *tsk,
 static inline pid_t task_session_vnr(struct task_struct *tsk)
 {
 	return __task_pid_nr_ns(tsk, PIDTYPE_SID, NULL);
+}
+
+static inline pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
+{
+	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, ns);
+}
+
+static inline pid_t task_tgid_vnr(struct task_struct *tsk)
+{
+	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, NULL);
+}
+
+static inline pid_t task_ppid_nr_ns(const struct task_struct *tsk, struct pid_namespace *ns)
+{
+	pid_t pid = 0;
+
+	rcu_read_lock();
+	if (pid_alive(tsk))
+		pid = task_tgid_nr_ns(rcu_dereference(tsk->real_parent), ns);
+	rcu_read_unlock();
+
+	return pid;
+}
+
+static inline pid_t task_ppid_nr(const struct task_struct *tsk)
+{
+	return task_ppid_nr_ns(tsk, &init_pid_ns);
 }
 
 /* obsolete, do not use */
@@ -2068,7 +2101,6 @@ extern void thread_group_cputime_adjusted(struct task_struct *p, cputime_t *ut, 
  * Per process flags
  */
 #define PF_EXITING	0x00000004	/* getting shut down */
-#define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
 #define PF_VCPU		0x00000010	/* I'm a virtual CPU */
 #define PF_WQ_WORKER	0x00000020	/* I'm a workqueue worker */
 #define PF_FORKNOEXEC	0x00000040	/* forked but didn't exec */
@@ -2146,6 +2178,10 @@ static inline void memalloc_noio_restore(unsigned int flags)
 #define PFA_NO_NEW_PRIVS 0	/* May not gain new privileges. */
 #define PFA_SPREAD_PAGE  1      /* Spread page cache over cpuset */
 #define PFA_SPREAD_SLAB  2      /* Spread some slab caches over cpuset */
+#define PFA_SPEC_SSB_DISABLE		4	/* Speculative Store Bypass disabled */
+#define PFA_SPEC_SSB_FORCE_DISABLE	5	/* Speculative Store Bypass force disabled*/
+#define PFA_SPEC_IB_DISABLE		6	/* Indirect branch speculation restricted */
+#define PFA_SPEC_IB_FORCE_DISABLE	7	/* Indirect branch speculation permanently restricted */
 
 
 #define TASK_PFA_TEST(name, func)					\
@@ -2168,6 +2204,20 @@ TASK_PFA_CLEAR(SPREAD_PAGE, spread_page)
 TASK_PFA_TEST(SPREAD_SLAB, spread_slab)
 TASK_PFA_SET(SPREAD_SLAB, spread_slab)
 TASK_PFA_CLEAR(SPREAD_SLAB, spread_slab)
+
+TASK_PFA_TEST(SPEC_SSB_DISABLE, spec_ssb_disable)
+TASK_PFA_SET(SPEC_SSB_DISABLE, spec_ssb_disable)
+TASK_PFA_CLEAR(SPEC_SSB_DISABLE, spec_ssb_disable)
+
+TASK_PFA_TEST(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
+TASK_PFA_SET(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
+
+TASK_PFA_TEST(SPEC_IB_DISABLE, spec_ib_disable)
+TASK_PFA_SET(SPEC_IB_DISABLE, spec_ib_disable)
+TASK_PFA_CLEAR(SPEC_IB_DISABLE, spec_ib_disable)
+
+TASK_PFA_TEST(SPEC_IB_FORCE_DISABLE, spec_ib_force_disable)
+TASK_PFA_SET(SPEC_IB_FORCE_DISABLE, spec_ib_force_disable)
 
 /*
  * task->jobctl flags
@@ -2401,7 +2451,9 @@ extern void set_curr_task(int cpu, struct task_struct *p);
 void yield(void);
 
 union thread_union {
+#ifndef CONFIG_THREAD_INFO_IN_TASK
 	struct thread_info thread_info;
+#endif
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
 };
 
@@ -2575,10 +2627,15 @@ extern struct mm_struct * mm_alloc(void);
 
 /* mmdrop drops the mm and the page tables */
 extern void __mmdrop(struct mm_struct *);
-static inline void mmdrop(struct mm_struct * mm)
+static inline void mmdrop(struct mm_struct *mm)
 {
 	if (unlikely(atomic_dec_and_test(&mm->mm_count)))
 		__mmdrop(mm);
+}
+
+static inline bool mmget_not_zero(struct mm_struct *mm)
+{
+	return atomic_inc_not_zero(&mm->mm_users);
 }
 
 /* mmput gets rid of the mappings and all user-space */
@@ -2591,8 +2648,10 @@ extern struct mm_struct *get_task_mm(struct task_struct *task);
  * succeeds.
  */
 extern struct mm_struct *mm_access(struct task_struct *task, unsigned int mode);
-/* Remove the current tasks stale references to the old mm_struct */
-extern void mm_release(struct task_struct *, struct mm_struct *);
+/* Remove the current tasks stale references to the old mm_struct on exit() */
+extern void exit_mm_release(struct task_struct *, struct mm_struct *);
+/* Remove the current tasks stale references to the old mm_struct on exec() */
+extern void exec_mm_release(struct task_struct *, struct mm_struct *);
 
 #ifdef CONFIG_HAVE_COPY_THREAD_TLS
 extern int copy_thread_tls(unsigned long, unsigned long, unsigned long,
@@ -2638,7 +2697,12 @@ static inline void set_task_comm(struct task_struct *tsk, const char *from)
 {
 	__set_task_comm(tsk, from, false);
 }
-extern char *get_task_comm(char *to, struct task_struct *tsk);
+
+extern char *__get_task_comm(char *to, size_t len, struct task_struct *tsk);
+#define get_task_comm(buf, tsk) ({			\
+	BUILD_BUG_ON(sizeof(buf) != TASK_COMM_LEN);	\
+	__get_task_comm(buf, sizeof(buf), tsk);		\
+})
 
 #ifdef CONFIG_SMP
 void scheduler_ipi(void);
@@ -2791,10 +2855,34 @@ static inline void threadgroup_change_end(struct task_struct *tsk)
 	cgroup_threadgroup_change_end(tsk);
 }
 
-#ifndef __HAVE_THREAD_FUNCTIONS
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+
+static inline struct thread_info *task_thread_info(struct task_struct *task)
+{
+	return &task->thread_info;
+}
+
+/*
+ * When accessing the stack of a non-current task that might exit, use
+ * try_get_task_stack() instead.  task_stack_page will return a pointer
+ * that could get freed out from under you.
+ */
+static inline void *task_stack_page(const struct task_struct *task)
+{
+	return task->stack;
+}
+
+#define setup_thread_stack(new,old)	do { } while(0)
+
+static inline unsigned long *end_of_stack(const struct task_struct *task)
+{
+	return task->stack;
+}
+
+#elif !defined(__HAVE_THREAD_FUNCTIONS)
 
 #define task_thread_info(task)	((struct thread_info *)(task)->stack)
-#define task_stack_page(task)	((task)->stack)
+#define task_stack_page(task)	((void *)(task)->stack)
 
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
 {
@@ -2821,6 +2909,14 @@ static inline unsigned long *end_of_stack(struct task_struct *p)
 }
 
 #endif
+
+static inline void *try_get_task_stack(struct task_struct *tsk)
+{
+	return task_stack_page(tsk);
+}
+
+static inline void put_task_stack(struct task_struct *tsk) {}
+
 #define task_stack_end_corrupted(task) \
 		(*(end_of_stack(task)) != STACK_END_MAGIC)
 
@@ -3086,7 +3182,11 @@ static inline void ptrace_signal_wake_up(struct task_struct *t, bool resume)
 
 static inline unsigned int task_cpu(const struct task_struct *p)
 {
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+	return p->cpu;
+#else
 	return task_thread_info(p)->cpu;
+#endif
 }
 
 static inline int task_node(const struct task_struct *p)

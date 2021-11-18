@@ -29,7 +29,7 @@ static bool rtas_hp_event;
 unsigned long pseries_memory_block_size(void)
 {
 	struct device_node *np;
-	unsigned int memblock_size = MIN_MEMORY_BLOCK_SIZE;
+	u64 memblock_size = MIN_MEMORY_BLOCK_SIZE;
 	struct resource r;
 
 	np = of_find_node_by_path("/ibm,dynamic-reconfiguration-memory");
@@ -110,6 +110,7 @@ static struct property *dlpar_clone_drconf_property(struct device_node *dn)
 	for (i = 0; i < num_lmbs; i++) {
 		lmbs[i].base_addr = be64_to_cpu(lmbs[i].base_addr);
 		lmbs[i].drc_index = be32_to_cpu(lmbs[i].drc_index);
+		lmbs[i].aa_index = be32_to_cpu(lmbs[i].aa_index);
 		lmbs[i].flags = be32_to_cpu(lmbs[i].flags);
 	}
 
@@ -204,8 +205,10 @@ static bool lmb_is_removable(struct of_drconf_cell *lmb)
 
 	for (i = 0; i < scns_per_block; i++) {
 		pfn = PFN_DOWN(phys_addr);
-		if (!pfn_present(pfn))
+		if (!pfn_present(pfn)) {
+			phys_addr += MIN_MEMORY_BLOCK_SIZE;
 			continue;
+		}
 
 		rc &= is_mem_section_removable(pfn, PAGES_PER_SECTION);
 		phys_addr += MIN_MEMORY_BLOCK_SIZE;
@@ -553,6 +556,7 @@ static void dlpar_update_drconf_property(struct device_node *dn,
 	for (i = 0; i < num_lmbs; i++) {
 		lmbs[i].base_addr = cpu_to_be64(lmbs[i].base_addr);
 		lmbs[i].drc_index = cpu_to_be32(lmbs[i].drc_index);
+		lmbs[i].aa_index = cpu_to_be32(lmbs[i].aa_index);
 		lmbs[i].flags = cpu_to_be32(lmbs[i].flags);
 	}
 

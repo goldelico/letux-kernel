@@ -85,7 +85,7 @@ static struct mlx5_profile profile[] = {
 	[2] = {
 		.mask		= MLX5_PROF_MASK_QP_SIZE |
 				  MLX5_PROF_MASK_MR_CACHE,
-		.log_max_qp	= 17,
+		.log_max_qp	= 18,
 		.mr_cache[0]	= {
 			.size	= 500,
 			.limit	= 250
@@ -153,8 +153,9 @@ static struct mlx5_profile profile[] = {
 	},
 };
 
-#define FW_INIT_TIMEOUT_MILI	2000
-#define FW_INIT_WAIT_MS		2
+#define FW_INIT_TIMEOUT_MILI		2000
+#define FW_INIT_WAIT_MS			2
+#define FW_PRE_INIT_TIMEOUT_MILI	10000
 
 static int wait_fw_init(struct mlx5_core_dev *dev, u32 max_wait_mili)
 {
@@ -432,6 +433,13 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
 	MLX5_SET(cmd_hca_cap, set_hca_cap, pkey_table_size,
 		 to_fw_pkey_sz(128));
 
+	/* Check log_max_qp from HCA caps to set in current profile */
+	if (MLX5_CAP_GEN_MAX(dev, log_max_qp) < profile[prof_sel].log_max_qp) {
+		mlx5_core_warn(dev, "log_max_qp value in current profile is %d, changing it to HCA capability limit (%d)\n",
+			       profile[prof_sel].log_max_qp,
+			       MLX5_CAP_GEN_MAX(dev, log_max_qp));
+		profile[prof_sel].log_max_qp = MLX5_CAP_GEN_MAX(dev, log_max_qp);
+	}
 	if (prof->mask & MLX5_PROF_MASK_QP_SIZE)
 		MLX5_SET(cmd_hca_cap, set_hca_cap, log_max_qp,
 			 prof->log_max_qp);
@@ -505,29 +513,20 @@ static int mlx5_irq_set_affinity_hint(struct mlx5_core_dev *mdev, int i)
 	struct mlx5_priv *priv  = &mdev->priv;
 	struct msix_entry *msix = priv->msix_arr;
 	int irq                 = msix[i + MLX5_EQ_VEC_COMP_BASE].vector;
-	int numa_node           = priv->numa_node;
-	int err;
 
 	if (!zalloc_cpumask_var(&priv->irq_info[i].mask, GFP_KERNEL)) {
 		mlx5_core_warn(mdev, "zalloc_cpumask_var failed");
 		return -ENOMEM;
 	}
 
-	cpumask_set_cpu(cpumask_local_spread(i, numa_node),
+	cpumask_set_cpu(cpumask_local_spread(i, priv->numa_node),
 			priv->irq_info[i].mask);
 
-	err = irq_set_affinity_hint(irq, priv->irq_info[i].mask);
-	if (err) {
-		mlx5_core_warn(mdev, "irq_set_affinity_hint failed,irq 0x%.4x",
-			       irq);
-		goto err_clear_mask;
-	}
+	if (IS_ENABLED(CONFIG_SMP) &&
+	    irq_set_affinity_hint(irq, priv->irq_info[i].mask))
+		mlx5_core_warn(mdev, "irq_set_affinity_hint failed, irq 0x%.4x", irq);
 
 	return 0;
-
-err_clear_mask:
-	free_cpumask_var(priv->irq_info[i].mask);
-	return err;
 }
 
 static void mlx5_irq_clear_affinity_hint(struct mlx5_core_dev *mdev, int i)
@@ -779,7 +778,7 @@ static void mlx5_unregister_device(struct mlx5_core_dev *dev)
 	struct mlx5_interface *intf;
 
 	mutex_lock(&intf_mutex);
-	list_for_each_entry(intf, &intf_list, list)
+	list_for_each_entry_reverse(intf, &intf_list, list)
 		mlx5_remove_device(intf, priv);
 	list_del(&priv->dev_list);
 	mutex_unlock(&intf_mutex);
@@ -927,6 +926,15 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
 	 * up
 	 */
 	dev->state = MLX5_DEVICE_STATE_UP;
+
+	/* wait for firmware to accept initialization segments configurations
+	 */
+	err = wait_fw_init(dev, FW_PRE_INIT_TIMEOUT_MILI);
+	if (err) {
+		dev_err(&dev->pdev->dev, "Firmware over %d MS in pre-initializing state, aborting\n",
+			FW_PRE_INIT_TIMEOUT_MILI);
+		goto out_err;
+	}
 
 	err = mlx5_cmd_init(dev);
 	if (err) {
@@ -1268,15 +1276,43 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
 	dev_info(&pdev->dev, "%s was called\n", __func__);
 	mlx5_enter_error_state(dev);
 	mlx5_unload_one(dev, priv);
+	pci_save_state(pdev);
 	mlx5_pci_disable_device(dev);
 	return state == pci_channel_io_perm_failure ?
 		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
 }
 
+/* wait for the device to show vital signs by waiting
+ * for the health counter to start counting.
+ */
+static int wait_vital(struct pci_dev *pdev)
+{
+	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
+	struct mlx5_core_health *health = &dev->priv.health;
+	const int niter = 100;
+	u32 last_count = 0;
+	u32 count;
+	int i;
+
+	for (i = 0; i < niter; i++) {
+		count = ioread32be(health->health_counter);
+		if (count && count != 0xffffffff) {
+			if (last_count && last_count != count) {
+				dev_info(&pdev->dev, "Counter value 0x%x after %d iterations\n", count, i);
+				return 0;
+			}
+			last_count = count;
+		}
+		msleep(50);
+	}
+
+	return -ETIMEDOUT;
+}
+
 static pci_ers_result_t mlx5_pci_slot_reset(struct pci_dev *pdev)
 {
 	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
-	int err = 0;
+	int err;
 
 	dev_info(&pdev->dev, "%s was called\n", __func__);
 
@@ -1286,58 +1322,21 @@ static pci_ers_result_t mlx5_pci_slot_reset(struct pci_dev *pdev)
 			, __func__, err);
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
+
 	pci_set_master(pdev);
-	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
 
-	return err ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
+	if (wait_vital(pdev)) {
+		dev_err(&pdev->dev, "%s: wait_vital timed out\n", __func__);
+		return PCI_ERS_RESULT_DISCONNECT;
+	}
+
+	return PCI_ERS_RESULT_RECOVERED;
 }
 
 void mlx5_disable_device(struct mlx5_core_dev *dev)
 {
 	mlx5_pci_err_detected(dev->pdev, 0);
-}
-
-/* wait for the device to show vital signs. For now we check
- * that we can read the device ID and that the health buffer
- * shows a non zero value which is different than 0xffffffff
- */
-static void wait_vital(struct pci_dev *pdev)
-{
-	struct mlx5_core_dev *dev = pci_get_drvdata(pdev);
-	struct mlx5_core_health *health = &dev->priv.health;
-	const int niter = 100;
-	u32 count;
-	u16 did;
-	int i;
-
-	/* Wait for firmware to be ready after reset */
-	msleep(1000);
-	for (i = 0; i < niter; i++) {
-		if (pci_read_config_word(pdev, 2, &did)) {
-			dev_warn(&pdev->dev, "failed reading config word\n");
-			break;
-		}
-		if (did == pdev->device) {
-			dev_info(&pdev->dev, "device ID correctly read after %d iterations\n", i);
-			break;
-		}
-		msleep(50);
-	}
-	if (i == niter)
-		dev_warn(&pdev->dev, "%s-%d: could not read device ID\n", __func__, __LINE__);
-
-	for (i = 0; i < niter; i++) {
-		count = ioread32be(health->health_counter);
-		if (count && count != 0xffffffff) {
-			dev_info(&pdev->dev, "Counter value 0x%x after %d iterations\n", count, i);
-			break;
-		}
-		msleep(50);
-	}
-
-	if (i == niter)
-		dev_warn(&pdev->dev, "%s-%d: could not read device ID\n", __func__, __LINE__);
 }
 
 static void mlx5_pci_resume(struct pci_dev *pdev)
@@ -1347,9 +1346,6 @@ static void mlx5_pci_resume(struct pci_dev *pdev)
 	int err;
 
 	dev_info(&pdev->dev, "%s was called\n", __func__);
-
-	pci_save_state(pdev);
-	wait_vital(pdev);
 
 	err = mlx5_load_one(dev, priv);
 	if (err)

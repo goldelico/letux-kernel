@@ -1338,12 +1338,10 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	struct net_device *netdev;
 	struct atl2_adapter *adapter;
-	static int cards_found;
+	static int cards_found = 0;
 	unsigned long mmio_start;
 	int mmio_len;
 	int err;
-
-	cards_found = 0;
 
 	err = pci_enable_device(pdev);
 	if (err)
@@ -1412,7 +1410,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	err = -EIO;
 
-	netdev->hw_features = NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_RX;
+	netdev->hw_features = NETIF_F_HW_VLAN_CTAG_RX;
 	netdev->features |= (NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX);
 
 	/* Init PHY as early as possible due to power saving issue  */

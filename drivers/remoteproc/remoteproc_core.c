@@ -288,7 +288,7 @@ void rproc_free_vring(struct rproc_vring *rvring)
 {
 	int size = PAGE_ALIGN(vring_size(rvring->len, rvring->align));
 	struct rproc *rproc = rvring->rvdev->rproc;
-	int idx = rvring->rvdev->vring - rvring;
+	int idx = rvring - rvring->rvdev->vring;
 	struct fw_rsc_vdev *rsc;
 
 	dma_free_coherent(rproc->dev.parent, size, rvring->va, rvring->dma);
@@ -1239,11 +1239,6 @@ int rproc_add(struct rproc *rproc)
 	if (ret < 0)
 		return ret;
 
-	/* expose to rproc_get_by_phandle users */
-	mutex_lock(&rproc_list_mutex);
-	list_add(&rproc->node, &rproc_list);
-	mutex_unlock(&rproc_list_mutex);
-
 	dev_info(dev, "%s is available\n", rproc->name);
 
 	dev_info(dev, "Note: remoteproc is still under development and considered experimental.\n");
@@ -1251,8 +1246,16 @@ int rproc_add(struct rproc *rproc)
 
 	/* create debugfs entries */
 	rproc_create_debug_dir(rproc);
+	ret = rproc_add_virtio_devices(rproc);
+	if (ret < 0)
+		return ret;
 
-	return rproc_add_virtio_devices(rproc);
+	/* expose to rproc_get_by_phandle users */
+	mutex_lock(&rproc_list_mutex);
+	list_add(&rproc->node, &rproc_list);
+	mutex_unlock(&rproc_list_mutex);
+
+	return 0;
 }
 EXPORT_SYMBOL(rproc_add);
 
@@ -1474,7 +1477,7 @@ static int __init remoteproc_init(void)
 
 	return 0;
 }
-module_init(remoteproc_init);
+subsys_initcall(remoteproc_init);
 
 static void __exit remoteproc_exit(void)
 {

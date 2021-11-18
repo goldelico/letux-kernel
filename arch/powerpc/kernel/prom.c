@@ -125,7 +125,7 @@ static void __init move_device_tree(void)
 		p = __va(memblock_alloc(size, PAGE_SIZE));
 		memcpy(p, initial_boot_params, size);
 		initial_boot_params = p;
-		DBG("Moved device tree to 0x%p\n", p);
+		DBG("Moved device tree to 0x%px\n", p);
 	}
 
 	DBG("<- move_device_tree\n");
@@ -148,23 +148,25 @@ static struct ibm_pa_feature {
 	unsigned long	cpu_features;	/* CPU_FTR_xxx bit */
 	unsigned long	mmu_features;	/* MMU_FTR_xxx bit */
 	unsigned int	cpu_user_ftrs;	/* PPC_FEATURE_xxx bit */
+	unsigned int	cpu_user_ftrs2;	/* PPC_FEATURE2_xxx bit */
 	unsigned char	pabyte;		/* byte number in ibm,pa-features */
 	unsigned char	pabit;		/* bit number (big-endian) */
 	unsigned char	invert;		/* if 1, pa bit set => clear feature */
 } ibm_pa_features[] __initdata = {
-	{0, 0, PPC_FEATURE_HAS_MMU,	0, 0, 0},
-	{0, 0, PPC_FEATURE_HAS_FPU,	0, 1, 0},
-	{CPU_FTR_CTRL, 0, 0,		0, 3, 0},
-	{CPU_FTR_NOEXECUTE, 0, 0,	0, 6, 0},
-	{CPU_FTR_NODSISRALIGN, 0, 0,	1, 1, 1},
-	{0, MMU_FTR_CI_LARGE_PAGE, 0,	1, 2, 0},
-	{CPU_FTR_REAL_LE, PPC_FEATURE_TRUE_LE, 5, 0, 0},
+	{0, 0, PPC_FEATURE_HAS_MMU, 0,		0, 0, 0},
+	{0, 0, PPC_FEATURE_HAS_FPU, 0,		0, 1, 0},
+	{CPU_FTR_CTRL, 0, 0, 0,			0, 3, 0},
+	{CPU_FTR_NOEXECUTE, 0, 0, 0,		0, 6, 0},
+	{CPU_FTR_NODSISRALIGN, 0, 0, 0,		1, 1, 1},
+	{0, MMU_FTR_CI_LARGE_PAGE, 0, 0,		1, 2, 0},
+	{CPU_FTR_REAL_LE, 0, PPC_FEATURE_TRUE_LE, 0, 5, 0, 0},
 	/*
-	 * If the kernel doesn't support TM (ie. CONFIG_PPC_TRANSACTIONAL_MEM=n),
-	 * we don't want to turn on CPU_FTR_TM here, so we use CPU_FTR_TM_COMP
-	 * which is 0 if the kernel doesn't support TM.
+	 * If the kernel doesn't support TM (ie CONFIG_PPC_TRANSACTIONAL_MEM=n),
+	 * we don't want to turn on TM here, so we use the *_COMP versions
+	 * which are 0 if the kernel doesn't support TM.
 	 */
-	{CPU_FTR_TM_COMP, 0, 0,		22, 0, 0},
+	{CPU_FTR_TM_COMP, 0, 0,
+	 PPC_FEATURE2_HTM_COMP|PPC_FEATURE2_HTM_NOSC_COMP, 22, 0, 0},
 };
 
 static void __init scan_features(unsigned long node, const unsigned char *ftrs,
@@ -195,10 +197,12 @@ static void __init scan_features(unsigned long node, const unsigned char *ftrs,
 		if (bit ^ fp->invert) {
 			cur_cpu_spec->cpu_features |= fp->cpu_features;
 			cur_cpu_spec->cpu_user_features |= fp->cpu_user_ftrs;
+			cur_cpu_spec->cpu_user_features2 |= fp->cpu_user_ftrs2;
 			cur_cpu_spec->mmu_features |= fp->mmu_features;
 		} else {
 			cur_cpu_spec->cpu_features &= ~fp->cpu_features;
 			cur_cpu_spec->cpu_user_features &= ~fp->cpu_user_ftrs;
+			cur_cpu_spec->cpu_user_features2 &= ~fp->cpu_user_ftrs2;
 			cur_cpu_spec->mmu_features &= ~fp->mmu_features;
 		}
 	}
@@ -254,7 +258,7 @@ static struct feature_property {
 };
 
 #if defined(CONFIG_44x) && defined(CONFIG_PPC_FPU)
-static inline void identical_pvr_fixup(unsigned long node)
+static __init void identical_pvr_fixup(unsigned long node)
 {
 	unsigned int pvr;
 	const char *model = of_get_flat_dt_prop(node, "model", NULL);
@@ -643,7 +647,7 @@ void __init early_init_devtree(void *params)
 {
 	phys_addr_t limit;
 
-	DBG(" -> early_init_devtree(%p)\n", params);
+	DBG(" -> early_init_devtree(%px)\n", params);
 
 	/* Too early to BUG_ON(), do it by hand */
 	if (!early_init_dt_verify(params))
@@ -703,7 +707,7 @@ void __init early_init_devtree(void *params)
 	memblock_allow_resize();
 	memblock_dump_all();
 
-	DBG("Phys. mem: %llx\n", memblock_phys_mem_size());
+	DBG("Phys. mem: %llx\n", (unsigned long long)memblock_phys_mem_size());
 
 	/* We may need to relocate the flat tree, do it now.
 	 * FIXME .. and the initrd too? */

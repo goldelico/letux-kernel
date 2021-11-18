@@ -39,6 +39,7 @@
 #include <linux/dmi.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
+#include <linux/limits.h>
 #include <asm/irq_remapping.h>
 #include <asm/iommu_table.h>
 
@@ -138,12 +139,19 @@ dmar_alloc_pci_notify_info(struct pci_dev *dev, unsigned long event)
 
 	BUG_ON(dev->is_virtfn);
 
+	/*
+	 * Ignore devices that have a domain number higher than what can
+	 * be looked up in DMAR, e.g. VMD subdevices with domain 0x10000
+	 */
+	if (pci_domain_nr(dev->bus) > U16_MAX)
+		return NULL;
+
 	/* Only generate path[] for device addition event */
 	if (event == BUS_NOTIFY_ADD_DEVICE)
 		for (tmp = dev; tmp; tmp = tmp->bus->self)
 			level++;
 
-	size = sizeof(*info) + level * sizeof(struct acpi_dmar_pci_path);
+	size = sizeof(*info) + level * sizeof(info->path[0]);
 	if (size <= sizeof(dmar_pci_notify_info_buf)) {
 		info = (struct dmar_pci_notify_info *)dmar_pci_notify_info_buf;
 	} else {
@@ -326,10 +334,13 @@ static int dmar_pci_bus_notifier(struct notifier_block *nb,
 	struct pci_dev *pdev = to_pci_dev(data);
 	struct dmar_pci_notify_info *info;
 
-	/* Only care about add/remove events for physical functions */
+	/* Only care about add/remove events for physical functions.
+	 * For VFs we actually do the lookup based on the corresponding
+	 * PF in device_to_iommu() anyway. */
 	if (pdev->is_virtfn)
 		return NOTIFY_DONE;
-	if (action != BUS_NOTIFY_ADD_DEVICE && action != BUS_NOTIFY_DEL_DEVICE)
+	if (action != BUS_NOTIFY_ADD_DEVICE &&
+	    action != BUS_NOTIFY_REMOVED_DEVICE)
 		return NOTIFY_DONE;
 
 	info = dmar_alloc_pci_notify_info(pdev, action);
@@ -339,7 +350,7 @@ static int dmar_pci_bus_notifier(struct notifier_block *nb,
 	down_write(&dmar_global_lock);
 	if (action == BUS_NOTIFY_ADD_DEVICE)
 		dmar_pci_bus_add_dev(info);
-	else if (action == BUS_NOTIFY_DEL_DEVICE)
+	else if (action == BUS_NOTIFY_REMOVED_DEVICE)
 		dmar_pci_bus_del_dev(info);
 	up_write(&dmar_global_lock);
 
@@ -435,12 +446,13 @@ static int __init dmar_parse_one_andd(struct acpi_dmar_header *header,
 
 	/* Check for NUL termination within the designated length */
 	if (strnlen(andd->device_name, header->length - 8) == header->length - 8) {
-		WARN_TAINT(1, TAINT_FIRMWARE_WORKAROUND,
+		pr_warn(FW_BUG
 			   "Your BIOS is broken; ANDD object name is not NUL-terminated\n"
 			   "BIOS vendor: %s; Ver: %s; Product Version: %s\n",
 			   dmi_get_system_info(DMI_BIOS_VENDOR),
 			   dmi_get_system_info(DMI_BIOS_VERSION),
 			   dmi_get_system_info(DMI_PRODUCT_VERSION));
+		add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
 		return -EINVAL;
 	}
 	pr_info("ANDD device: %x name: %s\n", andd->device_number,
@@ -466,14 +478,14 @@ static int dmar_parse_one_rhsa(struct acpi_dmar_header *header, void *arg)
 			return 0;
 		}
 	}
-	WARN_TAINT(
-		1, TAINT_FIRMWARE_WORKAROUND,
+	pr_warn(FW_BUG
 		"Your BIOS is broken; RHSA refers to non-existent DMAR unit at %llx\n"
 		"BIOS vendor: %s; Ver: %s; Product Version: %s\n",
-		drhd->reg_base_addr,
+		rhsa->base_address,
 		dmi_get_system_info(DMI_BIOS_VENDOR),
 		dmi_get_system_info(DMI_BIOS_VERSION),
 		dmi_get_system_info(DMI_PRODUCT_VERSION));
+	add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
 
 	return 0;
 }
@@ -819,14 +831,14 @@ int __init dmar_table_init(void)
 
 static void warn_invalid_dmar(u64 addr, const char *message)
 {
-	WARN_TAINT_ONCE(
-		1, TAINT_FIRMWARE_WORKAROUND,
+	pr_warn_once(FW_BUG
 		"Your BIOS is broken; DMAR reported at address %llx%s!\n"
 		"BIOS vendor: %s; Ver: %s; Product Version: %s\n",
 		addr, message,
 		dmi_get_system_info(DMI_BIOS_VENDOR),
 		dmi_get_system_info(DMI_BIOS_VERSION),
 		dmi_get_system_info(DMI_PRODUCT_VERSION));
+	add_taint(TAINT_FIRMWARE_WORKAROUND, LOCKDEP_STILL_OK);
 }
 
 static int __ref
@@ -1000,8 +1012,8 @@ static int alloc_iommu(struct dmar_drhd_unit *drhd)
 {
 	struct intel_iommu *iommu;
 	u32 ver, sts;
-	int agaw = 0;
-	int msagaw = 0;
+	int agaw = -1;
+	int msagaw = -1;
 	int err;
 
 	if (!drhd->reg_base_addr) {
@@ -1026,17 +1038,28 @@ static int alloc_iommu(struct dmar_drhd_unit *drhd)
 	}
 
 	err = -EINVAL;
-	agaw = iommu_calculate_agaw(iommu);
-	if (agaw < 0) {
-		pr_err("Cannot get a valid agaw for iommu (seq_id = %d)\n",
-			iommu->seq_id);
-		goto err_unmap;
+	if (cap_sagaw(iommu->cap) == 0) {
+		pr_info("%s: No supported address widths. Not attempting DMA translation.\n",
+			iommu->name);
+		drhd->ignored = 1;
 	}
-	msagaw = iommu_calculate_max_sagaw(iommu);
-	if (msagaw < 0) {
-		pr_err("Cannot get a valid max agaw for iommu (seq_id = %d)\n",
-			iommu->seq_id);
-		goto err_unmap;
+
+	if (!drhd->ignored) {
+		agaw = iommu_calculate_agaw(iommu);
+		if (agaw < 0) {
+			pr_err("Cannot get a valid agaw for iommu (seq_id = %d)\n",
+			       iommu->seq_id);
+			drhd->ignored = 1;
+		}
+	}
+	if (!drhd->ignored) {
+		msagaw = iommu_calculate_max_sagaw(iommu);
+		if (msagaw < 0) {
+			pr_err("Cannot get a valid max agaw for iommu (seq_id = %d)\n",
+			       iommu->seq_id);
+			drhd->ignored = 1;
+			agaw = -1;
+		}
 	}
 	iommu->agaw = agaw;
 	iommu->msagaw = msagaw;
@@ -1064,16 +1087,15 @@ static int alloc_iommu(struct dmar_drhd_unit *drhd)
 	raw_spin_lock_init(&iommu->register_lock);
 
 	drhd->iommu = iommu;
+	iommu->drhd = drhd;
 
-	if (intel_iommu_enabled)
+	if (intel_iommu_enabled && !drhd->ignored)
 		iommu->iommu_dev = iommu_device_create(NULL, iommu,
 						       intel_iommu_groups,
 						       "%s", iommu->name);
 
 	return 0;
 
-err_unmap:
-	unmap_iommu(iommu);
 error_free_seq_id:
 	dmar_free_seq_id(iommu);
 error:
@@ -1083,7 +1105,8 @@ error:
 
 static void free_iommu(struct intel_iommu *iommu)
 {
-	iommu_device_destroy(iommu->iommu_dev);
+	if (intel_iommu_enabled && !iommu->drhd->ignored)
+		iommu_device_destroy(iommu->iommu_dev);
 
 	if (iommu->irq) {
 		if (iommu->pr_irq) {
@@ -1312,8 +1335,8 @@ void qi_flush_iotlb(struct intel_iommu *iommu, u16 did, u64 addr,
 	qi_submit_sync(&desc, iommu);
 }
 
-void qi_flush_dev_iotlb(struct intel_iommu *iommu, u16 sid, u16 qdep,
-			u64 addr, unsigned mask)
+void qi_flush_dev_iotlb(struct intel_iommu *iommu, u16 sid, u16 pfsid,
+			u16 qdep, u64 addr, unsigned mask)
 {
 	struct qi_desc desc;
 
@@ -1328,7 +1351,7 @@ void qi_flush_dev_iotlb(struct intel_iommu *iommu, u16 sid, u16 qdep,
 		qdep = 0;
 
 	desc.low = QI_DEV_IOTLB_SID(sid) | QI_DEV_IOTLB_QDEP(qdep) |
-		   QI_DIOTLB_TYPE;
+		   QI_DIOTLB_TYPE | QI_DEV_IOTLB_PFSID(pfsid);
 
 	qi_submit_sync(&desc, iommu);
 }
@@ -1347,7 +1370,7 @@ void dmar_disable_qi(struct intel_iommu *iommu)
 
 	raw_spin_lock_irqsave(&iommu->register_lock, flags);
 
-	sts =  dmar_readq(iommu->reg + DMAR_GSTS_REG);
+	sts =  readl(iommu->reg + DMAR_GSTS_REG);
 	if (!(sts & DMA_GSTS_QIES))
 		goto end;
 
@@ -1857,10 +1880,11 @@ static int dmar_hp_remove_drhd(struct acpi_dmar_header *header, void *arg)
 	/*
 	 * All PCI devices managed by this unit should have been destroyed.
 	 */
-	if (!dmaru->include_all && dmaru->devices && dmaru->devices_cnt)
+	if (!dmaru->include_all && dmaru->devices && dmaru->devices_cnt) {
 		for_each_active_dev_scope(dmaru->devices,
 					  dmaru->devices_cnt, i, dev)
 			return -EBUSY;
+	}
 
 	ret = dmar_ir_hotplug(dmaru, false);
 	if (ret == 0)

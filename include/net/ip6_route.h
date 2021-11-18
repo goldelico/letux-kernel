@@ -21,6 +21,7 @@ struct route_info {
 #include <net/flow.h>
 #include <net/ip6_fib.h>
 #include <net/sock.h>
+#include <net/lwtunnel.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/route.h>
@@ -64,11 +65,20 @@ static inline bool rt6_need_strict(const struct in6_addr *daddr)
 
 void ip6_route_input(struct sk_buff *skb);
 
-struct dst_entry *ip6_route_output(struct net *net, const struct sock *sk,
-				   struct flowi6 *fl6);
+struct dst_entry *ip6_route_output_flags(struct net *net, const struct sock *sk,
+					 struct flowi6 *fl6, int flags);
+
+static inline struct dst_entry *ip6_route_output(struct net *net,
+						 const struct sock *sk,
+						 struct flowi6 *fl6)
+{
+	return ip6_route_output_flags(net, sk, fl6, 0);
+}
+
 struct dst_entry *ip6_route_lookup(struct net *net, struct flowi6 *fl6,
 				   int flags);
 
+void ip6_route_init_special_entries(void);
 int ip6_route_init(void);
 void ip6_route_cleanup(void);
 
@@ -92,6 +102,9 @@ void fib6_force_start_gc(struct net *net);
 
 struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
 				    const struct in6_addr *addr, bool anycast);
+
+struct rt6_info *ip6_dst_alloc(struct net *net, struct net_device *dev,
+			       int flags);
 
 /*
  *	support functions for ND
@@ -161,13 +174,14 @@ static inline bool ipv6_anycast_destination(const struct dst_entry *dst,
 
 	return rt->rt6i_flags & RTF_ANYCAST ||
 		(rt->rt6i_dst.plen != 128 &&
+		 !(rt->rt6i_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) &&
 		 ipv6_addr_equal(&rt->rt6i_dst.addr, daddr));
 }
 
 int ip6_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 		 int (*output)(struct net *, struct sock *, struct sk_buff *));
 
-static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+static inline unsigned int ip6_skb_dst_mtu(struct sk_buff *skb)
 {
 	struct ipv6_pinfo *np = skb->sk && !dev_recursion_level() ?
 				inet6_sk(skb->sk) : NULL;
@@ -199,4 +213,11 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt,
 		return daddr;
 }
 
+static inline bool rt6_duplicate_nexthop(struct rt6_info *a, struct rt6_info *b)
+{
+	return a->dst.dev == b->dst.dev &&
+	       a->rt6i_idev == b->rt6i_idev &&
+	       ipv6_addr_equal(&a->rt6i_gateway, &b->rt6i_gateway) &&
+	       !lwtunnel_cmp_encap(a->dst.lwtstate, b->dst.lwtstate);
+}
 #endif

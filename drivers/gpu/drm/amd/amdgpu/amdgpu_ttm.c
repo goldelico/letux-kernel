@@ -233,8 +233,8 @@ static int amdgpu_move_blit(struct ttm_buffer_object *bo,
 
 	adev = amdgpu_get_adev(bo->bdev);
 	ring = adev->mman.buffer_funcs_ring;
-	old_start = old_mem->start << PAGE_SHIFT;
-	new_start = new_mem->start << PAGE_SHIFT;
+	old_start = (u64)old_mem->start << PAGE_SHIFT;
+	new_start = (u64)new_mem->start << PAGE_SHIFT;
 
 	switch (old_mem->mem_type) {
 	case TTM_PL_VRAM:
@@ -496,8 +496,12 @@ static int amdgpu_ttm_tt_pin_userptr(struct ttm_tt *ttm)
 	int r;
 
 	int write = !(gtt->userflags & AMDGPU_GEM_USERPTR_READONLY);
+	unsigned int flags = 0;
 	enum dma_data_direction direction = write ?
 		DMA_BIDIRECTIONAL : DMA_TO_DEVICE;
+
+	if (write)
+		flags |= FOLL_WRITE;
 
 	if (current->mm != gtt->usermm)
 		return -EPERM;
@@ -519,7 +523,7 @@ static int amdgpu_ttm_tt_pin_userptr(struct ttm_tt *ttm)
 		struct page **pages = ttm->pages + pinned;
 
 		r = get_user_pages(current, current->mm, userptr, num_pages,
-				   write, 0, pages, NULL);
+				   flags, pages, NULL);
 		if (r < 0)
 			goto release_pages;
 
@@ -562,7 +566,7 @@ static void amdgpu_ttm_tt_unpin_userptr(struct ttm_tt *ttm)
 		DMA_BIDIRECTIONAL : DMA_TO_DEVICE;
 
 	/* double check that we don't free the table twice */
-	if (!ttm->sg->sgl)
+	if (!ttm->sg || !ttm->sg->sgl)
 		return;
 
 	/* free the sg table and pages again */
@@ -712,7 +716,7 @@ static int amdgpu_ttm_tt_populate(struct ttm_tt *ttm)
 						       0, PAGE_SIZE,
 						       PCI_DMA_BIDIRECTIONAL);
 		if (pci_dma_mapping_error(adev->pdev, gtt->ttm.dma_address[i])) {
-			while (--i) {
+			while (i--) {
 				pci_unmap_page(adev->pdev, gtt->ttm.dma_address[i],
 					       PAGE_SIZE, PCI_DMA_BIDIRECTIONAL);
 				gtt->ttm.dma_address[i] = 0;
@@ -733,6 +737,7 @@ static void amdgpu_ttm_tt_unpopulate(struct ttm_tt *ttm)
 
 	if (gtt && gtt->userptr) {
 		kfree(ttm->sg);
+		ttm->sg = NULL;
 		ttm->page_flags &= ~TTM_PAGE_FLAG_SG;
 		return;
 	}
@@ -783,6 +788,25 @@ bool amdgpu_ttm_tt_has_userptr(struct ttm_tt *ttm)
 	return !!gtt->userptr;
 }
 
+bool amdgpu_ttm_tt_affect_userptr(struct ttm_tt *ttm, unsigned long start,
+				  unsigned long end)
+{
+	struct amdgpu_ttm_tt *gtt = (void *)ttm;
+	unsigned long size;
+
+	if (gtt == NULL)
+		return false;
+
+	if (gtt->ttm.ttm.state != tt_bound || !gtt->userptr)
+		return false;
+
+	size = (unsigned long)gtt->ttm.ttm.num_pages * PAGE_SIZE;
+	if (gtt->userptr > end || gtt->userptr + size <= start)
+		return false;
+
+	return true;
+}
+
 bool amdgpu_ttm_tt_is_readonly(struct ttm_tt *ttm)
 {
 	struct amdgpu_ttm_tt *gtt = (void *)ttm;
@@ -808,7 +832,7 @@ uint32_t amdgpu_ttm_tt_pte_flags(struct amdgpu_device *adev, struct ttm_tt *ttm,
 			flags |= AMDGPU_PTE_SNOOPED;
 	}
 
-	if (adev->asic_type >= CHIP_TOPAZ)
+	if (adev->asic_type >= CHIP_TONGA)
 		flags |= AMDGPU_PTE_EXECUTABLE;
 
 	flags |= AMDGPU_PTE_READABLE;
@@ -1106,6 +1130,9 @@ static ssize_t amdgpu_ttm_vram_read(struct file *f, char __user *buf,
 
 	if (size & 0x3 || *pos & 0x3)
 		return -EINVAL;
+
+	if (*pos >= adev->mc.mc_vram_size)
+		return -ENXIO;
 
 	while (size) {
 		unsigned long flags;

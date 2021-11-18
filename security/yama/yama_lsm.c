@@ -281,14 +281,16 @@ static int yama_ptrace_access_check(struct task_struct *child,
 	int rc = 0;
 
 	/* require ptrace target be a child of ptracer on attach */
-	if (mode == PTRACE_MODE_ATTACH) {
+	if (mode & PTRACE_MODE_ATTACH) {
 		switch (ptrace_scope) {
 		case YAMA_SCOPE_DISABLED:
 			/* No additional restrictions. */
 			break;
 		case YAMA_SCOPE_RELATIONAL:
 			rcu_read_lock();
-			if (!task_is_descendant(current, child) &&
+			if (!pid_alive(child))
+				rc = -EPERM;
+			if (!rc && !task_is_descendant(current, child) &&
 			    !ptracer_exception_found(current, child) &&
 			    !ns_capable(__task_cred(child)->user_ns, CAP_SYS_PTRACE))
 				rc = -EPERM;
@@ -307,7 +309,7 @@ static int yama_ptrace_access_check(struct task_struct *child,
 		}
 	}
 
-	if (rc) {
+	if (rc && (mode & PTRACE_MODE_NOAUDIT) == 0) {
 		printk_ratelimited(KERN_NOTICE
 			"ptrace of pid %d was attempted by: %s (pid %d)\n",
 			child->pid, current->comm, current->pid);

@@ -135,14 +135,6 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 		DMI_MATCH(DMI_PRODUCT_NAME, "UL30A"),
 		},
 	},
-	{
-	.callback = video_detect_force_vendor,
-	.ident = "Dell Inspiron 5737",
-	.matches = {
-		DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-		DMI_MATCH(DMI_PRODUCT_NAME, "Inspiron 5737"),
-		},
-	},
 
 	/*
 	 * These models have a working acpi_video backlight control, and using
@@ -214,6 +206,15 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 		},
 	},
 	{
+	 /* https://bugzilla.redhat.com/show_bug.cgi?id=1557060 */
+	 .callback = video_detect_force_video,
+	 .ident = "SAMSUNG 670Z5E",
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "SAMSUNG ELECTRONICS CO., LTD."),
+		DMI_MATCH(DMI_PRODUCT_NAME, "670Z5E"),
+		},
+	},
+	{
 	 /* https://bugzilla.redhat.com/show_bug.cgi?id=1094948 */
 	 .callback = video_detect_force_video,
 	 .ident = "SAMSUNG 730U3E/740U3E",
@@ -250,6 +251,15 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 		DMI_MATCH(DMI_PRODUCT_NAME, "XPS L521X"),
 		},
 	},
+	/* https://bugs.launchpad.net/bugs/1894667 */
+	{
+	 .callback = video_detect_force_video,
+	 .ident = "HP 635 Notebook",
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "HP 635 Notebook PC"),
+		},
+	},
 
 	/* Non win8 machines which need native backlight nevertheless */
 	{
@@ -277,6 +287,15 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 	 .matches = {
 		DMI_MATCH(DMI_SYS_VENDOR, "Apple Inc."),
 		DMI_MATCH(DMI_PRODUCT_NAME, "MacBookPro12,1"),
+		},
+	},
+	{
+	 /* https://bugzilla.redhat.com/show_bug.cgi?id=1123661 */
+	 .callback = video_detect_force_native,
+	 .ident = "Dell XPS 17 L702X",
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+		DMI_MATCH(DMI_PRODUCT_NAME, "Dell System XPS L702X"),
 		},
 	},
 	{ },

@@ -92,7 +92,8 @@ void save_mce_event(struct pt_regs *regs, long handled,
 	mce->in_use = 1;
 
 	mce->initiator = MCE_INITIATOR_CPU;
-	if (handled)
+	/* Mark it recovered if we have handled it and MSR(RI=1). */
+	if (handled && (regs->msr & MSR_RI))
 		mce->disposition = MCE_DISPOSITION_RECOVERED;
 	else
 		mce->disposition = MCE_DISPOSITION_NOT_RECOVERED;
@@ -203,6 +204,8 @@ void machine_check_queue_event(void)
 static void machine_check_process_queued_event(struct irq_work *work)
 {
 	int index;
+
+	add_taint(TAINT_MACHINE_CHECK, LOCKDEP_NOW_UNRELIABLE);
 
 	/*
 	 * For now just print it to console.

@@ -55,7 +55,6 @@ static int snd_line6_impulse_volume_put(struct snd_kcontrol *kcontrol,
 		err = line6_pcm_acquire(line6pcm, LINE6_STREAM_IMPULSE);
 		if (err < 0) {
 			line6pcm->impulse_volume = 0;
-			line6_pcm_release(line6pcm, LINE6_STREAM_IMPULSE);
 			return err;
 		}
 	} else {
@@ -211,7 +210,9 @@ static void line6_stream_stop(struct snd_line6_pcm *line6pcm, int direction,
 	spin_lock_irqsave(&pstr->lock, flags);
 	clear_bit(type, &pstr->running);
 	if (!pstr->running) {
+		spin_unlock_irqrestore(&pstr->lock, flags);
 		line6_unlink_audio_urbs(line6pcm, pstr);
+		spin_lock_irqsave(&pstr->lock, flags);
 		if (direction == SNDRV_PCM_STREAM_CAPTURE) {
 			line6pcm->prev_fbuf = NULL;
 			line6pcm->prev_fsize = 0;
@@ -522,13 +523,6 @@ int line6_init_pcm(struct usb_line6 *line6,
 	line6pcm->volume_monitor = 255;
 	line6pcm->line6 = line6;
 
-	/* Read and write buffers are sized identically, so choose minimum */
-	line6pcm->max_packet_size = min(
-			usb_maxpacket(line6->usbdev,
-				usb_rcvisocpipe(line6->usbdev, ep_read), 0),
-			usb_maxpacket(line6->usbdev,
-				usb_sndisocpipe(line6->usbdev, ep_write), 1));
-
 	spin_lock_init(&line6pcm->out.lock);
 	spin_lock_init(&line6pcm->in.lock);
 	line6pcm->impulse_period = LINE6_IMPULSE_DEFAULT_PERIOD;
@@ -537,6 +531,18 @@ int line6_init_pcm(struct usb_line6 *line6,
 
 	pcm->private_data = line6pcm;
 	pcm->private_free = line6_cleanup_pcm;
+
+	/* Read and write buffers are sized identically, so choose minimum */
+	line6pcm->max_packet_size = min(
+			usb_maxpacket(line6->usbdev,
+				usb_rcvisocpipe(line6->usbdev, ep_read), 0),
+			usb_maxpacket(line6->usbdev,
+				usb_sndisocpipe(line6->usbdev, ep_write), 1));
+	if (!line6pcm->max_packet_size) {
+		dev_err(line6pcm->line6->ifcdev,
+			"cannot get proper max packet size\n");
+		return -EINVAL;
+	}
 
 	err = line6_create_audio_out_urbs(line6pcm);
 	if (err < 0)

@@ -185,6 +185,10 @@ void __iomem *c4iw_bar2_addrs(struct c4iw_rdev *rdev, unsigned int qid,
 
 	if (pbar2_pa)
 		*pbar2_pa = (rdev->bar2_pa + bar2_qoffset) & PAGE_MASK;
+
+	if (is_t4(rdev->lldi.adapter_type))
+		return NULL;
+
 	return rdev->bar2_kva + bar2_qoffset;
 }
 
@@ -270,9 +274,10 @@ static int create_qp(struct c4iw_rdev *rdev, struct t4_wq *wq,
 	/*
 	 * User mode must have bar2 access.
 	 */
-	if (user && (!wq->sq.bar2_va || !wq->rq.bar2_va)) {
+	if (user && (!wq->sq.bar2_pa || !wq->rq.bar2_pa)) {
 		pr_warn(MOD "%s: sqid %u or rqid %u not in BAR2 range.\n",
 			pci_name(rdev->lldi.pdev), wq->sq.qid, wq->rq.qid);
+		ret = -EINVAL;
 		goto free_dma;
 	}
 
@@ -1179,6 +1184,12 @@ static void flush_qp(struct c4iw_qp *qhp)
 
 	t4_set_wq_in_error(&qhp->wq);
 	if (qhp->ibqp.uobject) {
+
+		/* for user qps, qhp->wq.flushed is protected by qhp->mutex */
+		if (qhp->wq.flushed)
+			return;
+
+		qhp->wq.flushed = 1;
 		t4_set_cq_in_error(&rchp->cq);
 		spin_lock_irqsave(&rchp->comp_handler_lock, flag);
 		(*rchp->ibcq.comp_handler)(&rchp->ibcq, rchp->ibcq.cq_context);
@@ -1888,7 +1899,7 @@ int c4iw_ib_query_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	init_attr->cap.max_send_wr = qhp->attr.sq_num_entries;
 	init_attr->cap.max_recv_wr = qhp->attr.rq_num_entries;
 	init_attr->cap.max_send_sge = qhp->attr.sq_max_sges;
-	init_attr->cap.max_recv_sge = qhp->attr.sq_max_sges;
+	init_attr->cap.max_recv_sge = qhp->attr.rq_max_sges;
 	init_attr->cap.max_inline_data = T4_MAX_SEND_INLINE;
 	init_attr->sq_sig_type = qhp->sq_sig_all ? IB_SIGNAL_ALL_WR : 0;
 	return 0;

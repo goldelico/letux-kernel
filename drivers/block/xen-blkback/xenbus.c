@@ -200,9 +200,8 @@ static int xen_blkif_map(struct xen_blkif *blkif, grant_ref_t *gref,
 		BUG();
 	}
 
-	err = bind_interdomain_evtchn_to_irqhandler(blkif->domid, evtchn,
-						    xen_blkif_be_int, 0,
-						    "blkif-backend", blkif);
+	err = bind_interdomain_evtchn_to_irqhandler_lateeoi(blkif->domid,
+			evtchn, xen_blkif_be_int, 0, "blkif-backend", blkif);
 	if (err < 0) {
 		xenbus_unmap_ring_vfree(blkif->be->dev, blkif->blk_ring);
 		blkif->blk_rings.common.sring = NULL;
@@ -220,8 +219,8 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 
 	if (blkif->xenblkd) {
 		kthread_stop(blkif->xenblkd);
-		wake_up(&blkif->shutdown_wq);
 		blkif->xenblkd = NULL;
+		wake_up(&blkif->shutdown_wq);
 	}
 
 	/* The above kthread_stop() guarantees that at this point we
@@ -266,9 +265,10 @@ static int xen_blkif_disconnect(struct xen_blkif *blkif)
 
 static void xen_blkif_free(struct xen_blkif *blkif)
 {
-
-	xen_blkif_disconnect(blkif);
+	WARN_ON(xen_blkif_disconnect(blkif));
 	xen_vbd_free(&blkif->vbd);
+	kfree(blkif->be->mode);
+	kfree(blkif->be);
 
 	/* Make sure everything is drained before shutting down */
 	BUG_ON(blkif->persistent_gnt_c != 0);
@@ -445,8 +445,6 @@ static int xen_blkbk_remove(struct xenbus_device *dev)
 		xen_blkif_put(be->blkif);
 	}
 
-	kfree(be->mode);
-	kfree(be);
 	return 0;
 }
 
@@ -556,7 +554,8 @@ static int xen_blkbk_probe(struct xenbus_device *dev,
 	/* setup back pointer */
 	be->blkif->be = be;
 
-	err = xenbus_watch_pathfmt(dev, &be->backend_watch, backend_changed,
+	err = xenbus_watch_pathfmt(dev, &be->backend_watch, NULL,
+				   backend_changed,
 				   "%s/%s", dev->nodename, "physical-device");
 	if (err)
 		goto fail;

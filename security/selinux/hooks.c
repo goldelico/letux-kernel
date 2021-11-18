@@ -333,18 +333,6 @@ static void superblock_free_security(struct super_block *sb)
 	kfree(sbsec);
 }
 
-/* The file system's label must be initialized prior to use. */
-
-static const char *labeling_behaviors[7] = {
-	"uses xattr",
-	"uses transition SIDs",
-	"uses task SIDs",
-	"uses genfs_contexts",
-	"not configured for labeling",
-	"uses mountpoint labeling",
-	"uses native labeling",
-};
-
 static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dentry);
 
 static inline int inode_doinit(struct inode *inode)
@@ -408,19 +396,41 @@ static int may_context_mount_inode_relabel(u32 sid,
 	return rc;
 }
 
+static int selinux_is_genfs_special_handling(struct super_block *sb)
+{
+	/* Special handling. Genfs but also in-core setxattr handler */
+	return	!strcmp(sb->s_type->name, "sysfs") ||
+		!strcmp(sb->s_type->name, "pstore") ||
+		!strcmp(sb->s_type->name, "debugfs") ||
+		!strcmp(sb->s_type->name, "rootfs");
+}
+
 static int selinux_is_sblabel_mnt(struct super_block *sb)
 {
 	struct superblock_security_struct *sbsec = sb->s_security;
 
-	return sbsec->behavior == SECURITY_FS_USE_XATTR ||
-		sbsec->behavior == SECURITY_FS_USE_TRANS ||
-		sbsec->behavior == SECURITY_FS_USE_TASK ||
-		sbsec->behavior == SECURITY_FS_USE_NATIVE ||
-		/* Special handling. Genfs but also in-core setxattr handler */
-		!strcmp(sb->s_type->name, "sysfs") ||
-		!strcmp(sb->s_type->name, "pstore") ||
-		!strcmp(sb->s_type->name, "debugfs") ||
-		!strcmp(sb->s_type->name, "rootfs");
+	/*
+	 * IMPORTANT: Double-check logic in this function when adding a new
+	 * SECURITY_FS_USE_* definition!
+	 */
+	BUILD_BUG_ON(SECURITY_FS_USE_MAX != 7);
+
+	switch (sbsec->behavior) {
+	case SECURITY_FS_USE_XATTR:
+	case SECURITY_FS_USE_TRANS:
+	case SECURITY_FS_USE_TASK:
+	case SECURITY_FS_USE_NATIVE:
+		return 1;
+
+	case SECURITY_FS_USE_GENFS:
+		return selinux_is_genfs_special_handling(sb);
+
+	/* Never allow relabeling on context mounts */
+	case SECURITY_FS_USE_MNTPOINT:
+	case SECURITY_FS_USE_NONE:
+	default:
+		return 0;
+	}
 }
 
 static int sb_finish_set_opts(struct super_block *sb)
@@ -455,10 +465,6 @@ static int sb_finish_set_opts(struct super_block *sb)
 			goto out;
 		}
 	}
-
-	if (sbsec->behavior > ARRAY_SIZE(labeling_behaviors))
-		printk(KERN_ERR "SELinux: initialized (dev %s, type %s), unknown behavior\n",
-		       sb->s_id, sb->s_type->name);
 
 	sbsec->flags |= SE_SBINITIALIZED;
 	if (selinux_is_sblabel_mnt(sb))
@@ -1958,8 +1964,9 @@ static inline u32 file_to_av(struct file *file)
 static inline u32 open_file_to_av(struct file *file)
 {
 	u32 av = file_to_av(file);
+	struct inode *inode = file_inode(file);
 
-	if (selinux_policycap_openperm)
+	if (selinux_policycap_openperm && inode->i_sb->s_magic != SOCKFS_MAGIC)
 		av |= FILE__OPEN;
 
 	return av;
@@ -2928,6 +2935,7 @@ static int selinux_inode_permission(struct inode *inode, int mask)
 static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
 {
 	const struct cred *cred = current_cred();
+	struct inode *inode = d_backing_inode(dentry);
 	unsigned int ia_valid = iattr->ia_valid;
 	__u32 av = FILE__WRITE;
 
@@ -2943,8 +2951,10 @@ static int selinux_inode_setattr(struct dentry *dentry, struct iattr *iattr)
 			ATTR_ATIME_SET | ATTR_MTIME_SET | ATTR_TIMES_SET))
 		return dentry_has_perm(cred, dentry, FILE__SETATTR);
 
-	if (selinux_policycap_openperm && (ia_valid & ATTR_SIZE)
-			&& !(ia_valid & ATTR_FILE))
+	if (selinux_policycap_openperm &&
+	    inode->i_sb->s_magic != SOCKFS_MAGIC &&
+	    (ia_valid & ATTR_SIZE) &&
+	    !(ia_valid & ATTR_FILE))
 		av |= FILE__OPEN;
 
 	return dentry_has_perm(cred, dentry, av);
@@ -4032,6 +4042,8 @@ static int sock_has_perm(struct task_struct *task, struct sock *sk, u32 perms)
 	struct lsm_network_audit net = {0,};
 	u32 tsid = task_sid(task);
 
+	if (!sksec)
+		return -EFAULT;
 	if (sksec->sid == SECINITSID_KERNEL)
 		return 0;
 
@@ -4122,10 +4134,18 @@ static int selinux_socket_bind(struct socket *sock, struct sockaddr *address, in
 		u32 sid, node_perm;
 
 		if (family == PF_INET) {
+			if (addrlen < sizeof(struct sockaddr_in)) {
+				err = -EINVAL;
+				goto out;
+			}
 			addr4 = (struct sockaddr_in *)address;
 			snum = ntohs(addr4->sin_port);
 			addrp = (char *)&addr4->sin_addr.s_addr;
 		} else {
+			if (addrlen < SIN6_LEN_RFC2133) {
+				err = -EINVAL;
+				goto out;
+			}
 			addr6 = (struct sockaddr_in6 *)address;
 			snum = ntohs(addr6->sin6_port);
 			addrp = (char *)&addr6->sin6_addr.s6_addr;
@@ -4771,38 +4791,59 @@ static int selinux_tun_dev_open(void *security)
 
 static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
 {
-	int err = 0;
-	u32 perm;
+	int rc = 0;
+	unsigned int msg_len;
+	unsigned int data_len = skb->len;
+	unsigned char *data = skb->data;
 	struct nlmsghdr *nlh;
 	struct sk_security_struct *sksec = sk->sk_security;
+	u16 sclass = sksec->sclass;
+	u32 perm;
 
-	if (skb->len < NLMSG_HDRLEN) {
-		err = -EINVAL;
-		goto out;
-	}
-	nlh = nlmsg_hdr(skb);
+	while (data_len >= nlmsg_total_size(0)) {
+		nlh = (struct nlmsghdr *)data;
 
-	err = selinux_nlmsg_lookup(sksec->sclass, nlh->nlmsg_type, &perm);
-	if (err) {
-		if (err == -EINVAL) {
-			printk(KERN_WARNING
-			       "SELinux: unrecognized netlink message:"
-			       " protocol=%hu nlmsg_type=%hu sclass=%s\n",
-			       sk->sk_protocol, nlh->nlmsg_type,
-			       secclass_map[sksec->sclass - 1].name);
-			if (!selinux_enforcing || security_get_allow_unknown())
-				err = 0;
+		/* NOTE: the nlmsg_len field isn't reliably set by some netlink
+		 *       users which means we can't reject skb's with bogus
+		 *       length fields; our solution is to follow what
+		 *       netlink_rcv_skb() does and simply skip processing at
+		 *       messages with length fields that are clearly junk
+		 */
+		if (nlh->nlmsg_len < NLMSG_HDRLEN || nlh->nlmsg_len > data_len)
+			return 0;
+
+		rc = selinux_nlmsg_lookup(sclass, nlh->nlmsg_type, &perm);
+		if (rc == 0) {
+			rc = sock_has_perm(current, sk, perm);
+			if (rc)
+				return rc;
+		} else if (rc == -EINVAL) {
+			/* -EINVAL is a missing msg/perm mapping */
+			pr_warn_ratelimited("SELinux: unrecognized netlink"
+				" message: protocol=%hu nlmsg_type=%hu sclass=%s"
+				" pid=%d comm=%s\n",
+				sk->sk_protocol, nlh->nlmsg_type,
+				secclass_map[sclass - 1].name,
+				task_pid_nr(current), current->comm);
+			if (selinux_enforcing && !security_get_allow_unknown())
+				return rc;
+			rc = 0;
+		} else if (rc == -ENOENT) {
+			/* -ENOENT is a missing socket/class mapping, ignore */
+			rc = 0;
+		} else {
+			return rc;
 		}
 
-		/* Ignore */
-		if (err == -ENOENT)
-			err = 0;
-		goto out;
+		/* move to the next message after applying netlink padding */
+		msg_len = NLMSG_ALIGN(nlh->nlmsg_len);
+		if (msg_len >= data_len)
+			return 0;
+		data_len -= msg_len;
+		data += msg_len;
 	}
 
-	err = sock_has_perm(current, sk, perm);
-out:
-	return err;
+	return rc;
 }
 
 #ifdef CONFIG_NETFILTER
@@ -5640,7 +5681,7 @@ static int selinux_setprocattr(struct task_struct *p,
 		return error;
 
 	/* Obtain a SID for the context, if one was specified. */
-	if (size && str[1] && str[1] != '\n') {
+	if (size && str[0] && str[0] != '\n') {
 		if (str[size-1] == '\n') {
 			str[size-1] = 0;
 			size--;

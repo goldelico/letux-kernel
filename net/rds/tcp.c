@@ -110,7 +110,7 @@ void rds_tcp_restore_callbacks(struct socket *sock,
 
 /*
  * This is the only path that sets tc->t_sock.  Send and receive trust that
- * it is set.  The RDS_CONN_CONNECTED bit protects those paths from being
+ * it is set.  The RDS_CONN_UP bit protects those paths from being
  * called while it isn't set.
  */
 void rds_tcp_set_callbacks(struct socket *sock, struct rds_connection *conn)
@@ -346,15 +346,17 @@ static void rds_tcp_kill_sock(struct net *net)
 	list_for_each_entry_safe(tc, _tc, &rds_tcp_conn_list, t_tcp_node) {
 		struct net *c_net = read_pnet(&tc->conn->c_net);
 
-		if (net != c_net || !tc->t_sock)
+		if (net != c_net)
 			continue;
 		list_move_tail(&tc->t_tcp_node, &tmp_list);
 	}
 	spin_unlock_irq(&rds_tcp_conn_lock);
 	list_for_each_entry_safe(tc, _tc, &tmp_list, t_tcp_node) {
-		sk = tc->t_sock->sk;
-		sk->sk_prot->disconnect(sk, 0);
-		tcp_done(sk);
+		if (tc->t_sock) {
+			sk = tc->t_sock->sk;
+			sk->sk_prot->disconnect(sk, 0);
+			tcp_done(sk);
+		}
 		if (tc->conn->c_passive)
 			rds_conn_destroy(tc->conn->c_passive);
 		rds_conn_destroy(tc->conn);
@@ -421,7 +423,7 @@ static int rds_tcp_init(void)
 
 	ret = rds_tcp_recv_init();
 	if (ret)
-		goto out_slab;
+		goto out_pernet;
 
 	ret = rds_trans_register(&rds_tcp_transport);
 	if (ret)
@@ -433,8 +435,9 @@ static int rds_tcp_init(void)
 
 out_recv:
 	rds_tcp_recv_exit();
-out_slab:
+out_pernet:
 	unregister_pernet_subsys(&rds_tcp_net_ops);
+out_slab:
 	kmem_cache_destroy(rds_tcp_conn_slab);
 out:
 	return ret;

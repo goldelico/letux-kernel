@@ -1340,6 +1340,26 @@ static const struct nla_policy cbq_policy[TCA_CBQ_MAX + 1] = {
 	[TCA_CBQ_POLICE]	= { .len = sizeof(struct tc_cbq_police) },
 };
 
+static int cbq_opt_parse(struct nlattr *tb[TCA_CBQ_MAX + 1], struct nlattr *opt)
+{
+	int err;
+
+	if (!opt)
+		return -EINVAL;
+
+	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
+	if (err < 0)
+		return err;
+
+	if (tb[TCA_CBQ_WRROPT]) {
+		const struct tc_cbq_wrropt *wrr = nla_data(tb[TCA_CBQ_WRROPT]);
+
+		if (wrr->priority > TC_CBQ_MAXPRIO)
+			err = -EINVAL;
+	}
+	return err;
+}
+
 static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct cbq_sched_data *q = qdisc_priv(sch);
@@ -1347,7 +1367,7 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
 	struct tc_ratespec *r;
 	int err;
 
-	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
+	err = cbq_opt_parse(tb, opt);
 	if (err < 0)
 		return err;
 
@@ -1624,13 +1644,8 @@ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
 			new->reshape_fail = cbq_reshape_fail;
 #endif
 	}
-	sch_tree_lock(sch);
-	*old = cl->q;
-	cl->q = new;
-	qdisc_tree_decrease_qlen(*old, (*old)->q.qlen);
-	qdisc_reset(*old);
-	sch_tree_unlock(sch);
 
+	*old = qdisc_replace(sch, new, &cl->q);
 	return 0;
 }
 
@@ -1733,10 +1748,7 @@ cbq_change_class(struct Qdisc *sch, u32 classid, u32 parentid, struct nlattr **t
 	struct cbq_class *parent;
 	struct qdisc_rate_table *rtab = NULL;
 
-	if (opt == NULL)
-		return -EINVAL;
-
-	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy);
+	err = cbq_opt_parse(tb, opt);
 	if (err < 0)
 		return err;
 
@@ -1914,7 +1926,7 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
 {
 	struct cbq_sched_data *q = qdisc_priv(sch);
 	struct cbq_class *cl = (struct cbq_class *)arg;
-	unsigned int qlen;
+	unsigned int qlen, backlog;
 
 	if (cl->filters || cl->children || cl == &q->link)
 		return -EBUSY;
@@ -1922,8 +1934,9 @@ static int cbq_delete(struct Qdisc *sch, unsigned long arg)
 	sch_tree_lock(sch);
 
 	qlen = cl->q->q.qlen;
+	backlog = cl->q->qstats.backlog;
 	qdisc_reset(cl->q);
-	qdisc_tree_decrease_qlen(cl->q, qlen);
+	qdisc_tree_reduce_backlog(cl->q, qlen, backlog);
 
 	if (cl->next_alive)
 		cbq_deactivate_class(cl);

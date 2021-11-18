@@ -687,7 +687,7 @@ static bool trap_dbgidr(struct kvm_vcpu *vcpu,
 	} else {
 		u64 dfr = read_system_reg(SYS_ID_AA64DFR0_EL1);
 		u64 pfr = read_system_reg(SYS_ID_AA64PFR0_EL1);
-		u32 el3 = !!cpuid_feature_extract_field(pfr, ID_AA64PFR0_EL3_SHIFT);
+		u32 el3 = !!cpuid_feature_extract_unsigned_field(pfr, ID_AA64PFR0_EL3_SHIFT);
 
 		p->regval = ((((dfr >> ID_AA64DFR0_WRPS_SHIFT) & 0xf) << 28) |
 			     (((dfr >> ID_AA64DFR0_BRPS_SHIFT) & 0xf) << 24) |
@@ -1054,8 +1054,8 @@ static int kvm_handle_cp_64(struct kvm_vcpu *vcpu,
 {
 	struct sys_reg_params params;
 	u32 hsr = kvm_vcpu_get_hsr(vcpu);
-	int Rt = (hsr >> 5) & 0xf;
-	int Rt2 = (hsr >> 10) & 0xf;
+	int Rt = (hsr >> 5) & 0x1f;
+	int Rt2 = (hsr >> 10) & 0x1f;
 
 	params.is_aarch32 = true;
 	params.is_32bit = false;
@@ -1106,7 +1106,7 @@ static int kvm_handle_cp_32(struct kvm_vcpu *vcpu,
 {
 	struct sys_reg_params params;
 	u32 hsr = kvm_vcpu_get_hsr(vcpu);
-	int Rt  = (hsr >> 5) & 0xf;
+	int Rt  = (hsr >> 5) & 0x1f;
 
 	params.is_aarch32 = true;
 	params.is_32bit = true;

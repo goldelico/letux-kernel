@@ -376,11 +376,15 @@ static int ext4_valid_extent(struct inode *inode, struct ext4_extent *ext)
 	ext4_fsblk_t block = ext4_ext_pblock(ext);
 	int len = ext4_ext_get_actual_len(ext);
 	ext4_lblk_t lblock = le32_to_cpu(ext->ee_block);
-	ext4_lblk_t last = lblock + len - 1;
 
-	if (len == 0 || lblock > last)
+	/*
+	 * We allow neither:
+	 *  - zero length
+	 *  - overflow/wrap-around
+	 */
+	if (lblock + len <= lblock)
 		return 0;
-	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, len);
+	return ext4_inode_block_valid(inode, block, len);
 }
 
 static int ext4_valid_extent_idx(struct inode *inode,
@@ -388,7 +392,7 @@ static int ext4_valid_extent_idx(struct inode *inode,
 {
 	ext4_fsblk_t block = ext4_idx_pblock(ext_idx);
 
-	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, 1);
+	return ext4_inode_block_valid(inode, block, 1);
 }
 
 static int ext4_valid_extent_entries(struct inode *inode,
@@ -469,6 +473,10 @@ static int __ext4_ext_check(const char *function, unsigned int line,
 		error_msg = "invalid extent entries";
 		goto corrupted;
 	}
+	if (unlikely(depth > 32)) {
+		error_msg = "too large eh_depth";
+		goto corrupted;
+	}
 	/* Verify checksum on non-root extent tree nodes */
 	if (ext_depth(inode) != depth &&
 	    !ext4_extent_block_csum_verify(inode, eh)) {
@@ -495,6 +503,30 @@ corrupted:
 int ext4_ext_check_inode(struct inode *inode)
 {
 	return ext4_ext_check(inode, ext_inode_hdr(inode), ext_depth(inode), 0);
+}
+
+static void ext4_cache_extents(struct inode *inode,
+			       struct ext4_extent_header *eh)
+{
+	struct ext4_extent *ex = EXT_FIRST_EXTENT(eh);
+	ext4_lblk_t prev = 0;
+	int i;
+
+	for (i = le16_to_cpu(eh->eh_entries); i > 0; i--, ex++) {
+		unsigned int status = EXTENT_STATUS_WRITTEN;
+		ext4_lblk_t lblk = le32_to_cpu(ex->ee_block);
+		int len = ext4_ext_get_actual_len(ex);
+
+		if (prev && (prev != lblk))
+			ext4_es_cache_extent(inode, prev, lblk - prev, ~0,
+					     EXTENT_STATUS_HOLE);
+
+		if (ext4_ext_is_unwritten(ex))
+			status = EXTENT_STATUS_UNWRITTEN;
+		ext4_es_cache_extent(inode, lblk, len,
+				     ext4_ext_pblock(ex), status);
+		prev = lblk + len;
+	}
 }
 
 static struct buffer_head *
@@ -527,26 +559,7 @@ __read_extent_tree_block(const char *function, unsigned int line,
 	 */
 	if (!(flags & EXT4_EX_NOCACHE) && depth == 0) {
 		struct ext4_extent_header *eh = ext_block_hdr(bh);
-		struct ext4_extent *ex = EXT_FIRST_EXTENT(eh);
-		ext4_lblk_t prev = 0;
-		int i;
-
-		for (i = le16_to_cpu(eh->eh_entries); i > 0; i--, ex++) {
-			unsigned int status = EXTENT_STATUS_WRITTEN;
-			ext4_lblk_t lblk = le32_to_cpu(ex->ee_block);
-			int len = ext4_ext_get_actual_len(ex);
-
-			if (prev && (prev != lblk))
-				ext4_es_cache_extent(inode, prev,
-						     lblk - prev, ~0,
-						     EXTENT_STATUS_HOLE);
-
-			if (ext4_ext_is_unwritten(ex))
-				status = EXTENT_STATUS_UNWRITTEN;
-			ext4_es_cache_extent(inode, lblk, len,
-					     ext4_ext_pblock(ex), status);
-			prev = lblk + len;
-		}
+		ext4_cache_extents(inode, eh);
 	}
 	return bh;
 errout:
@@ -852,6 +865,7 @@ int ext4_ext_tree_init(handle_t *handle, struct inode *inode)
 	eh->eh_entries = 0;
 	eh->eh_magic = EXT4_EXT_MAGIC;
 	eh->eh_max = cpu_to_le16(ext4_ext_space_root(inode, 0));
+	eh->eh_generation = 0;
 	ext4_mark_inode_dirty(handle, inode);
 	return 0;
 }
@@ -868,6 +882,12 @@ ext4_find_extent(struct inode *inode, ext4_lblk_t block,
 
 	eh = ext_inode_hdr(inode);
 	depth = ext_depth(inode);
+	if (depth < 0 || depth > EXT4_MAX_EXTENT_DEPTH) {
+		EXT4_ERROR_INODE(inode, "inode has invalid extent depth: %d",
+				 depth);
+		ret = -EFSCORRUPTED;
+		goto err;
+	}
 
 	if (path) {
 		ext4_ext_drop_refs(path);
@@ -888,6 +908,8 @@ ext4_find_extent(struct inode *inode, ext4_lblk_t block,
 	path[0].p_bh = NULL;
 
 	i = depth;
+	if (!(flags & EXT4_EX_NOCACHE) && depth == 0)
+		ext4_cache_extents(inode, eh);
 	/* walk through the tree */
 	while (i) {
 		ext_debug("depth %d: num %d, max %d\n",
@@ -1035,6 +1057,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 	__le32 border;
 	ext4_fsblk_t *ablocks = NULL; /* array of allocated blocks */
 	int err = 0;
+	size_t ext_size = 0;
 
 	/* make decision: where to split? */
 	/* FIXME: now decision is simplest: at current extent */
@@ -1106,6 +1129,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 	neh->eh_max = cpu_to_le16(ext4_ext_space_block(inode, 0));
 	neh->eh_magic = EXT4_EXT_MAGIC;
 	neh->eh_depth = 0;
+	neh->eh_generation = 0;
 
 	/* move remainder of path[depth] to the new leaf */
 	if (unlikely(path[depth].p_hdr->eh_entries !=
@@ -1126,6 +1150,10 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 		le16_add_cpu(&neh->eh_entries, m);
 	}
 
+	/* zero out unused area in the extent block */
+	ext_size = sizeof(struct ext4_extent_header) +
+		sizeof(struct ext4_extent) * le16_to_cpu(neh->eh_entries);
+	memset(bh->b_data + ext_size, 0, inode->i_sb->s_blocksize - ext_size);
 	ext4_extent_block_csum_set(inode, neh);
 	set_buffer_uptodate(bh);
 	unlock_buffer(bh);
@@ -1179,6 +1207,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 		neh->eh_magic = EXT4_EXT_MAGIC;
 		neh->eh_max = cpu_to_le16(ext4_ext_space_block_idx(inode, 0));
 		neh->eh_depth = cpu_to_le16(depth - i);
+		neh->eh_generation = 0;
 		fidx = EXT_FIRST_INDEX(neh);
 		fidx->ei_block = border;
 		ext4_idx_store_pblock(fidx, oldblock);
@@ -1205,6 +1234,11 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 				sizeof(struct ext4_extent_idx) * m);
 			le16_add_cpu(&neh->eh_entries, m);
 		}
+		/* zero out unused area in the extent block */
+		ext_size = sizeof(struct ext4_extent_header) +
+		   (sizeof(struct ext4_extent) * le16_to_cpu(neh->eh_entries));
+		memset(bh->b_data + ext_size, 0,
+			inode->i_sb->s_blocksize - ext_size);
 		ext4_extent_block_csum_set(inode, neh);
 		set_buffer_uptodate(bh);
 		unlock_buffer(bh);
@@ -1270,6 +1304,7 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 	ext4_fsblk_t newblock, goal = 0;
 	struct ext4_super_block *es = EXT4_SB(inode->i_sb)->s_es;
 	int err = 0;
+	size_t ext_size = 0;
 
 	/* Try to prepend new index to old one */
 	if (ext_depth(inode))
@@ -1295,9 +1330,11 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 		goto out;
 	}
 
+	ext_size = sizeof(EXT4_I(inode)->i_data);
 	/* move top-level index/leaf into new block */
-	memmove(bh->b_data, EXT4_I(inode)->i_data,
-		sizeof(EXT4_I(inode)->i_data));
+	memmove(bh->b_data, EXT4_I(inode)->i_data, ext_size);
+	/* zero out unused area in the extent block */
+	memset(bh->b_data + ext_size, 0, inode->i_sb->s_blocksize - ext_size);
 
 	/* set size of new block */
 	neh = ext_block_hdr(bh);
@@ -2864,7 +2901,7 @@ again:
 			 * in use to avoid freeing it when removing blocks.
 			 */
 			if (sbi->s_cluster_ratio > 1) {
-				pblk = ext4_ext_pblock(ex) + end - ee_block + 2;
+				pblk = ext4_ext_pblock(ex) + end - ee_block + 1;
 				partial_cluster =
 					-(long long) EXT4_B2C(sbi, pblk);
 			}
@@ -3234,7 +3271,10 @@ static int ext4_split_extent_at(handle_t *handle,
 		ext4_ext_mark_unwritten(ex2);
 
 	err = ext4_ext_insert_extent(handle, inode, ppath, &newex, flags);
-	if (err == -ENOSPC && (EXT4_EXT_MAY_ZEROOUT & split_flag)) {
+	if (err != -ENOSPC && err != -EDQUOT)
+		goto out;
+
+	if (EXT4_EXT_MAY_ZEROOUT & split_flag) {
 		if (split_flag & (EXT4_EXT_DATA_VALID1|EXT4_EXT_DATA_VALID2)) {
 			if (split_flag & EXT4_EXT_DATA_VALID1) {
 				err = ext4_ext_zeroout(inode, ex2);
@@ -3260,29 +3300,29 @@ static int ext4_split_extent_at(handle_t *handle,
 					      ext4_ext_pblock(&orig_ex));
 		}
 
-		if (err)
-			goto fix_extent_len;
-		/* update the extent length and mark as initialized */
-		ex->ee_len = cpu_to_le16(ee_len);
-		ext4_ext_try_to_merge(handle, inode, path, ex);
-		err = ext4_ext_dirty(handle, inode, path + path->p_depth);
-		if (err)
-			goto fix_extent_len;
-
-		/* update extent status tree */
-		err = ext4_zeroout_es(inode, &zero_ex);
-
-		goto out;
-	} else if (err)
-		goto fix_extent_len;
-
-out:
-	ext4_ext_show_leaf(inode, path);
-	return err;
+		if (!err) {
+			/* update the extent length and mark as initialized */
+			ex->ee_len = cpu_to_le16(ee_len);
+			ext4_ext_try_to_merge(handle, inode, path, ex);
+			err = ext4_ext_dirty(handle, inode, path + path->p_depth);
+			if (!err)
+				/* update extent status tree */
+				err = ext4_zeroout_es(inode, &zero_ex);
+			/* If we failed at this point, we don't know in which
+			 * state the extent tree exactly is so don't try to fix
+			 * length of the original extent as it may do even more
+			 * damage.
+			 */
+			goto out;
+		}
+	}
 
 fix_extent_len:
 	ex->ee_len = orig_ex.ee_len;
 	ext4_ext_dirty(handle, inode, path + path->p_depth);
+	return err;
+out:
+	ext4_ext_show_leaf(inode, path);
 	return err;
 }
 
@@ -3412,8 +3452,8 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 		(unsigned long long)map->m_lblk, map_len);
 
 	sbi = EXT4_SB(inode->i_sb);
-	eof_block = (inode->i_size + inode->i_sb->s_blocksize - 1) >>
-		inode->i_sb->s_blocksize_bits;
+	eof_block = (EXT4_I(inode)->i_disksize + inode->i_sb->s_blocksize - 1)
+			>> inode->i_sb->s_blocksize_bits;
 	if (eof_block < map->m_lblk + map_len)
 		eof_block = map->m_lblk + map_len;
 
@@ -3674,8 +3714,8 @@ static int ext4_split_convert_extents(handle_t *handle,
 		  __func__, inode->i_ino,
 		  (unsigned long long)map->m_lblk, map->m_len);
 
-	eof_block = (inode->i_size + inode->i_sb->s_blocksize - 1) >>
-		inode->i_sb->s_blocksize_bits;
+	eof_block = (EXT4_I(inode)->i_disksize + inode->i_sb->s_blocksize - 1)
+			>> inode->i_sb->s_blocksize_bits;
 	if (eof_block < map->m_lblk + map->m_len)
 		eof_block = map->m_lblk + map->m_len;
 	/*
@@ -4685,10 +4725,6 @@ static int ext4_alloc_file_blocks(struct file *file, ext4_lblk_t offset,
 	if (len <= EXT_UNWRITTEN_MAX_LEN)
 		flags |= EXT4_GET_BLOCKS_NO_NORMALIZE;
 
-	/* Wait all existing dio workers, newcomers will block on i_mutex */
-	ext4_inode_block_unlocked_dio(inode);
-	inode_dio_wait(inode);
-
 	/*
 	 * credits to insert 1 extent into extent tree
 	 */
@@ -4742,6 +4778,7 @@ retry:
 						    EXT4_INODE_EOFBLOCKS);
 		}
 		ext4_mark_inode_dirty(handle, inode);
+		ext4_update_inode_fsync_trans(handle, inode, 1);
 		ret2 = ext4_journal_stop(handle);
 		if (ret2)
 			break;
@@ -4751,8 +4788,6 @@ retry:
 		ret = 0;
 		goto retry;
 	}
-
-	ext4_inode_resume_unlocked_dio(inode);
 
 	return ret > 0 ? ret2 : ret;
 }
@@ -4770,7 +4805,6 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 	int partial_begin, partial_end;
 	loff_t start, end;
 	ext4_lblk_t lblk;
-	struct address_space *mapping = inode->i_mapping;
 	unsigned int blkbits = inode->i_blkbits;
 
 	trace_ext4_zero_range(inode, offset, len, mode);
@@ -4781,17 +4815,6 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 	/* Call ext4_force_commit to flush all data in case of data=journal. */
 	if (ext4_should_journal_data(inode)) {
 		ret = ext4_force_commit(inode->i_sb);
-		if (ret)
-			return ret;
-	}
-
-	/*
-	 * Write out all dirty pages to avoid race conditions
-	 * Then release them.
-	 */
-	if (mapping->nrpages && mapping_tagged(mapping, PAGECACHE_TAG_DIRTY)) {
-		ret = filemap_write_and_wait_range(mapping, offset,
-						   offset + len - 1);
 		if (ret)
 			return ret;
 	}
@@ -4828,7 +4851,8 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 	}
 
 	if (!(mode & FALLOC_FL_KEEP_SIZE) &&
-	     offset + len > i_size_read(inode)) {
+	    (offset + len > i_size_read(inode) ||
+	     offset + len > EXT4_I(inode)->i_disksize)) {
 		new_size = offset + len;
 		ret = inode_newsize_ok(inode, new_size);
 		if (ret)
@@ -4839,6 +4863,10 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 	if (mode & FALLOC_FL_KEEP_SIZE)
 		flags |= EXT4_GET_BLOCKS_KEEP_SIZE;
 
+	/* Wait all existing dio workers, newcomers will block on i_mutex */
+	ext4_inode_block_unlocked_dio(inode);
+	inode_dio_wait(inode);
+
 	/* Preallocate the range including the unaligned edges */
 	if (partial_begin || partial_end) {
 		ret = ext4_alloc_file_blocks(file,
@@ -4847,7 +4875,7 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 				 round_down(offset, 1 << blkbits)) >> blkbits,
 				new_size, flags, mode);
 		if (ret)
-			goto out_mutex;
+			goto out_dio;
 
 	}
 
@@ -4856,16 +4884,23 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 		flags |= (EXT4_GET_BLOCKS_CONVERT_UNWRITTEN |
 			  EXT4_EX_NOCACHE);
 
-		/* Now release the pages and zero block aligned part of pages*/
+		/*
+		 * Prevent page faults from reinstantiating pages we have
+		 * released from page cache.
+		 */
+		down_write(&EXT4_I(inode)->i_mmap_sem);
+		ret = ext4_update_disksize_before_punch(inode, offset, len);
+		if (ret) {
+			up_write(&EXT4_I(inode)->i_mmap_sem);
+			goto out_dio;
+		}
+		/* Now release the pages and zero block aligned part of pages */
 		truncate_pagecache_range(inode, start, end - 1);
 		inode->i_mtime = inode->i_ctime = ext4_current_time(inode);
 
-		/* Wait all existing dio workers, newcomers will block on i_mutex */
-		ext4_inode_block_unlocked_dio(inode);
-		inode_dio_wait(inode);
-
 		ret = ext4_alloc_file_blocks(file, lblk, max_blocks, new_size,
 					     flags, mode);
+		up_write(&EXT4_I(inode)->i_mmap_sem);
 		if (ret)
 			goto out_dio;
 	}
@@ -4901,6 +4936,8 @@ static long ext4_zero_range(struct file *file, loff_t offset,
 
 	/* Zero out partial block at the edges of the range */
 	ret = ext4_zero_partial_blocks(handle, inode, offset, len);
+	if (ret >= 0)
+		ext4_update_inode_fsync_trans(handle, inode, 1);
 
 	if (file->f_flags & O_SYNC)
 		ext4_handle_sync(handle);
@@ -4991,15 +5028,21 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	}
 
 	if (!(mode & FALLOC_FL_KEEP_SIZE) &&
-	     offset + len > i_size_read(inode)) {
+	    (offset + len > i_size_read(inode) ||
+	     offset + len > EXT4_I(inode)->i_disksize)) {
 		new_size = offset + len;
 		ret = inode_newsize_ok(inode, new_size);
 		if (ret)
 			goto out;
 	}
 
+	/* Wait all existing dio workers, newcomers will block on i_mutex */
+	ext4_inode_block_unlocked_dio(inode);
+	inode_dio_wait(inode);
+
 	ret = ext4_alloc_file_blocks(file, lblk, max_blocks, new_size,
 				     flags, mode);
+	ext4_inode_resume_unlocked_dio(inode);
 	if (ret)
 		goto out;
 
@@ -5356,7 +5399,8 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 	ext4_lblk_t stop, *iterator, ex_start, ex_end;
 
 	/* Let path point to the last extent */
-	path = ext4_find_extent(inode, EXT_MAX_BLOCKS - 1, NULL, 0);
+	path = ext4_find_extent(inode, EXT_MAX_BLOCKS - 1, NULL,
+				EXT4_EX_NOCACHE);
 	if (IS_ERR(path))
 		return PTR_ERR(path);
 
@@ -5365,15 +5409,16 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 	if (!extent)
 		goto out;
 
-	stop = le32_to_cpu(extent->ee_block) +
-			ext4_ext_get_actual_len(extent);
+	stop = le32_to_cpu(extent->ee_block);
 
        /*
-	 * In case of left shift, Don't start shifting extents until we make
-	 * sure the hole is big enough to accommodate the shift.
+	* For left shifts, make sure the hole on the left is big enough to
+	* accommodate the shift.  For right shifts, make sure the last extent
+	* won't be shifted beyond EXT_MAX_BLOCKS.
 	*/
 	if (SHIFT == SHIFT_LEFT) {
-		path = ext4_find_extent(inode, start - 1, &path, 0);
+		path = ext4_find_extent(inode, start - 1, &path,
+					EXT4_EX_NOCACHE);
 		if (IS_ERR(path))
 			return PTR_ERR(path);
 		depth = path->p_depth;
@@ -5389,9 +5434,14 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 
 		if ((start == ex_start && shift > ex_start) ||
 		    (shift > start - ex_end)) {
-			ext4_ext_drop_refs(path);
-			kfree(path);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
+		}
+	} else {
+		if (shift > EXT_MAX_BLOCKS -
+		    (stop + ext4_ext_get_actual_len(extent))) {
+			ret = -EINVAL;
+			goto out;
 		}
 	}
 
@@ -5405,9 +5455,14 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 	else
 		iterator = &stop;
 
-	/* Its safe to start updating extents */
-	while (start < stop) {
-		path = ext4_find_extent(inode, *iterator, &path, 0);
+	/*
+	 * Its safe to start updating extents.  Start and stop are unsigned, so
+	 * in case of right shift if extent with 0 block is reached, iterator
+	 * becomes NULL to indicate the end of the loop.
+	 */
+	while (iterator && start <= stop) {
+		path = ext4_find_extent(inode, *iterator, &path,
+					EXT4_EX_NOCACHE);
 		if (IS_ERR(path))
 			return PTR_ERR(path);
 		depth = path->p_depth;
@@ -5434,8 +5489,11 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 					ext4_ext_get_actual_len(extent);
 		} else {
 			extent = EXT_FIRST_EXTENT(path[depth].p_hdr);
-			*iterator =  le32_to_cpu(extent->ee_block) > 0 ?
-				le32_to_cpu(extent->ee_block) - 1 : 0;
+			if (le32_to_cpu(extent->ee_block) > 0)
+				*iterator = le32_to_cpu(extent->ee_block) - 1;
+			else
+				/* Beginning is reached, end of the loop */
+				iterator = NULL;
 			/* Update path extent in case we need to stop */
 			while (le32_to_cpu(extent->ee_block) < start)
 				extent++;
@@ -5494,21 +5552,7 @@ int ext4_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 			return ret;
 	}
 
-	/*
-	 * Need to round down offset to be aligned with page size boundary
-	 * for page size > block size.
-	 */
-	ioffset = round_down(offset, PAGE_SIZE);
-
-	/* Write out all dirty pages */
-	ret = filemap_write_and_wait_range(inode->i_mapping, ioffset,
-					   LLONG_MAX);
-	if (ret)
-		return ret;
-
-	/* Take mutex lock */
 	mutex_lock(&inode->i_mutex);
-
 	/*
 	 * There is no need to overlap collapse range with EOF, in which case
 	 * it is effectively a truncate operation
@@ -5524,17 +5568,43 @@ int ext4_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 		goto out_mutex;
 	}
 
-	truncate_pagecache(inode, ioffset);
-
 	/* Wait for existing dio to complete */
 	ext4_inode_block_unlocked_dio(inode);
 	inode_dio_wait(inode);
+
+	/*
+	 * Prevent page faults from reinstantiating pages we have released from
+	 * page cache.
+	 */
+	down_write(&EXT4_I(inode)->i_mmap_sem);
+	/*
+	 * Need to round down offset to be aligned with page size boundary
+	 * for page size > block size.
+	 */
+	ioffset = round_down(offset, PAGE_SIZE);
+	/*
+	 * Write tail of the last page before removed range since it will get
+	 * removed from the page cache below.
+	 */
+	ret = filemap_write_and_wait_range(inode->i_mapping, ioffset, offset);
+	if (ret)
+		goto out_mmap;
+	/*
+	 * Write data that will be shifted to preserve them when discarding
+	 * page cache below. We are also protected from pages becoming dirty
+	 * by i_mmap_sem.
+	 */
+	ret = filemap_write_and_wait_range(inode->i_mapping, offset + len,
+					   LLONG_MAX);
+	if (ret)
+		goto out_mmap;
+	truncate_pagecache(inode, ioffset);
 
 	credits = ext4_writepage_trans_blocks(inode);
 	handle = ext4_journal_start(inode, EXT4_HT_TRUNCATE, credits);
 	if (IS_ERR(handle)) {
 		ret = PTR_ERR(handle);
-		goto out_dio;
+		goto out_mmap;
 	}
 
 	down_write(&EXT4_I(inode)->i_data_sem);
@@ -5570,10 +5640,12 @@ int ext4_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 		ext4_handle_sync(handle);
 	inode->i_mtime = inode->i_ctime = ext4_current_time(inode);
 	ext4_mark_inode_dirty(handle, inode);
+	ext4_update_inode_fsync_trans(handle, inode, 1);
 
 out_stop:
 	ext4_journal_stop(handle);
-out_dio:
+out_mmap:
+	up_write(&EXT4_I(inode)->i_mmap_sem);
 	ext4_inode_resume_unlocked_dio(inode);
 out_mutex:
 	mutex_unlock(&inode->i_mutex);
@@ -5627,21 +5699,7 @@ int ext4_insert_range(struct inode *inode, loff_t offset, loff_t len)
 			return ret;
 	}
 
-	/*
-	 * Need to round down to align start offset to page size boundary
-	 * for page size > block size.
-	 */
-	ioffset = round_down(offset, PAGE_SIZE);
-
-	/* Write out all dirty pages */
-	ret = filemap_write_and_wait_range(inode->i_mapping, ioffset,
-			LLONG_MAX);
-	if (ret)
-		return ret;
-
-	/* Take mutex lock */
 	mutex_lock(&inode->i_mutex);
-
 	/* Currently just for extent based files */
 	if (!ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)) {
 		ret = -EOPNOTSUPP;
@@ -5660,17 +5718,32 @@ int ext4_insert_range(struct inode *inode, loff_t offset, loff_t len)
 		goto out_mutex;
 	}
 
-	truncate_pagecache(inode, ioffset);
-
 	/* Wait for existing dio to complete */
 	ext4_inode_block_unlocked_dio(inode);
 	inode_dio_wait(inode);
+
+	/*
+	 * Prevent page faults from reinstantiating pages we have released from
+	 * page cache.
+	 */
+	down_write(&EXT4_I(inode)->i_mmap_sem);
+	/*
+	 * Need to round down to align start offset to page size boundary
+	 * for page size > block size.
+	 */
+	ioffset = round_down(offset, PAGE_SIZE);
+	/* Write out all dirty pages */
+	ret = filemap_write_and_wait_range(inode->i_mapping, ioffset,
+			LLONG_MAX);
+	if (ret)
+		goto out_mmap;
+	truncate_pagecache(inode, ioffset);
 
 	credits = ext4_writepage_trans_blocks(inode);
 	handle = ext4_journal_start(inode, EXT4_HT_TRUNCATE, credits);
 	if (IS_ERR(handle)) {
 		ret = PTR_ERR(handle);
-		goto out_dio;
+		goto out_mmap;
 	}
 
 	/* Expand file to avoid data loss if there is error while shifting */
@@ -5718,6 +5791,9 @@ int ext4_insert_range(struct inode *inode, loff_t offset, loff_t len)
 			up_write(&EXT4_I(inode)->i_data_sem);
 			goto out_stop;
 		}
+	} else {
+		ext4_ext_drop_refs(path);
+		kfree(path);
 	}
 
 	ret = ext4_es_remove_extent(inode, offset_lblk,
@@ -5738,10 +5814,13 @@ int ext4_insert_range(struct inode *inode, loff_t offset, loff_t len)
 	up_write(&EXT4_I(inode)->i_data_sem);
 	if (IS_SYNC(inode))
 		ext4_handle_sync(handle);
+	if (ret >= 0)
+		ext4_update_inode_fsync_trans(handle, inode, 1);
 
 out_stop:
 	ext4_journal_stop(handle);
-out_dio:
+out_mmap:
+	up_write(&EXT4_I(inode)->i_mmap_sem);
 	ext4_inode_resume_unlocked_dio(inode);
 out_mutex:
 	mutex_unlock(&inode->i_mutex);

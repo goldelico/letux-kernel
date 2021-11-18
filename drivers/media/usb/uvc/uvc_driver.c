@@ -148,6 +148,26 @@ static struct uvc_format_desc uvc_fmts[] = {
 		.guid		= UVC_GUID_FORMAT_H264,
 		.fcc		= V4L2_PIX_FMT_H264,
 	},
+	{
+		.name		= "Greyscale 8 L/R (Y8I)",
+		.guid		= UVC_GUID_FORMAT_Y8I,
+		.fcc		= V4L2_PIX_FMT_Y8I,
+	},
+	{
+		.name		= "Greyscale 12 L/R (Y12I)",
+		.guid		= UVC_GUID_FORMAT_Y12I,
+		.fcc		= V4L2_PIX_FMT_Y12I,
+	},
+	{
+		.name		= "Depth data 16-bit (Z16)",
+		.guid		= UVC_GUID_FORMAT_Z16,
+		.fcc		= V4L2_PIX_FMT_Z16,
+	},
+	{
+		.name		= "Bayer 10-bit (SRGGB10P)",
+		.guid		= UVC_GUID_FORMAT_RW10,
+		.fcc		= V4L2_PIX_FMT_SRGGB10P,
+	},
 };
 
 /* ------------------------------------------------------------------------
@@ -848,8 +868,11 @@ static struct uvc_entity *uvc_alloc_entity(u16 type, u8 id,
 	unsigned int size;
 	unsigned int i;
 
-	extra_size = ALIGN(extra_size, sizeof(*entity->pads));
-	num_inputs = (type & UVC_TERM_OUTPUT) ? num_pads : num_pads - 1;
+	extra_size = roundup(extra_size, sizeof(*entity->pads));
+	if (num_pads)
+		num_inputs = type & UVC_TERM_OUTPUT ? num_pads : num_pads - 1;
+	else
+		num_inputs = 0;
 	size = sizeof(*entity) + extra_size + sizeof(*entity->pads) * num_pads
 	     + num_inputs;
 	entity = kzalloc(size, GFP_KERNEL);
@@ -865,7 +888,7 @@ static struct uvc_entity *uvc_alloc_entity(u16 type, u8 id,
 
 	for (i = 0; i < num_inputs; ++i)
 		entity->pads[i].flags = MEDIA_PAD_FL_SINK;
-	if (!UVC_ENTITY_IS_OTERM(entity))
+	if (!UVC_ENTITY_IS_OTERM(entity) && num_pads)
 		entity->pads[num_pads-1].flags = MEDIA_PAD_FL_SOURCE;
 
 	entity->bNrInPins = num_inputs;
@@ -999,11 +1022,19 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 			return -EINVAL;
 		}
 
-		/* Make sure the terminal type MSB is not null, otherwise it
-		 * could be confused with a unit.
+		/*
+		 * Reject invalid terminal types that would cause issues:
+		 *
+		 * - The high byte must be non-zero, otherwise it would be
+		 *   confused with a unit.
+		 *
+		 * - Bit 15 must be 0, as we use it internally as a terminal
+		 *   direction flag.
+		 *
+		 * Other unknown types are accepted.
 		 */
 		type = get_unaligned_le16(&buffer[4]);
-		if ((type & 0xff00) == 0) {
+		if ((type & 0x7f00) == 0 || (type & 0x8000) != 0) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videocontrol "
 				"interface %d INPUT_TERMINAL %d has invalid "
 				"type 0x%04x, skipping\n", udev->devnum,
@@ -1383,6 +1414,11 @@ static int uvc_scan_chain_forward(struct uvc_video_chain *chain,
 			break;
 		if (forward == prev)
 			continue;
+		if (forward->chain.next || forward->chain.prev) {
+			uvc_trace(UVC_TRACE_DESCR, "Found reference to "
+				"entity %d already in chain.\n", forward->id);
+			return -EINVAL;
+		}
 
 		switch (UVC_ENTITY_TYPE(forward)) {
 		case UVC_VC_EXTENSION_UNIT:
@@ -1462,6 +1498,13 @@ static int uvc_scan_chain_backward(struct uvc_video_chain *chain,
 					"input %d isn't connected to an "
 					"input terminal\n", entity->id, i);
 				return -1;
+			}
+
+			if (term->chain.next || term->chain.prev) {
+				uvc_trace(UVC_TRACE_DESCR, "Found reference to "
+					"entity %d already in chain.\n",
+					term->id);
+				return -EINVAL;
 			}
 
 			if (uvc_trace_param & UVC_TRACE_PROBE)
@@ -1575,6 +1618,114 @@ static const char *uvc_print_chain(struct uvc_video_chain *chain)
 	return buffer;
 }
 
+static struct uvc_video_chain *uvc_alloc_chain(struct uvc_device *dev)
+{
+	struct uvc_video_chain *chain;
+
+	chain = kzalloc(sizeof(*chain), GFP_KERNEL);
+	if (chain == NULL)
+		return NULL;
+
+	INIT_LIST_HEAD(&chain->entities);
+	mutex_init(&chain->ctrl_mutex);
+	chain->dev = dev;
+	v4l2_prio_init(&chain->prio);
+
+	return chain;
+}
+
+/*
+ * Fallback heuristic for devices that don't connect units and terminals in a
+ * valid chain.
+ *
+ * Some devices have invalid baSourceID references, causing uvc_scan_chain()
+ * to fail, but if we just take the entities we can find and put them together
+ * in the most sensible chain we can think of, turns out they do work anyway.
+ * Note: This heuristic assumes there is a single chain.
+ *
+ * At the time of writing, devices known to have such a broken chain are
+ *  - Acer Integrated Camera (5986:055a)
+ *  - Realtek rtl157a7 (0bda:57a7)
+ */
+static int uvc_scan_fallback(struct uvc_device *dev)
+{
+	struct uvc_video_chain *chain;
+	struct uvc_entity *iterm = NULL;
+	struct uvc_entity *oterm = NULL;
+	struct uvc_entity *entity;
+	struct uvc_entity *prev;
+
+	/*
+	 * Start by locating the input and output terminals. We only support
+	 * devices with exactly one of each for now.
+	 */
+	list_for_each_entry(entity, &dev->entities, list) {
+		if (UVC_ENTITY_IS_ITERM(entity)) {
+			if (iterm)
+				return -EINVAL;
+			iterm = entity;
+		}
+
+		if (UVC_ENTITY_IS_OTERM(entity)) {
+			if (oterm)
+				return -EINVAL;
+			oterm = entity;
+		}
+	}
+
+	if (iterm == NULL || oterm == NULL)
+		return -EINVAL;
+
+	/* Allocate the chain and fill it. */
+	chain = uvc_alloc_chain(dev);
+	if (chain == NULL)
+		return -ENOMEM;
+
+	if (uvc_scan_chain_entity(chain, oterm) < 0)
+		goto error;
+
+	prev = oterm;
+
+	/*
+	 * Add all Processing and Extension Units with two pads. The order
+	 * doesn't matter much, use reverse list traversal to connect units in
+	 * UVC descriptor order as we build the chain from output to input. This
+	 * leads to units appearing in the order meant by the manufacturer for
+	 * the cameras known to require this heuristic.
+	 */
+	list_for_each_entry_reverse(entity, &dev->entities, list) {
+		if (entity->type != UVC_VC_PROCESSING_UNIT &&
+		    entity->type != UVC_VC_EXTENSION_UNIT)
+			continue;
+
+		if (entity->num_pads != 2)
+			continue;
+
+		if (uvc_scan_chain_entity(chain, entity) < 0)
+			goto error;
+
+		prev->baSourceID[0] = entity->id;
+		prev = entity;
+	}
+
+	if (uvc_scan_chain_entity(chain, iterm) < 0)
+		goto error;
+
+	prev->baSourceID[0] = iterm->id;
+
+	list_add_tail(&chain->list, &dev->chains);
+
+	uvc_trace(UVC_TRACE_PROBE,
+		  "Found a video chain by fallback heuristic (%s).\n",
+		  uvc_print_chain(chain));
+
+	return 0;
+
+error:
+	kfree(chain);
+	return -EINVAL;
+}
+
 /*
  * Scan the device for video chains and register video devices.
  *
@@ -1597,14 +1748,9 @@ static int uvc_scan_device(struct uvc_device *dev)
 		if (term->chain.next || term->chain.prev)
 			continue;
 
-		chain = kzalloc(sizeof(*chain), GFP_KERNEL);
+		chain = uvc_alloc_chain(dev);
 		if (chain == NULL)
 			return -ENOMEM;
-
-		INIT_LIST_HEAD(&chain->entities);
-		mutex_init(&chain->ctrl_mutex);
-		chain->dev = dev;
-		v4l2_prio_init(&chain->prio);
 
 		term->flags |= UVC_ENTITY_FLAG_DEFAULT;
 
@@ -1618,6 +1764,9 @@ static int uvc_scan_device(struct uvc_device *dev)
 
 		list_add_tail(&chain->list, &dev->chains);
 	}
+
+	if (list_empty(&dev->chains))
+		uvc_scan_fallback(dev);
 
 	if (list_empty(&dev->chains)) {
 		uvc_printk(KERN_INFO, "No valid video chain found.\n");
@@ -1654,7 +1803,7 @@ static void uvc_delete(struct uvc_device *dev)
 	if (dev->vdev.dev)
 		v4l2_device_unregister(&dev->vdev);
 #ifdef CONFIG_MEDIA_CONTROLLER
-	if (media_devnode_is_registered(&dev->mdev.devnode))
+	if (media_devnode_is_registered(dev->mdev.devnode))
 		media_device_unregister(&dev->mdev);
 #endif
 

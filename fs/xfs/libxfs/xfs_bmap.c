@@ -793,6 +793,8 @@ xfs_bmap_extents_to_btree(
 	*logflagsp = 0;
 	if ((error = xfs_alloc_vextent(&args))) {
 		xfs_iroot_realloc(ip, -1, whichfork);
+		ASSERT(ifp->if_broot == NULL);
+		XFS_IFORK_FMT_SET(ip, whichfork, XFS_DINODE_FMT_EXTENTS);
 		xfs_btree_del_cursor(cur, XFS_BTREE_ERROR);
 		return error;
 	}
@@ -2179,8 +2181,10 @@ xfs_bmap_add_extent_delay_real(
 		}
 		temp = xfs_bmap_worst_indlen(bma->ip, temp);
 		temp2 = xfs_bmap_worst_indlen(bma->ip, temp2);
-		diff = (int)(temp + temp2 - startblockval(PREV.br_startblock) -
-			(bma->cur ? bma->cur->bc_private.b.allocated : 0));
+		diff = (int)(temp + temp2 -
+			     (startblockval(PREV.br_startblock) -
+			      (bma->cur ?
+			       bma->cur->bc_private.b.allocated : 0)));
 		if (diff > 0) {
 			error = xfs_mod_fdblocks(bma->ip->i_mount,
 						 -((int64_t)diff), false);
@@ -2232,7 +2236,6 @@ xfs_bmap_add_extent_delay_real(
 		temp = da_new;
 		if (bma->cur)
 			temp += bma->cur->bc_private.b.allocated;
-		ASSERT(temp <= da_old);
 		if (temp < da_old)
 			xfs_mod_fdblocks(bma->ip->i_mount,
 					(int64_t)(da_old - temp), false);
@@ -2669,7 +2672,7 @@ xfs_bmap_add_extent_unwritten_real(
 					&i)))
 				goto done;
 			XFS_WANT_CORRUPTED_GOTO(mp, i == 0, done);
-			cur->bc_rec.b.br_state = XFS_EXT_NORM;
+			cur->bc_rec.b.br_state = new->br_state;
 			if ((error = xfs_btree_insert(cur, &i)))
 				goto done;
 			XFS_WANT_CORRUPTED_GOTO(mp, i == 1, done);

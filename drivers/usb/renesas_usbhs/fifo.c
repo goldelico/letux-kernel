@@ -98,7 +98,7 @@ static void __usbhsf_pkt_del(struct usbhs_pkt *pkt)
 	list_del_init(&pkt->node);
 }
 
-static struct usbhs_pkt *__usbhsf_pkt_get(struct usbhs_pipe *pipe)
+struct usbhs_pkt *__usbhsf_pkt_get(struct usbhs_pipe *pipe)
 {
 	if (list_empty(&pipe->list))
 		return NULL;
@@ -115,6 +115,8 @@ static struct dma_chan *usbhsf_dma_chan_get(struct usbhs_fifo *fifo,
 #define usbhsf_dma_map(p)	__usbhsf_dma_map_ctrl(p, 1)
 #define usbhsf_dma_unmap(p)	__usbhsf_dma_map_ctrl(p, 0)
 static int __usbhsf_dma_map_ctrl(struct usbhs_pkt *pkt, int map);
+static void usbhsf_tx_irq_ctrl(struct usbhs_pipe *pipe, int enable);
+static void usbhsf_rx_irq_ctrl(struct usbhs_pipe *pipe, int enable);
 struct usbhs_pkt *usbhs_pkt_pop(struct usbhs_pipe *pipe, struct usbhs_pkt *pkt)
 {
 	struct usbhs_priv *priv = usbhs_pipe_to_priv(pipe);
@@ -138,7 +140,14 @@ struct usbhs_pkt *usbhs_pkt_pop(struct usbhs_pipe *pipe, struct usbhs_pkt *pkt)
 			dmaengine_terminate_all(chan);
 			usbhsf_fifo_clear(pipe, fifo);
 			usbhsf_dma_unmap(pkt);
+		} else {
+			if (usbhs_pipe_is_dir_in(pipe))
+				usbhsf_rx_irq_ctrl(pipe, 0);
+			else
+				usbhsf_tx_irq_ctrl(pipe, 0);
 		}
+
+		usbhs_pipe_running(pipe, 0);
 
 		__usbhsf_pkt_del(pkt);
 	}
@@ -190,7 +199,8 @@ static int usbhsf_pkt_handler(struct usbhs_pipe *pipe, int type)
 		goto __usbhs_pkt_handler_end;
 	}
 
-	ret = func(pkt, &is_done);
+	if (likely(func))
+		ret = func(pkt, &is_done);
 
 	if (is_done)
 		__usbhsf_pkt_del(pkt);
@@ -284,11 +294,26 @@ static void usbhsf_fifo_clear(struct usbhs_pipe *pipe,
 			      struct usbhs_fifo *fifo)
 {
 	struct usbhs_priv *priv = usbhs_pipe_to_priv(pipe);
+	int ret = 0;
 
-	if (!usbhs_pipe_is_dcp(pipe))
-		usbhsf_fifo_barrier(priv, fifo);
+	if (!usbhs_pipe_is_dcp(pipe)) {
+		/*
+		 * This driver checks the pipe condition first to avoid -EBUSY
+		 * from usbhsf_fifo_barrier() with about 10 msec delay in
+		 * the interrupt handler if the pipe is RX direction and empty.
+		 */
+		if (usbhs_pipe_is_dir_in(pipe))
+			ret = usbhs_pipe_is_accessible(pipe);
+		if (!ret)
+			ret = usbhsf_fifo_barrier(priv, fifo);
+	}
 
-	usbhs_write(priv, fifo->ctr, BCLR);
+	/*
+	 * if non-DCP pipe, this driver should set BCLR when
+	 * usbhsf_fifo_barrier() returns 0.
+	 */
+	if (!ret)
+		usbhs_write(priv, fifo->ctr, BCLR);
 }
 
 static int usbhsf_fifo_rcv_len(struct usbhs_priv *priv,
@@ -803,17 +828,21 @@ static int __usbhsf_dma_map_ctrl(struct usbhs_pkt *pkt, int map)
 }
 
 static void usbhsf_dma_complete(void *arg);
-static void xfer_work(struct work_struct *work)
+static void usbhsf_dma_xfer_preparing(struct usbhs_pkt *pkt)
 {
-	struct usbhs_pkt *pkt = container_of(work, struct usbhs_pkt, work);
 	struct usbhs_pipe *pipe = pkt->pipe;
-	struct usbhs_fifo *fifo = usbhs_pipe_to_fifo(pipe);
+	struct usbhs_fifo *fifo;
 	struct usbhs_priv *priv = usbhs_pipe_to_priv(pipe);
 	struct dma_async_tx_descriptor *desc;
-	struct dma_chan *chan = usbhsf_dma_chan_get(fifo, pkt);
+	struct dma_chan *chan;
 	struct device *dev = usbhs_priv_to_dev(priv);
 	enum dma_transfer_direction dir;
 
+	fifo = usbhs_pipe_to_fifo(pipe);
+	if (!fifo)
+		return;
+
+	chan = usbhsf_dma_chan_get(fifo, pkt);
 	dir = usbhs_pipe_is_dir_in(pipe) ? DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
 
 	desc = dmaengine_prep_slave_single(chan, pkt->dma + pkt->actual,
@@ -835,10 +864,22 @@ static void xfer_work(struct work_struct *work)
 		fifo->name, usbhs_pipe_number(pipe), pkt->length, pkt->zero);
 
 	usbhs_pipe_running(pipe, 1);
-	usbhsf_dma_start(pipe, fifo);
 	usbhs_pipe_set_trans_count_if_bulk(pipe, pkt->trans);
 	dma_async_issue_pending(chan);
+	usbhsf_dma_start(pipe, fifo);
 	usbhs_pipe_enable(pipe);
+}
+
+static void xfer_work(struct work_struct *work)
+{
+	struct usbhs_pkt *pkt = container_of(work, struct usbhs_pkt, work);
+	struct usbhs_pipe *pipe = pkt->pipe;
+	struct usbhs_priv *priv = usbhs_pipe_to_priv(pipe);
+	unsigned long flags;
+
+	usbhs_lock(priv, flags);
+	usbhsf_dma_xfer_preparing(pkt);
+	usbhs_unlock(priv, flags);
 }
 
 /*
@@ -858,7 +899,7 @@ static int usbhsf_dma_prepare_push(struct usbhs_pkt *pkt, int *is_done)
 
 	/* use PIO if packet is less than pio_dma_border or pipe is DCP */
 	if ((len < usbhs_get_dparam(priv, pio_dma_border)) ||
-	    usbhs_pipe_is_dcp(pipe))
+	    usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_ISOC))
 		goto usbhsf_pio_prepare_push;
 
 	/* check data length if this driver don't use USB-DMAC */
@@ -889,8 +930,14 @@ static int usbhsf_dma_prepare_push(struct usbhs_pkt *pkt, int *is_done)
 
 	pkt->trans = len;
 
-	INIT_WORK(&pkt->work, xfer_work);
-	schedule_work(&pkt->work);
+	usbhsf_tx_irq_ctrl(pipe, 0);
+	/* FIXME: Workaound for usb dmac that driver can be used in atomic */
+	if (usbhs_get_dparam(priv, has_usb_dmac)) {
+		usbhsf_dma_xfer_preparing(pkt);
+	} else {
+		INIT_WORK(&pkt->work, xfer_work);
+		schedule_work(&pkt->work);
+	}
 
 	return 0;
 
@@ -962,7 +1009,7 @@ static int usbhsf_dma_prepare_pop_with_usb_dmac(struct usbhs_pkt *pkt,
 
 	/* use PIO if packet is less than pio_dma_border or pipe is DCP */
 	if ((pkt->length < usbhs_get_dparam(priv, pio_dma_border)) ||
-	    usbhs_pipe_is_dcp(pipe))
+	    usbhs_pipe_type_is(pipe, USB_ENDPOINT_XFER_ISOC))
 		goto usbhsf_pio_prepare_pop;
 
 	fifo = usbhsf_get_dma_fifo(priv, pkt);
@@ -971,6 +1018,10 @@ static int usbhsf_dma_prepare_pop_with_usb_dmac(struct usbhs_pkt *pkt,
 
 	if ((uintptr_t)pkt->buf & (USBHS_USB_DMAC_XFER_SIZE - 1))
 		goto usbhsf_pio_prepare_pop;
+
+	/* return at this time if the pipe is running */
+	if (usbhs_pipe_is_running(pipe))
+		return 0;
 
 	usbhs_pipe_config_change_bfre(pipe, 1);
 
@@ -992,8 +1043,7 @@ static int usbhsf_dma_prepare_pop_with_usb_dmac(struct usbhs_pkt *pkt,
 
 	pkt->trans = pkt->length;
 
-	INIT_WORK(&pkt->work, xfer_work);
-	schedule_work(&pkt->work);
+	usbhsf_dma_xfer_preparing(pkt);
 
 	return 0;
 
@@ -1162,6 +1212,7 @@ static int usbhsf_dma_pop_done_with_usb_dmac(struct usbhs_pkt *pkt,
 	usbhsf_fifo_clear(pipe, fifo);
 	pkt->actual = usbhs_dma_calc_received_size(pkt, chan, rcv_len);
 
+	usbhs_pipe_running(pipe, 0);
 	usbhsf_dma_stop(pipe, fifo);
 	usbhsf_dma_unmap(pkt);
 	usbhsf_fifo_unselect(pipe, pipe->fifo);

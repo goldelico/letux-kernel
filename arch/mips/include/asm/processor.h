@@ -45,7 +45,7 @@ extern unsigned int vced_count, vcei_count;
  * User space process size: 2GB. This is hardcoded into a few places,
  * so don't change it unless you know what you are doing.
  */
-#define TASK_SIZE	0x7fff8000UL
+#define TASK_SIZE	0x80000000UL
 #endif
 
 #define STACK_TOP_MAX	TASK_SIZE
@@ -131,7 +131,7 @@ struct mips_fpu_struct {
 
 #define NUM_DSP_REGS   6
 
-typedef __u32 dspreg_t;
+typedef unsigned long dspreg_t;
 
 struct mips_dsp_state {
 	dspreg_t	dspr[NUM_DSP_REGS];

@@ -394,7 +394,7 @@ static void gpmc_cs_bool_timings(int cs, const struct gpmc_bool_timings *p)
 	gpmc_cs_modify_reg(cs, GPMC_CS_CONFIG4,
 			   GPMC_CONFIG4_OEEXTRADELAY, p->oe_extra_delay);
 	gpmc_cs_modify_reg(cs, GPMC_CS_CONFIG4,
-			   GPMC_CONFIG4_OEEXTRADELAY, p->we_extra_delay);
+			   GPMC_CONFIG4_WEEXTRADELAY, p->we_extra_delay);
 	gpmc_cs_modify_reg(cs, GPMC_CS_CONFIG6,
 			   GPMC_CONFIG6_CYCLE2CYCLESAMECSEN,
 			   p->cycle2cyclesamecsen);
@@ -928,7 +928,7 @@ static int gpmc_cs_remap(int cs, u32 base)
 	int ret;
 	u32 old_base, size;
 
-	if (cs > gpmc_cs_num) {
+	if (cs >= gpmc_cs_num) {
 		pr_err("%s: requested chip-select is disabled\n", __func__);
 		return -ENODEV;
 	}
@@ -963,7 +963,7 @@ int gpmc_cs_request(int cs, unsigned long size, unsigned long *base)
 	struct resource *res = &gpmc->mem;
 	int r = -1;
 
-	if (cs > gpmc_cs_num) {
+	if (cs >= gpmc_cs_num) {
 		pr_err("%s: requested chip-select is disabled\n", __func__);
 		return -ENODEV;
 	}
@@ -1005,8 +1005,8 @@ EXPORT_SYMBOL(gpmc_cs_request);
 
 void gpmc_cs_free(int cs)
 {
-	struct gpmc_cs_data *gpmc = &gpmc_cs[cs];
-	struct resource *res = &gpmc->mem;
+	struct gpmc_cs_data *gpmc;
+	struct resource *res;
 
 	spin_lock(&gpmc_mem_lock);
 	if (cs >= gpmc_cs_num || cs < 0 || !gpmc_cs_reserved(cs)) {
@@ -1015,6 +1015,9 @@ void gpmc_cs_free(int cs)
 		spin_unlock(&gpmc_mem_lock);
 		return;
 	}
+	gpmc = &gpmc_cs[cs];
+	res = &gpmc->mem;
+
 	gpmc_cs_disable_mem(cs);
 	if (res->flags)
 		release_resource(res);
@@ -1890,9 +1893,7 @@ static int gpmc_probe_onenand_child(struct platform_device *pdev,
 	if (!of_property_read_u32(child, "dma-channel", &val))
 		gpmc_onenand_data->dma_channel = val;
 
-	gpmc_onenand_init(gpmc_onenand_data);
-
-	return 0;
+	return gpmc_onenand_init(gpmc_onenand_data);
 }
 #else
 static int gpmc_probe_onenand_child(struct platform_device *pdev,

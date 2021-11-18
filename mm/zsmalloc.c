@@ -309,7 +309,12 @@ static void free_handle(struct zs_pool *pool, unsigned long handle)
 
 static void record_obj(unsigned long handle, unsigned long obj)
 {
-	*(unsigned long *)handle = obj;
+	/*
+	 * lsb of @obj represents handle lock while other bits
+	 * represent object value the handle is pointing so
+	 * updating shouldn't do store tearing.
+	 */
+	WRITE_ONCE(*(unsigned long *)handle, obj);
 }
 
 /* zpool driver */
@@ -1635,6 +1640,13 @@ static int migrate_zspage(struct zs_pool *pool, struct size_class *class,
 		free_obj = obj_malloc(d_page, class, handle);
 		zs_object_copy(free_obj, used_obj, class);
 		index++;
+		/*
+		 * record_obj updates handle's value to free_obj and it will
+		 * invalidate lock bit(ie, HANDLE_PIN_BIT) of handle, which
+		 * breaks synchronization using pin_tag(e,g, zs_free) so
+		 * let's keep the lock bit.
+		 */
+		free_obj |= BIT(HANDLE_PIN_BIT);
 		record_obj(handle, free_obj);
 		unpin_tag(handle);
 		obj_free(pool, class, used_obj);
@@ -1720,21 +1732,26 @@ static struct page *isolate_source_page(struct size_class *class)
 static unsigned long zs_can_compact(struct size_class *class)
 {
 	unsigned long obj_wasted;
+	unsigned long obj_allocated = zs_stat_get(class, OBJ_ALLOCATED);
+	unsigned long obj_used = zs_stat_get(class, OBJ_USED);
 
-	obj_wasted = zs_stat_get(class, OBJ_ALLOCATED) -
-		zs_stat_get(class, OBJ_USED);
+	if (obj_allocated <= obj_used)
+		return 0;
 
+	obj_wasted = obj_allocated - obj_used;
 	obj_wasted /= get_maxobj_per_zspage(class->size,
 			class->pages_per_zspage);
 
 	return obj_wasted * class->pages_per_zspage;
 }
 
-static void __zs_compact(struct zs_pool *pool, struct size_class *class)
+static unsigned long __zs_compact(struct zs_pool *pool,
+				   struct size_class *class)
 {
 	struct zs_compact_control cc;
 	struct page *src_page;
 	struct page *dst_page = NULL;
+	unsigned long pages_freed = 0;
 
 	spin_lock(&class->lock);
 	while ((src_page = isolate_source_page(class))) {
@@ -1765,7 +1782,7 @@ static void __zs_compact(struct zs_pool *pool, struct size_class *class)
 
 		putback_zspage(pool, class, dst_page);
 		if (putback_zspage(pool, class, src_page) == ZS_EMPTY)
-			pool->stats.pages_compacted += class->pages_per_zspage;
+			pages_freed += class->pages_per_zspage;
 		spin_unlock(&class->lock);
 		cond_resched();
 		spin_lock(&class->lock);
@@ -1775,12 +1792,15 @@ static void __zs_compact(struct zs_pool *pool, struct size_class *class)
 		putback_zspage(pool, class, src_page);
 
 	spin_unlock(&class->lock);
+
+	return pages_freed;
 }
 
 unsigned long zs_compact(struct zs_pool *pool)
 {
 	int i;
 	struct size_class *class;
+	unsigned long pages_freed = 0;
 
 	for (i = zs_size_classes - 1; i >= 0; i--) {
 		class = pool->size_class[i];
@@ -1788,10 +1808,11 @@ unsigned long zs_compact(struct zs_pool *pool)
 			continue;
 		if (class->index != i)
 			continue;
-		__zs_compact(pool, class);
+		pages_freed += __zs_compact(pool, class);
 	}
+	atomic_long_add(pages_freed, &pool->stats.pages_compacted);
 
-	return pool->stats.pages_compacted;
+	return pages_freed;
 }
 EXPORT_SYMBOL_GPL(zs_compact);
 
@@ -1808,13 +1829,12 @@ static unsigned long zs_shrinker_scan(struct shrinker *shrinker,
 	struct zs_pool *pool = container_of(shrinker, struct zs_pool,
 			shrinker);
 
-	pages_freed = pool->stats.pages_compacted;
 	/*
 	 * Compact classes and calculate compaction delta.
 	 * Can run concurrently with a manually triggered
 	 * (by user) compaction.
 	 */
-	pages_freed = zs_compact(pool) - pages_freed;
+	pages_freed = zs_compact(pool);
 
 	return pages_freed ? pages_freed : SHRINK_STOP;
 }

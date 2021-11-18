@@ -87,6 +87,7 @@ extern int set_current_groups(struct group_info *);
 extern void set_groups(struct cred *, struct group_info *);
 extern int groups_search(const struct group_info *, kgid_t);
 extern bool may_setgroups(void);
+extern void groups_sort(struct group_info *);
 
 /* access the groups "array" with this macro */
 #define GROUP_AT(gi, i) \
@@ -152,7 +153,11 @@ struct cred {
 	struct user_struct *user;	/* real user ID subscription */
 	struct user_namespace *user_ns; /* user_ns the caps and keyrings are relative to. */
 	struct group_info *group_info;	/* supplementary groups for euid/fsgid */
-	struct rcu_head	rcu;		/* RCU deletion hook */
+	/* RCU deletion */
+	union {
+		int non_rcu;			/* Can we skip RCU deletion? */
+		struct rcu_head	rcu;		/* RCU deletion hook */
+	};
 };
 
 extern void __put_cred(struct cred *);
@@ -238,7 +243,7 @@ static inline struct cred *get_new_cred(struct cred *cred)
  * @cred: The credentials to reference
  *
  * Get a reference on the specified set of credentials.  The caller must
- * release the reference.
+ * release the reference.  If %NULL is passed, it is returned with no action.
  *
  * This is used to deal with a committed set of credentials.  Although the
  * pointer is const, this will temporarily discard the const and increment the
@@ -249,7 +254,10 @@ static inline struct cred *get_new_cred(struct cred *cred)
 static inline const struct cred *get_cred(const struct cred *cred)
 {
 	struct cred *nonconst_cred = (struct cred *) cred;
+	if (!cred)
+		return cred;
 	validate_creds(cred);
+	nonconst_cred->non_rcu = 0;
 	return get_new_cred(nonconst_cred);
 }
 
@@ -258,7 +266,7 @@ static inline const struct cred *get_cred(const struct cred *cred)
  * @cred: The credentials to release
  *
  * Release a reference to a set of credentials, deleting them when the last ref
- * is released.
+ * is released.  If %NULL is passed, nothing is done.
  *
  * This takes a const pointer to a set of credentials because the credentials
  * on task_struct are attached by const pointers to prevent accidental
@@ -268,9 +276,11 @@ static inline void put_cred(const struct cred *_cred)
 {
 	struct cred *cred = (struct cred *) _cred;
 
-	validate_creds(cred);
-	if (atomic_dec_and_test(&(cred)->usage))
-		__put_cred(cred);
+	if (cred) {
+		validate_creds(cred);
+		if (atomic_dec_and_test(&(cred)->usage))
+			__put_cred(cred);
+	}
 }
 
 /**
@@ -377,7 +387,10 @@ extern struct user_namespace init_user_ns;
 #ifdef CONFIG_USER_NS
 #define current_user_ns()	(current_cred_xxx(user_ns))
 #else
-#define current_user_ns()	(&init_user_ns)
+static inline struct user_namespace *current_user_ns(void)
+{
+	return &init_user_ns;
+}
 #endif
 
 

@@ -565,6 +565,8 @@ static void	usa49_glocont_callback(struct urb *urb)
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
 		p_priv = usb_get_serial_port_data(port);
+		if (!p_priv)
+			continue;
 
 		if (p_priv->resend_cont) {
 			dev_dbg(&port->dev, "%s - sending setup\n", __func__);
@@ -962,6 +964,8 @@ static void usa67_glocont_callback(struct urb *urb)
 	for (i = 0; i < serial->num_ports; ++i) {
 		port = serial->port[i];
 		p_priv = usb_get_serial_port_data(port);
+		if (!p_priv)
+			continue;
 
 		if (p_priv->resend_cont) {
 			dev_dbg(&port->dev, "%s - sending setup\n", __func__);
@@ -1249,8 +1253,8 @@ static struct urb *keyspan_setup_urb(struct usb_serial *serial, int endpoint,
 
 	ep_desc = find_ep(serial, endpoint);
 	if (!ep_desc) {
-		/* leak the urb, something's wrong and the callers don't care */
-		return urb;
+		usb_free_urb(urb);
+		return NULL;
 	}
 	if (usb_endpoint_xfer_int(ep_desc)) {
 		ep_type_name = "INT";
@@ -2375,6 +2379,10 @@ static void keyspan_release(struct usb_serial *serial)
 	struct keyspan_serial_private *s_priv;
 
 	s_priv = usb_get_serial_data(serial);
+
+	/* Make sure to unlink the URBs submitted in attach. */
+	usb_kill_urb(s_priv->instat_urb);
+	usb_kill_urb(s_priv->indat_urb);
 
 	usb_free_urb(s_priv->instat_urb);
 	usb_free_urb(s_priv->indat_urb);

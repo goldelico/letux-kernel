@@ -117,12 +117,17 @@ struct module;
 
 #include <linux/atomic.h>
 
+#ifdef HAVE_JUMP_LABEL
+
 static inline int static_key_count(struct static_key *key)
 {
-	return atomic_read(&key->enabled);
+	/*
+	 * -1 means the first static_key_slow_inc() is in progress.
+	 *  static_key_enabled() must return true, so return 1 here.
+	 */
+	int n = atomic_read(&key->enabled);
+	return n >= 0 ? n : 1;
 }
-
-#ifdef HAVE_JUMP_LABEL
 
 #define JUMP_TYPE_FALSE	0UL
 #define JUMP_TYPE_TRUE	1UL
@@ -161,6 +166,11 @@ extern void jump_label_apply_nops(struct module *mod);
 	  .entries = (void *)JUMP_TYPE_FALSE }
 
 #else  /* !HAVE_JUMP_LABEL */
+
+static inline int static_key_count(struct static_key *key)
+{
+	return atomic_read(&key->enabled);
+}
 
 static __always_inline void jump_label_init(void)
 {
@@ -257,8 +267,14 @@ struct static_key_false {
 #define DEFINE_STATIC_KEY_TRUE(name)	\
 	struct static_key_true name = STATIC_KEY_TRUE_INIT
 
+#define DECLARE_STATIC_KEY_TRUE(name)	\
+	extern struct static_key_true name
+
 #define DEFINE_STATIC_KEY_FALSE(name)	\
 	struct static_key_false name = STATIC_KEY_FALSE_INIT
+
+#define DECLARE_STATIC_KEY_FALSE(name)	\
+	extern struct static_key_false name
 
 extern bool ____wrong_branch_error(void);
 

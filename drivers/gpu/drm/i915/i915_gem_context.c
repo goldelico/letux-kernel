@@ -157,6 +157,8 @@ void i915_gem_context_free(struct kref *ctx_ref)
 	if (i915.enable_execlists)
 		intel_lr_context_free(ctx);
 
+	kfree(ctx->jump_whitelist);
+
 	/*
 	 * This context is going away and we need to remove all VMAs still
 	 * around. This is to handle imported shared objects for which
@@ -245,6 +247,9 @@ __create_hw_context(struct drm_device *dev,
 	ctx->remap_slice = (1 << NUM_L3_SLICES(dev)) - 1;
 
 	ctx->hang_stats.ban_period_seconds = DRM_I915_CTX_BAN_PERIOD;
+
+	ctx->jump_whitelist = NULL;
+	ctx->jump_whitelist_cmds = 0;
 
 	return ctx;
 
@@ -340,6 +345,10 @@ void i915_gem_context_reset(struct drm_device *dev)
 			i915_gem_context_unreference(lctx);
 			ring->last_context = NULL;
 		}
+
+		/* Force the GPU state to be reinitialised on enabling */
+		if (ring->default_context)
+			ring->default_context->legacy_hw_ctx.initialized = false;
 	}
 }
 
@@ -708,7 +717,7 @@ static int do_switch(struct drm_i915_gem_request *req)
 	if (ret)
 		goto unpin_out;
 
-	if (!to->legacy_hw_ctx.initialized) {
+	if (!to->legacy_hw_ctx.initialized || i915_gem_context_is_default(to)) {
 		hw_flags |= MI_RESTORE_INHIBIT;
 		/* NB: If we inhibit the restore, the context is not allowed to
 		 * die because future work may end up depending on valid address

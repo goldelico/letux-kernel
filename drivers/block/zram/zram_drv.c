@@ -450,7 +450,7 @@ static ssize_t mm_stat_show(struct device *dev,
 			zram->limit_pages << PAGE_SHIFT,
 			max_used << PAGE_SHIFT,
 			(u64)atomic64_read(&zram->stats.zero_pages),
-			pool_stats.pages_compacted);
+			atomic_long_read(&pool_stats.pages_compacted));
 	up_read(&zram->init_lock);
 
 	return ret;
@@ -574,13 +574,13 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 
 	if (!handle || zram_test_flag(meta, index, ZRAM_ZERO)) {
 		bit_spin_unlock(ZRAM_ACCESS, &meta->table[index].value);
-		clear_page(mem);
+		memset(mem, 0, PAGE_SIZE);
 		return 0;
 	}
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_RO);
 	if (size == PAGE_SIZE)
-		copy_page(mem, cmem);
+		memcpy(mem, cmem, PAGE_SIZE);
 	else
 		ret = zcomp_decompress(zram->comp, cmem, size, mem);
 	zs_unmap_object(meta->mem_pool, handle);
@@ -738,7 +738,7 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 
 	if ((clen == PAGE_SIZE) && !is_partial_io(bvec)) {
 		src = kmap_atomic(page);
-		copy_page(cmem, src);
+		memcpy(cmem, src, PAGE_SIZE);
 		kunmap_atomic(src);
 	} else {
 		memcpy(cmem, src, clen);
@@ -1184,6 +1184,11 @@ static struct attribute_group zram_disk_attr_group = {
 	.attrs = zram_disk_attrs,
 };
 
+static const struct attribute_group *zram_disk_attr_groups[] = {
+	&zram_disk_attr_group,
+	NULL,
+};
+
 /*
  * Allocate and initialize new zram device. the function returns
  * '>= 0' device_id upon success, and negative value otherwise.
@@ -1247,6 +1252,8 @@ static int zram_add(void)
 	blk_queue_io_min(zram->disk->queue, PAGE_SIZE);
 	blk_queue_io_opt(zram->disk->queue, PAGE_SIZE);
 	zram->disk->queue->limits.discard_granularity = PAGE_SIZE;
+	zram->disk->queue->limits.max_sectors = SECTORS_PER_PAGE;
+	zram->disk->queue->limits.chunk_sectors = 0;
 	blk_queue_max_discard_sectors(zram->disk->queue, UINT_MAX);
 	/*
 	 * zram_bio_discard() will clear all logical blocks if logical block
@@ -1262,15 +1269,9 @@ static int zram_add(void)
 		zram->disk->queue->limits.discard_zeroes_data = 0;
 	queue_flag_set_unlocked(QUEUE_FLAG_DISCARD, zram->disk->queue);
 
+	disk_to_dev(zram->disk)->groups = zram_disk_attr_groups;
 	add_disk(zram->disk);
 
-	ret = sysfs_create_group(&disk_to_dev(zram->disk)->kobj,
-				&zram_disk_attr_group);
-	if (ret < 0) {
-		pr_err("Error creating sysfs group for device %d\n",
-				device_id);
-		goto out_free_disk;
-	}
 	strlcpy(zram->compressor, default_compressor, sizeof(zram->compressor));
 	zram->meta = NULL;
 	zram->max_comp_streams = 1;
@@ -1278,9 +1279,6 @@ static int zram_add(void)
 	pr_info("Added device: %s\n", zram->disk->disk_name);
 	return device_id;
 
-out_free_disk:
-	del_gendisk(zram->disk);
-	put_disk(zram->disk);
 out_free_queue:
 	blk_cleanup_queue(queue);
 out_free_idr:
@@ -1308,16 +1306,6 @@ static int zram_remove(struct zram *zram)
 	zram->claim = true;
 	mutex_unlock(&bdev->bd_mutex);
 
-	/*
-	 * Remove sysfs first, so no one will perform a disksize
-	 * store while we destroy the devices. This also helps during
-	 * hot_remove -- zram_reset_device() is the last holder of
-	 * ->init_lock, no later/concurrent disksize_store() or any
-	 * other sysfs handlers are possible.
-	 */
-	sysfs_remove_group(&disk_to_dev(zram->disk)->kobj,
-			&zram_disk_attr_group);
-
 	/* Make sure all the pending I/O are finished */
 	fsync_bdev(bdev);
 	zram_reset_device(zram);
@@ -1325,7 +1313,6 @@ static int zram_remove(struct zram *zram)
 
 	pr_info("Removed device: %s\n", zram->disk->disk_name);
 
-	idr_remove(&zram_index_idr, zram->disk->first_minor);
 	blk_cleanup_queue(zram->disk->queue);
 	del_gendisk(zram->disk);
 	put_disk(zram->disk);
@@ -1367,17 +1354,26 @@ static ssize_t hot_remove_store(struct class *class,
 	mutex_lock(&zram_index_mutex);
 
 	zram = idr_find(&zram_index_idr, dev_id);
-	if (zram)
+	if (zram) {
 		ret = zram_remove(zram);
-	else
+		if (!ret)
+			idr_remove(&zram_index_idr, dev_id);
+	} else {
 		ret = -ENODEV;
+	}
 
 	mutex_unlock(&zram_index_mutex);
 	return ret ? ret : count;
 }
 
+/*
+ * NOTE: hot_add attribute is not the usual read-only sysfs attribute. In a
+ * sense that reading from this file does alter the state of your system -- it
+ * creates a new un-initialized zram device and returns back this device's
+ * device_id (or an error code if it fails to create a new device).
+ */
 static struct class_attribute zram_control_class_attrs[] = {
-	__ATTR_RO(hot_add),
+	__ATTR(hot_add, 0400, hot_add_show, NULL),
 	__ATTR_WO(hot_remove),
 	__ATTR_NULL,
 };

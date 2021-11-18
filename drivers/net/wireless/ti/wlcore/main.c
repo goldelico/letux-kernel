@@ -1123,8 +1123,11 @@ static int wl12xx_chip_wakeup(struct wl1271 *wl, bool plt)
 		goto out;
 
 	ret = wl12xx_fetch_firmware(wl, plt);
-	if (ret < 0)
-		goto out;
+	if (ret < 0) {
+		kfree(wl->fw_status);
+		kfree(wl->raw_fw_status);
+		kfree(wl->tx_res_if);
+	}
 
 out:
 	return ret;
@@ -2886,21 +2889,8 @@ static int wlcore_join(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 
 	if (is_ibss)
 		ret = wl12xx_cmd_role_start_ibss(wl, wlvif);
-	else {
-		if (wl->quirks & WLCORE_QUIRK_START_STA_FAILS) {
-			/*
-			 * TODO: this is an ugly workaround for wl12xx fw
-			 * bug - we are not able to tx/rx after the first
-			 * start_sta, so make dummy start+stop calls,
-			 * and then call start_sta again.
-			 * this should be fixed in the fw.
-			 */
-			wl12xx_cmd_role_start_sta(wl, wlvif);
-			wl12xx_cmd_role_stop_sta(wl, wlvif);
-		}
-
+	else
 		ret = wl12xx_cmd_role_start_sta(wl, wlvif);
-	}
 
 	return ret;
 }
@@ -5261,14 +5251,16 @@ out:
 
 static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
-				  enum ieee80211_ampdu_mlme_action action,
-				  struct ieee80211_sta *sta, u16 tid, u16 *ssn,
-				  u8 buf_size, bool amsdu)
+				  struct ieee80211_ampdu_params *params)
 {
 	struct wl1271 *wl = hw->priv;
 	struct wl12xx_vif *wlvif = wl12xx_vif_to_data(vif);
 	int ret;
 	u8 hlid, *ba_bitmap;
+	struct ieee80211_sta *sta = params->sta;
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
 
 	wl1271_debug(DEBUG_MAC80211, "mac80211 ampdu action %d tid %d", action,
 		     tid);
@@ -5326,7 +5318,9 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		}
 
 		ret = wl12xx_acx_set_ba_receiver_session(wl, tid, *ssn, true,
-							 hlid);
+				hlid,
+				params->buf_size);
+
 		if (!ret) {
 			*ba_bitmap |= BIT(tid);
 			wl->ba_rx_session_count++;
@@ -5347,7 +5341,7 @@ static int wl1271_op_ampdu_action(struct ieee80211_hw *hw,
 		}
 
 		ret = wl12xx_acx_set_ba_receiver_session(wl, tid, 0, false,
-							 hlid);
+							 hlid, 0);
 		if (!ret) {
 			*ba_bitmap &= ~BIT(tid);
 			wl->ba_rx_session_count--;

@@ -420,7 +420,7 @@ void sctp_icmp_redirect(struct sock *sk, struct sctp_transport *t,
 {
 	struct dst_entry *dst;
 
-	if (!t)
+	if (sock_owned_by_user(sk) || !t)
 		return;
 	dst = sctp_transport_dst_check(t);
 	if (dst)
@@ -448,7 +448,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
 		else {
 			if (!mod_timer(&t->proto_unreach_timer,
 						jiffies + (HZ/20)))
-				sctp_association_hold(asoc);
+				sctp_transport_hold(t);
 		}
 	} else {
 		struct net *net = sock_net(sk);
@@ -457,7 +457,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
 			 "encountered!\n", __func__);
 
 		if (del_timer(&t->proto_unreach_timer))
-			sctp_association_put(asoc);
+			sctp_transport_put(t);
 
 		sctp_do_sm(net, SCTP_EVENT_T_OTHER,
 			   SCTP_ST_OTHER(SCTP_EVENT_ICMP_PROTO_UNREACH),
@@ -472,15 +472,14 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
 			     struct sctp_association **app,
 			     struct sctp_transport **tpp)
 {
+	struct sctp_init_chunk *chunkhdr, _chunkhdr;
 	union sctp_addr saddr;
 	union sctp_addr daddr;
 	struct sctp_af *af;
 	struct sock *sk = NULL;
 	struct sctp_association *asoc;
 	struct sctp_transport *transport = NULL;
-	struct sctp_init_chunk *chunkhdr;
 	__u32 vtag = ntohl(sctphdr->vtag);
-	int len = skb->len - ((void *)sctphdr - (void *)skb->data);
 
 	*app = NULL; *tpp = NULL;
 
@@ -515,13 +514,16 @@ struct sock *sctp_err_lookup(struct net *net, int family, struct sk_buff *skb,
 	 * discard the packet.
 	 */
 	if (vtag == 0) {
-		chunkhdr = (void *)sctphdr + sizeof(struct sctphdr);
-		if (len < sizeof(struct sctphdr) + sizeof(sctp_chunkhdr_t)
-			  + sizeof(__be32) ||
+		/* chunk header + first 4 octects of init header */
+		chunkhdr = skb_header_pointer(skb, skb_transport_offset(skb) +
+					      sizeof(struct sctphdr),
+					      sizeof(struct sctp_chunkhdr) +
+					      sizeof(__be32), &_chunkhdr);
+		if (!chunkhdr ||
 		    chunkhdr->chunk_hdr.type != SCTP_CID_INIT ||
-		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag) {
+		    ntohl(chunkhdr->init_hdr.init_tag) != asoc->c.my_vtag)
 			goto out;
-		}
+
 	} else if (vtag != asoc->c.peer_vtag) {
 		goto out;
 	}
@@ -970,7 +972,8 @@ static struct sctp_association *__sctp_rcv_init_lookup(struct net *net,
 		if (!af)
 			continue;
 
-		af->from_addr_param(paddr, params.addr, sh->source, 0);
+		if (!af->from_addr_param(paddr, params.addr, sh->source, 0))
+			continue;
 
 		asoc = __sctp_lookup_association(net, laddr, paddr, &transport);
 		if (asoc)
@@ -1006,6 +1009,9 @@ static struct sctp_association *__sctp_rcv_asconf_lookup(
 	union sctp_addr_param *param;
 	union sctp_addr paddr;
 
+	if (ntohs(ch->length) < sizeof(*asconf) + sizeof(struct sctp_paramhdr))
+		return NULL;
+
 	/* Skip over the ADDIP header and find the Address parameter */
 	param = (union sctp_addr_param *)(asconf + 1);
 
@@ -1013,7 +1019,8 @@ static struct sctp_association *__sctp_rcv_asconf_lookup(
 	if (unlikely(!af))
 		return NULL;
 
-	af->from_addr_param(&paddr, param, peer_port, 0);
+	if (af->from_addr_param(&paddr, param, peer_port, 0))
+		return NULL;
 
 	return __sctp_lookup_association(net, laddr, &paddr, transportp);
 }
@@ -1084,7 +1091,7 @@ static struct sctp_association *__sctp_rcv_walk_lookup(struct net *net,
 
 		ch = (sctp_chunkhdr_t *) ch_end;
 		chunk_num++;
-	} while (ch_end < skb_tail_pointer(skb));
+	} while (ch_end + sizeof(*ch) < skb_tail_pointer(skb));
 
 	return asoc;
 }

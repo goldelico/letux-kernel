@@ -185,6 +185,9 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 	unsigned int spd_pages = spd->nr_pages;
 	int ret, do_wakeup, page_nr;
 
+	if (!spd_pages)
+		return 0;
+
 	ret = 0;
 	do_wakeup = 0;
 	page_nr = 0;
@@ -208,6 +211,7 @@ ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
 			buf->len = spd->partial[page_nr].len;
 			buf->private = spd->partial[page_nr].private;
 			buf->ops = spd->ops;
+			buf->flags = 0;
 			if (spd->flags & SPLICE_F_GIFT)
 				buf->flags |= PIPE_BUF_FLAG_GIFT;
 
@@ -1872,7 +1876,11 @@ retry:
 			 * Get a reference to this pipe buffer,
 			 * so we can copy the contents over.
 			 */
-			ibuf->ops->get(ipipe, ibuf);
+			if (!pipe_buf_get(ipipe, ibuf)) {
+				if (ret == 0)
+					ret = -EFAULT;
+				break;
+			}
 			*obuf = *ibuf;
 
 			/*
@@ -1944,7 +1952,11 @@ static int link_pipe(struct pipe_inode_info *ipipe,
 		 * Get a reference to this pipe buffer,
 		 * so we can copy the contents over.
 		 */
-		ibuf->ops->get(ipipe, ibuf);
+		if (!pipe_buf_get(ipipe, ibuf)) {
+			if (ret == 0)
+				ret = -EFAULT;
+			break;
+		}
 
 		obuf = opipe->bufs + nbuf;
 		*obuf = *ibuf;

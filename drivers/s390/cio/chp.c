@@ -139,11 +139,11 @@ static ssize_t chp_measurement_chars_read(struct file *filp,
 
 	device = container_of(kobj, struct device, kobj);
 	chp = to_channelpath(device);
-	if (!chp->cmg_chars)
+	if (chp->cmg == -1)
 		return 0;
 
-	return memory_read_from_buffer(buf, count, &off,
-				chp->cmg_chars, sizeof(struct cmg_chars));
+	return memory_read_from_buffer(buf, count, &off, &chp->cmg_chars,
+				       sizeof(chp->cmg_chars));
 }
 
 static struct bin_attribute chp_measurement_chars_attr = {
@@ -256,6 +256,9 @@ static ssize_t chp_status_write(struct device *dev,
 	num_args = sscanf(buf, "%5s", cmd);
 	if (!num_args)
 		return count;
+
+	/* Wait until previous actions have settled. */
+	css_wait_for_slow_path();
 
 	if (!strncasecmp(cmd, "on", 2) || !strcmp(cmd, "1")) {
 		mutex_lock(&cp->lock);
@@ -416,7 +419,8 @@ static void chp_release(struct device *dev)
  * chp_update_desc - update channel-path description
  * @chp - channel-path
  *
- * Update the channel-path description of the specified channel-path.
+ * Update the channel-path description of the specified channel-path
+ * including channel measurement related information.
  * Return zero on success, non-zero otherwise.
  */
 int chp_update_desc(struct channel_path *chp)
@@ -428,8 +432,10 @@ int chp_update_desc(struct channel_path *chp)
 		return rc;
 
 	rc = chsc_determine_fmt1_channel_path_desc(chp->chpid, &chp->desc_fmt1);
+	if (rc)
+		return rc;
 
-	return rc;
+	return chsc_get_channel_measurement_chars(chp);
 }
 
 /**
@@ -465,14 +471,6 @@ int chp_new(struct chp_id chpid)
 	if ((chp->desc.flags & 0x80) == 0) {
 		ret = -ENODEV;
 		goto out_free;
-	}
-	/* Get channel-measurement characteristics. */
-	if (css_chsc_characteristics.scmc && css_chsc_characteristics.secm) {
-		ret = chsc_get_channel_measurement_chars(chp);
-		if (ret)
-			goto out_free;
-	} else {
-		chp->cmg = -1;
 	}
 	dev_set_name(&chp->dev, "chp%x.%02x", chpid.cssid, chpid.id);
 

@@ -16,6 +16,7 @@
 #include <asm/unaligned.h>
 #include <net/mac80211.h>
 #include <crypto/aes.h>
+#include <crypto/algapi.h>
 
 #include "ieee80211_i.h"
 #include "michael.h"
@@ -152,7 +153,7 @@ ieee80211_rx_h_michael_mic_verify(struct ieee80211_rx_data *rx)
 	data_len = skb->len - hdrlen - MICHAEL_MIC_LEN;
 	key = &rx->key->conf.key[NL80211_TKIP_DATA_OFFSET_RX_MIC_KEY];
 	michael_mic(key, hdr, data, data_len, mic);
-	if (memcmp(mic, data + data_len, MICHAEL_MIC_LEN) != 0)
+	if (crypto_memneq(mic, data + data_len, MICHAEL_MIC_LEN))
 		goto mic_fail;
 
 	/* remove Michael MIC from payload */
@@ -160,8 +161,8 @@ ieee80211_rx_h_michael_mic_verify(struct ieee80211_rx_data *rx)
 
 update_iv:
 	/* update IV in key information to be able to detect replays */
-	rx->key->u.tkip.rx[rx->security_idx].iv32 = rx->tkip_iv32;
-	rx->key->u.tkip.rx[rx->security_idx].iv16 = rx->tkip_iv16;
+	rx->key->u.tkip.rx[rx->security_idx].iv32 = rx->tkip.iv32;
+	rx->key->u.tkip.rx[rx->security_idx].iv16 = rx->tkip.iv16;
 
 	return RX_CONTINUE;
 
@@ -291,13 +292,14 @@ ieee80211_crypto_tkip_decrypt(struct ieee80211_rx_data *rx)
 					  key, skb->data + hdrlen,
 					  skb->len - hdrlen, rx->sta->sta.addr,
 					  hdr->addr1, hwaccel, rx->security_idx,
-					  &rx->tkip_iv32,
-					  &rx->tkip_iv16);
+					  &rx->tkip.iv32,
+					  &rx->tkip.iv16);
 	if (res != TKIP_DECRYPT_OK)
 		return RX_DROP_UNUSABLE;
 
 	/* Trim ICV */
-	skb_trim(skb, skb->len - IEEE80211_TKIP_ICV_LEN);
+	if (!(status->flag & RX_FLAG_ICV_STRIPPED))
+		skb_trim(skb, skb->len - IEEE80211_TKIP_ICV_LEN);
 
 	/* Remove IV */
 	memmove(skb->data + IEEE80211_TKIP_IV_LEN, skb->data, hdrlen);
@@ -507,25 +509,34 @@ ieee80211_crypto_ccmp_decrypt(struct ieee80211_rx_data *rx,
 	    !ieee80211_is_robust_mgmt_frame(skb))
 		return RX_CONTINUE;
 
-	data_len = skb->len - hdrlen - IEEE80211_CCMP_HDR_LEN - mic_len;
-	if (!rx->sta || data_len < 0)
-		return RX_DROP_UNUSABLE;
-
 	if (status->flag & RX_FLAG_DECRYPTED) {
 		if (!pskb_may_pull(rx->skb, hdrlen + IEEE80211_CCMP_HDR_LEN))
 			return RX_DROP_UNUSABLE;
+		if (status->flag & RX_FLAG_MIC_STRIPPED)
+			mic_len = 0;
 	} else {
 		if (skb_linearize(rx->skb))
 			return RX_DROP_UNUSABLE;
 	}
 
+	/* reload hdr - skb might have been reallocated */
+	hdr = (void *)rx->skb->data;
+
+	data_len = skb->len - hdrlen - IEEE80211_CCMP_HDR_LEN - mic_len;
+	if (!rx->sta || data_len < 0)
+		return RX_DROP_UNUSABLE;
+
 	if (!(status->flag & RX_FLAG_PN_VALIDATED)) {
+		int res;
+
 		ccmp_hdr2pn(pn, skb->data + hdrlen);
 
 		queue = rx->security_idx;
 
-		if (memcmp(pn, key->u.ccmp.rx_pn[queue],
-			   IEEE80211_CCMP_PN_LEN) <= 0) {
+		res = memcmp(pn, key->u.ccmp.rx_pn[queue],
+			     IEEE80211_CCMP_PN_LEN);
+		if (res < 0 ||
+		    (!res && !(status->flag & RX_FLAG_ALLOW_SAME_PN))) {
 			key->u.ccmp.replays++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -545,6 +556,8 @@ ieee80211_crypto_ccmp_decrypt(struct ieee80211_rx_data *rx,
 		}
 
 		memcpy(key->u.ccmp.rx_pn[queue], pn, IEEE80211_CCMP_PN_LEN);
+		if (unlikely(ieee80211_is_frag(hdr)))
+			memcpy(rx->ccm_gcm.pn, pn, IEEE80211_CCMP_PN_LEN);
 	}
 
 	/* Remove CCMP header and MIC */
@@ -723,8 +736,7 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 	struct sk_buff *skb = rx->skb;
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	u8 pn[IEEE80211_GCMP_PN_LEN];
-	int data_len;
-	int queue;
+	int data_len, queue, mic_len = IEEE80211_GCMP_MIC_LEN;
 
 	hdrlen = ieee80211_hdrlen(hdr->frame_control);
 
@@ -732,26 +744,34 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 	    !ieee80211_is_robust_mgmt_frame(skb))
 		return RX_CONTINUE;
 
-	data_len = skb->len - hdrlen - IEEE80211_GCMP_HDR_LEN -
-		   IEEE80211_GCMP_MIC_LEN;
-	if (!rx->sta || data_len < 0)
-		return RX_DROP_UNUSABLE;
-
 	if (status->flag & RX_FLAG_DECRYPTED) {
 		if (!pskb_may_pull(rx->skb, hdrlen + IEEE80211_GCMP_HDR_LEN))
 			return RX_DROP_UNUSABLE;
+		if (status->flag & RX_FLAG_MIC_STRIPPED)
+			mic_len = 0;
 	} else {
 		if (skb_linearize(rx->skb))
 			return RX_DROP_UNUSABLE;
 	}
 
+	/* reload hdr - skb might have been reallocated */
+	hdr = (void *)rx->skb->data;
+
+	data_len = skb->len - hdrlen - IEEE80211_GCMP_HDR_LEN - mic_len;
+	if (!rx->sta || data_len < 0)
+		return RX_DROP_UNUSABLE;
+
 	if (!(status->flag & RX_FLAG_PN_VALIDATED)) {
+		int res;
+
 		gcmp_hdr2pn(pn, skb->data + hdrlen);
 
 		queue = rx->security_idx;
 
-		if (memcmp(pn, key->u.gcmp.rx_pn[queue],
-			   IEEE80211_GCMP_PN_LEN) <= 0) {
+		res = memcmp(pn, key->u.gcmp.rx_pn[queue],
+			     IEEE80211_GCMP_PN_LEN);
+		if (res < 0 ||
+		    (!res && !(status->flag & RX_FLAG_ALLOW_SAME_PN))) {
 			key->u.gcmp.replays++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -772,10 +792,12 @@ ieee80211_crypto_gcmp_decrypt(struct ieee80211_rx_data *rx)
 		}
 
 		memcpy(key->u.gcmp.rx_pn[queue], pn, IEEE80211_GCMP_PN_LEN);
+		if (unlikely(ieee80211_is_frag(hdr)))
+			memcpy(rx->ccm_gcm.pn, pn, IEEE80211_CCMP_PN_LEN);
 	}
 
 	/* Remove GCMP header and MIC */
-	if (pskb_trim(skb, skb->len - IEEE80211_GCMP_MIC_LEN))
+	if (pskb_trim(skb, skb->len - mic_len))
 		return RX_DROP_UNUSABLE;
 	memmove(skb->data + IEEE80211_GCMP_HDR_LEN, skb->data, hdrlen);
 	skb_pull(skb, IEEE80211_GCMP_HDR_LEN);
@@ -1044,7 +1066,7 @@ ieee80211_crypto_aes_cmac_decrypt(struct ieee80211_rx_data *rx)
 		bip_aad(skb, aad);
 		ieee80211_aes_cmac(key->u.aes_cmac.tfm, aad,
 				   skb->data + 24, skb->len - 24, mic);
-		if (memcmp(mic, mmie->mic, sizeof(mmie->mic)) != 0) {
+		if (crypto_memneq(mic, mmie->mic, sizeof(mmie->mic))) {
 			key->u.aes_cmac.icverrors++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -1094,7 +1116,7 @@ ieee80211_crypto_aes_cmac_256_decrypt(struct ieee80211_rx_data *rx)
 		bip_aad(skb, aad);
 		ieee80211_aes_cmac_256(key->u.aes_cmac.tfm, aad,
 				       skb->data + 24, skb->len - 24, mic);
-		if (memcmp(mic, mmie->mic, sizeof(mmie->mic)) != 0) {
+		if (crypto_memneq(mic, mmie->mic, sizeof(mmie->mic))) {
 			key->u.aes_cmac.icverrors++;
 			return RX_DROP_UNUSABLE;
 		}
@@ -1198,7 +1220,7 @@ ieee80211_crypto_aes_gmac_decrypt(struct ieee80211_rx_data *rx)
 		if (ieee80211_aes_gmac(key->u.aes_gmac.tfm, aad, nonce,
 				       skb->data + 24, skb->len - 24,
 				       mic) < 0 ||
-		    memcmp(mic, mmie->mic, sizeof(mmie->mic)) != 0) {
+		    crypto_memneq(mic, mmie->mic, sizeof(mmie->mic))) {
 			key->u.aes_gmac.icverrors++;
 			return RX_DROP_UNUSABLE;
 		}

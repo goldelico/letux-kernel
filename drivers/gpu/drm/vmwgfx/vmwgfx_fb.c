@@ -433,7 +433,7 @@ static int vmw_fb_kms_detach(struct vmw_fb_par *par,
 		set.y = 0;
 		set.mode = NULL;
 		set.fb = NULL;
-		set.num_connectors = 1;
+		set.num_connectors = 0;
 		set.connectors = &par->con;
 		ret = drm_mode_set_config_internal(&set);
 		if (ret) {
@@ -517,28 +517,6 @@ static int vmw_fb_kms_framebuffer(struct fb_info *info)
 
 	par->set_fb = &vfb->base;
 
-	if (!par->bo_ptr) {
-		/*
-		 * Pin before mapping. Since we don't know in what placement
-		 * to pin, call into KMS to do it for us.
-		 */
-		ret = vfb->pin(vfb);
-		if (ret) {
-			DRM_ERROR("Could not pin the fbdev framebuffer.\n");
-			return ret;
-		}
-
-		ret = ttm_bo_kmap(&par->vmw_bo->base, 0,
-				  par->vmw_bo->base.num_pages, &par->map);
-		if (ret) {
-			vfb->unpin(vfb);
-			DRM_ERROR("Could not map the fbdev framebuffer.\n");
-			return ret;
-		}
-
-		par->bo_ptr = ttm_kmap_obj_virtual(&par->map, &par->bo_iowrite);
-	}
-
 	return 0;
 }
 
@@ -553,11 +531,9 @@ static int vmw_fb_set_par(struct fb_info *info)
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_PVSYNC)
 	};
-	struct drm_display_mode *old_mode;
 	struct drm_display_mode *mode;
 	int ret;
 
-	old_mode = par->set_mode;
 	mode = drm_mode_duplicate(vmw_priv->dev, &new_mode);
 	if (!mode) {
 		DRM_ERROR("Could not create new fb mode.\n");
@@ -568,14 +544,10 @@ static int vmw_fb_set_par(struct fb_info *info)
 	mode->vdisplay = var->yres;
 	vmw_guess_mode_timing(mode);
 
-	if (old_mode && drm_mode_equal(old_mode, mode)) {
-		drm_mode_destroy(vmw_priv->dev, mode);
-		mode = old_mode;
-		old_mode = NULL;
-	} else if (!vmw_kms_validate_mode_vram(vmw_priv,
-					       mode->hdisplay *
-					       (var->bits_per_pixel + 7) / 8,
-					       mode->vdisplay)) {
+	if (!vmw_kms_validate_mode_vram(vmw_priv,
+					mode->hdisplay *
+					DIV_ROUND_UP(var->bits_per_pixel, 8),
+					mode->vdisplay)) {
 		drm_mode_destroy(vmw_priv->dev, mode);
 		return -EINVAL;
 	}
@@ -601,6 +573,31 @@ static int vmw_fb_set_par(struct fb_info *info)
 	if (ret)
 		goto out_unlock;
 
+	if (!par->bo_ptr) {
+		struct vmw_framebuffer *vfb = vmw_framebuffer_to_vfb(set.fb);
+
+		/*
+		 * Pin before mapping. Since we don't know in what placement
+		 * to pin, call into KMS to do it for us.
+		 */
+		ret = vfb->pin(vfb);
+		if (ret) {
+			DRM_ERROR("Could not pin the fbdev framebuffer.\n");
+			goto out_unlock;
+		}
+
+		ret = ttm_bo_kmap(&par->vmw_bo->base, 0,
+				  par->vmw_bo->base.num_pages, &par->map);
+		if (ret) {
+			vfb->unpin(vfb);
+			DRM_ERROR("Could not map the fbdev framebuffer.\n");
+			goto out_unlock;
+		}
+
+		par->bo_ptr = ttm_kmap_obj_virtual(&par->map, &par->bo_iowrite);
+	}
+
+
 	vmw_fb_dirty_mark(par, par->fb_x, par->fb_y,
 			  par->set_fb->width, par->set_fb->height);
 
@@ -610,8 +607,8 @@ static int vmw_fb_set_par(struct fb_info *info)
 	schedule_delayed_work(&par->local_work, 0);
 
 out_unlock:
-	if (old_mode)
-		drm_mode_destroy(vmw_priv->dev, old_mode);
+	if (par->set_mode)
+		drm_mode_destroy(vmw_priv->dev, par->set_mode);
 	par->set_mode = mode;
 
 	drm_modeset_unlock_all(vmw_priv->dev);
@@ -818,7 +815,9 @@ int vmw_fb_off(struct vmw_private *vmw_priv)
 	flush_delayed_work(&par->local_work);
 
 	mutex_lock(&par->bo_mutex);
+	drm_modeset_lock_all(vmw_priv->dev);
 	(void) vmw_fb_kms_detach(par, true, false);
+	drm_modeset_unlock_all(vmw_priv->dev);
 	mutex_unlock(&par->bo_mutex);
 
 	return 0;

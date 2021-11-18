@@ -183,6 +183,7 @@ void tcp_init_congestion_control(struct sock *sk)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 
+	tcp_sk(sk)->prior_ssthresh = 0;
 	if (icsk->icsk_ca_ops->init)
 		icsk->icsk_ca_ops->init(sk);
 	if (tcp_ca_needs_ecn(sk))
@@ -200,7 +201,7 @@ static void tcp_reinit_congestion_control(struct sock *sk,
 	icsk->icsk_ca_ops = ca;
 	icsk->icsk_ca_setsockopt = 1;
 
-	if (sk->sk_state != TCP_CLOSE)
+	if (!((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_LISTEN)))
 		tcp_init_congestion_control(sk);
 }
 

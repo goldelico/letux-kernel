@@ -575,8 +575,10 @@ static int kexec_calculate_store_digests(struct kimage *image)
 
 	sha_region_sz = KEXEC_SEGMENT_MAX * sizeof(struct kexec_sha_region);
 	sha_regions = vzalloc(sha_region_sz);
-	if (!sha_regions)
+	if (!sha_regions) {
+		ret = -ENOMEM;
 		goto out_free_desc;
+	}
 
 	desc->tfm   = tfm;
 	desc->flags = 0;
@@ -934,7 +936,10 @@ int kexec_load_purgatory(struct kimage *image, unsigned long min,
 	return 0;
 out:
 	vfree(pi->sechdrs);
+	pi->sechdrs = NULL;
+
 	vfree(pi->purgatory_buf);
+	pi->purgatory_buf = NULL;
 	return ret;
 }
 

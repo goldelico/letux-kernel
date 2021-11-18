@@ -1634,7 +1634,7 @@ static void usdhi6_timeout_work(struct work_struct *work)
 	struct usdhi6_host *host = container_of(d, struct usdhi6_host, timeout_work);
 	struct mmc_request *mrq = host->mrq;
 	struct mmc_data *data = mrq ? mrq->data : NULL;
-	struct scatterlist *sg = host->sg ?: data->sg;
+	struct scatterlist *sg;
 
 	dev_warn(mmc_dev(host->mmc),
 		 "%s timeout wait %u CMD%d: IRQ 0x%08x:0x%08x, last IRQ 0x%08x\n",
@@ -1666,6 +1666,7 @@ static void usdhi6_timeout_work(struct work_struct *work)
 	case USDHI6_WAIT_FOR_MWRITE:
 	case USDHI6_WAIT_FOR_READ:
 	case USDHI6_WAIT_FOR_WRITE:
+		sg = host->sg ?: data->sg;
 		dev_dbg(mmc_dev(host->mmc),
 			"%c: page #%u @ +0x%zx %ux%u in SG%u. Current SG %u bytes @ %u\n",
 			data->flags & MMC_DATA_READ ? 'R' : 'W', host->page_idx,
@@ -1750,6 +1751,7 @@ static int usdhi6_probe(struct platform_device *pdev)
 
 	version = usdhi6_read(host, USDHI6_VERSION);
 	if ((version & 0xfff) != 0xa0d) {
+		ret = -EPERM;
 		dev_err(dev, "Version not recognized %x\n", version);
 		goto e_clk_off;
 	}
@@ -1807,10 +1809,12 @@ static int usdhi6_probe(struct platform_device *pdev)
 
 	ret = mmc_add_host(mmc);
 	if (ret < 0)
-		goto e_clk_off;
+		goto e_release_dma;
 
 	return 0;
 
+e_release_dma:
+	usdhi6_dma_release(host);
 e_clk_off:
 	clk_disable_unprepare(host->clk);
 e_free_mmc:

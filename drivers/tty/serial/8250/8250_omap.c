@@ -155,11 +155,6 @@ static void omap_8250_mdr1_errataset(struct uart_8250_port *up,
 				     struct omap8250_priv *priv)
 {
 	u8 timeout = 255;
-	u8 old_mdr1;
-
-	old_mdr1 = serial_in(up, UART_OMAP_MDR1);
-	if (old_mdr1 == priv->mdr1)
-		return;
 
 	serial_out(up, UART_OMAP_MDR1, priv->mdr1);
 	udelay(2);
@@ -607,6 +602,10 @@ static int omap_8250_startup(struct uart_port *port)
 
 	up->lsr_saved_flags = 0;
 	up->msr_saved_flags = 0;
+
+	/* Disable DMA for console UART */
+	if (uart_console(port))
+		up->dma = NULL;
 
 	if (up->dma) {
 		ret = serial8250_request_dma(up);
@@ -1184,11 +1183,11 @@ static int omap8250_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->rx_dma_lock);
 
 	device_init_wakeup(&pdev->dev, true);
+	pm_runtime_enable(&pdev->dev);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, -1);
 
 	pm_runtime_irq_safe(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
 
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -1235,7 +1234,8 @@ static int omap8250_probe(struct platform_device *pdev)
 	pm_runtime_put_autosuspend(&pdev->dev);
 	return 0;
 err:
-	pm_runtime_put(&pdev->dev);
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	return ret;
 }
@@ -1244,6 +1244,7 @@ static int omap8250_remove(struct platform_device *pdev)
 {
 	struct omap8250_priv *priv = platform_get_drvdata(pdev);
 
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	serial8250_unregister_port(priv->line);
@@ -1342,6 +1343,10 @@ static int omap8250_runtime_suspend(struct device *dev)
 {
 	struct omap8250_priv *priv = dev_get_drvdata(dev);
 	struct uart_8250_port *up;
+
+	/* In case runtime-pm tries this before we are setup */
+	if (!priv)
+		return 0;
 
 	up = serial8250_get_port(priv->line);
 	/*

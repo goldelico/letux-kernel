@@ -26,7 +26,7 @@
 static int edac_mc_log_ue = 1;
 static int edac_mc_log_ce = 1;
 static int edac_mc_panic_on_ue;
-static int edac_mc_poll_msec = 1000;
+static unsigned int edac_mc_poll_msec = 1000;
 
 /* Getter functions for above */
 int edac_mc_get_log_ue(void)
@@ -45,30 +45,30 @@ int edac_mc_get_panic_on_ue(void)
 }
 
 /* this is temporary */
-int edac_mc_get_poll_msec(void)
+unsigned int edac_mc_get_poll_msec(void)
 {
 	return edac_mc_poll_msec;
 }
 
 static int edac_set_poll_msec(const char *val, struct kernel_param *kp)
 {
-	unsigned long l;
+	unsigned int i;
 	int ret;
 
 	if (!val)
 		return -EINVAL;
 
-	ret = kstrtoul(val, 0, &l);
+	ret = kstrtouint(val, 0, &i);
 	if (ret)
 		return ret;
 
-	if (l < 1000)
+	if (i < 1000)
 		return -EINVAL;
 
-	*((unsigned long *)kp->arg) = l;
+	*((unsigned int *)kp->arg) = i;
 
 	/* notify edac_mc engine to reset the poll period */
-	edac_mc_reset_delay_period(l);
+	edac_mc_reset_delay_period(i);
 
 	return 0;
 }
@@ -82,7 +82,7 @@ MODULE_PARM_DESC(edac_mc_log_ue,
 module_param(edac_mc_log_ce, int, 0644);
 MODULE_PARM_DESC(edac_mc_log_ce,
 		 "Log correctable error to console: 0=off 1=on");
-module_param_call(edac_mc_poll_msec, edac_set_poll_msec, param_get_int,
+module_param_call(edac_mc_poll_msec, edac_set_poll_msec, param_get_uint,
 		  &edac_mc_poll_msec, 0644);
 MODULE_PARM_DESC(edac_mc_poll_msec, "Polling period in milliseconds");
 
@@ -313,7 +313,6 @@ static struct device_type csrow_attr_type = {
  * possible dynamic channel DIMM Label attribute files
  *
  */
-
 DEVICE_CHANNEL(ch0_dimm_label, S_IRUGO | S_IWUSR,
 	channel_dimm_label_show, channel_dimm_label_store, 0);
 DEVICE_CHANNEL(ch1_dimm_label, S_IRUGO | S_IWUSR,
@@ -326,6 +325,10 @@ DEVICE_CHANNEL(ch4_dimm_label, S_IRUGO | S_IWUSR,
 	channel_dimm_label_show, channel_dimm_label_store, 4);
 DEVICE_CHANNEL(ch5_dimm_label, S_IRUGO | S_IWUSR,
 	channel_dimm_label_show, channel_dimm_label_store, 5);
+DEVICE_CHANNEL(ch6_dimm_label, S_IRUGO | S_IWUSR,
+	channel_dimm_label_show, channel_dimm_label_store, 6);
+DEVICE_CHANNEL(ch7_dimm_label, S_IRUGO | S_IWUSR,
+	channel_dimm_label_show, channel_dimm_label_store, 7);
 
 /* Total possible dynamic DIMM Label attribute file table */
 static struct attribute *dynamic_csrow_dimm_attr[] = {
@@ -335,6 +338,8 @@ static struct attribute *dynamic_csrow_dimm_attr[] = {
 	&dev_attr_legacy_ch3_dimm_label.attr.attr,
 	&dev_attr_legacy_ch4_dimm_label.attr.attr,
 	&dev_attr_legacy_ch5_dimm_label.attr.attr,
+	&dev_attr_legacy_ch6_dimm_label.attr.attr,
+	&dev_attr_legacy_ch7_dimm_label.attr.attr,
 	NULL
 };
 
@@ -351,6 +356,10 @@ DEVICE_CHANNEL(ch4_ce_count, S_IRUGO,
 		   channel_ce_count_show, NULL, 4);
 DEVICE_CHANNEL(ch5_ce_count, S_IRUGO,
 		   channel_ce_count_show, NULL, 5);
+DEVICE_CHANNEL(ch6_ce_count, S_IRUGO,
+		   channel_ce_count_show, NULL, 6);
+DEVICE_CHANNEL(ch7_ce_count, S_IRUGO,
+		   channel_ce_count_show, NULL, 7);
 
 /* Total possible dynamic ce_count attribute file table */
 static struct attribute *dynamic_csrow_ce_count_attr[] = {
@@ -360,6 +369,8 @@ static struct attribute *dynamic_csrow_ce_count_attr[] = {
 	&dev_attr_legacy_ch3_ce_count.attr.attr,
 	&dev_attr_legacy_ch4_ce_count.attr.attr,
 	&dev_attr_legacy_ch5_ce_count.attr.attr,
+	&dev_attr_legacy_ch6_ce_count.attr.attr,
+	&dev_attr_legacy_ch7_ce_count.attr.attr,
 	NULL
 };
 
@@ -371,9 +382,16 @@ static umode_t csrow_dev_is_visible(struct kobject *kobj,
 
 	if (idx >= csrow->nr_channels)
 		return 0;
+
+	if (idx >= ARRAY_SIZE(dynamic_csrow_ce_count_attr) - 1) {
+		WARN_ONCE(1, "idx: %d\n", idx);
+		return 0;
+	}
+
 	/* Only expose populated DIMMs */
 	if (!csrow->channels[idx]->dimm->nr_pages)
 		return 0;
+
 	return attr->mode;
 }
 
@@ -408,6 +426,8 @@ static inline int nr_pages_per_csrow(struct csrow_info *csrow)
 static int edac_create_csrow_object(struct mem_ctl_info *mci,
 				    struct csrow_info *csrow, int index)
 {
+	int err;
+
 	csrow->dev.type = &csrow_attr_type;
 	csrow->dev.bus = mci->bus;
 	csrow->dev.groups = csrow_dev_groups;
@@ -420,7 +440,11 @@ static int edac_create_csrow_object(struct mem_ctl_info *mci,
 	edac_dbg(0, "creating (virtual) csrow node %s\n",
 		 dev_name(&csrow->dev));
 
-	return device_add(&csrow->dev);
+	err = device_add(&csrow->dev);
+	if (err)
+		put_device(&csrow->dev);
+
+	return err;
 }
 
 /* Create a CSROW object under specifed edac_mc_device */
@@ -880,21 +904,26 @@ static struct device_type mci_attr_type = {
 int edac_create_sysfs_mci_device(struct mem_ctl_info *mci,
 				 const struct attribute_group **groups)
 {
+	char *name;
 	int i, err;
 
 	/*
 	 * The memory controller needs its own bus, in order to avoid
 	 * namespace conflicts at /sys/bus/edac.
 	 */
-	mci->bus->name = kasprintf(GFP_KERNEL, "mc%d", mci->mc_idx);
-	if (!mci->bus->name)
+	name = kasprintf(GFP_KERNEL, "mc%d", mci->mc_idx);
+	if (!name)
 		return -ENOMEM;
+
+	mci->bus->name = name;
 
 	edac_dbg(0, "creating bus %s\n", mci->bus->name);
 
 	err = bus_register(mci->bus);
-	if (err < 0)
-		goto fail_free_name;
+	if (err < 0) {
+		kfree(name);
+		return err;
+	}
 
 	/* get the /sys/devices/system/edac subsys reference */
 	mci->dev.type = &mci_attr_type;
@@ -961,8 +990,8 @@ fail_unregister_dimm:
 	device_unregister(&mci->dev);
 fail_unregister_bus:
 	bus_unregister(mci->bus);
-fail_free_name:
-	kfree(mci->bus->name);
+	kfree(name);
+
 	return err;
 }
 
@@ -993,10 +1022,12 @@ void edac_remove_sysfs_mci_device(struct mem_ctl_info *mci)
 
 void edac_unregister_sysfs(struct mem_ctl_info *mci)
 {
+	const char *name = mci->bus->name;
+
 	edac_dbg(1, "Unregistering device %s\n", dev_name(&mci->dev));
 	device_unregister(&mci->dev);
 	bus_unregister(mci->bus);
-	kfree(mci->bus->name);
+	kfree(name);
 }
 
 static void mc_attr_release(struct device *dev)

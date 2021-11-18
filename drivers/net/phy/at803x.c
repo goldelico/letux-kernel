@@ -105,7 +105,7 @@ static int at803x_set_wol(struct phy_device *phydev,
 		mac = (const u8 *) ndev->dev_addr;
 
 		if (!is_valid_ether_addr(mac))
-			return -EFAULT;
+			return -EINVAL;
 
 		for (i = 0; i < 3; i++) {
 			phy_write(phydev, AT803X_MMD_ACCESS_CONTROL,
@@ -198,7 +198,7 @@ static int at803x_probe(struct phy_device *phydev)
 	if (!priv)
 		return -ENOMEM;
 
-	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod_reset))
 		return PTR_ERR(gpiod_reset);
 
@@ -274,9 +274,9 @@ static void at803x_link_change_notify(struct phy_device *phydev)
 
 				at803x_context_save(phydev, &context);
 
-				gpiod_set_value(priv->gpiod_reset, 0);
-				msleep(1);
 				gpiod_set_value(priv->gpiod_reset, 1);
+				msleep(1);
+				gpiod_set_value(priv->gpiod_reset, 0);
 				msleep(1);
 
 				at803x_context_restore(phydev, &context);

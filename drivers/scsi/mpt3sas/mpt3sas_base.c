@@ -1686,9 +1686,11 @@ _base_config_dma_addressing(struct MPT3SAS_ADAPTER *ioc, struct pci_dev *pdev)
 {
 	struct sysinfo s;
 	u64 consistent_dma_mask;
+	/* Set 63 bit DMA mask for all SAS3 and SAS35 controllers */
+	int dma_mask = (ioc->hba_mpi_version_belonged > MPI2_VERSION) ? 63 : 64;
 
 	if (ioc->dma_mask)
-		consistent_dma_mask = DMA_BIT_MASK(64);
+		consistent_dma_mask = DMA_BIT_MASK(dma_mask);
 	else
 		consistent_dma_mask = DMA_BIT_MASK(32);
 
@@ -1696,11 +1698,11 @@ _base_config_dma_addressing(struct MPT3SAS_ADAPTER *ioc, struct pci_dev *pdev)
 		const uint64_t required_mask =
 		    dma_get_required_mask(&pdev->dev);
 		if ((required_mask > DMA_BIT_MASK(32)) &&
-		    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
+		    !pci_set_dma_mask(pdev, DMA_BIT_MASK(dma_mask)) &&
 		    !pci_set_consistent_dma_mask(pdev, consistent_dma_mask)) {
 			ioc->base_add_sg_single = &_base_add_sg_single_64;
 			ioc->sge_size = sizeof(Mpi2SGESimple64_t);
-			ioc->dma_mask = 64;
+			ioc->dma_mask = dma_mask;
 			goto out;
 		}
 	}
@@ -1726,7 +1728,7 @@ static int
 _base_change_consistent_dma_mask(struct MPT3SAS_ADAPTER *ioc,
 				      struct pci_dev *pdev)
 {
-	if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
+	if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(ioc->dma_mask))) {
 		if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)))
 			return -ENODEV;
 	}
@@ -2020,8 +2022,10 @@ mpt3sas_base_unmap_resources(struct MPT3SAS_ADAPTER *ioc)
 	_base_free_irq(ioc);
 	_base_disable_msix(ioc);
 
-	if (ioc->msix96_vector)
+	if (ioc->msix96_vector) {
 		kfree(ioc->replyPostRegisterIndex);
+		ioc->replyPostRegisterIndex = NULL;
+	}
 
 	if (ioc->chip_phys) {
 		iounmap(ioc->chip);
@@ -2155,6 +2159,17 @@ mpt3sas_base_map_resources(struct MPT3SAS_ADAPTER *ioc)
 	} else
 		ioc->msix96_vector = 0;
 
+	if (ioc->is_warpdrive) {
+		ioc->reply_post_host_index[0] = (resource_size_t __iomem *)
+		    &ioc->chip->ReplyPostHostIndex;
+
+		for (i = 1; i < ioc->cpu_msix_table_sz; i++)
+			ioc->reply_post_host_index[i] =
+			(resource_size_t __iomem *)
+			((u8 __iomem *)&ioc->chip->Doorbell + (0x4000 + ((i - 1)
+			* 4)));
+	}
+
 	list_for_each_entry(reply_q, &ioc->reply_queue_list, list)
 		pr_info(MPT3SAS_FMT "%s: IRQ %d\n",
 		    reply_q->name,  ((ioc->msix_enable) ? "PCI-MSI-X enabled" :
@@ -2229,6 +2244,12 @@ mpt3sas_base_get_reply_virt_addr(struct MPT3SAS_ADAPTER *ioc, u32 phys_addr)
 	return ioc->reply + (phys_addr - (u32)ioc->reply_dma);
 }
 
+static inline u8
+_base_get_msix_index(struct MPT3SAS_ADAPTER *ioc)
+{
+	return ioc->cpu_msix_table[raw_smp_processor_id()];
+}
+
 /**
  * mpt3sas_base_get_smid - obtain a free smid from internal queue
  * @ioc: per adapter object
@@ -2289,6 +2310,7 @@ mpt3sas_base_get_smid_scsiio(struct MPT3SAS_ADAPTER *ioc, u8 cb_idx,
 	request->scmd = scmd;
 	request->cb_idx = cb_idx;
 	smid = request->smid;
+	request->msix_io = _base_get_msix_index(ioc);
 	list_del(&request->tracker_list);
 	spin_unlock_irqrestore(&ioc->scsi_lookup_lock, flags);
 	return smid;
@@ -2411,12 +2433,6 @@ _base_writeq(__u64 b, volatile void __iomem *addr, spinlock_t *writeq_lock)
 }
 #endif
 
-static inline u8
-_base_get_msix_index(struct MPT3SAS_ADAPTER *ioc)
-{
-	return ioc->cpu_msix_table[raw_smp_processor_id()];
-}
-
 /**
  * mpt3sas_base_put_smid_scsi_io - send SCSI_IO request to firmware
  * @ioc: per adapter object
@@ -2470,18 +2486,19 @@ mpt3sas_base_put_smid_fast_path(struct MPT3SAS_ADAPTER *ioc, u16 smid,
  * mpt3sas_base_put_smid_hi_priority - send Task Managment request to firmware
  * @ioc: per adapter object
  * @smid: system request message index
- *
+ * @msix_task: msix_task will be same as msix of IO incase of task abort else 0.
  * Return nothing.
  */
 void
-mpt3sas_base_put_smid_hi_priority(struct MPT3SAS_ADAPTER *ioc, u16 smid)
+mpt3sas_base_put_smid_hi_priority(struct MPT3SAS_ADAPTER *ioc, u16 smid,
+	u16 msix_task)
 {
 	Mpi2RequestDescriptorUnion_t descriptor;
 	u64 *request = (u64 *)&descriptor;
 
 	descriptor.HighPriority.RequestFlags =
 	    MPI2_REQ_DESCRIPT_FLAGS_HIGH_PRIORITY;
-	descriptor.HighPriority.MSIxIndex =  0;
+	descriptor.HighPriority.MSIxIndex =  msix_task;
 	descriptor.HighPriority.SMID = cpu_to_le16(smid);
 	descriptor.HighPriority.LMID = 0;
 	descriptor.HighPriority.Reserved1 = 0;
@@ -3119,7 +3136,9 @@ _base_release_memory_pools(struct MPT3SAS_ADAPTER *ioc)
 		ioc->scsi_lookup = NULL;
 	}
 	kfree(ioc->hpr_lookup);
+	ioc->hpr_lookup = NULL;
 	kfree(ioc->internal_lookup);
+	ioc->internal_lookup = NULL;
 	if (ioc->chain_lookup) {
 		for (i = 0; i < ioc->chain_depth; i++) {
 			if (ioc->chain_lookup[i].chain_buffer)
@@ -3310,7 +3329,7 @@ _base_allocate_memory_pools(struct MPT3SAS_ADAPTER *ioc,  int sleep_flag)
 		total_sz += sz;
 	} while (ioc->rdpq_array_enable && (++i < ioc->reply_queue_count));
 
-	if (ioc->dma_mask == 64) {
+	if (ioc->dma_mask > 32) {
 		if (_base_change_consistent_dma_mask(ioc, ioc->pdev) != 0) {
 			pr_warn(MPT3SAS_FMT
 			    "no suitable consistent DMA mask for %s\n",
@@ -4966,15 +4985,14 @@ _base_make_ioc_ready(struct MPT3SAS_ADAPTER *ioc, int sleep_flag,
 static int
 _base_make_ioc_operational(struct MPT3SAS_ADAPTER *ioc, int sleep_flag)
 {
-	int r, i;
+	int r, i, index;
 	unsigned long	flags;
 	u32 reply_address;
 	u16 smid;
 	struct _tr_list *delayed_tr, *delayed_tr_next;
 	u8 hide_flag;
 	struct adapter_reply_queue *reply_q;
-	long reply_post_free;
-	u32 reply_post_free_sz, index = 0;
+	Mpi2ReplyDescriptorsUnion_t *reply_post_free_contig;
 
 	dinitprintk(ioc, pr_info(MPT3SAS_FMT "%s\n", ioc->name,
 	    __func__));
@@ -5046,27 +5064,27 @@ _base_make_ioc_operational(struct MPT3SAS_ADAPTER *ioc, int sleep_flag)
 		_base_assign_reply_queues(ioc);
 
 	/* initialize Reply Post Free Queue */
-	reply_post_free_sz = ioc->reply_post_queue_depth *
-	    sizeof(Mpi2DefaultReplyDescriptor_t);
-	reply_post_free = (long)ioc->reply_post[index].reply_post_free;
+	index = 0;
+	reply_post_free_contig = ioc->reply_post[0].reply_post_free;
 	list_for_each_entry(reply_q, &ioc->reply_queue_list, list) {
+		/*
+		 * If RDPQ is enabled, switch to the next allocation.
+		 * Otherwise advance within the contiguous region.
+		 */
+		if (ioc->rdpq_array_enable) {
+			reply_q->reply_post_free =
+				ioc->reply_post[index++].reply_post_free;
+		} else {
+			reply_q->reply_post_free = reply_post_free_contig;
+			reply_post_free_contig += ioc->reply_post_queue_depth;
+		}
+
 		reply_q->reply_post_host_index = 0;
-		reply_q->reply_post_free = (Mpi2ReplyDescriptorsUnion_t *)
-		    reply_post_free;
 		for (i = 0; i < ioc->reply_post_queue_depth; i++)
 			reply_q->reply_post_free[i].Words =
 			    cpu_to_le64(ULLONG_MAX);
 		if (!_base_is_controller_msix_enabled(ioc))
 			goto skip_init_reply_post_free_queue;
-		/*
-		 * If RDPQ is enabled, switch to the next allocation.
-		 * Otherwise advance within the contiguous region.
-		 */
-		if (ioc->rdpq_array_enable)
-			reply_post_free = (long)
-			    ioc->reply_post[++index].reply_post_free;
-		else
-			reply_post_free += reply_post_free_sz;
 	}
  skip_init_reply_post_free_queue:
 
@@ -5200,17 +5218,6 @@ mpt3sas_base_attach(struct MPT3SAS_ADAPTER *ioc)
 	r = mpt3sas_base_map_resources(ioc);
 	if (r)
 		goto out_free_resources;
-
-	if (ioc->is_warpdrive) {
-		ioc->reply_post_host_index[0] = (resource_size_t __iomem *)
-		    &ioc->chip->ReplyPostHostIndex;
-
-		for (i = 1; i < ioc->cpu_msix_table_sz; i++)
-			ioc->reply_post_host_index[i] =
-			(resource_size_t __iomem *)
-			((u8 __iomem *)&ioc->chip->Doorbell + (0x4000 + ((i - 1)
-			* 4)));
-	}
 
 	pci_set_drvdata(ioc->pdev, ioc->shost);
 	r = _base_get_ioc_facts(ioc, CAN_SLEEP);

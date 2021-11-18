@@ -117,6 +117,9 @@ MODULE_LICENSE("GPL v2");
  */
 #define EMS_USB_ARM7_CLOCK 8000000
 
+#define CPC_TX_QUEUE_TRIGGER_LOW	25
+#define CPC_TX_QUEUE_TRIGGER_HIGH	35
+
 /*
  * CAN-Message representation in a CPC_MSG. Message object type is
  * CPC_MSG_TYPE_CAN_FRAME or CPC_MSG_TYPE_RTR_FRAME or
@@ -264,6 +267,8 @@ struct ems_usb {
 	unsigned int free_slots; /* remember number of available slots */
 
 	struct ems_cpc_msg active_params; /* active controller parameters */
+	void *rxbuf[MAX_RX_URBS];
+	dma_addr_t rxbuf_dma[MAX_RX_URBS];
 };
 
 static void ems_usb_read_interrupt_callback(struct urb *urb)
@@ -278,10 +283,17 @@ static void ems_usb_read_interrupt_callback(struct urb *urb)
 	switch (urb->status) {
 	case 0:
 		dev->free_slots = dev->intr_in_buffer[1];
+		if(dev->free_slots > CPC_TX_QUEUE_TRIGGER_HIGH){
+			if (netif_queue_stopped(netdev)){
+				netif_wake_queue(netdev);
+			}
+		}
 		break;
 
 	case -ECONNRESET: /* unlink */
 	case -ENOENT:
+	case -EPIPE:
+	case -EPROTO:
 	case -ESHUTDOWN:
 		return;
 
@@ -526,8 +538,6 @@ static void ems_usb_write_bulk_callback(struct urb *urb)
 	/* Release context */
 	context->echo_index = MAX_TX_URBS;
 
-	if (netif_queue_stopped(netdev))
-		netif_wake_queue(netdev);
 }
 
 /*
@@ -587,11 +597,12 @@ static int ems_usb_start(struct ems_usb *dev)
 	int err, i;
 
 	dev->intr_in_buffer[0] = 0;
-	dev->free_slots = 15; /* initial size */
+	dev->free_slots = 50; /* initial size */
 
 	for (i = 0; i < MAX_RX_URBS; i++) {
 		struct urb *urb = NULL;
 		u8 *buf = NULL;
+		dma_addr_t buf_dma;
 
 		/* create a URB, and a buffer for it */
 		urb = usb_alloc_urb(0, GFP_KERNEL);
@@ -602,13 +613,15 @@ static int ems_usb_start(struct ems_usb *dev)
 		}
 
 		buf = usb_alloc_coherent(dev->udev, RX_BUFFER_SIZE, GFP_KERNEL,
-					 &urb->transfer_dma);
+					 &buf_dma);
 		if (!buf) {
 			netdev_err(netdev, "No memory left for USB buffer\n");
 			usb_free_urb(urb);
 			err = -ENOMEM;
 			break;
 		}
+
+		urb->transfer_dma = buf_dma;
 
 		usb_fill_bulk_urb(urb, dev->udev, usb_rcvbulkpipe(dev->udev, 2),
 				  buf, RX_BUFFER_SIZE,
@@ -624,6 +637,9 @@ static int ems_usb_start(struct ems_usb *dev)
 			usb_free_urb(urb);
 			break;
 		}
+
+		dev->rxbuf[i] = buf;
+		dev->rxbuf_dma[i] = buf_dma;
 
 		/* Drop reference, USB core will take care of freeing it */
 		usb_free_urb(urb);
@@ -689,6 +705,10 @@ static void unlink_all_urbs(struct ems_usb *dev)
 	usb_unlink_urb(dev->intr_urb);
 
 	usb_kill_anchored_urbs(&dev->rx_submitted);
+
+	for (i = 0; i < MAX_RX_URBS; ++i)
+		usb_free_coherent(dev->udev, RX_BUFFER_SIZE,
+				  dev->rxbuf[i], dev->rxbuf_dma[i]);
 
 	usb_kill_anchored_urbs(&dev->tx_submitted);
 	atomic_set(&dev->active_tx_urbs, 0);
@@ -835,7 +855,7 @@ static netdev_tx_t ems_usb_start_xmit(struct sk_buff *skb, struct net_device *ne
 
 		/* Slow down tx path */
 		if (atomic_read(&dev->active_tx_urbs) >= MAX_TX_URBS ||
-		    dev->free_slots < 5) {
+		    dev->free_slots < CPC_TX_QUEUE_TRIGGER_LOW) {
 			netif_stop_queue(netdev);
 		}
 	}
@@ -1063,13 +1083,15 @@ static void ems_usb_disconnect(struct usb_interface *intf)
 
 	if (dev) {
 		unregister_netdev(dev->netdev);
-		free_candev(dev->netdev);
 
 		unlink_all_urbs(dev);
 
 		usb_free_urb(dev->intr_urb);
 
 		kfree(dev->intr_in_buffer);
+		kfree(dev->tx_msg_buffer);
+
+		free_candev(dev->netdev);
 	}
 }
 

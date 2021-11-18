@@ -31,7 +31,9 @@ static inline struct ip_tunnel_info *skb_tunnel_info(struct sk_buff *skb)
 		return &md_dst->u.tun_info;
 
 	dst = skb_dst(skb);
-	if (dst && dst->lwtstate)
+	if (dst && dst->lwtstate &&
+	    (dst->lwtstate->type == LWTUNNEL_ENCAP_IP ||
+	     dst->lwtstate->type == LWTUNNEL_ENCAP_IP6))
 		return lwt_tun_info(dst->lwtstate);
 
 	return NULL;
@@ -42,6 +44,24 @@ static inline bool skb_valid_dst(const struct sk_buff *skb)
 	struct dst_entry *dst = skb_dst(skb);
 
 	return dst && !(dst->flags & DST_METADATA);
+}
+
+static inline int skb_metadata_dst_cmp(const struct sk_buff *skb_a,
+				       const struct sk_buff *skb_b)
+{
+	const struct metadata_dst *a, *b;
+
+	if (!(skb_a->_skb_refdst | skb_b->_skb_refdst))
+		return 0;
+
+	a = (const struct metadata_dst *) skb_dst(skb_a);
+	b = (const struct metadata_dst *) skb_dst(skb_b);
+
+	if (!a != !b || a->u.tun_info.options_len != b->u.tun_info.options_len)
+		return 1;
+
+	return memcmp(&a->u.tun_info, &b->u.tun_info,
+		      sizeof(a->u.tun_info) + a->u.tun_info.options_len);
 }
 
 struct metadata_dst *metadata_dst_alloc(u8 optslen, gfp_t flags);

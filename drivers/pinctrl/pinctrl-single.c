@@ -1071,7 +1071,7 @@ static int pcs_parse_pinconf(struct pcs_device *pcs, struct device_node *np,
 
 	/* If pinconf isn't supported, don't parse properties in below. */
 	if (!PCS_HAS_PINCONF)
-		return 0;
+		return -ENOTSUPP;
 
 	/* cacluate how much properties are supported in current node */
 	for (i = 0; i < ARRAY_SIZE(prop2); i++) {
@@ -1083,7 +1083,7 @@ static int pcs_parse_pinconf(struct pcs_device *pcs, struct device_node *np,
 			nconfs++;
 	}
 	if (!nconfs)
-		return 0;
+		return -ENOTSUPP;
 
 	func->conf = devm_kzalloc(pcs->dev,
 				  sizeof(struct pcs_conf_vals) * nconfs,
@@ -1196,9 +1196,12 @@ static int pcs_parse_one_pinctrl_entry(struct pcs_device *pcs,
 
 	if (PCS_HAS_PINCONF) {
 		res = pcs_parse_pinconf(pcs, np, function, map);
-		if (res)
+		if (res == 0)
+			*num_maps = 2;
+		else if (res == -ENOTSUPP)
+			*num_maps = 1;
+		else
 			goto free_pingroups;
-		*num_maps = 2;
 	} else {
 		*num_maps = 1;
 	}
@@ -1273,9 +1276,9 @@ static int pcs_parse_bits_in_pinctrl_entry(struct pcs_device *pcs,
 
 		/* Parse pins in each row from LSB */
 		while (mask) {
-			bit_pos = ffs(mask);
+			bit_pos = __ffs(mask);
 			pin_num_from_lsb = bit_pos / pcs->bits_per_pin;
-			mask_pos = ((pcs->fmask) << (bit_pos - 1));
+			mask_pos = ((pcs->fmask) << bit_pos);
 			val_pos = val & mask_pos;
 			submask = mask & mask_pos;
 
@@ -1325,6 +1328,7 @@ static int pcs_parse_bits_in_pinctrl_entry(struct pcs_device *pcs,
 
 	if (PCS_HAS_PINCONF) {
 		dev_err(pcs->dev, "pinconf not supported\n");
+		res = -ENOTSUPP;
 		goto free_pingroups;
 	}
 
@@ -1576,6 +1580,9 @@ static inline void pcs_irq_set(struct pcs_soc_data *pcs_soc,
 		else
 			mask &= ~soc_mask;
 		pcs->write(mask, pcswi->reg);
+
+		/* flush posted write */
+		mask = pcs->read(pcswi->reg);
 		raw_spin_unlock(&pcs->lock);
 	}
 
@@ -1847,7 +1854,7 @@ static int pcs_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(np, "pinctrl-single,function-mask",
 				   &pcs->fmask);
 	if (!ret) {
-		pcs->fshift = ffs(pcs->fmask) - 1;
+		pcs->fshift = __ffs(pcs->fmask);
 		pcs->fmax = pcs->fmask >> pcs->fshift;
 	} else {
 		/* If mask property doesn't exist, function mux is invalid. */

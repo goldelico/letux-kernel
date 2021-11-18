@@ -446,7 +446,11 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
 	if (err < 0)
 		return err;
 
-	return register_netdevice(bond_dev);
+	err = register_netdevice(bond_dev);
+
+	netif_carrier_off(bond_dev);
+
+	return err;
 }
 
 static size_t bond_get_size(const struct net_device *bond_dev)
@@ -624,8 +628,7 @@ static int bond_fill_info(struct sk_buff *skb,
 				goto nla_put_failure;
 
 			if (nla_put(skb, IFLA_BOND_AD_ACTOR_SYSTEM,
-				    sizeof(bond->params.ad_actor_system),
-				    &bond->params.ad_actor_system))
+				    ETH_ALEN, &bond->params.ad_actor_system))
 				goto nla_put_failure;
 		}
 		if (!bond_3ad_get_active_agg_info(bond, &info)) {

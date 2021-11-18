@@ -88,11 +88,15 @@ static int process_vm_rw_single_vec(unsigned long addr,
 	ssize_t rc = 0;
 	unsigned long max_pages_per_loop = PVM_MAX_KMALLOC_PAGES
 		/ sizeof(struct pages *);
+	unsigned int flags = 0;
 
 	/* Work out address and page range required */
 	if (len == 0)
 		return 0;
 	nr_pages = (addr + len - 1) / PAGE_SIZE - addr / PAGE_SIZE + 1;
+
+	if (vm_write)
+		flags |= FOLL_WRITE;
 
 	while (!rc && nr_pages && iov_iter_count(iter)) {
 		int pages = min(nr_pages, max_pages_per_loop);
@@ -100,7 +104,7 @@ static int process_vm_rw_single_vec(unsigned long addr,
 
 		/* Get the pages we're interested in */
 		pages = get_user_pages_unlocked(task, mm, pa, pages,
-						vm_write, 0, process_pages);
+						process_pages, flags);
 		if (pages <= 0)
 			return -EFAULT;
 
@@ -194,7 +198,7 @@ static ssize_t process_vm_rw_core(pid_t pid, struct iov_iter *iter,
 		goto free_proc_pages;
 	}
 
-	mm = mm_access(task, PTRACE_MODE_ATTACH);
+	mm = mm_access(task, PTRACE_MODE_ATTACH_REALCREDS);
 	if (!mm || IS_ERR(mm)) {
 		rc = IS_ERR(mm) ? PTR_ERR(mm) : -ESRCH;
 		/*

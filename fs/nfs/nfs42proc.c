@@ -168,7 +168,10 @@ static loff_t _nfs42_proc_llseek(struct file *filep, loff_t offset, int whence)
 	if (status)
 		return status;
 
-	return vfs_setpos(filep, res.sr_offset, inode->i_sb->s_maxbytes);
+	if (whence == SEEK_DATA && res.sr_eof)
+		return -NFS4ERR_NXIO;
+	else
+		return vfs_setpos(filep, res.sr_offset, inode->i_sb->s_maxbytes);
 }
 
 loff_t nfs42_proc_llseek(struct file *filep, loff_t offset, int whence)
@@ -269,6 +272,7 @@ int nfs42_proc_layoutstats_generic(struct nfs_server *server,
 	task = rpc_run_task(&task_setup);
 	if (IS_ERR(task))
 		return PTR_ERR(task);
+	rpc_put_task(task);
 	return 0;
 }
 

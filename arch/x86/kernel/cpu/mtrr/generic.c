@@ -166,9 +166,6 @@ static u8 mtrr_type_lookup_variable(u64 start, u64 end, u64 *partial_end,
 	*repeat = 0;
 	*uniform = 1;
 
-	/* Make end inclusive instead of exclusive */
-	end--;
-
 	prev_match = MTRR_TYPE_INVALID;
 	for (i = 0; i < num_var_ranges; ++i) {
 		unsigned short start_state, end_state, inclusive;
@@ -260,6 +257,9 @@ u8 mtrr_type_lookup(u64 start, u64 end, u8 *uniform)
 	int repeat;
 	u64 partial_end;
 
+	/* Make end inclusive instead of exclusive */
+	end--;
+
 	if (!mtrr_state_set)
 		return MTRR_TYPE_INVALID;
 
@@ -349,7 +349,7 @@ static void get_fixed_ranges(mtrr_type *frs)
 
 void mtrr_save_fixed_ranges(void *info)
 {
-	if (cpu_has_mtrr)
+	if (boot_cpu_has(X86_FEATURE_MTRR))
 		get_fixed_ranges(mtrr_state.fixed_ranges);
 }
 
@@ -444,11 +444,24 @@ static void __init print_mtrr_state(void)
 		pr_debug("TOM2: %016llx aka %lldM\n", mtrr_tom2, mtrr_tom2>>20);
 }
 
+/* PAT setup for BP. We need to go through sync steps here */
+void __init mtrr_bp_pat_init(void)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	prepare_set();
+
+	pat_init();
+
+	post_set();
+	local_irq_restore(flags);
+}
+
 /* Grab all of the MTRR state for this CPU into *state */
 bool __init get_mtrr_state(void)
 {
 	struct mtrr_var_range *vrs;
-	unsigned long flags;
 	unsigned lo, dummy;
 	unsigned int i;
 
@@ -480,15 +493,6 @@ bool __init get_mtrr_state(void)
 	print_mtrr_state();
 
 	mtrr_state_set = 1;
-
-	/* PAT setup for BP. We need to go through sync steps here */
-	local_irq_save(flags);
-	prepare_set();
-
-	pat_init();
-
-	post_set();
-	local_irq_restore(flags);
 
 	return !!(mtrr_state.enabled & MTRR_STATE_MTRR_ENABLED);
 }
@@ -856,7 +860,7 @@ int generic_validate_add_page(unsigned long base, unsigned long size,
 	 */
 	if (is_cpu(INTEL) && boot_cpu_data.x86 == 6 &&
 	    boot_cpu_data.x86_model == 1 &&
-	    boot_cpu_data.x86_mask <= 7) {
+	    boot_cpu_data.x86_stepping <= 7) {
 		if (base & ((1 << (22 - PAGE_SHIFT)) - 1)) {
 			pr_warning("mtrr: base(0x%lx000) is not 4 MiB aligned\n", base);
 			return -EINVAL;

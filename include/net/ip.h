@@ -33,6 +33,8 @@
 #include <net/flow.h>
 #include <net/flow_dissector.h>
 
+#define IPV4_MIN_MTU		68			/* RFC 791 */
+
 struct sock;
 
 struct inet_skb_parm {
@@ -277,6 +279,13 @@ int ip_decrease_ttl(struct iphdr *iph)
 	return --iph->ttl;
 }
 
+static inline int ip_mtu_locked(const struct dst_entry *dst)
+{
+	const struct rtable *rt = (const struct rtable *)dst;
+
+	return rt->rt_mtu_locked || dst_metric_locked(dst, RTAX_MTU);
+}
+
 static inline
 int ip_dont_fragment(const struct sock *sk, const struct dst_entry *dst)
 {
@@ -284,7 +293,7 @@ int ip_dont_fragment(const struct sock *sk, const struct dst_entry *dst)
 
 	return  pmtudisc == IP_PMTUDISC_DO ||
 		(pmtudisc == IP_PMTUDISC_WANT &&
-		 !(dst_metric_locked(dst, RTAX_MTU)));
+		 !ip_mtu_locked(dst));
 }
 
 static inline bool ip_sk_accept_pmtu(const struct sock *sk)
@@ -308,13 +317,19 @@ static inline unsigned int ip_dst_mtu_maybe_forward(const struct dst_entry *dst,
 						    bool forwarding)
 {
 	struct net *net = dev_net(dst->dev);
+	unsigned int mtu;
 
 	if (net->ipv4.sysctl_ip_fwd_use_pmtu ||
-	    dst_metric_locked(dst, RTAX_MTU) ||
+	    ip_mtu_locked(dst) ||
 	    !forwarding)
 		return dst_mtu(dst);
 
-	return min(dst->dev->mtu, IP_MAX_MTU);
+	/* 'forwarding = true' case should always honour route mtu */
+	mtu = dst_metric_raw(dst, RTAX_MTU);
+	if (mtu)
+		return mtu;
+
+	return min(READ_ONCE(dst->dev->mtu), IP_MAX_MTU);
 }
 
 static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
@@ -327,7 +342,7 @@ static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
 		return ip_dst_mtu_maybe_forward(skb_dst(skb), forwarding);
 	}
 
-	return min(skb_dst(skb)->dev->mtu, IP_MAX_MTU);
+	return min(READ_ONCE(skb_dst(skb)->dev->mtu), IP_MAX_MTU);
 }
 
 u32 ip_idents_reserve(u32 hash, int segs);
@@ -515,7 +530,6 @@ static inline struct sk_buff *ip_check_defrag(struct net *net, struct sk_buff *s
 	return skb;
 }
 #endif
-int ip_frag_mem(struct net *net);
 
 /*
  *	Functions provided by ip_forward.c
@@ -538,6 +552,8 @@ static inline int ip_options_echo(struct ip_options *dopt, struct sk_buff *skb)
 }
 
 void ip_options_fragment(struct sk_buff *skb);
+int __ip_options_compile(struct net *net, struct ip_options *opt,
+			 struct sk_buff *skb, __be32 *info);
 int ip_options_compile(struct net *net, struct ip_options *opt,
 		       struct sk_buff *skb);
 int ip_options_get(struct net *net, struct ip_options_rcu **optp,
@@ -553,7 +569,7 @@ int ip_options_rcv_srr(struct sk_buff *skb);
  */
 
 void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb);
-void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb, int offset);
+void ip_cmsg_recv_offset(struct msghdr *msg, struct sk_buff *skb, int tlen, int offset);
 int ip_cmsg_send(struct net *net, struct msghdr *msg,
 		 struct ipcm_cookie *ipc, bool allow_ipv6);
 int ip_setsockopt(struct sock *sk, int level, int optname, char __user *optval,
@@ -575,7 +591,7 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 dport,
 
 static inline void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
 {
-	ip_cmsg_recv_offset(msg, skb, 0);
+	ip_cmsg_recv_offset(msg, skb, 0, 0);
 }
 
 bool icmp_global_allow(void);
@@ -585,5 +601,10 @@ extern int sysctl_icmp_msgs_burst;
 #ifdef CONFIG_PROC_FS
 int ip_misc_proc_init(void);
 #endif
+
+static inline bool inetdev_valid_mtu(unsigned int mtu)
+{
+	return likely(mtu >= IPV4_MIN_MTU);
+}
 
 #endif	/* _IP_H */

@@ -149,6 +149,9 @@ static int fjes_acpi_add(struct acpi_device *device)
 	/* create platform_device */
 	plat_dev = platform_device_register_simple(DRV_NAME, 0, fjes_resource,
 						   ARRAY_SIZE(fjes_resource));
+	if (IS_ERR(plat_dev))
+		return PTR_ERR(plat_dev);
+
 	device->driver_data = plat_dev;
 
 	return 0;
@@ -1205,7 +1208,7 @@ static void fjes_netdev_setup(struct net_device *netdev)
 	fjes_set_ethtool_ops(netdev);
 	netdev->mtu = fjes_support_mtu[0];
 	netdev->flags |= IFF_BROADCAST;
-	netdev->features |= NETIF_F_HW_CSUM | NETIF_F_HW_VLAN_CTAG_FILTER;
+	netdev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 }
 
 static void fjes_irq_watch_task(struct work_struct *work)

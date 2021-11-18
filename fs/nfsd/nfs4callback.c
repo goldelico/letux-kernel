@@ -696,6 +696,14 @@ int set_callback_cred(void)
 	return 0;
 }
 
+void cleanup_callback_cred(void)
+{
+	if (callback_cred) {
+		put_rpccred(callback_cred);
+		callback_cred = NULL;
+	}
+}
+
 static struct rpc_cred *get_backchannel_cred(struct nfs4_client *clp, struct rpc_clnt *client, struct nfsd4_session *ses)
 {
 	if (clp->cl_minorversion == 0) {
@@ -708,22 +716,6 @@ static struct rpc_cred *get_backchannel_cred(struct nfs4_client *clp, struct rpc
 		acred.gid = ses->se_cb_sec.gid;
 		return auth->au_ops->lookup_cred(client->cl_auth, &acred, 0);
 	}
-}
-
-static struct rpc_clnt *create_backchannel_client(struct rpc_create_args *args)
-{
-	struct rpc_xprt *xprt;
-
-	if (args->protocol != XPRT_TRANSPORT_BC_TCP)
-		return rpc_create(args);
-
-	xprt = args->bc_xprt->xpt_bc_xprt;
-	if (xprt) {
-		xprt_get(xprt);
-		return rpc_create_xprt(args, xprt);
-	}
-
-	return rpc_create(args);
 }
 
 static int setup_callback_client(struct nfs4_client *clp, struct nfs4_cb_conn *conn, struct nfsd4_session *ses)
@@ -768,7 +760,7 @@ static int setup_callback_client(struct nfs4_client *clp, struct nfs4_cb_conn *c
 		args.authflavor = ses->se_cb_sec.flavor;
 	}
 	/* Create RPC client */
-	client = create_backchannel_client(&args);
+	client = rpc_create(&args);
 	if (IS_ERR(client)) {
 		dprintk("NFSD: couldn't create callback client: %ld\n",
 			PTR_ERR(client));
@@ -882,8 +874,9 @@ static void nfsd4_cb_prepare(struct rpc_task *task, void *calldata)
 	cb->cb_seq_status = 1;
 	cb->cb_status = 0;
 	if (minorversion) {
-		if (!nfsd41_cb_get_slot(clp, task))
+		if (!cb->cb_holds_slot && !nfsd41_cb_get_slot(clp, task))
 			return;
+		cb->cb_holds_slot = true;
 	}
 	rpc_call_start(task);
 }
@@ -909,6 +902,9 @@ static bool nfsd4_cb_sequence_done(struct rpc_task *task, struct nfsd4_callback 
 
 		return true;
 	}
+
+	if (!cb->cb_holds_slot)
+		goto need_restart;
 
 	switch (cb->cb_seq_status) {
 	case 0:
@@ -947,6 +943,7 @@ static bool nfsd4_cb_sequence_done(struct rpc_task *task, struct nfsd4_callback 
 			cb->cb_seq_status);
 	}
 
+	cb->cb_holds_slot = false;
 	clear_bit(0, &clp->cl_cb_slot_busy);
 	rpc_wake_up_next(&clp->cl_cb_waitq);
 	dprintk("%s: freed slot, new seqid=%d\n", __func__,
@@ -1099,6 +1096,8 @@ static void nfsd4_process_cb_update(struct nfsd4_callback *cb)
 	err = setup_callback_client(clp, &conn, ses);
 	if (err) {
 		nfsd4_mark_cb_down(clp, err);
+		if (c)
+			svc_xprt_put(c->cn_xprt);
 		return;
 	}
 }
@@ -1154,6 +1153,7 @@ void nfsd4_init_cb(struct nfsd4_callback *cb, struct nfs4_client *clp,
 	cb->cb_seq_status = 1;
 	cb->cb_status = 0;
 	cb->cb_need_restart = false;
+	cb->cb_holds_slot = false;
 }
 
 void nfsd4_run_cb(struct nfsd4_callback *cb)

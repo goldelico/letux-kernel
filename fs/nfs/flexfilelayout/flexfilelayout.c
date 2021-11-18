@@ -86,7 +86,7 @@ static int decode_nfs_fh(struct xdr_stream *xdr, struct nfs_fh *fh)
 	if (unlikely(!p))
 		return -ENOBUFS;
 	fh->size = be32_to_cpup(p++);
-	if (fh->size > sizeof(struct nfs_fh)) {
+	if (fh->size > NFS_MAXFHSIZE) {
 		printk(KERN_ERR "NFS flexfiles: Too big fh received %d\n",
 		       fh->size);
 		return -EOVERFLOW;
@@ -145,7 +145,7 @@ static bool ff_mirror_match_fh(const struct nfs4_ff_layout_mirror *m1,
 		return false;
 	for (i = 0; i < m1->fh_versions_cnt; i++) {
 		bool found_fh = false;
-		for (j = 0; j < m2->fh_versions_cnt; i++) {
+		for (j = 0; j < m2->fh_versions_cnt; j++) {
 			if (nfs_compare_fh(&m1->fh_versions[i],
 					&m2->fh_versions[j]) == 0) {
 				found_fh = true;
@@ -461,6 +461,7 @@ ff_layout_alloc_lseg(struct pnfs_layout_hdr *lh,
 			goto out_err_free;
 
 		/* fh */
+		rc = -EIO;
 		p = xdr_inline_decode(&stream, 4);
 		if (!p)
 			goto out_err_free;
@@ -785,13 +786,19 @@ ff_layout_pg_init_read(struct nfs_pageio_descriptor *pgio,
 	int ds_idx;
 
 	/* Use full layout for now */
-	if (!pgio->pg_lseg)
+	if (!pgio->pg_lseg) {
 		pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
 						   req->wb_context,
 						   0,
 						   NFS4_MAX_UINT64,
 						   IOMODE_READ,
 						   GFP_KERNEL);
+		if (IS_ERR(pgio->pg_lseg)) {
+			pgio->pg_error = PTR_ERR(pgio->pg_lseg);
+			pgio->pg_lseg = NULL;
+			return;
+		}
+	}
 	/* If no lseg, fall back to read through mds */
 	if (pgio->pg_lseg == NULL)
 		goto out_mds;
@@ -825,13 +832,19 @@ ff_layout_pg_init_write(struct nfs_pageio_descriptor *pgio,
 	int i;
 	int status;
 
-	if (!pgio->pg_lseg)
+	if (!pgio->pg_lseg) {
 		pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
 						   req->wb_context,
 						   0,
 						   NFS4_MAX_UINT64,
 						   IOMODE_RW,
 						   GFP_NOFS);
+		if (IS_ERR(pgio->pg_lseg)) {
+			pgio->pg_error = PTR_ERR(pgio->pg_lseg);
+			pgio->pg_lseg = NULL;
+			return;
+		}
+	}
 	/* If no lseg, fall back to write through mds */
 	if (pgio->pg_lseg == NULL)
 		goto out_mds;
@@ -842,9 +855,8 @@ ff_layout_pg_init_write(struct nfs_pageio_descriptor *pgio,
 		goto out_mds;
 
 	/* Use a direct mapping of ds_idx to pgio mirror_idx */
-	if (WARN_ON_ONCE(pgio->pg_mirror_count !=
-	    FF_LAYOUT_MIRROR_COUNT(pgio->pg_lseg)))
-		goto out_mds;
+	if (pgio->pg_mirror_count != FF_LAYOUT_MIRROR_COUNT(pgio->pg_lseg))
+		goto out_eagain;
 
 	for (i = 0; i < pgio->pg_mirror_count; i++) {
 		ds = nfs4_ff_layout_prepare_ds(pgio->pg_lseg, i, true);
@@ -856,29 +868,40 @@ ff_layout_pg_init_write(struct nfs_pageio_descriptor *pgio,
 	}
 
 	return;
-
+out_eagain:
+	pnfs_generic_pg_cleanup(pgio);
+	pgio->pg_error = -EAGAIN;
+	return;
 out_mds:
 	pnfs_put_lseg(pgio->pg_lseg);
 	pgio->pg_lseg = NULL;
 	nfs_pageio_reset_write_mds(pgio);
+	pgio->pg_error = -EAGAIN;
 }
 
 static unsigned int
 ff_layout_pg_get_mirror_count_write(struct nfs_pageio_descriptor *pgio,
 				    struct nfs_page *req)
 {
-	if (!pgio->pg_lseg)
+	if (!pgio->pg_lseg) {
 		pgio->pg_lseg = pnfs_update_layout(pgio->pg_inode,
 						   req->wb_context,
 						   0,
 						   NFS4_MAX_UINT64,
 						   IOMODE_RW,
 						   GFP_NOFS);
+		if (IS_ERR(pgio->pg_lseg)) {
+			pgio->pg_error = PTR_ERR(pgio->pg_lseg);
+			pgio->pg_lseg = NULL;
+			goto out;
+		}
+	}
 	if (pgio->pg_lseg)
 		return FF_LAYOUT_MIRROR_COUNT(pgio->pg_lseg);
 
 	/* no lseg means that pnfs is not in use, so no mirroring here */
 	nfs_pageio_reset_write_mds(pgio);
+out:
 	return 1;
 }
 
@@ -1414,8 +1437,7 @@ static int ff_layout_commit_done_cb(struct rpc_task *task,
 		return -EAGAIN;
 	}
 
-	if (data->verf.committed == NFS_UNSTABLE
-	    && ff_layout_need_layoutcommit(data->lseg))
+	if (ff_layout_need_layoutcommit(data->lseg))
 		pnfs_set_layoutcommit(data->inode, data->lseg, data->lwb);
 
 	return 0;
@@ -1859,11 +1881,9 @@ ff_layout_encode_layoutreturn(struct pnfs_layout_hdr *lo,
 	start = xdr_reserve_space(xdr, 4);
 	BUG_ON(!start);
 
-	if (ff_layout_encode_ioerr(flo, xdr, args))
-		goto out;
-
+	ff_layout_encode_ioerr(flo, xdr, args);
 	ff_layout_encode_iostats(flo, xdr, args);
-out:
+
 	*start = cpu_to_be32((xdr->p - start - 1) * 4);
 	dprintk("%s: Return\n", __func__);
 }

@@ -819,7 +819,7 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
 	if (is_udplite)  				 /*     UDP-Lite      */
 		csum = udplite_csum(skb);
 
-	else if (sk->sk_no_check_tx) {   /* UDP csum disabled */
+	else if (sk->sk_no_check_tx && !skb_is_gso(skb)) {   /* UDP csum off */
 
 		skb->ip_summed = CHECKSUM_NONE;
 		goto send;
@@ -966,8 +966,10 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	if (msg->msg_controllen) {
 		err = ip_cmsg_send(sock_net(sk), msg, &ipc,
 				   sk->sk_family == AF_INET6);
-		if (err)
+		if (unlikely(err)) {
+			kfree(ipc.opt);
 			return err;
+		}
 		if (ipc.opt)
 			free = 1;
 		connected = 0;
@@ -989,8 +991,10 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	ipc.addr = faddr = daddr;
 
 	if (ipc.opt && ipc.opt->opt.srr) {
-		if (!daddr)
-			return -EINVAL;
+		if (!daddr) {
+			err = -EINVAL;
+			goto out_free;
+		}
 		faddr = ipc.opt->opt.faddr;
 		connected = 0;
 	}
@@ -1103,6 +1107,7 @@ do_append_data:
 
 out:
 	ip_rt_put(rt);
+out_free:
 	if (free)
 		kfree(ipc.opt);
 	if (!err)
@@ -1273,6 +1278,7 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int noblock,
 	int peeked, off = 0;
 	int err;
 	int is_udplite = IS_UDPLITE(sk);
+	bool checksum_valid = false;
 	bool slow;
 
 	if (flags & MSG_ERRQUEUE)
@@ -1298,11 +1304,12 @@ try_again:
 	 */
 
 	if (copied < ulen || UDP_SKB_CB(skb)->partial_cov) {
-		if (udp_lib_checksum_complete(skb))
+		checksum_valid = !udp_lib_checksum_complete(skb);
+		if (!checksum_valid)
 			goto csum_copy_err;
 	}
 
-	if (skb_csum_unnecessary(skb))
+	if (checksum_valid || skb_csum_unnecessary(skb))
 		err = skb_copy_datagram_msg(skb, sizeof(struct udphdr),
 					    msg, copied);
 	else {
@@ -1338,7 +1345,7 @@ try_again:
 		*addr_len = sizeof(*sin);
 	}
 	if (inet->cmsg_flags)
-		ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr));
+		ip_cmsg_recv_offset(msg, skb, sizeof(struct udphdr), off);
 
 	err = copied;
 	if (flags & MSG_TRUNC)
@@ -1456,7 +1463,7 @@ static void udp_v4_rehash(struct sock *sk)
 	udp_lib_rehash(sk, new_hash);
 }
 
-static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
 	int rc;
 
@@ -1529,7 +1536,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 
 		/* if we're overly short, let UDP handle it */
 		encap_rcv = ACCESS_ONCE(up->encap_rcv);
-		if (skb->len > sizeof(struct udphdr) && encap_rcv) {
+		if (encap_rcv) {
 			int ret;
 
 			/* Verify checksum before giving to encap */
@@ -1551,7 +1558,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 	/*
 	 * 	UDP-Lite specific tests, ignored on UDP sockets
 	 */
-	if ((is_udplite & UDPLITE_RECV_CC)  &&  UDP_SKB_CB(skb)->partial_cov) {
+	if ((up->pcflag & UDPLITE_RECV_CC)  &&  UDP_SKB_CB(skb)->partial_cov) {
 
 		/*
 		 * MIB statistics other than incrementing the error count are
@@ -1582,8 +1589,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		}
 	}
 
-	if (rcu_access_pointer(sk->sk_filter) &&
-	    udp_lib_checksum_complete(skb))
+	if (udp_lib_checksum_complete(skb))
 		goto csum_error;
 
 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
@@ -1678,10 +1684,10 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
 
 	if (use_hash2) {
 		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) &
-			    udp_table.mask;
-		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udp_table.mask;
+			    udptable->mask;
+		hash2 = udp4_portaddr_hash(net, daddr, hnum) & udptable->mask;
 start_lookup:
-		hslot = &udp_table.hash2[hash2];
+		hslot = &udptable->hash2[hash2];
 		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
 	}
 
@@ -1740,10 +1746,18 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
 		err = udplite_checksum_init(skb, uh);
 		if (err)
 			return err;
+
+		if (UDP_SKB_CB(skb)->partial_cov) {
+			skb->csum = inet_compute_pseudo(skb, proto);
+			return 0;
+		}
 	}
 
-	return skb_checksum_init_zero_check(skb, proto, uh->check,
-					    inet_compute_pseudo);
+	/* Note, we are only interested in != 0 or == 0, thus the
+	 * force to int.
+	 */
+	return (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
+							 inet_compute_pseudo);
 }
 
 /*
@@ -1988,10 +2002,14 @@ void udp_v4_early_demux(struct sk_buff *skb)
 		if (!in_dev)
 			return;
 
-		ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
-				       iph->protocol);
-		if (!ours)
-			return;
+		/* we are supposed to accept bcast packets */
+		if (skb->pkt_type == PACKET_MULTICAST) {
+			ours = ip_check_mc_rcu(in_dev, iph->daddr, iph->saddr,
+					       iph->protocol);
+			if (!ours)
+				return;
+		}
+
 		sk = __udp4_lib_mcast_demux_lookup(net, uh->dest, iph->daddr,
 						   uh->source, iph->saddr, dif);
 	} else if (skb->pkt_type == PACKET_HOST) {

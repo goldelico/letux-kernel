@@ -95,6 +95,7 @@ static void snd_usb_init_substream(struct snd_usb_stream *as,
 	subs->tx_length_quirk = as->chip->tx_length_quirk;
 	subs->speed = snd_usb_get_speed(subs->dev);
 	subs->pkt_offset_adj = 0;
+	subs->stream_offset_adj = 0;
 
 	snd_usb_set_pcm_ops(as->pcm, stream);
 
@@ -186,16 +187,16 @@ static int usb_chmap_ctl_get(struct snd_kcontrol *kcontrol,
 	struct snd_pcm_chmap *info = snd_kcontrol_chip(kcontrol);
 	struct snd_usb_substream *subs = info->private_data;
 	struct snd_pcm_chmap_elem *chmap = NULL;
-	int i;
+	int i = 0;
 
-	memset(ucontrol->value.integer.value, 0,
-	       sizeof(ucontrol->value.integer.value));
 	if (subs->cur_audiofmt)
 		chmap = subs->cur_audiofmt->chmap;
 	if (chmap) {
 		for (i = 0; i < chmap->channels; i++)
 			ucontrol->value.integer.value[i] = chmap->map[i];
 	}
+	for (; i < subs->channels_max; i++)
+		ucontrol->value.integer.value[i] = 0;
 	return 0;
 }
 
@@ -316,7 +317,9 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 /*
  * add this endpoint to the chip instance.
  * if a stream with the same endpoint already exists, append to it.
- * if not, create a new pcm stream.
+ * if not, create a new pcm stream. note, fp is added to the substream
+ * fmt_list and will be freed on the chip instance release. do not free
+ * fp or do remove it from the substream fmt_list to avoid double-free.
  */
 int snd_usb_add_audio_stream(struct snd_usb_audio *chip,
 			     int stream,
@@ -677,6 +680,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 					* (fp->maxpacksize & 0x7ff);
 		fp->attributes = parse_uac_endpoint_attributes(chip, alts, protocol, iface_no);
 		fp->clock = clock;
+		INIT_LIST_HEAD(&fp->list);
 
 		/* some quirks for attributes here */
 
@@ -725,6 +729,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 		dev_dbg(&dev->dev, "%u:%d: add audio endpoint %#x\n", iface_no, altno, fp->endpoint);
 		err = snd_usb_add_audio_stream(chip, stream, fp);
 		if (err < 0) {
+			list_del(&fp->list); /* unlink for avoiding double-free */
 			kfree(fp->rate_table);
 			kfree(fp->chmap);
 			kfree(fp);

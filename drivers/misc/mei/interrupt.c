@@ -76,7 +76,6 @@ static inline int mei_cl_hbm_equal(struct mei_cl *cl,
  * @dev: mei device
  * @hdr: message header
  */
-static inline
 void mei_irq_discard_msg(struct mei_device *dev, struct mei_msg_hdr *hdr)
 {
 	/*
@@ -184,10 +183,7 @@ static int mei_cl_irq_disconnect_rsp(struct mei_cl *cl, struct mei_cl_cb *cb,
 		return -EMSGSIZE;
 
 	ret = mei_hbm_cl_disconnect_rsp(dev, cl);
-	mei_cl_set_disconnected(cl);
-	mei_io_cb_free(cb);
-	mei_me_cl_put(cl->me_cl);
-	cl->me_cl = NULL;
+	list_move_tail(&cb->list, &cmpl_list->list);
 
 	return ret;
 }
@@ -223,6 +219,9 @@ static int mei_cl_irq_read(struct mei_cl *cl, struct mei_cl_cb *cb,
 		list_move_tail(&cb->list, &cmpl_list->list);
 		return ret;
 	}
+
+	pm_runtime_mark_last_busy(dev->dev);
+	pm_request_autosuspend(dev->dev);
 
 	list_move_tail(&cb->list, &cl->rd_pending);
 

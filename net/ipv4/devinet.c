@@ -67,6 +67,11 @@
 
 #include "fib_lookup.h"
 
+#define IPV6ONLY_FLAGS	\
+		(IFA_F_NODAD | IFA_F_OPTIMISTIC | IFA_F_DADFAILED | \
+		 IFA_F_HOMEADDRESS | IFA_F_TENTATIVE | \
+		 IFA_F_MANAGETEMPADDR | IFA_F_STABLE_PRIVACY)
+
 static struct ipv4_devconf ipv4_devconf = {
 	.data = {
 		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
@@ -257,6 +262,7 @@ static struct in_device *inetdev_init(struct net_device *dev)
 	err = devinet_sysctl_register(in_dev);
 	if (err) {
 		in_dev->dead = 1;
+		neigh_parms_release(&arp_tbl, in_dev->arp_parms);
 		in_dev_put(in_dev);
 		in_dev = NULL;
 		goto out;
@@ -334,6 +340,9 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
 
 	ASSERT_RTNL();
 
+	if (in_dev->dead)
+		goto no_promotions;
+
 	/* 1. Deleting primary ifaddr forces deletion all secondaries
 	 * unless alias promotion is set
 	 **/
@@ -380,6 +389,7 @@ static void __inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
 			fib_del_ifaddr(ifa, ifa1);
 	}
 
+no_promotions:
 	/* 2. Unlink it */
 
 	*ifap = ifa1->ifa_next;
@@ -448,6 +458,9 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
 
 	ifa->ifa_flags &= ~IFA_F_SECONDARY;
 	last_primary = &in_dev->ifa_list;
+
+	/* Don't set IPv6 only flags to IPv4 addresses */
+	ifa->ifa_flags &= ~IPV6ONLY_FLAGS;
 
 	for (ifap = &in_dev->ifa_list; (ifa1 = *ifap) != NULL;
 	     ifap = &ifa1->ifa_next) {
@@ -548,12 +561,15 @@ struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
 	return NULL;
 }
 
-static int ip_mc_config(struct sock *sk, bool join, const struct in_ifaddr *ifa)
+static int ip_mc_autojoin_config(struct net *net, bool join,
+				 const struct in_ifaddr *ifa)
 {
+#if defined(CONFIG_IP_MULTICAST)
 	struct ip_mreqn mreq = {
 		.imr_multiaddr.s_addr = ifa->ifa_address,
 		.imr_ifindex = ifa->ifa_dev->dev->ifindex,
 	};
+	struct sock *sk = net->ipv4.mc_autojoin_sk;
 	int ret;
 
 	ASSERT_RTNL();
@@ -566,6 +582,9 @@ static int ip_mc_config(struct sock *sk, bool join, const struct in_ifaddr *ifa)
 	release_sock(sk);
 
 	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
 }
 
 static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
@@ -605,7 +624,7 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh)
 			continue;
 
 		if (ipv4_is_multicast(ifa->ifa_address))
-			ip_mc_config(net->ipv4.mc_autojoin_sk, false, ifa);
+			ip_mc_autojoin_config(net, false, ifa);
 		__inet_del_ifa(in_dev, ifap, 1, nlh, NETLINK_CB(skb).portid);
 		return 0;
 	}
@@ -861,8 +880,7 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
 		 */
 		set_ifa_lifetime(ifa, valid_lft, prefered_lft);
 		if (ifa->ifa_flags & IFA_F_MCAUTOJOIN) {
-			int ret = ip_mc_config(net->ipv4.mc_autojoin_sk,
-					       true, ifa);
+			int ret = ip_mc_autojoin_config(net, true, ifa);
 
 			if (ret < 0) {
 				inet_free_ifa(ifa);
@@ -1352,11 +1370,6 @@ skip:
 	}
 }
 
-static bool inetdev_valid_mtu(unsigned int mtu)
-{
-	return mtu >= 68;
-}
-
 static void inetdev_send_gratuitous_arp(struct net_device *dev,
 					struct in_device *in_dev)
 
@@ -1802,7 +1815,7 @@ void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
 	struct sk_buff *skb;
 	int err = -ENOBUFS;
 
-	skb = nlmsg_new(inet_netconf_msgsize_devconf(type), GFP_ATOMIC);
+	skb = nlmsg_new(inet_netconf_msgsize_devconf(type), GFP_KERNEL);
 	if (!skb)
 		goto errout;
 
@@ -1814,7 +1827,7 @@ void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
 		kfree_skb(skb);
 		goto errout;
 	}
-	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_NETCONF, NULL, GFP_ATOMIC);
+	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_NETCONF, NULL, GFP_KERNEL);
 	return;
 errout:
 	if (err < 0)
@@ -1847,7 +1860,7 @@ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
 	if (err < 0)
 		goto errout;
 
-	err = EINVAL;
+	err = -EINVAL;
 	if (!tb[NETCONFA_IFINDEX])
 		goto errout;
 
@@ -1871,7 +1884,7 @@ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
 	}
 
 	err = -ENOBUFS;
-	skb = nlmsg_new(inet_netconf_msgsize_devconf(-1), GFP_ATOMIC);
+	skb = nlmsg_new(inet_netconf_msgsize_devconf(-1), GFP_KERNEL);
 	if (!skb)
 		goto errout;
 
@@ -1995,16 +2008,16 @@ static void inet_forward_change(struct net *net)
 
 	for_each_netdev(net, dev) {
 		struct in_device *in_dev;
+
 		if (on)
 			dev_disable_lro(dev);
-		rcu_read_lock();
-		in_dev = __in_dev_get_rcu(dev);
+
+		in_dev = __in_dev_get_rtnl(dev);
 		if (in_dev) {
 			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
 			inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
 						    dev->ifindex, &in_dev->cnf);
 		}
-		rcu_read_unlock();
 	}
 }
 

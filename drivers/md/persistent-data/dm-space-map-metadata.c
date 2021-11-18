@@ -152,12 +152,9 @@ static int brb_peek(struct bop_ring_buffer *brb, struct block_op *result)
 
 static int brb_pop(struct bop_ring_buffer *brb)
 {
-	struct block_op *bop;
-
 	if (brb_empty(brb))
 		return -ENODATA;
 
-	bop = brb->bops + brb->begin;
 	brb->begin = brb_next(brb, brb->begin);
 
 	return 0;
@@ -251,7 +248,7 @@ static int out(struct sm_metadata *smm)
 	}
 
 	if (smm->recursion_count == 1)
-		apply_bops(smm);
+		r = apply_bops(smm);
 
 	smm->recursion_count--;
 
@@ -450,7 +447,18 @@ static int sm_metadata_new_block_(struct dm_space_map *sm, dm_block_t *b)
 	enum allocation_event ev;
 	struct sm_metadata *smm = container_of(sm, struct sm_metadata, sm);
 
-	r = sm_ll_find_free_block(&smm->old_ll, smm->begin, smm->old_ll.nr_blocks, b);
+	/*
+	 * Any block we allocate has to be free in both the old and current ll.
+	 */
+	r = sm_ll_find_common_free_block(&smm->old_ll, &smm->ll, smm->begin, smm->ll.nr_blocks, b);
+	if (r == -ENOSPC) {
+		/*
+		 * There's no free block between smm->begin and the end of the metadata device.
+		 * We search before smm->begin in case something has been freed.
+		 */
+		r = sm_ll_find_common_free_block(&smm->old_ll, &smm->ll, 0, smm->begin, b);
+	}
+
 	if (r)
 		return r;
 
@@ -502,7 +510,6 @@ static int sm_metadata_commit(struct dm_space_map *sm)
 		return r;
 
 	memcpy(&smm->old_ll, &smm->ll, sizeof(smm->old_ll));
-	smm->begin = 0;
 	smm->allocated_this_transaction = 0;
 
 	return 0;
@@ -778,16 +785,14 @@ int dm_sm_metadata_create(struct dm_space_map *sm,
 	memcpy(&smm->sm, &bootstrap_ops, sizeof(smm->sm));
 
 	r = sm_ll_new_metadata(&smm->ll, tm);
-	if (r)
-		return r;
-
-	if (nr_blocks > DM_SM_METADATA_MAX_BLOCKS)
-		nr_blocks = DM_SM_METADATA_MAX_BLOCKS;
-	r = sm_ll_extend(&smm->ll, nr_blocks);
-	if (r)
-		return r;
-
+	if (!r) {
+		if (nr_blocks > DM_SM_METADATA_MAX_BLOCKS)
+			nr_blocks = DM_SM_METADATA_MAX_BLOCKS;
+		r = sm_ll_extend(&smm->ll, nr_blocks);
+	}
 	memcpy(&smm->sm, &ops, sizeof(smm->sm));
+	if (r)
+		return r;
 
 	/*
 	 * Now we need to update the newly created data structures with the

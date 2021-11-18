@@ -133,7 +133,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		value = 1;
 		break;
 	case I915_PARAM_HAS_SECURE_BATCHES:
-		value = capable(CAP_SYS_ADMIN);
+		value = HAS_SECURE_BATCHES(dev_priv) && capable(CAP_SYS_ADMIN);
 		break;
 	case I915_PARAM_HAS_PINNED_BATCHES:
 		value = 1;
@@ -145,7 +145,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		value = 1;
 		break;
 	case I915_PARAM_CMD_PARSER_VERSION:
-		value = i915_cmd_parser_get_version();
+		value = i915_cmd_parser_get_version(dev_priv);
 		break;
 	case I915_PARAM_HAS_COHERENT_PHYS_GTT:
 		value = 1;
@@ -402,6 +402,8 @@ static int i915_load_modeset_init(struct drm_device *dev)
 	if (ret)
 		goto cleanup_gem_stolen;
 
+	intel_setup_gmbus(dev);
+
 	/* Important: The output setup functions called by modeset_init need
 	 * working irqs for e.g. gmbus and dp aux transfers. */
 	intel_modeset_init(dev);
@@ -451,6 +453,7 @@ cleanup_gem:
 cleanup_irq:
 	intel_guc_ucode_fini(dev);
 	drm_irq_uninstall(dev);
+	intel_teardown_gmbus(dev);
 cleanup_gem_stolen:
 	i915_gem_cleanup_stolen(dev);
 cleanup_vga_switcheroo:
@@ -1028,7 +1031,6 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	/* Try to make sure MCHBAR is enabled before poking at it */
 	intel_setup_mchbar(dev);
-	intel_setup_gmbus(dev);
 	intel_opregion_setup(dev);
 
 	i915_gem_load(dev);
@@ -1099,7 +1101,6 @@ out_gem_unload:
 	if (dev->pdev->msi_enabled)
 		pci_disable_msi(dev->pdev);
 
-	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
 	pm_qos_remove_request(&dev_priv->pm_qos);
 	destroy_workqueue(dev_priv->gpu_error.hangcheck_wq);
@@ -1198,7 +1199,6 @@ int i915_driver_unload(struct drm_device *dev)
 
 	intel_csr_ucode_fini(dev);
 
-	intel_teardown_gmbus(dev);
 	intel_teardown_mchbar(dev);
 
 	destroy_workqueue(dev_priv->hotplug.dp_wq);

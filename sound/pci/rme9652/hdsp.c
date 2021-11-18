@@ -30,6 +30,7 @@
 #include <linux/math64.h>
 #include <linux/vmalloc.h>
 #include <linux/io.h>
+#include <linux/nospec.h>
 
 #include <sound/core.h>
 #include <sound/control.h>
@@ -2879,7 +2880,7 @@ static int snd_hdsp_get_dds_offset(struct snd_kcontrol *kcontrol, struct snd_ctl
 {
 	struct hdsp *hdsp = snd_kcontrol_chip(kcontrol);
 
-	ucontrol->value.enumerated.item[0] = hdsp_dds_offset(hdsp);
+	ucontrol->value.integer.value[0] = hdsp_dds_offset(hdsp);
 	return 0;
 }
 
@@ -2891,7 +2892,7 @@ static int snd_hdsp_put_dds_offset(struct snd_kcontrol *kcontrol, struct snd_ctl
 
 	if (!snd_hdsp_use_is_exclusive(hdsp))
 		return -EBUSY;
-	val = ucontrol->value.enumerated.item[0];
+	val = ucontrol->value.integer.value[0];
 	spin_lock_irq(&hdsp->lock);
 	if (val != hdsp_dds_offset(hdsp))
 		change = (hdsp_set_dds_offset(hdsp, val) == 0) ? 1 : 0;
@@ -4065,15 +4066,16 @@ static int snd_hdsp_channel_info(struct snd_pcm_substream *substream,
 				    struct snd_pcm_channel_info *info)
 {
 	struct hdsp *hdsp = snd_pcm_substream_chip(substream);
-	int mapped_channel;
+	unsigned int channel = info->channel;
 
-	if (snd_BUG_ON(info->channel >= hdsp->max_channels))
+	if (snd_BUG_ON(channel >= hdsp->max_channels))
+		return -EINVAL;
+	channel = array_index_nospec(channel, hdsp->max_channels);
+
+	if (hdsp->channel_map[channel] < 0)
 		return -EINVAL;
 
-	if ((mapped_channel = hdsp->channel_map[info->channel]) < 0)
-		return -EINVAL;
-
-	info->offset = mapped_channel * HDSP_CHANNEL_BUFFER_BYTES;
+	info->offset = hdsp->channel_map[channel] * HDSP_CHANNEL_BUFFER_BYTES;
 	info->first = 0;
 	info->step = 32;
 	return 0;
@@ -5312,7 +5314,8 @@ static int snd_hdsp_free(struct hdsp *hdsp)
 	if (hdsp->port)
 		pci_release_regions(hdsp->pci);
 
-	pci_disable_device(hdsp->pci);
+	if (pci_is_enabled(hdsp->pci))
+		pci_disable_device(hdsp->pci);
 	return 0;
 }
 

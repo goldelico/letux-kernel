@@ -26,7 +26,7 @@ static int
 nfs4_file_open(struct inode *inode, struct file *filp)
 {
 	struct nfs_open_context *ctx;
-	struct dentry *dentry = filp->f_path.dentry;
+	struct dentry *dentry = file_dentry(filp);
 	struct dentry *parent = NULL;
 	struct inode *dir;
 	unsigned openflags = filp->f_flags;
@@ -49,7 +49,7 @@ nfs4_file_open(struct inode *inode, struct file *filp)
 		return err;
 
 	if ((openflags & O_ACCMODE) == 3)
-		openflags--;
+		return nfs_open(inode, filp);
 
 	/* We can't create new files here */
 	openflags &= ~(O_CREAT|O_EXCL);
@@ -57,7 +57,7 @@ nfs4_file_open(struct inode *inode, struct file *filp)
 	parent = dget_parent(dentry);
 	dir = d_inode(parent);
 
-	ctx = alloc_nfs_open_context(filp->f_path.dentry, filp->f_mode);
+	ctx = alloc_nfs_open_context(file_dentry(filp), filp->f_mode);
 	err = PTR_ERR(ctx);
 	if (IS_ERR(ctx))
 		goto out;
@@ -73,13 +73,13 @@ nfs4_file_open(struct inode *inode, struct file *filp)
 	if (IS_ERR(inode)) {
 		err = PTR_ERR(inode);
 		switch (err) {
-		case -EPERM:
-		case -EACCES:
-		case -EDQUOT:
-		case -ENOSPC:
-		case -EROFS:
-			goto out_put_ctx;
 		default:
+			goto out_put_ctx;
+		case -ENOENT:
+		case -ESTALE:
+		case -EISDIR:
+		case -ENOTDIR:
+		case -ELOOP:
 			goto out_drop;
 		}
 	}
@@ -168,7 +168,7 @@ static loff_t nfs4_file_llseek(struct file *filep, loff_t offset, int whence)
 	case SEEK_HOLE:
 	case SEEK_DATA:
 		ret = nfs42_proc_llseek(filep, offset, whence);
-		if (ret != -ENOTSUPP)
+		if (ret != -EOPNOTSUPP)
 			return ret;
 	default:
 		return nfs_file_llseek(filep, offset, whence);

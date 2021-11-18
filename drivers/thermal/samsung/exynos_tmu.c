@@ -585,6 +585,7 @@ static int exynos5433_tmu_initialize(struct platform_device *pdev)
 		threshold_code = temp_to_code(data, temp);
 
 		rising_threshold = readl(data->base + rising_reg_offset);
+		rising_threshold &= ~(0xff << j * 8);
 		rising_threshold |= (threshold_code << j * 8);
 		writel(rising_threshold, data->base + rising_reg_offset);
 
@@ -1346,6 +1347,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		data->sclk = devm_clk_get(&pdev->dev, "tmu_sclk");
 		if (IS_ERR(data->sclk)) {
 			dev_err(&pdev->dev, "Failed to get sclk\n");
+			ret = PTR_ERR(data->sclk);
 			goto err_clk;
 		} else {
 			ret = clk_prepare_enable(data->sclk);

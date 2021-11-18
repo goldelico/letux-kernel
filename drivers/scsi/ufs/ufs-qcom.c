@@ -1032,7 +1032,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_LCC;
 	}
 
-	if (host->hw_ver.major >= 0x2) {
+	if (host->hw_ver.major == 0x2) {
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION;
 
 		if (!ufs_qcom_cap_qunipro(host))
@@ -1552,6 +1552,7 @@ static const struct of_device_id ufs_qcom_of_match[] = {
 	{ .compatible = "qcom,ufshc"},
 	{},
 };
+MODULE_DEVICE_TABLE(of, ufs_qcom_of_match);
 
 static const struct dev_pm_ops ufs_qcom_pm_ops = {
 	.suspend	= ufshcd_pltfrm_suspend,

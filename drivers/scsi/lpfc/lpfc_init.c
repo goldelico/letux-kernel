@@ -2855,7 +2855,7 @@ lpfc_online(struct lpfc_hba *phba)
 	}
 
 	vports = lpfc_create_vport_work_array(phba);
-	if (vports != NULL)
+	if (vports != NULL) {
 		for (i = 0; i <= phba->max_vports && vports[i] != NULL; i++) {
 			struct Scsi_Host *shost;
 			shost = lpfc_shost_from_vport(vports[i]);
@@ -2872,7 +2872,8 @@ lpfc_online(struct lpfc_hba *phba)
 			}
 			spin_unlock_irq(shost->host_lock);
 		}
-		lpfc_destroy_vport_work_array(phba, vports);
+	}
+	lpfc_destroy_vport_work_array(phba, vports);
 
 	lpfc_unblock_mgmt_io(phba);
 	return 0;
@@ -4375,7 +4376,7 @@ lpfc_sli4_async_fip_evt(struct lpfc_hba *phba,
 			break;
 		}
 		/* If fast FCF failover rescan event is pending, do nothing */
-		if (phba->fcf.fcf_flag & FCF_REDISC_EVT) {
+		if (phba->fcf.fcf_flag & (FCF_REDISC_EVT | FCF_REDISC_PEND)) {
 			spin_unlock_irq(&phba->hbalock);
 			break;
 		}
@@ -6889,6 +6890,9 @@ lpfc_sli4_read_config(struct lpfc_hba *phba)
 			bf_get(lpfc_mbx_rd_conf_xri_base, rd_config);
 		phba->sli4_hba.max_cfg_param.max_vpi =
 			bf_get(lpfc_mbx_rd_conf_vpi_count, rd_config);
+		/* Limit the max we support */
+		if (phba->sli4_hba.max_cfg_param.max_vpi > LPFC_MAX_VPORTS)
+			phba->sli4_hba.max_cfg_param.max_vpi = LPFC_MAX_VPORTS;
 		phba->sli4_hba.max_cfg_param.vpi_base =
 			bf_get(lpfc_mbx_rd_conf_vpi_base, rd_config);
 		phba->sli4_hba.max_cfg_param.max_rpi =
@@ -8833,9 +8837,12 @@ found:
 				 * already mapped to this phys_id.
 				 */
 				if (cpup->irq != LPFC_VECTOR_MAP_EMPTY) {
-					chann[saved_chann] =
-						cpup->channel_id;
-					saved_chann++;
+					if (saved_chann <=
+					    LPFC_FCP_IO_CHAN_MAX) {
+						chann[saved_chann] =
+							cpup->channel_id;
+						saved_chann++;
+					}
 					goto out;
 				}
 
@@ -11383,6 +11390,7 @@ static struct pci_driver lpfc_driver = {
 	.id_table	= lpfc_id_table,
 	.probe		= lpfc_pci_probe_one,
 	.remove		= lpfc_pci_remove_one,
+	.shutdown	= lpfc_pci_remove_one,
 	.suspend        = lpfc_pci_suspend_one,
 	.resume		= lpfc_pci_resume_one,
 	.err_handler    = &lpfc_err_handler,

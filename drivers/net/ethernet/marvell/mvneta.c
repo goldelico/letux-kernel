@@ -90,7 +90,7 @@
 #define      MVNETA_DESC_SWAP                    BIT(6)
 #define      MVNETA_TX_BRST_SZ_MASK(burst)       ((burst) << 22)
 #define MVNETA_PORT_STATUS                       0x2444
-#define      MVNETA_TX_IN_PRGRS                  BIT(1)
+#define      MVNETA_TX_IN_PRGRS                  BIT(0)
 #define      MVNETA_TX_FIFO_EMPTY                BIT(8)
 #define MVNETA_RX_MIN_FRAME_SIZE                 0x247c
 #define MVNETA_SERDES_CFG			 0x24A0
@@ -226,7 +226,7 @@
 /* Various constants */
 
 /* Coalescing */
-#define MVNETA_TXDONE_COAL_PKTS		1
+#define MVNETA_TXDONE_COAL_PKTS		0	/* interrupt per packet */
 #define MVNETA_RX_COAL_PKTS		32
 #define MVNETA_RX_COAL_USEC		100
 
@@ -818,6 +818,7 @@ static void mvneta_port_up(struct mvneta_port *pp)
 	}
 	mvreg_write(pp, MVNETA_TXQ_CMD, q_map);
 
+	q_map = 0;
 	/* Enable all initialized RXQs. */
 	mvreg_write(pp, MVNETA_RXQ_CMD, BIT(rxq_def));
 }
@@ -913,6 +914,10 @@ static void mvneta_port_disable(struct mvneta_port *pp)
 	val = mvreg_read(pp, MVNETA_GMAC_CTRL_0);
 	val &= ~MVNETA_GMAC0_PORT_ENABLE;
 	mvreg_write(pp, MVNETA_GMAC_CTRL_0, val);
+
+	pp->link = 0;
+	pp->duplex = -1;
+	pp->speed = 0;
 
 	udelay(200);
 }
@@ -2446,7 +2451,7 @@ static void mvneta_start_dev(struct mvneta_port *pp)
 	mvneta_port_enable(pp);
 
 	/* Enable polling on the port */
-	for_each_present_cpu(cpu) {
+	for_each_online_cpu(cpu) {
 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
 
 		napi_enable(&port->napi);
@@ -2472,7 +2477,7 @@ static void mvneta_stop_dev(struct mvneta_port *pp)
 
 	phy_stop(pp->phy_dev);
 
-	for_each_present_cpu(cpu) {
+	for_each_online_cpu(cpu) {
 		struct mvneta_pcpu_port *port = per_cpu_ptr(pp->ports, cpu);
 
 		napi_disable(&port->napi);
@@ -2564,7 +2569,6 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
 	}
 
 	mvneta_start_dev(pp);
-	mvneta_port_up(pp);
 
 	netdev_update_features(dev);
 
@@ -2902,13 +2906,11 @@ err_cleanup_rxqs:
 static int mvneta_stop(struct net_device *dev)
 {
 	struct mvneta_port *pp = netdev_priv(dev);
-	int cpu;
 
 	mvneta_stop_dev(pp);
 	mvneta_mdio_remove(pp);
 	unregister_cpu_notifier(&pp->cpu_notifier);
-	for_each_present_cpu(cpu)
-		smp_call_function_single(cpu, mvneta_percpu_disable, pp, true);
+	on_each_cpu(mvneta_percpu_disable, pp, true);
 	free_percpu_irq(dev->irq, pp->ports);
 	mvneta_cleanup_rxqs(pp);
 	mvneta_cleanup_txqs(pp);
@@ -3056,26 +3058,25 @@ static void mvneta_ethtool_update_stats(struct mvneta_port *pp)
 	const struct mvneta_statistic *s;
 	void __iomem *base = pp->base;
 	u32 high, low, val;
+	u64 val64;
 	int i;
 
 	for (i = 0, s = mvneta_statistics;
 	     s < mvneta_statistics + ARRAY_SIZE(mvneta_statistics);
 	     s++, i++) {
-		val = 0;
-
 		switch (s->type) {
 		case T_REG_32:
 			val = readl_relaxed(base + s->offset);
+			pp->ethtool_stats[i] += val;
 			break;
 		case T_REG_64:
 			/* Docs say to read low 32-bit then high */
 			low = readl_relaxed(base + s->offset);
 			high = readl_relaxed(base + s->offset + 4);
-			val = (u64)high << 32 | low;
+			val64 = (u64)high << 32 | low;
+			pp->ethtool_stats[i] += val64;
 			break;
 		}
-
-		pp->ethtool_stats[i] += val;
 	}
 }
 
@@ -3404,7 +3405,7 @@ static int mvneta_probe(struct platform_device *pdev)
 	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
 	dev->hw_features |= dev->features;
 	dev->vlan_features |= dev->features;
-	dev->priv_flags |= IFF_UNICAST_FLT;
+	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
 	dev->gso_max_segs = MVNETA_MAX_TSO_SEGS;
 
 	err = register_netdev(dev);

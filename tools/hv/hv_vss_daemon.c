@@ -164,6 +164,8 @@ int main(int argc, char *argv[])
 			daemonize = 0;
 			break;
 		case 'h':
+			print_usage(argv);
+			exit(0);
 		default:
 			print_usage(argv);
 			exit(EXIT_FAILURE);
@@ -254,7 +256,7 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR, "Illegal op:%d\n", op);
 		}
 		vss_msg->error = error;
-		len = write(vss_fd, &error, sizeof(struct hv_vss_msg));
+		len = write(vss_fd, vss_msg, sizeof(struct hv_vss_msg));
 		if (len != sizeof(struct hv_vss_msg)) {
 			syslog(LOG_ERR, "write failed; error: %d %s", errno,
 			       strerror(errno));

@@ -942,13 +942,14 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 		timeout = MAX_JIFFY_OFFSET;
 	}
 
-	retval = wait_for_completion_interruptible_timeout(&buf->completion,
+	timeout = wait_for_completion_interruptible_timeout(&buf->completion,
 			timeout);
-	if (retval == -ERESTARTSYS || !retval) {
+	if (timeout == -ERESTARTSYS || !timeout) {
+		retval = timeout;
 		mutex_lock(&fw_lock);
 		fw_load_abort(fw_priv);
 		mutex_unlock(&fw_lock);
-	} else if (retval > 0) {
+	} else if (timeout > 0) {
 		retval = 0;
 	}
 
@@ -1118,15 +1119,17 @@ static int
 _request_firmware(const struct firmware **firmware_p, const char *name,
 		  struct device *device, unsigned int opt_flags)
 {
-	struct firmware *fw;
+	struct firmware *fw = NULL;
 	long timeout;
 	int ret;
 
 	if (!firmware_p)
 		return -EINVAL;
 
-	if (!name || name[0] == '\0')
-		return -EINVAL;
+	if (!name || name[0] == '\0') {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	ret = _request_firmware_prepare(&fw, name, device);
 	if (ret <= 0) /* error or already assigned */

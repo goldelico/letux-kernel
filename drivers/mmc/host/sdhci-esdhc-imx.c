@@ -804,6 +804,7 @@ static int esdhc_change_pinstate(struct sdhci_host *host,
 
 	switch (uhs) {
 	case MMC_TIMING_UHS_SDR50:
+	case MMC_TIMING_UHS_DDR50:
 		pinctrl = imx_data->pins_100mhz;
 		break;
 	case MMC_TIMING_UHS_SDR104:
@@ -1239,9 +1240,10 @@ static int sdhci_esdhc_imx_remove(struct platform_device *pdev)
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct pltfm_imx_data *imx_data = pltfm_host->priv;
-	int dead = (readl(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
+	int dead;
 
 	pm_runtime_get_sync(&pdev->dev);
+	dead = (readl(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 

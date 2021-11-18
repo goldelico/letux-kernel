@@ -170,6 +170,8 @@
 #define   ECOCHK_PPGTT_WT_HSW		(0x2<<3)
 #define   ECOCHK_PPGTT_WB_HSW		(0x3<<3)
 
+#define GEN8_RC6_CTX_INFO		0x8504
+
 #define GAC_ECO_BITS			0x14090
 #define   ECOBITS_SNB_BIT		(1<<13)
 #define   ECOBITS_PPGTT_CACHE64B	(3<<8)
@@ -510,6 +512,10 @@
  * Registers used only by the command parser
  */
 #define BCS_SWCTRL 0x22200
+
+/* There are 16 GPR registers */
+#define BCS_GPR(n)	(0x22600 + (n) * 8)
+#define BCS_GPR_UDW(n)	(0x22600 + (n) * 8 + 4)
 
 #define GPGPU_THREADS_DISPATCHED        0x2290
 #define HS_INVOCATION_COUNT             0x2300
@@ -1567,6 +1573,7 @@ enum skl_disp_power_wells {
 #define RING_IMR(base)		((base)+0xa8)
 #define RING_HWSTAM(base)	((base)+0x98)
 #define RING_TIMESTAMP(base)	((base)+0x358)
+#define RING_TIMESTAMP_UDW(base) ((base) + 0x358 + 4)
 #define   TAIL_ADDR		0x001FFFF8
 #define   HEAD_WRAP_COUNT	0xFFE00000
 #define   HEAD_WRAP_ONE		0x00200000
@@ -2838,7 +2845,14 @@ enum skl_disp_power_wells {
 #define GEN6_RP_STATE_CAP	(MCHBAR_MIRROR_BASE_SNB + 0x5998)
 #define BXT_RP_STATE_CAP        0x138170
 
-#define INTERVAL_1_28_US(us)	(((us) * 100) >> 7)
+/*
+ * Make these a multiple of magic 25 to avoid SNB (eg. Dell XPS
+ * 8300) freezing up around GPU hangs. Looks as if even
+ * scheduling/timer interrupts start misbehaving if the RPS
+ * EI/thresholds are "bad", leading to a very sluggish or even
+ * frozen machine.
+ */
+#define INTERVAL_1_28_US(us)	roundup(((us) * 100) >> 7, 25)
 #define INTERVAL_1_33_US(us)	(((us) * 3)   >> 2)
 #define INTERVAL_0_833_US(us)	(((us) * 6) / 5)
 #define GT_INTERVAL_FROM_US(dev_priv, us) (IS_GEN9(dev_priv) ? \
@@ -3233,19 +3247,20 @@ enum skl_disp_power_wells {
 
 #define PORT_HOTPLUG_STAT	(dev_priv->info.display_mmio_offset + 0x61114)
 /*
- * HDMI/DP bits are gen4+
+ * HDMI/DP bits are g4x+
  *
  * WARNING: Bspec for hpd status bits on gen4 seems to be completely confused.
  * Please check the detailed lore in the commit message for for experimental
  * evidence.
  */
-#define   PORTD_HOTPLUG_LIVE_STATUS_G4X		(1 << 29)
+/* Bspec says GM45 should match G4X/VLV/CHV, but reality disagrees */
+#define   PORTD_HOTPLUG_LIVE_STATUS_GM45	(1 << 29)
+#define   PORTC_HOTPLUG_LIVE_STATUS_GM45	(1 << 28)
+#define   PORTB_HOTPLUG_LIVE_STATUS_GM45	(1 << 27)
+/* G4X/VLV/CHV DP/HDMI bits again match Bspec */
+#define   PORTD_HOTPLUG_LIVE_STATUS_G4X		(1 << 27)
 #define   PORTC_HOTPLUG_LIVE_STATUS_G4X		(1 << 28)
-#define   PORTB_HOTPLUG_LIVE_STATUS_G4X		(1 << 27)
-/* VLV DP/HDMI bits again match Bspec */
-#define   PORTD_HOTPLUG_LIVE_STATUS_VLV		(1 << 27)
-#define   PORTC_HOTPLUG_LIVE_STATUS_VLV		(1 << 28)
-#define   PORTB_HOTPLUG_LIVE_STATUS_VLV		(1 << 29)
+#define   PORTB_HOTPLUG_LIVE_STATUS_G4X		(1 << 29)
 #define   PORTD_HOTPLUG_INT_STATUS		(3 << 21)
 #define   PORTD_HOTPLUG_INT_LONG_PULSE		(2 << 21)
 #define   PORTD_HOTPLUG_INT_SHORT_PULSE		(1 << 21)
@@ -5696,6 +5711,10 @@ enum skl_disp_power_wells {
 #define GAMMA_MODE_MODE_12BIT	(2 << 0)
 #define GAMMA_MODE_MODE_SPLIT	(3 << 0)
 
+/* Display Internal Timeout Register */
+#define RM_TIMEOUT		0x42060
+#define  MMIO_TIMEOUT_US(us)	((us) << 0)
+
 /* interrupts */
 #define DE_MASTER_IRQ_CONTROL   (1 << 31)
 #define DE_SPRITEB_FLIP_DONE    (1 << 29)
@@ -7349,6 +7368,8 @@ enum skl_disp_power_wells {
 /* For each transcoder, we need to select the corresponding port clock */
 #define  TRANS_CLK_SEL_DISABLED		(0x0<<29)
 #define  TRANS_CLK_SEL_PORT(x)		(((x)+1)<<29)
+
+#define CDCLK_FREQ			0x46200
 
 #define TRANSA_MSA_MISC			0x60410
 #define TRANSB_MSA_MISC			0x61410

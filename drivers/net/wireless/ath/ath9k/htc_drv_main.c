@@ -1463,7 +1463,7 @@ static int ath9k_htc_set_key(struct ieee80211_hw *hw,
 		}
 		break;
 	case DISABLE_KEY:
-		ath_key_delete(common, key);
+		ath_key_delete(common, key->hw_key_idx);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1657,13 +1657,14 @@ static void ath9k_htc_reset_tsf(struct ieee80211_hw *hw,
 
 static int ath9k_htc_ampdu_action(struct ieee80211_hw *hw,
 				  struct ieee80211_vif *vif,
-				  enum ieee80211_ampdu_mlme_action action,
-				  struct ieee80211_sta *sta,
-				  u16 tid, u16 *ssn, u8 buf_size, bool amsdu)
+				  struct ieee80211_ampdu_params *params)
 {
 	struct ath9k_htc_priv *priv = hw->priv;
 	struct ath9k_htc_sta *ista;
 	int ret = 0;
+	struct ieee80211_sta *sta = params->sta;
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	u16 tid = params->tid;
 
 	mutex_lock(&priv->mutex);
 	ath9k_htc_ps_wakeup(priv);

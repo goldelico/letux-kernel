@@ -126,40 +126,61 @@ static void async_ctrl_callback(struct urb *urb)
 
 static int get_registers(pegasus_t *pegasus, __u16 indx, __u16 size, void *data)
 {
+	u8 *buf;
 	int ret;
+
+	buf = kmalloc(size, GFP_NOIO);
+	if (!buf)
+		return -ENOMEM;
 
 	ret = usb_control_msg(pegasus->usb, usb_rcvctrlpipe(pegasus->usb, 0),
 			      PEGASUS_REQ_GET_REGS, PEGASUS_REQT_READ, 0,
-			      indx, data, size, 1000);
+			      indx, buf, size, 1000);
 	if (ret < 0)
 		netif_dbg(pegasus, drv, pegasus->net,
 			  "%s returned %d\n", __func__, ret);
+	else if (ret <= size)
+		memcpy(data, buf, ret);
+	kfree(buf);
 	return ret;
 }
 
-static int set_registers(pegasus_t *pegasus, __u16 indx, __u16 size, void *data)
+static int set_registers(pegasus_t *pegasus, __u16 indx, __u16 size,
+			 const void *data)
 {
+	u8 *buf;
 	int ret;
+
+	buf = kmemdup(data, size, GFP_NOIO);
+	if (!buf)
+		return -ENOMEM;
 
 	ret = usb_control_msg(pegasus->usb, usb_sndctrlpipe(pegasus->usb, 0),
 			      PEGASUS_REQ_SET_REGS, PEGASUS_REQT_WRITE, 0,
-			      indx, data, size, 100);
+			      indx, buf, size, 100);
 	if (ret < 0)
 		netif_dbg(pegasus, drv, pegasus->net,
 			  "%s returned %d\n", __func__, ret);
+	kfree(buf);
 	return ret;
 }
 
 static int set_register(pegasus_t *pegasus, __u16 indx, __u8 data)
 {
+	u8 *buf;
 	int ret;
+
+	buf = kmemdup(&data, 1, GFP_NOIO);
+	if (!buf)
+		return -ENOMEM;
 
 	ret = usb_control_msg(pegasus->usb, usb_sndctrlpipe(pegasus->usb, 0),
 			      PEGASUS_REQ_SET_REG, PEGASUS_REQT_WRITE, data,
-			      indx, &data, 1, 1000);
+			      indx, buf, 1, 1000);
 	if (ret < 0)
 		netif_dbg(pegasus, drv, pegasus->net,
 			  "%s returned %d\n", __func__, ret);
+	kfree(buf);
 	return ret;
 }
 
@@ -264,7 +285,7 @@ static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
 static int read_eprom_word(pegasus_t *pegasus, __u8 index, __u16 *retdata)
 {
 	int i;
-	__u8 tmp;
+	__u8 tmp = 0;
 	__le16 retdatai;
 	int ret;
 
@@ -734,12 +755,16 @@ static inline void disable_net_traffic(pegasus_t *pegasus)
 	set_registers(pegasus, EthCtrl0, sizeof(tmp), &tmp);
 }
 
-static inline void get_interrupt_interval(pegasus_t *pegasus)
+static inline int get_interrupt_interval(pegasus_t *pegasus)
 {
 	u16 data;
 	u8 interval;
+	int ret;
 
-	read_eprom_word(pegasus, 4, &data);
+	ret = read_eprom_word(pegasus, 4, &data);
+	if (ret < 0)
+		return ret;
+
 	interval = data >> 8;
 	if (pegasus->usb->speed != USB_SPEED_HIGH) {
 		if (interval < 0x80) {
@@ -754,6 +779,8 @@ static inline void get_interrupt_interval(pegasus_t *pegasus)
 		}
 	}
 	pegasus->intr_interval = interval;
+
+	return 0;
 }
 
 static void set_carrier(struct net_device *net)
@@ -1169,7 +1196,9 @@ static int pegasus_probe(struct usb_interface *intf,
 				| NETIF_MSG_PROBE | NETIF_MSG_LINK);
 
 	pegasus->features = usb_dev_id[dev_index].private;
-	get_interrupt_interval(pegasus);
+	res = get_interrupt_interval(pegasus);
+	if (res)
+		goto out2;
 	if (reset_mac(pegasus)) {
 		dev_err(&intf->dev, "can't reset MAC\n");
 		res = -EIO;

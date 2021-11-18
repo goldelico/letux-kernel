@@ -791,8 +791,6 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
 		return -ENOSYS;
 	}
 
-	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
-
 	dev->caps.hca_core_clock = hca_param.hca_core_clock;
 
 	memset(&dev_cap, 0, sizeof(dev_cap));
@@ -1765,6 +1763,14 @@ static int mlx4_comm_check_offline(struct mlx4_dev *dev)
 			       (u32)(1 << COMM_CHAN_OFFLINE_OFFSET));
 		if (!offline_bit)
 			return 0;
+
+		/* If device removal has been requested,
+		 * do not continue retrying.
+		 */
+		if (dev->persist->interface_state &
+		    MLX4_INTERFACE_STATE_NOWAIT)
+			break;
+
 		/* There are cases as part of AER/Reset flow that PF needs
 		 * around 100 msec to load. We therefore sleep for 100 msec
 		 * to allow other tasks to make use of that CPU during this
@@ -2289,6 +2295,7 @@ static int mlx4_allocate_default_counters(struct mlx4_dev *dev)
 
 		if (!err || err == -ENOSPC) {
 			priv->def_counter[port] = idx;
+			err = 0;
 		} else if (err == -ENOENT) {
 			err = 0;
 			continue;
@@ -2338,7 +2345,8 @@ int mlx4_counter_alloc(struct mlx4_dev *dev, u32 *idx)
 				   MLX4_CMD_TIME_CLASS_A, MLX4_CMD_WRAPPED);
 		if (!err)
 			*idx = get_param_l(&out_param);
-
+		if (WARN_ON(err == -ENOSPC))
+			err = -EINVAL;
 		return err;
 	}
 	return __mlx4_counter_alloc(dev, idx);
@@ -3214,6 +3222,7 @@ slave_start:
 
 		if (!SRIOV_VALID_STATE(dev->flags)) {
 			mlx4_err(dev, "Invalid SRIOV state\n");
+			err = -EINVAL;
 			goto err_close;
 		}
 	}
@@ -3692,6 +3701,9 @@ static void mlx4_remove_one(struct pci_dev *pdev)
 	struct mlx4_priv *priv = mlx4_priv(dev);
 	int active_vfs = 0;
 
+	if (mlx4_is_slave(dev))
+		persist->interface_state |= MLX4_INTERFACE_STATE_NOWAIT;
+
 	mutex_lock(&persist->interface_state_mutex);
 	persist->interface_state |= MLX4_INTERFACE_STATE_DELETION;
 	mutex_unlock(&persist->interface_state_mutex);
@@ -3845,45 +3857,53 @@ static pci_ers_result_t mlx4_pci_slot_reset(struct pci_dev *pdev)
 {
 	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
 	struct mlx4_dev	 *dev  = persist->dev;
-	struct mlx4_priv *priv = mlx4_priv(dev);
-	int               ret;
-	int nvfs[MLX4_MAX_PORTS + 1] = {0, 0, 0};
-	int total_vfs;
+	int err;
 
 	mlx4_err(dev, "mlx4_pci_slot_reset was called\n");
-	ret = pci_enable_device(pdev);
-	if (ret) {
-		mlx4_err(dev, "Can not re-enable device, ret=%d\n", ret);
+	err = pci_enable_device(pdev);
+	if (err) {
+		mlx4_err(dev, "Can not re-enable device, err=%d\n", err);
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 
 	pci_set_master(pdev);
 	pci_restore_state(pdev);
 	pci_save_state(pdev);
+	return PCI_ERS_RESULT_RECOVERED;
+}
 
+static void mlx4_pci_resume(struct pci_dev *pdev)
+{
+	struct mlx4_dev_persistent *persist = pci_get_drvdata(pdev);
+	struct mlx4_dev	 *dev  = persist->dev;
+	struct mlx4_priv *priv = mlx4_priv(dev);
+	int nvfs[MLX4_MAX_PORTS + 1] = {0, 0, 0};
+	int total_vfs;
+	int err;
+
+	mlx4_err(dev, "%s was called\n", __func__);
 	total_vfs = dev->persist->num_vfs;
 	memcpy(nvfs, dev->persist->nvfs, sizeof(dev->persist->nvfs));
 
 	mutex_lock(&persist->interface_state_mutex);
 	if (!(persist->interface_state & MLX4_INTERFACE_STATE_UP)) {
-		ret = mlx4_load_one(pdev, priv->pci_dev_data, total_vfs, nvfs,
+		err = mlx4_load_one(pdev, priv->pci_dev_data, total_vfs, nvfs,
 				    priv, 1);
-		if (ret) {
-			mlx4_err(dev, "%s: mlx4_load_one failed, ret=%d\n",
-				 __func__,  ret);
+		if (err) {
+			mlx4_err(dev, "%s: mlx4_load_one failed, err=%d\n",
+				 __func__,  err);
 			goto end;
 		}
 
-		ret = restore_current_port_types(dev, dev->persist->
+		err = restore_current_port_types(dev, dev->persist->
 						 curr_port_type, dev->persist->
 						 curr_port_poss_type);
-		if (ret)
-			mlx4_err(dev, "could not restore original port types (%d)\n", ret);
+		if (err)
+			mlx4_err(dev, "could not restore original port types (%d)\n", err);
 	}
 end:
 	mutex_unlock(&persist->interface_state_mutex);
 
-	return ret ? PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_RECOVERED;
 }
 
 static void mlx4_shutdown(struct pci_dev *pdev)
@@ -3900,6 +3920,7 @@ static void mlx4_shutdown(struct pci_dev *pdev)
 static const struct pci_error_handlers mlx4_err_handler = {
 	.error_detected = mlx4_pci_err_detected,
 	.slot_reset     = mlx4_pci_slot_reset,
+	.resume		= mlx4_pci_resume,
 };
 
 static struct pci_driver mlx4_driver = {

@@ -302,6 +302,11 @@ static int ath_reset_internal(struct ath_softc *sc, struct ath9k_channel *hchan)
 		hchan = ah->curchan;
 	}
 
+	if (!hchan) {
+		fastcc = false;
+		hchan = ath9k_cmn_get_channel(sc->hw, ah, &sc->cur_chan->chandef);
+	}
+
 	if (!ath_prepare_reset(sc))
 		fastcc = false;
 
@@ -373,8 +378,13 @@ void ath9k_tasklet(unsigned long data)
 	struct ath_common *common = ath9k_hw_common(ah);
 	enum ath_reset_type type;
 	unsigned long flags;
-	u32 status = sc->intrstatus;
+	u32 status;
 	u32 rxmask;
+
+	spin_lock_irqsave(&sc->intr_lock, flags);
+	status = sc->intrstatus;
+	sc->intrstatus = 0;
+	spin_unlock_irqrestore(&sc->intr_lock, flags);
 
 	ath9k_ps_wakeup(sc);
 	spin_lock(&sc->sc_pcu_lock);
@@ -382,12 +392,6 @@ void ath9k_tasklet(unsigned long data)
 	if (status & ATH9K_INT_FATAL) {
 		type = RESET_TYPE_FATAL_INT;
 		ath9k_queue_reset(sc, type);
-
-		/*
-		 * Increment the ref. counter here so that
-		 * interrupts are enabled in the reset routine.
-		 */
-		atomic_inc(&ah->intr_ref_cnt);
 		ath_dbg(common, RESET, "FATAL: Skipping interrupts\n");
 		goto out;
 	}
@@ -403,11 +407,6 @@ void ath9k_tasklet(unsigned long data)
 			type = RESET_TYPE_BB_WATCHDOG;
 			ath9k_queue_reset(sc, type);
 
-			/*
-			 * Increment the ref. counter here so that
-			 * interrupts are enabled in the reset routine.
-			 */
-			atomic_inc(&ah->intr_ref_cnt);
 			ath_dbg(common, RESET,
 				"BB_WATCHDOG: Skipping interrupts\n");
 			goto out;
@@ -420,7 +419,6 @@ void ath9k_tasklet(unsigned long data)
 		if ((sc->gtt_cnt >= MAX_GTT_CNT) && !ath9k_hw_check_alive(ah)) {
 			type = RESET_TYPE_TX_GTT;
 			ath9k_queue_reset(sc, type);
-			atomic_inc(&ah->intr_ref_cnt);
 			ath_dbg(common, RESET,
 				"GTT: Skipping interrupts\n");
 			goto out;
@@ -477,7 +475,7 @@ void ath9k_tasklet(unsigned long data)
 	ath9k_btcoex_handle_interrupt(sc, status);
 
 	/* re-enable hardware interrupt */
-	ath9k_hw_enable_interrupts(ah);
+	ath9k_hw_resume_interrupts(ah);
 out:
 	spin_unlock(&sc->sc_pcu_lock);
 	ath9k_ps_restore(sc);
@@ -541,7 +539,9 @@ irqreturn_t ath_isr(int irq, void *dev)
 		return IRQ_NONE;
 
 	/* Cache the status */
-	sc->intrstatus = status;
+	spin_lock(&sc->intr_lock);
+	sc->intrstatus |= status;
+	spin_unlock(&sc->intr_lock);
 
 	if (status & SCHED_INTR)
 		sched = true;
@@ -587,7 +587,7 @@ chip_reset:
 
 	if (sched) {
 		/* turn off every interrupt */
-		ath9k_hw_disable_interrupts(ah);
+		ath9k_hw_kill_interrupts(ah);
 		tasklet_schedule(&sc->intr_tq);
 	}
 
@@ -819,12 +819,80 @@ exit:
 	ieee80211_free_txskb(hw, skb);
 }
 
+static bool ath9k_txq_list_has_key(struct list_head *txq_list, u32 keyix)
+{
+	struct ath_buf *bf;
+	struct ieee80211_tx_info *txinfo;
+	struct ath_frame_info *fi;
+
+	list_for_each_entry(bf, txq_list, list) {
+		if (bf->bf_state.stale || !bf->bf_mpdu)
+			continue;
+
+		txinfo = IEEE80211_SKB_CB(bf->bf_mpdu);
+		fi = (struct ath_frame_info *)&txinfo->rate_driver_data[0];
+		if (fi->keyix == keyix)
+			return true;
+	}
+
+	return false;
+}
+
+static bool ath9k_txq_has_key(struct ath_softc *sc, u32 keyix)
+{
+	struct ath_hw *ah = sc->sc_ah;
+	int i;
+	struct ath_txq *txq;
+	bool key_in_use = false;
+
+	for (i = 0; !key_in_use && i < ATH9K_NUM_TX_QUEUES; i++) {
+		if (!ATH_TXQ_SETUP(sc, i))
+			continue;
+		txq = &sc->tx.txq[i];
+		if (!txq->axq_depth)
+			continue;
+		if (!ath9k_hw_numtxpending(ah, txq->axq_qnum))
+			continue;
+
+		ath_txq_lock(sc, txq);
+		key_in_use = ath9k_txq_list_has_key(&txq->axq_q, keyix);
+		if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_EDMA) {
+			int idx = txq->txq_tailidx;
+
+			while (!key_in_use &&
+			       !list_empty(&txq->txq_fifo[idx])) {
+				key_in_use = ath9k_txq_list_has_key(
+					&txq->txq_fifo[idx], keyix);
+				INCR(idx, ATH_TXFIFO_DEPTH);
+			}
+		}
+		ath_txq_unlock(sc, txq);
+	}
+
+	return key_in_use;
+}
+
+static void ath9k_pending_key_del(struct ath_softc *sc, u8 keyix)
+{
+	struct ath_hw *ah = sc->sc_ah;
+	struct ath_common *common = ath9k_hw_common(ah);
+
+	if (!test_bit(keyix, ah->pending_del_keymap) ||
+	    ath9k_txq_has_key(sc, keyix))
+		return;
+
+	/* No more TXQ frames point to this key cache entry, so delete it. */
+	clear_bit(keyix, ah->pending_del_keymap);
+	ath_key_delete(common, keyix);
+}
+
 static void ath9k_stop(struct ieee80211_hw *hw)
 {
 	struct ath_softc *sc = hw->priv;
 	struct ath_hw *ah = sc->sc_ah;
 	struct ath_common *common = ath9k_hw_common(ah);
 	bool prev_idle;
+	int i;
 
 	ath9k_deinit_channel_context(sc);
 
@@ -889,6 +957,14 @@ static void ath9k_stop(struct ieee80211_hw *hw)
 	ath9k_hw_configpcipowersave(ah, true);
 
 	spin_unlock_bh(&sc->sc_pcu_lock);
+
+	for (i = 0; i < ATH_KEYMAX; i++)
+		ath9k_pending_key_del(sc, i);
+
+	/* Clear key cache entries explicitly to get rid of any potentially
+	 * remaining keys.
+	 */
+	ath9k_cmn_init_crypto(sc->sc_ah);
 
 	ath9k_ps_restore(sc);
 
@@ -1442,6 +1518,9 @@ static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 		ath_chanctx_set_channel(sc, ctx, &hw->conf.chandef);
 	}
 
+	if (changed & IEEE80211_CONF_CHANGE_POWER)
+		ath9k_set_txpower(sc, NULL);
+
 	mutex_unlock(&sc->mutex);
 	ath9k_ps_restore(sc);
 
@@ -1518,12 +1597,11 @@ static void ath9k_del_ps_key(struct ath_softc *sc,
 {
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 	struct ath_node *an = (struct ath_node *) sta->drv_priv;
-	struct ieee80211_key_conf ps_key = { .hw_key_idx = an->ps_key };
 
 	if (!an->ps_key)
 	    return;
 
-	ath_key_delete(common, &ps_key);
+	ath_key_delete(common, an->ps_key);
 	an->ps_key = 0;
 	an->key_idx[0] = 0;
 }
@@ -1550,13 +1628,13 @@ static int ath9k_sta_state(struct ieee80211_hw *hw,
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 	int ret = 0;
 
-	if (old_state == IEEE80211_STA_AUTH &&
-	    new_state == IEEE80211_STA_ASSOC) {
+	if (old_state == IEEE80211_STA_NOTEXIST &&
+	    new_state == IEEE80211_STA_NONE) {
 		ret = ath9k_sta_add(hw, vif, sta);
 		ath_dbg(common, CONFIG,
 			"Add station: %pM\n", sta->addr);
-	} else if (old_state == IEEE80211_STA_ASSOC &&
-		   new_state == IEEE80211_STA_AUTH) {
+	} else if (old_state == IEEE80211_STA_NONE &&
+		   new_state == IEEE80211_STA_NOTEXIST) {
 		ret = ath9k_sta_remove(hw, vif, sta);
 		ath_dbg(common, CONFIG,
 			"Remove station: %pM\n", sta->addr);
@@ -1685,6 +1763,12 @@ static int ath9k_set_key(struct ieee80211_hw *hw,
 	if (sta)
 		an = (struct ath_node *)sta->drv_priv;
 
+	/* Delete pending key cache entries if no more frames are pointing to
+	 * them in TXQs.
+	 */
+	for (i = 0; i < ATH_KEYMAX; i++)
+		ath9k_pending_key_del(sc, i);
+
 	switch (cmd) {
 	case SET_KEY:
 		if (sta)
@@ -1714,7 +1798,15 @@ static int ath9k_set_key(struct ieee80211_hw *hw,
 		}
 		break;
 	case DISABLE_KEY:
-		ath_key_delete(common, key);
+		if (ath9k_txq_has_key(sc, key->hw_key_idx)) {
+			/* Delay key cache entry deletion until there are no
+			 * remaining TXQ frames pointing to this entry.
+			 */
+			set_bit(key->hw_key_idx, sc->sc_ah->pending_del_keymap);
+			ath_hw_keysetmac(common, key->hw_key_idx, NULL);
+		} else {
+			ath_key_delete(common, key->hw_key_idx);
+		}
 		if (an) {
 			for (i = 0; i < ARRAY_SIZE(an->key_idx); i++) {
 				if (an->key_idx[i] != key->hw_key_idx)
@@ -1860,14 +1952,16 @@ static void ath9k_reset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 static int ath9k_ampdu_action(struct ieee80211_hw *hw,
 			      struct ieee80211_vif *vif,
-			      enum ieee80211_ampdu_mlme_action action,
-			      struct ieee80211_sta *sta,
-			      u16 tid, u16 *ssn, u8 buf_size, bool amsdu)
+			      struct ieee80211_ampdu_params *params)
 {
 	struct ath_softc *sc = hw->priv;
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 	bool flush = false;
 	int ret = 0;
+	struct ieee80211_sta *sta = params->sta;
+	enum ieee80211_ampdu_mlme_action action = params->action;
+	u16 tid = params->tid;
+	u16 *ssn = &params->ssn;
 
 	mutex_lock(&sc->mutex);
 

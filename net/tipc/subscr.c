@@ -289,15 +289,15 @@ static void tipc_subscrb_rcv_cb(struct net *net, int conid,
 				struct sockaddr_tipc *addr, void *usr_data,
 				void *buf, size_t len)
 {
-	struct tipc_subscriber *subscriber = usr_data;
+	struct tipc_subscriber *subscrb = usr_data;
 	struct tipc_subscription *sub = NULL;
 	struct tipc_net *tn = net_generic(net, tipc_net_id);
 
-	tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscriber, &sub);
+	if (tipc_subscrp_create(net, (struct tipc_subscr *)buf, subscrb, &sub))
+		return tipc_conn_terminate(tn->topsrv, subscrb->conid);
+
 	if (sub)
 		tipc_nametbl_subscribe(sub);
-	else
-		tipc_conn_terminate(tn->topsrv, subscriber->conid);
 }
 
 /* Handle one request to establish a new subscriber */
@@ -306,7 +306,7 @@ static void *tipc_subscrb_connect_cb(int conid)
 	return (void *)tipc_subscrb_create(conid);
 }
 
-int tipc_topsrv_start(struct net *net)
+static int tipc_topsrv_start(struct net *net)
 {
 	struct tipc_net *tn = net_generic(net, tipc_net_id);
 	const char name[] = "topology_server";
@@ -337,14 +337,14 @@ int tipc_topsrv_start(struct net *net)
 	topsrv->tipc_conn_new		= tipc_subscrb_connect_cb;
 	topsrv->tipc_conn_shutdown	= tipc_subscrb_shutdown_cb;
 
-	strncpy(topsrv->name, name, strlen(name) + 1);
+	strscpy(topsrv->name, name, sizeof(topsrv->name));
 	tn->topsrv = topsrv;
 	atomic_set(&tn->subscription_count, 0);
 
 	return tipc_server_start(topsrv);
 }
 
-void tipc_topsrv_stop(struct net *net)
+static void tipc_topsrv_stop(struct net *net)
 {
 	struct tipc_net *tn = net_generic(net, tipc_net_id);
 	struct tipc_server *topsrv = tn->topsrv;
@@ -352,4 +352,14 @@ void tipc_topsrv_stop(struct net *net)
 	tipc_server_stop(topsrv);
 	kfree(topsrv->saddr);
 	kfree(topsrv);
+}
+
+int __net_init tipc_topsrv_init_net(struct net *net)
+{
+	return tipc_topsrv_start(net);
+}
+
+void __net_exit tipc_topsrv_exit_net(struct net *net)
+{
+	tipc_topsrv_stop(net);
 }

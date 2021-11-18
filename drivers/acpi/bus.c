@@ -154,7 +154,7 @@ int acpi_bus_get_private_data(acpi_handle handle, void **data)
 {
 	acpi_status status;
 
-	if (!*data)
+	if (!data)
 		return -EINVAL;
 
 	status = acpi_get_data(handle, acpi_bus_private_data_handler, data);
@@ -1004,6 +1004,9 @@ static int __init acpi_bus_init(void)
 		goto error1;
 	}
 
+	/* Set capability bits for _OSC under processor scope */
+	acpi_early_processor_osc();
+
 	/*
 	 * _OSC method may exist in module level code,
 	 * so it must be run after ACPI_FULL_INITIALIZATION
@@ -1084,6 +1087,7 @@ static int __init acpi_init(void)
 	init_acpi_device_notify();
 	result = acpi_bus_init();
 	if (result) {
+		kobject_put(acpi_kobj);
 		disable_acpi();
 		return result;
 	}
