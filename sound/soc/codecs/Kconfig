@@ -878,6 +878,9 @@ config SND_SOC_W2CBW003
 	help
 	  PCM interface to Bluetooth part of W2CBW003. Does not control the bluetooth headset link.
 
+config SND_SOC_EC25
+	tristate 'EC25 LTE module audio codec'
+
 config SND_SOC_HDAC_HDMI
 	tristate
 	select SND_HDA_EXT_CORE
