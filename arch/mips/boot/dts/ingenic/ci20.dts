@@ -83,6 +83,7 @@
 		label = "HDMI OUT";
 		type = "a";
 
+//		hpd-gpios = <&gpe 1 GPIO_ACTIVE_LOW>;
 		ddc-en-gpios = <&gpa 25 GPIO_ACTIVE_HIGH>;
 
 		port {
