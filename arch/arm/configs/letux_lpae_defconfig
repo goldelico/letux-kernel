@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.10.83 Kernel Configuration
+# Linux/arm 5.10.85 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -534,6 +534,7 @@ CONFIG_ALIGNMENT_TRAP=y
 # CONFIG_PARAVIRT is not set
 # CONFIG_PARAVIRT_TIME_ACCOUNTING is not set
 # CONFIG_XEN is not set
+CONFIG_STACKPROTECTOR_PER_TASK=y
 # end of Kernel Features
 
 #
@@ -751,6 +752,10 @@ CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
 # end of GCOV-based kernel profiling
 
 CONFIG_HAVE_GCC_PLUGINS=y
+CONFIG_GCC_PLUGINS=y
+# CONFIG_GCC_PLUGIN_LATENT_ENTROPY is not set
+# CONFIG_GCC_PLUGIN_RANDSTRUCT is not set
+CONFIG_GCC_PLUGIN_ARM_SSP_PER_TASK=y
 # end of General architecture-dependent options
 
 CONFIG_RT_MUTEXES=y
@@ -6773,6 +6778,9 @@ CONFIG_LSM="yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor"
 # Memory initialization
 #
 CONFIG_INIT_STACK_NONE=y
+# CONFIG_GCC_PLUGIN_STRUCTLEAK_USER is not set
+# CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF is not set
+# CONFIG_GCC_PLUGIN_STRUCTLEAK_BYREF_ALL is not set
 # CONFIG_INIT_ON_ALLOC_DEFAULT_ON is not set
 # CONFIG_INIT_ON_FREE_DEFAULT_ON is not set
 # end of Memory initialization
@@ -7247,6 +7255,7 @@ CONFIG_UNCOMPRESS_INCLUDE="debug/uncompress.h"
 #
 # CONFIG_KUNIT is not set
 CONFIG_ARCH_HAS_KCOV=y
+# CONFIG_KCOV is not set
 # CONFIG_RUNTIME_TESTING_MENU is not set
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
