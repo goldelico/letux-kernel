@@ -28,6 +28,7 @@
 #include <linux/iio/iio-opaque.h>
 #include "iio_core.h"
 #include "iio_core_trigger.h"
+#include "industrialio-inputbridge.h"
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
 #include <linux/iio/buffer.h>
@@ -1960,6 +1961,15 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 	if (ret < 0)
 		goto error_unreg_eventset;
 
+	ret = iio_device_register_inputbridge(indio_dev);
+	if (ret) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to register as input driver\n");
+		device_del(&indio_dev->dev);
+
+		return ret;
+	}
+
 	return 0;
 
 error_unreg_eventset:
@@ -1985,6 +1995,8 @@ void iio_device_unregister(struct iio_dev *indio_dev)
 	cdev_device_del(&iio_dev_opaque->chrdev, &indio_dev->dev);
 
 	mutex_lock(&iio_dev_opaque->info_exist_lock);
+
+	iio_device_unregister_inputbridge(indio_dev);
 
 	iio_device_unregister_debugfs(indio_dev);
 
