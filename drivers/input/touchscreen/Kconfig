@@ -1374,4 +1374,77 @@ config TOUCHSCREEN_ZINITIX
 	  To compile this driver as a module, choose M here: the
 	  module will be called zinitix.
 
+config TOUCHSCREEN_CRTOUCH_MT
+	tristate "Freescale CRTouch multitouch driver"
+	depends on I2C
+	help
+	  Say Y here if you have a Freescale CRTouch-based
+	  touchscreen connected via I2C.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5
+        tristate "Parade TrueTouch Gen5 Touchscreen Driver"
+        help
+          Core driver for Parade TrueTouch(tm) Standard Product
+          Geneartion5 touchscreen controllers.
+
+          Say Y here if you have a Parade Gen5 touchscreen.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called cyttsp5.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_DEVICETREE_SUPPORT
+        bool "Enable Device Tree support"
+        depends on TOUCHSCREEN_CYPRESS_CYTTSP5 && OF
+        help
+          Say Y here to enable support for device tree.
+
+          If unsure, say N.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_I2C
+        tristate "Parade TrueTouch Gen5 I2C"
+        depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+        select I2C
+        help
+          Say Y here to enable I2C bus interface to Parade TrueTouch(tm)
+          Standard Product Generation5 touchscreen controller.
+
+          If unsure, say Y.
+
+          To compile this driver as a module, choose M here: the
+          module will be called cyttsp5_i2c.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_EMULATION
+	bool "Enable pointer emulation"
+	depends on TOUCHSCREEN_CYPRESS_CYTTSP5 && TOUCHSCREEN_CYPRESS_CYTTSP5_MT_B
+	help
+	  Say Y here to enable pointer emulation.
+
+	  If unsure, say N.
+
+choice
+        bool "Parade TrueTouch Gen5 MultiTouch Protocol"
+        depends on TOUCHSCREEN_CYPRESS_CYTTSP5
+        default TOUCHSCREEN_CYPRESS_CYTTSP5_MT_B
+        help
+          This option controls which MultiTouch protocol will be used to
+          report the touch events.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_MT_A
+        bool "Protocol A"
+        help
+          Select to enable MultiTouch touch reporting using protocol A
+          on Parade TrueTouch(tm) Standard Product Generation4 touchscreen
+          controller.
+
+config TOUCHSCREEN_CYPRESS_CYTTSP5_MT_B
+        bool "Protocol B"
+        help
+          Select to enable MultiTouch touch reporting using protocol B
+          on Parade TrueTouch(tm) Standard Product Generation4 touchscreen
+          controller.
+
+endchoice
+
 endif
