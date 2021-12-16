@@ -185,6 +185,7 @@ snd-soc-nau8824-objs := nau8824.o
 snd-soc-nau8825-objs := nau8825.o
 snd-soc-hdmi-codec-objs := hdmi-codec.o
 snd-soc-pcm1681-objs := pcm1681.o
+snd-soc-pcm1773-objs := pcm1773.o
 snd-soc-pcm1789-codec-objs := pcm1789.o
 snd-soc-pcm1789-i2c-objs := pcm1789-i2c.o
 snd-soc-pcm179x-codec-objs := pcm179x.o
@@ -779,6 +780,7 @@ obj-$(CONFIG_SND_SOC_WSA881X)	+= snd-soc-wsa881x.o
 obj-$(CONFIG_SND_SOC_WSA883X)	+= snd-soc-wsa883x.o
 obj-$(CONFIG_SND_SOC_WSA884X)	+= snd-soc-wsa884x.o
 obj-$(CONFIG_SND_SOC_ZL38060)	+= snd-soc-zl38060.o
+obj-$(CONFIG_SND_SOC_PCM1773)	+= snd-soc-pcm1773.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
