@@ -129,6 +129,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_NAU8825 if I2C
 	select SND_SOC_HDMI_CODEC
 	select SND_SOC_PCM1681 if I2C
+	select SND_SOC_PCM1773
 	select SND_SOC_PCM1789_I2C if I2C
 	select SND_SOC_PCM179X_I2C if I2C
 	select SND_SOC_PCM179X_SPI if SPI_MASTER
@@ -1455,6 +1456,10 @@ config SND_SOC_ZX_AUD96P22
 	tristate "ZTE ZX AUD96P22 CODEC"
 	depends on I2C
 	select REGMAP_I2C
+
+config SND_SOC_PCM1773
+	tristate "TI PCM1773 audio output codec"
+	select GPIOLIB
 
 # Amp
 config SND_SOC_LM4857
