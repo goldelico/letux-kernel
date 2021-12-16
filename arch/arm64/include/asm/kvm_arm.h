@@ -83,7 +83,7 @@
 #define HCR_HOST_VHE_FLAGS (HCR_RW | HCR_TGE | HCR_E2H)
 
 /* TCR_EL2 Registers bits */
-#define TCR_EL2_RES1		((1U << 31) | (1 << 23))
+#define TCR_EL2_RES1		((UL(1) << 31) | (UL(1) << 23))
 #define TCR_EL2_TBI		(1 << 20)
 #define TCR_EL2_PS_SHIFT	16
 #define TCR_EL2_PS_MASK		(7 << TCR_EL2_PS_SHIFT)
