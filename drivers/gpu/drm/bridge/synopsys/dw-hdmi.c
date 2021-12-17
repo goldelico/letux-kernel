@@ -38,6 +38,9 @@
 #include "dw-hdmi-cec.h"
 #include "dw-hdmi.h"
 
+#undef dev_dbg
+#define dev_dbg dev_info
+
 #define DDC_CI_ADDR		0x37
 #define DDC_SEGMENT_ADDR	0x30
 
@@ -2340,7 +2343,7 @@ static enum drm_connector_status dw_hdmi_detect(struct dw_hdmi *hdmi)
 
 	mutex_lock(&hdmi->mutex);
 	if (result != hdmi->last_connector_result) {
-		dev_dbg(hdmi->dev, "read_hpd result: %d", result);
+		dev_info(hdmi->dev, "read_hpd result: %d", result);
 		handle_plugged_change(hdmi,
 				      result == connector_status_connected);
 		hdmi->last_connector_result = result;
@@ -3014,7 +3017,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 						 ? connector_status_connected
 						 : connector_status_disconnected;
 
-		dev_dbg(hdmi->dev, "EVENT=%s\n",
+		dev_info(hdmi->dev, "EVENT=%s\n",
 			status == connector_status_connected ?
 			"plugin" : "plugout");
 
