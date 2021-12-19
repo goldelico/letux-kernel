@@ -1312,8 +1312,14 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 
 	/* Enable OSD if available */
 	if (soc_info->has_osd)
+{
+	u32 val;
+	regmap_read(priv->map, JZ_REG_LCD_OSDC, &val);
+	printk("%s: before: %08x\n", __func__, val);
 		regmap_set_bits(priv->map, JZ_REG_LCD_OSDC, JZ_LCD_OSDC_OSDEN);
-
+	regmap_read(priv->map, JZ_REG_LCD_OSDC, &val);
+	printk("%s: after: %08x\n", __func__, val);
+}
 	mutex_init(&priv->clk_mutex);
 	priv->clock_nb.notifier_call = ingenic_drm_update_pixclk;
 
