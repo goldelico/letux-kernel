@@ -931,13 +931,17 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 	struct drm_connector_list_iter conn_iter;
 	int changed = 0;
 
+printk("%s\n", __func__);
 	if (!dev->mode_config.poll_enabled)
 		return false;
+
+printk("%s 1\n", __func__);
 
 	mutex_lock(&dev->mode_config.mutex);
 	drm_connector_list_iter_begin(dev, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter) {
 		/* Only handle HPD capable connectors. */
+printk("%s 2\n", __func__);
 		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
 			continue;
 
@@ -953,13 +957,18 @@ bool drm_helper_hpd_irq_event(struct drm_device *dev)
 	drm_connector_list_iter_end(&conn_iter);
 	mutex_unlock(&dev->mode_config.mutex);
 
+printk("%s 3\n", __func__);
 	if (changed == 1)
 		drm_kms_helper_connector_hotplug_event(first_changed_connector);
 	else if (changed > 0)
 		drm_kms_helper_hotplug_event(dev);
 
+printk("%s 4: %d\n", __func__, changed);
+
 	if (first_changed_connector)
 		drm_connector_put(first_changed_connector);
+
+printk("%s 4: %d\n", __func__, changed);
 
 	return changed;
 }
