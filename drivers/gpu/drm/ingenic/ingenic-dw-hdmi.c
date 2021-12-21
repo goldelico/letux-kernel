@@ -49,6 +49,8 @@ ingenic_dw_hdmi_mode_valid(struct dw_hdmi *hdmi, void *data,
 			   const struct drm_display_info *info,
 			   const struct drm_display_mode *mode)
 {
+	extern void dw_hdmi_enable_poll(struct dw_hdmi *hdmi, bool enable);
+
 	if (mode->clock < 13500)
 		return MODE_CLOCK_LOW;
 	/* FIXME: Hardware is capable of 270MHz, but setup data is missing. */

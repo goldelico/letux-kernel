@@ -3019,7 +3019,7 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 			"plugin" : "plugout");
 
 		if (hdmi->bridge.dev) {
-			hdmi->bridge.dev->mode_config.poll_enabled = true;
+//			hdmi->bridge.dev->mode_config.poll_enabled = true;
 
 			drm_helper_hpd_irq_event(hdmi->bridge.dev);
 			drm_bridge_hpd_notify(&hdmi->bridge, status);
@@ -3218,12 +3218,12 @@ static int dw_hdmi_parse_dt(struct dw_hdmi *hdmi)
 	return 0;
 }
 
-void dw_hdmi_enable_poll(struct dw_hdmi *hdmi, bool enable)
+static void dw_hdmi_enable_poll(struct dw_hdmi *hdmi, bool enable)
 {
 	if (hdmi->bridge.dev)
 		hdmi->bridge.dev->mode_config.poll_enabled = enable;
 	else
-		dev_warn(hdmi->dev, "no hdmi->bridge.dev");
+		printk("%s: no hdmi->bridge.dev\n", __func__);
 }
 EXPORT_SYMBOL_GPL(dw_hdmi_enable_poll);
 
