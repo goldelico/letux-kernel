@@ -3019,6 +3019,8 @@ static irqreturn_t dw_hdmi_irq(int irq, void *dev_id)
 			"plugin" : "plugout");
 
 		if (hdmi->bridge.dev) {
+			hdmi->bridge.dev->mode_config.poll_enabled = true;
+
 			drm_helper_hpd_irq_event(hdmi->bridge.dev);
 			drm_bridge_hpd_notify(&hdmi->bridge, status);
 		}
