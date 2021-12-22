@@ -43,6 +43,11 @@
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
+#define posd(STR) { u32 val; \
+	regmap_read(priv->map, JZ_REG_LCD_OSDC, &val); \
+	printk("%s %s: JZ_REG_LCD_OSDC = %08x\n", __func__, STR, val); \
+}
+
 #define HWDESC_PALETTE 2
 
 struct ingenic_dma_hwdesc {
@@ -515,8 +520,9 @@ static void ingenic_drm_plane_enable(struct ingenic_drm *priv,
 			en_bit = JZ_LCD_OSDC_F1EN;
 		else
 			en_bit = JZ_LCD_OSDC_F0EN;
-
+posd("1");
 		regmap_set_bits(priv->map, JZ_REG_LCD_OSDC, en_bit);
+posd("2");
 	}
 }
 
@@ -531,7 +537,9 @@ void ingenic_drm_plane_disable(struct device *dev, struct drm_plane *plane)
 		else
 			en_bit = JZ_LCD_OSDC_F0EN;
 
+posd("1");
 		regmap_clear_bits(priv->map, JZ_REG_LCD_OSDC, en_bit);
+posd("2");
 	}
 }
 
@@ -1111,6 +1119,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		dev_err(dev, "Failed to create regmap\n");
 		return PTR_ERR(priv->map);
 	}
+posd("a");
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -1171,6 +1180,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		dev_err(dev, "Failed to init CRTC: %i\n", ret);
 		return ret;
 	}
+posd("b");
 
 	drm_crtc_enable_color_mgmt(&priv->crtc, 0, false,
 				   ARRAY_SIZE(priv->dma_hwdescs->palette));
@@ -1214,6 +1224,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		}
 	}
 
+posd("c");
 	for (i = 0; ; i++) {
 		ret = drm_of_find_panel_or_bridge(dev->of_node, 0, i, &panel, &bridge);
 		if (ret) {
@@ -1267,6 +1278,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 	drm_for_each_encoder(encoder, drm) {
 		encoder->possible_clones = clone_mask;
 	}
+posd("d");
 
 	ret = devm_request_irq(dev, irq, ingenic_drm_irq_handler, 0, drm->driver->name, drm);
 	if (ret) {
@@ -1274,13 +1286,19 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		return ret;
 	}
 
+posd("d1");
+
 	ret = drm_vblank_init(drm, 1);
 	if (ret) {
 		dev_err(dev, "Failed calling drm_vblank_init()\n");
 		return ret;
 	}
 
+posd("d2");
+
 	drm_mode_config_reset(drm);
+
+posd("d3");
 
 	ret = clk_prepare_enable(priv->pix_clk);
 	if (ret) {
@@ -1288,9 +1306,15 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		return ret;
 	}
 
+posd("d4");
+
 	if (priv->lcd_clk) {
+posd("d4a");
 		parent_clk = clk_get_parent(priv->lcd_clk);
+posd("d4b");
+
 		parent_rate = clk_get_rate(parent_clk);
+posd("d4c");
 
 		/* LCD Device clock must be 3x the pixel clock for STN panels,
 		 * or 1.5x the pixel clock for TFT panels. To avoid having to
@@ -1298,27 +1322,30 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 		 * we set the LCD device clock to the highest rate possible.
 		 */
 		ret = clk_set_rate(priv->lcd_clk, parent_rate);
+posd("d4d");
+
 		if (ret) {
 			dev_err(dev, "Unable to set LCD clock rate\n");
 			goto err_pixclk_disable;
 		}
+posd("d4e");
 
 		ret = clk_prepare_enable(priv->lcd_clk);
+posd("d4f");
 		if (ret) {
 			dev_err(dev, "Unable to start lcd clock\n");
 			goto err_pixclk_disable;
 		}
 	}
 
+posd("d5");
+
 	/* Enable OSD if available */
 	if (soc_info->has_osd)
 {
-	u32 val;
-	regmap_read(priv->map, JZ_REG_LCD_OSDC, &val);
-	printk("%s: before: %08x\n", __func__, val);
+	posd("1");
 		regmap_set_bits(priv->map, JZ_REG_LCD_OSDC, JZ_LCD_OSDC_OSDEN);
-	regmap_read(priv->map, JZ_REG_LCD_OSDC, &val);
-	printk("%s: after: %08x\n", __func__, val);
+	posd("2");
 }
 	mutex_init(&priv->clk_mutex);
 	priv->clock_nb.notifier_call = ingenic_drm_update_pixclk;
@@ -1351,6 +1378,7 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 	}
 
 	drm_fbdev_generic_setup(drm, 32);
+posd("e");
 
 	return 0;
 
