@@ -31,6 +31,28 @@
 		clock-frequency = <26000000>;
 	};
 
+	/* Shared 5V rail for headphone amplifier, early LCD and USB */
+	aux_5v: fixed-regulator-5v {
+		compatible = "regulator-fixed"; /* TPS61029DRC */
+		regulator-name = "aux_5v";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		startup-delay-us = <5000>;
+		enable-active-high;
+		gpio = <&twl_gpio 20 GPIO_ACTIVE_HIGH>; /* REGEN */
+		vin-supply = <&vaux1>; /* logical enable dependency */
+	};
+
+	/* LCD_5V: switched shared 5V on rev 5a, separate supply on rev 6d */
+	lcd_5v: fixed-regulator-lcd-5v {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd_5v";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		startup-delay-us = <5000>;
+		vin-supply = <&aux_5v>; /* logical enable dependency */
+	};
+
 	tv: connector {
 		compatible = "connector-analog-tv";
 		label = "tv";
@@ -212,15 +234,13 @@
 		#phy-cells = <0>;
 	};
 
-	/* HS USB Host VBUS supply
-	 * disabling this regulator causes current leakage, and LCD flicker
-	 * on earlier (CC) board revisions, so keep it always on */
+	/* HS USB Host VBUS supply */
 	usb_host_5v: fixed-regulator-usb_host_5v {
+		vin-supply = <&aux_5v>;
 		compatible = "regulator-fixed";
 		regulator-name = "usb_host_5v";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		regulator-always-on;
 		regulator-boot-on;
 		enable-active-high;
 		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO_164 */
@@ -673,7 +693,7 @@
 
 		label = "lcd";
 		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* GPIO_157 */
-		vcc-supply = <&vaux1>;
+		vcc-supply = <&lcd_5v>;
 
 		port {
 			lcd_in: endpoint {
@@ -711,6 +731,10 @@
 };
 
 /* bluetooth */
+&twl_gpio {
+	ti,use-regen;
+};
+
 &mcbsp3 {
 };
 
