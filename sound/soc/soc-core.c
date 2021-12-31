@@ -2174,6 +2174,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	/* bind aux_devs too */
 	ret = soc_bind_aux_dev(card);
+printk("%s: 1 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
@@ -2186,6 +2187,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	/* card bind complete so register a sound card */
 	ret = snd_card_new(card->dev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1,
 			card->owner, 0, &card->snd_card);
+printk("%s: 3 ret=%d\n", __func__, ret);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: can't create sound card for card %s: %d\n",
@@ -2199,21 +2201,25 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	ret = snd_soc_dapm_new_controls(dapm, card->dapm_widgets,
 					card->num_dapm_widgets);
+printk("%s: 4 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
 	ret = snd_soc_dapm_new_controls(dapm, card->of_dapm_widgets,
 					card->num_of_dapm_widgets);
+printk("%s: 5 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
 	/* initialise the sound card only once */
 	ret = snd_soc_card_probe(card);
+printk("%s: 6 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
 	/* probe all components used by DAI links on this card */
 	ret = soc_probe_link_components(card);
+printk("%s: 7 ret=%d\n", __func__, ret);
 	if (ret < 0) {
 		if (ret != -EPROBE_DEFER) {
 			dev_err(card->dev,
@@ -2224,6 +2230,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	/* probe auxiliary components */
 	ret = soc_probe_aux_devices(card);
+printk("%s: 8 ret=%d\n", __func__, ret);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: failed to probe aux component %d\n", ret);
@@ -2232,6 +2239,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	/* probe all DAI links on this card */
 	ret = soc_probe_link_dais(card);
+printk("%s: 9 ret=%d\n", __func__, ret);
 	if (ret < 0) {
 		dev_err(card->dev,
 			"ASoC: failed to instantiate card %d\n", ret);
@@ -2240,6 +2248,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	for_each_card_rtds(card, rtd) {
 		ret = soc_init_pcm_runtime(card, rtd);
+printk("%s: 10 ret=%d\n", __func__, ret);
 		if (ret < 0)
 			goto probe_end;
 	}
@@ -2249,16 +2258,30 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 
 	ret = snd_soc_add_card_controls(card, card->controls,
 					card->num_controls);
+printk("%s: 11 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
 	ret = snd_soc_dapm_add_routes(dapm, card->dapm_routes,
 				      card->num_dapm_routes);
-	if (ret < 0)
+
+printk("%s: 12 ret=%d\n", __func__, ret);
+	if (ret < 0) {
+		if (card->disable_route_checks) {
+			dev_info(card->dev,
+				 "%s: disable_route_checks set, ignoring errors on add_routes\n",
+				 __func__);
+		} else {
+			dev_err(card->dev,
+				 "%s: snd_soc_dapm_add_routes failed: %d\n",
+				 __func__, ret);
+		}
 		goto probe_end;
+	}
 
 	ret = snd_soc_dapm_add_routes(dapm, card->of_dapm_routes,
 				      card->num_of_dapm_routes);
+printk("%s: 13 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
@@ -2278,6 +2301,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 		/* but the string collision (identical string) check might */
 		/* not work correctly */
 		ret = snd_component_add(card->snd_card, card->components);
+printk("%s: 14 ret=%d\n", __func__, ret);
 		if (ret < 0) {
 			dev_err(card->dev, "ASoC: %s snd_component_add() failed: %d\n",
 				card->name, ret);
@@ -2286,6 +2310,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	}
 
 	ret = snd_soc_card_late_probe(card);
+printk("%s: 15 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		goto probe_end;
 
@@ -2293,6 +2318,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 	snd_soc_card_fixup_controls(card);
 
 	ret = snd_card_register(card->snd_card);
+printk("%s: 16 ret=%d\n", __func__, ret);
 	if (ret < 0) {
 		dev_err(card->dev, "ASoC: failed to register soundcard %d\n",
 				ret);
@@ -2309,6 +2335,7 @@ static int snd_soc_bind_card(struct snd_soc_card *card)
 			pinctrl_pm_select_sleep_state(component->dev);
 
 probe_end:
+printk("%s: 17 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		soc_cleanup_card_resources(card);
 	snd_soc_card_mutex_unlock(card);
