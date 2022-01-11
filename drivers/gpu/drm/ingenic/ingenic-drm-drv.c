@@ -1300,7 +1300,19 @@ posd("d2");
 
 posd("d3");
 
-	ret = clk_prepare_enable(priv->pix_clk);
+//	ret = clk_prepare_enable(priv->pix_clk);
+	ret = clk_prepare(priv->pix_clk);
+posd("d3a");
+	if (ret) {
+		dev_err(dev, "Unable to start pixel clock\n");
+		return ret;
+	}
+	ret = clk_enable(priv->pix_clk);
+posd("d3b");
+	if (ret)
+		clk_unprepare(priv->pix_clk);
+posd("d3c");
+
 	if (ret) {
 		dev_err(dev, "Unable to start pixel clock\n");
 		return ret;
@@ -1330,7 +1342,20 @@ posd("d4d");
 		}
 posd("d4e");
 
-		ret = clk_prepare_enable(priv->lcd_clk);
+//		ret = clk_prepare_enable(priv->lcd_clk);
+		ret = clk_prepare(priv-> lcd_clk);
+posd("d4e1");
+		if (ret) {
+			dev_err(dev, "Unable to start lcd clock\n");
+			goto err_pixclk_disable;
+		}
+		ret = clk_enable(priv-> lcd_clk);
+/* zack - hier ist plötzlich JZ_REG_LCD_OSDC = 00010005 */
+posd("d4e2");
+		if (ret)
+			clk_unprepare(priv-> lcd_clk);
+posd("d4e3");
+
 posd("d4f");
 		if (ret) {
 			dev_err(dev, "Unable to start lcd clock\n");
