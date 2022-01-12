@@ -3221,7 +3221,7 @@ static int dw_hdmi_parse_dt(struct dw_hdmi *hdmi)
 	return 0;
 }
 
-static void dw_hdmi_enable_poll(struct dw_hdmi *hdmi, bool enable)
+void dw_hdmi_enable_poll(struct dw_hdmi *hdmi, bool enable)
 {
 	if (hdmi->bridge.dev)
 		hdmi->bridge.dev->mode_config.poll_enabled = enable;
