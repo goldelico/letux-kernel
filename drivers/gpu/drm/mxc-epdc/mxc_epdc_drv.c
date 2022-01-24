@@ -260,7 +260,7 @@ static void mxc_epdc_pipe_update(struct drm_simple_display_pipe *pipe,
 			clip_line.x2 = clip.x2;
 			clip_line.y1 = y;
 			clip_line.y2 = y + 1;
-			drm_fb_xrgb8888_to_gray8(dst,
+			drm_fb_xrgb8888_to_gray8(dst, 0,
 					 	 gem->vaddr, old_state->fb,
 					 	 &clip_line);
 			dst += priv->epdc_mem_width;
