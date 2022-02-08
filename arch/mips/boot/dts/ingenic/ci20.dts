@@ -85,6 +85,8 @@
 		label = "HDMI OUT";
 		type = "a";
 
+		ddc-en-gpios = <&gpa 25 GPIO_ACTIVE_HIGH>;
+
 		port {
 			hdmi_con: endpoint {
 				remote-endpoint = <&dw_hdmi_out>;
@@ -135,17 +137,6 @@
 
 //		regulator-always-on;
 		regulator-boot-on;
-	};
-
-	hdmi_power: fixedregulator@3 {
-		compatible = "regulator-fixed";
-
-		regulator-name = "hdmi_power";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-
-		gpio = <&gpa 25 0>;
-		enable-active-high;
 	};
 };
 
@@ -666,8 +657,6 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_hdmi_ddc>;
-
-	hdmi-5v-supply = <&hdmi_power>;
 
 	ports {
 		#address-cells = <1>;
