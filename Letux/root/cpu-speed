@@ -1,0 +1,9 @@
+#!/bin/bash
+
+[ "$(which sysbench)" ] || apt-get install sysbench
+
+PROCESSORS=$(nproc --all)
+
+uname -a
+echo sysbench --num-threads=$PROCESSORS --test=cpu --cpu-max-prime=1000 run
+sysbench --num-threads=$PROCESSORS --test=cpu --cpu-max-prime=1000 run
