@@ -797,6 +797,7 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-beagle+gta04.dtb \
 	omap3-beagle+gta04b1.dtb \
 	omap3-beagle+gta04b4.dtb \
+	omap3-beagle-ab4.dtb \
 	omap3-beagle-xm.dtb \
 	omap3-beagle-xm+gta04.dtb \
 	omap3-beagle-xm+gta04b1.dtb \
