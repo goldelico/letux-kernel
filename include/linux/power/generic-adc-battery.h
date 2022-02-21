@@ -18,6 +18,7 @@ struct gab_platform_data {
 	struct power_supply_info battery_info;
 	int	(*cal_charge)(long value);
 	int     jitter_delay;
+	bool charger_detected;
 };
 
 #endif /* GENERIC_ADC_BATTERY_H */
