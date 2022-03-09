@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.24 Kernel Configuration
+# Linux/mips 5.15.27 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1071,7 +1071,6 @@ CONFIG_OF_EARLY_FLATTREE=y
 CONFIG_OF_KOBJ=y
 CONFIG_OF_ADDRESS=y
 CONFIG_OF_IRQ=y
-CONFIG_OF_NET=y
 CONFIG_OF_RESERVED_MEM=y
 # CONFIG_OF_OVERLAY is not set
 # CONFIG_PARPORT is not set
