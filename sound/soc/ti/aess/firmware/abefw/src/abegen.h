@@ -58,6 +58,7 @@
 
 #ifndef __ABEGEN_H
 #define __ABEGEN_H
+#define uintptr_t host_uintptr_t
 
 // move away host definitions of uintptr_t etc. conflicting with kernel
 #define uintptr_t host_uintptr_t
