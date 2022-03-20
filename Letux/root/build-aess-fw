@@ -1,0 +1,105 @@
+#!/bin/bash
+#
+# build AESS firmware on destination device (e.g. PandaBoard, OMAP5EVM, Pyra, ...)
+# cross-compile may/will need different approach
+# tested on Debian 9.13 on letux devices
+#
+# Source code comes originally from https://github.com/omap-audio
+#
+
+THIS="$PWD"
+# FIXME: base on $(uname -r) -> 5.17.0-rc6-letux-lpae+
+# strip off the -letux suffix, strip off the .0 version
+BRANCH=letux-5.17-rc8
+VERSION=009590
+
+#
+# preparation of build host
+#
+
+echo +++ make sure we have the required build tools
+apt-get install build-essential bison flex bc libssl-dev git autogen automake libtool || exit 1
+
+echo +++ create and go to $PWD/aess
+mkdir -p aess && cd aess || exit 1
+
+#
+# getting source trees
+#
+
+function gitfetch { # $1 = repo, $2 = subdir
+	if ! [ -d $2 ]
+	then
+		rm -rf $2.tmp
+		git clone --depth 1 -b $BRANCH $1 $2.tmp && mv $2.tmp $2 || return
+	fi
+}
+
+echo "+++ fetch the (complete) letux kernel source tree with minimal effort"
+gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel || exit 1
+
+LINUX="$PWD/letux-kernel"			# full source tree (for headers)
+DEST="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware
+
+#
+# build generated kernel headers
+#
+
+echo +++ configure kernel and build generated headers
+(
+cd $LINUX || exit
+
+[ -f include/generated/uapi/linux/version.h ] || ( make ARCH=arm letux_lpae_defconfig modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers && ln -sf asm-generic include/asm)
+) || exit
+
+
+#
+# build firmware tools and firmware
+#
+
+echo +++ configure abefw
+(
+cd $DEST/abefw || exit
+
+echo +++ autogen the Makefiles
+LC_ALL=C ./autogen.sh || exit 1
+
+echo +++ configure
+# the configure option --with-hal-dir does not exist "(contrary to README)"
+# ./configure --with-linux-dir=$LINUX --with-hal-dir=$PWD/hal || exit 1
+./configure --with-linux-dir=$LINUX || exit 1
+
+echo +++ make and install
+make || exit 1
+make install || exit 1
+
+echo +++ generate data files
+scripts/abe-tool.sh $VERSION || exit 1
+) || exit
+
+echo +++ configure asoc-fw
+(
+cd $DEST/asoc-fw || exit
+
+echo +++ autogen the Makefiles
+LC_ALL=C ./autogen.sh || exit
+
+echo +++ configure
+./configure --with-linux-dir=$LINUX --enable-omap4 || exit
+
+echo +++ make and install
+make || exit 1
+make install || exit 1
+
+echo "+++ finally generate firmware binary"
+
+scripts/abegen.sh || exit 1
+
+echo "+++ install as omap_aess-adfw.bin"
+cp omap4_abe_new /lib/firmware/omap_aess-adfw.bin || exit 1
+
+echo "+++ success ++"
+ls -l /lib/firmware/omap_aess-adfw.bin
+) || exit
+
+# FIXME: build audio tools as/if needed
