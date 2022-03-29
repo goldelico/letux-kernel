@@ -1227,7 +1227,7 @@ CONFIG_USB_ARMLINUX=y
 # CONFIG_USB_NET_CX82310_ETH is not set
 # CONFIG_USB_NET_KALMIA is not set
 # CONFIG_USB_NET_QMI_WWAN is not set
-CONFIG_USB_HSO=m
+CONFIG_USB_HSO=y
 CONFIG_USB_NET_INT51X1=m
 # CONFIG_USB_IPHETH is not set
 # CONFIG_USB_SIERRA_NET is not set
@@ -2869,7 +2869,7 @@ CONFIG_DMA_JZ4780=y
 # DMABUF options
 #
 CONFIG_SYNC_FILE=y
-# CONFIG_SW_SYNC is not set
+CONFIG_SW_SYNC=y
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
 # CONFIG_VIRT_DRIVERS is not set
@@ -2978,7 +2978,7 @@ CONFIG_STAGING=y
 # Android
 #
 # CONFIG_ASHMEM is not set
-# CONFIG_ANDROID_LOW_MEMORY_KILLER is not set
+CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 # CONFIG_ION is not set
 # CONFIG_STAGING_BOARD is not set
 # CONFIG_LTE_GDM724X is not set
@@ -3785,7 +3785,7 @@ CONFIG_HAVE_ARCH_KGDB=y
 # CONFIG_ARCH_WANTS_UBSAN_NO_NULL is not set
 # CONFIG_UBSAN is not set
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel"
+CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_DEBUG_ZBOOT is not set
 # CONFIG_SPINLOCK_TEST is not set
@@ -4033,3 +4033,5 @@ CONFIG_SG_POOL=y
 CONFIG_SBITMAP=y
 CONFIG_HAVE_KVM=y
 # CONFIG_VIRTUALIZATION is not set
+CONFIG_ANDROID_LOGGER=y
+CONFIG_ANDROID_TIMED_OUTPUT=y
