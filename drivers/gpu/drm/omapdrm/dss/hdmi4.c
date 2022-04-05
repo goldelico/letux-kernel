@@ -432,7 +432,7 @@ static void hdmi4_bridge_hpd_notify(struct drm_bridge *bridge,
 	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
 
 	if (status == connector_status_disconnected)
-		hdmi4_cec_set_phys_addr(&hdmi->core, CEC_PHYS_ADDR_INVALID);
+		hdmi4_cec_set_phys_addr(&hdmi->core, NULL);
 }
 
 static struct edid *hdmi4_bridge_get_edid(struct drm_bridge *bridge,
@@ -440,7 +440,6 @@ static struct edid *hdmi4_bridge_get_edid(struct drm_bridge *bridge,
 {
 	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
 	struct edid *edid = NULL;
-	unsigned int cec_addr;
 	bool need_enable;
 	int r;
 
@@ -466,20 +465,27 @@ done:
 	hdmi_runtime_put(hdmi);
 	mutex_unlock(&hdmi->lock);
 
-	if (edid && edid->extensions) {
-		unsigned int len = (edid->extensions + 1) * EDID_LENGTH;
-
-		cec_addr = cec_get_edid_phys_addr((u8 *)edid, len, NULL);
-	} else {
-		cec_addr = CEC_PHYS_ADDR_INVALID;
-	}
-
-	hdmi4_cec_set_phys_addr(&hdmi->core, cec_addr);
+	hdmi4_cec_set_phys_addr(&hdmi->core, edid);
 
 	if (need_enable)
 		hdmi4_core_disable(&hdmi->core);
 
 	return edid;
+}
+
+static int hdmi4_bridge_cec_init(struct drm_bridge *bridge,
+				 struct drm_connector *conn)
+{
+	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
+
+	return hdmi4_cec_init(hdmi->pdev, &hdmi->core, &hdmi->wp, conn);
+}
+
+static void hdmi4_bridge_cec_exit(struct drm_bridge *bridge)
+{
+	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
+
+	hdmi4_cec_uninit(&hdmi->core);
 }
 
 static const struct drm_bridge_funcs hdmi4_bridge_funcs = {
@@ -492,13 +498,15 @@ static const struct drm_bridge_funcs hdmi4_bridge_funcs = {
 	.atomic_disable = hdmi4_bridge_disable,
 	.hpd_notify = hdmi4_bridge_hpd_notify,
 	.get_edid = hdmi4_bridge_get_edid,
+	.cec_init = hdmi4_bridge_cec_init,
+	.cec_exit = hdmi4_bridge_cec_exit,
 };
 
 static void hdmi4_bridge_init(struct omap_hdmi *hdmi)
 {
 	hdmi->bridge.funcs = &hdmi4_bridge_funcs;
 	hdmi->bridge.of_node = hdmi->pdev->dev.of_node;
-	hdmi->bridge.ops = DRM_BRIDGE_OP_EDID;
+	hdmi->bridge.ops = DRM_BRIDGE_OP_EDID | DRM_BRIDGE_OP_CEC;
 	hdmi->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
 
 	drm_bridge_add(&hdmi->bridge);
@@ -647,14 +655,10 @@ static int hdmi4_bind(struct device *dev, struct device *master, void *data)
 	if (r)
 		goto err_runtime_put;
 
-	r = hdmi4_cec_init(hdmi->pdev, &hdmi->core, &hdmi->wp);
-	if (r)
-		goto err_pll_uninit;
-
 	r = hdmi_audio_register(hdmi);
 	if (r) {
 		DSSERR("Registering HDMI audio failed\n");
-		goto err_cec_uninit;
+		goto err_pll_uninit;
 	}
 
 	hdmi->debugfs = dss_debugfs_create_file(dss, "hdmi", hdmi_dump_regs,
@@ -664,8 +668,6 @@ static int hdmi4_bind(struct device *dev, struct device *master, void *data)
 
 	return 0;
 
-err_cec_uninit:
-	hdmi4_cec_uninit(&hdmi->core);
 err_pll_uninit:
 	hdmi_pll_uninit(&hdmi->pll);
 err_runtime_put:
@@ -682,7 +684,6 @@ static void hdmi4_unbind(struct device *dev, struct device *master, void *data)
 	if (hdmi->audio_pdev)
 		platform_device_unregister(hdmi->audio_pdev);
 
-	hdmi4_cec_uninit(&hdmi->core);
 	hdmi_pll_uninit(&hdmi->pll);
 }
 
