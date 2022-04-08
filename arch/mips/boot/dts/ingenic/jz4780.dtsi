@@ -496,6 +496,21 @@
 		status = "disabled";
 	};
 
+	cim: cim@13060000 {
+		compatible = "ingenic,jz4780-cim";
+		reg = <0x13060000 0x68>;
+		reg-shift = <2>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <30>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_cim>;
+
+		clocks = <&cgu JZ4780_CLK_CIM>, <&cgu JZ4780_CLK_CIMMCLK>;
+		clock-names = "cim", "module";
+	};
+
 	nemc: memory-controller@13410000 {
 		compatible = "ingenic,jz4780-nemc", "simple-mfd";
 		reg = <0x13410000 0x10000>;
