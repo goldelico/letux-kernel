@@ -208,12 +208,19 @@
 	bus-width = <4>;
 	max-frequency = <50000000>;
 	non-removable;
+//	cap-power-off-card;
+//	keep-power-in-suspend;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc1>;
 
-	brcmf: wifi@1 {
-/*		reg = <4>;*/
+	vmmc-supply = <&wlan0_power>;
+	vqmmc-supply = <&wifi_io>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	brcmf: wifi@4 {
+		reg = <4>;
 		compatible = "brcm,bcm4330-fmac";
 		vcc-supply = <&wlan0_power>;
 		device-wakeup-gpios = <&gpd 9 GPIO_ACTIVE_HIGH>;
@@ -244,8 +251,9 @@
 
 	bluetooth {
 		compatible = "brcm,bcm4330-bt";
-		reset-gpios = <&gpf 8 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpf 8 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&wlan0_power>;
+		vddio-supply = <&wifi_io>;
 		device-wakeup-gpios = <&gpf 5 GPIO_ACTIVE_HIGH>;
 		host-wakeup-gpios = <&gpf 6 GPIO_ACTIVE_HIGH>;
 		shutdown-gpios = <&gpf 4 GPIO_ACTIVE_LOW>;
