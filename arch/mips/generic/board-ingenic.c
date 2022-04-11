@@ -135,7 +135,7 @@ static int __init ingenic_pm_init(void)
 	struct clk *cpu0_clk;
 	int ret;
 
-	if (boot_cpu_type() == CPU_XBURST) {
+	if ((boot_cpu_type() == CPU_XBURST) || (boot_cpu_type() == CPU_XBURST2)) {
 		if (IS_ENABLED(CONFIG_PM_SLEEP))
 			suspend_set_ops(&ingenic_pm_ops);
 		_machine_halt = ingenic_halt;
