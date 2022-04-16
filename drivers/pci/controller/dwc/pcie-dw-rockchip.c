@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/reset.h>
+#include <linux/phy/pcie.h>
 
 #include "../../pci.h"
 #include "pcie-designware.h"
@@ -99,6 +100,7 @@ struct rockchip_pcie {
 	struct gpio_desc *rst_gpio;
 	struct irq_domain *irq_domain;
 	raw_spinlock_t irq_lock;
+	bool bifurcation;
 	const struct rockchip_pcie_of_data *data;
 	bool supports_clkreq;
 };
@@ -497,6 +499,12 @@ static int rockchip_pcie_phy_init(struct rockchip_pcie *rockchip)
 		return dev_err_probe(dev, PTR_ERR(rockchip->phy),
 				     "missing PHY\n");
 
+	if (rockchip->bifurcation) {
+		ret = phy_set_mode_ext(rockchip->phy, PHY_MODE_PCIE, PHY_MODE_PCIE_BIFURCATION);
+		if (ret)
+			return ret;
+	}
+
 	ret = phy_init(rockchip->phy);
 	if (ret < 0)
 		return ret;
@@ -675,6 +683,9 @@ static int rockchip_pcie_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENODEV)
 		return dev_err_probe(dev, ret,
 				     "failed to enable vpcie3v3 regulator\n");
+
+	if (device_property_read_bool(dev, "rockchip,bifurcation"))
+		rockchip->bifurcation = true;
 
 	ret = rockchip_pcie_phy_init(rockchip);
 	if (ret)
