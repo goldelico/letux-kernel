@@ -64,7 +64,9 @@
 #define PCIE_CLIENT_LTSSM_STATUS	0x300
 #define  PCIE_LINKUP			0x3
 #define  PCIE_LINKUP_MASK		GENMASK(17, 16)
-#define  PCIE_LTSSM_STATUS_MASK		GENMASK(5, 0)
+#define PCIE_LEGACY_INT_ENABLE		GENMASK(3, 0)
+#define PCIE_LTSSM_ENABLE_ENHANCE	BIT(4)
+#define PCIE_LTSSM_STATUS_MASK		GENMASK(5, 0)
 
 struct rockchip_pcie {
 	struct dw_pcie pci;
@@ -76,6 +78,7 @@ struct rockchip_pcie {
 	struct gpio_desc *rst_gpio;
 	struct regulator *vpcie3v3;
 	struct irq_domain *irq_domain;
+	raw_spinlock_t irq_lock;
 	const struct rockchip_pcie_of_data *data;
 };
 
@@ -105,7 +108,7 @@ static void rockchip_pcie_intx_handler(struct irq_desc *desc)
 
 	reg = rockchip_pcie_readl_apb(rockchip, PCIE_CLIENT_INTR_STATUS_LEGACY);
 
-	for_each_set_bit(hwirq, &reg, 4)
+	for_each_set_bit(hwirq, &reg, 8)
 		generic_handle_domain_irq(rockchip->irq_domain, hwirq);
 
 	chained_irq_exit(chip, desc);
@@ -113,16 +116,30 @@ static void rockchip_pcie_intx_handler(struct irq_desc *desc)
 
 static void rockchip_intx_mask(struct irq_data *data)
 {
-	rockchip_pcie_writel_apb(irq_data_get_irq_chip_data(data),
-				 HIWORD_UPDATE_BIT(BIT(data->hwirq)),
-				 PCIE_CLIENT_INTR_MASK_LEGACY);
+	struct rockchip_pcie *rockchip = irq_data_get_irq_chip_data(data);
+	unsigned long flags;
+	u32 val;
+
+	/* disable legacy interrupts */
+	raw_spin_lock_irqsave(&rockchip->irq_lock, flags);
+	val = HIWORD_UPDATE_BIT(PCIE_LEGACY_INT_ENABLE);
+	val |= PCIE_LEGACY_INT_ENABLE;
+	rockchip_pcie_writel_apb(rockchip, val, PCIE_CLIENT_INTR_MASK_LEGACY);
+	raw_spin_unlock_irqrestore(&rockchip->irq_lock, flags);
 };
 
 static void rockchip_intx_unmask(struct irq_data *data)
 {
-	rockchip_pcie_writel_apb(irq_data_get_irq_chip_data(data),
-				 HIWORD_DISABLE_BIT(BIT(data->hwirq)),
-				 PCIE_CLIENT_INTR_MASK_LEGACY);
+	struct rockchip_pcie *rockchip = irq_data_get_irq_chip_data(data);
+	unsigned long flags;
+	u32 val;
+
+	/* enable legacy interrupts */
+	raw_spin_lock_irqsave(&rockchip->irq_lock, flags);
+	val = HIWORD_UPDATE_BIT(PCIE_LEGACY_INT_ENABLE);
+	val &= ~PCIE_LEGACY_INT_ENABLE;
+	rockchip_pcie_writel_apb(rockchip, val, PCIE_CLIENT_INTR_MASK_LEGACY);
+	raw_spin_unlock_irqrestore(&rockchip->irq_lock, flags);
 };
 
 static struct irq_chip rockchip_intx_irq_chip = {
@@ -149,6 +166,8 @@ static int rockchip_pcie_init_irq_domain(struct rockchip_pcie *rockchip)
 {
 	struct device *dev = rockchip->pci.dev;
 	struct device_node *intc;
+
+	raw_spin_lock_init(&rockchip->irq_lock);
 
 	intc = of_get_child_by_name(dev->of_node, "legacy-interrupt-controller");
 	if (!intc) {
