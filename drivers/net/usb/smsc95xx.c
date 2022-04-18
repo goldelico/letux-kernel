@@ -798,24 +798,31 @@ static void smsc95xx_init_mac_address(struct usbnet *dev)
 	if (!platform_get_ethdev_address(&dev->udev->dev, dev->net)) {
 		if (is_valid_ether_addr(dev->net->dev_addr)) {
 			/* device tree values are valid so use them */
-			netif_dbg(dev, ifup, dev->net, "MAC address read from the device tree\n");
+			netif_warn(dev, ifup, dev->net, "MAC address read from the device tree\n");
 			return;
 		}
 	}
 
 	/* try reading mac address from EEPROM */
 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN, addr) == 0) {
+// EEPROM seems to return "00" only
+addr[0]=0x3a;
+addr[1]=0x6e;
+addr[2]=0x63;
+addr[3]=0x0c;
+addr[4]=0x19;
+addr[5]=0xcd;
 		eth_hw_addr_set(dev->net, addr);
 		if (is_valid_ether_addr(dev->net->dev_addr)) {
 			/* eeprom values are valid so use them */
-			netif_dbg(dev, ifup, dev->net, "MAC address read from EEPROM\n");
+			netif_warn(dev, ifup, dev->net, "MAC address read from EEPROM\n");
 			return;
 		}
 	}
 
 	/* no useful static MAC address found. generate a random one */
 	eth_hw_addr_random(dev->net);
-	netif_dbg(dev, ifup, dev->net, "MAC address set to eth_random_addr\n");
+	netif_warn(dev, ifup, dev->net, "MAC address set to eth_random_addr\n");
 }
 
 static int smsc95xx_set_mac_address(struct usbnet *dev)
