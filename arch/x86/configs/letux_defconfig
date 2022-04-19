@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.110 Kernel Configuration
+# Linux/x86 5.10.111 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -7455,6 +7455,7 @@ CONFIG_VHOST_VSOCK=y
 #
 CONFIG_HYPERV=y
 CONFIG_HYPERV_TIMER=y
+# CONFIG_HYPERV_UTILS is not set
 CONFIG_HYPERV_BALLOON=y
 # end of Microsoft Hyper-V guest support
 
