@@ -813,7 +813,7 @@ function test_bluetooth {
 	[ "$ADDR" ]
 	report $? ${FUNCNAME}_scan "$ADDR" "Bluetooth scan"
 
-	BTMAC=$(hciconfig -a | fgrep 'BD Address' | cut -d ' ' -f 3-3)
+	BTMAC=$(hciconfig -a | fgrep 'BD Address' | head -1 | cut -d ' ' -f 3-3)
 	[ "$BTMAC" ]
 	report $? ${FUNCNAME}_mac "$BTMAC" "Bluetooth MAC"
 

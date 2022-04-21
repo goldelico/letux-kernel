@@ -47,7 +47,7 @@ done
 
 findpanel >/tmp/$$
 
-PANEL=none
+PANEL=default
 
 while read COMPATIBLE
 do # check all we find for a matching config file
@@ -63,8 +63,11 @@ function model_or_compatible {
 	if [ -r /proc/device-tree/model ]
 	then
 		tr -d '\0' </proc/device-tree/model 2>/dev/null
-	else	# prefix and separate with @
+	elif [ -r /proc/device-tree/compatible ]	# prefix and separate with @
+	then
 		echo @$(tr '\0' '@' </proc/device-tree/compatible 2>/dev/null)
+	else
+		echo "x86"
 	fi
 }
 
@@ -98,18 +101,21 @@ case "$(model_or_compatible)" in
 		echo mbuttons > /proc/pandora/nub1/mode	# mouse buttons
 		;;
 	*'UDOO Neo'* )
-		PANEL=udoo;;
-	*@letux400,minipc@* )
-		PANEL=7.0-640x480;;
+		PANEL=auto;;	# works well with auto-detection
+	*'Skytone Alpha 400'* )
+		PANEL=alpha400;;
 	*'Tolino Shine 3'* )
 		PANEL=5.8-1072x1448-epd
 		echo 3 >/sys/class/graphics/fb0/rotate
 		;;
+	*CI20* | \
+	*x86* )
+		PANEL=auto;;	# works well with auto-detection
 esac
 
 $DEBUG && echo "Panel: $PANEL"
 
-if [ $PANEL = none ]
+if [ $PANEL = default ]
 then
 	echo "$0: unknown motherboard $(model_or_compatible)"
 fi
