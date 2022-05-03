@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.19.240 Kernel Configuration
+# Linux/arm 4.19.241 Kernel Configuration
 #
 
 #
@@ -2456,7 +2456,6 @@ CONFIG_WLAN_VENDOR_QUANTENNA=y
 # CONFIG_NETDEVSIM is not set
 # CONFIG_NET_FAILOVER is not set
 # CONFIG_ISDN is not set
-# CONFIG_NVM is not set
 
 #
 # Input device support
