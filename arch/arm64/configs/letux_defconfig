@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.10.113 Kernel Configuration
+# Linux/arm64 5.10.116 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2445,7 +2445,6 @@ CONFIG_XEN_NETDEV_FRONTEND=y
 # CONFIG_NETDEVSIM is not set
 CONFIG_NET_FAILOVER=y
 # CONFIG_ISDN is not set
-# CONFIG_NVM is not set
 
 #
 # Input device support

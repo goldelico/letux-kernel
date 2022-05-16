@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.113 Kernel Configuration
+# Linux/x86 5.10.116 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2306,6 +2306,7 @@ CONFIG_PNPACPI=y
 CONFIG_BLK_DEV=y
 CONFIG_BLK_DEV_NULL_BLK=y
 CONFIG_BLK_DEV_FD=y
+# CONFIG_BLK_DEV_FD_RAWCMD is not set
 CONFIG_CDROM=y
 # CONFIG_PARIDE is not set
 CONFIG_BLK_DEV_PCIESSD_MTIP32XX=m
@@ -3619,7 +3620,6 @@ CONFIG_MISDN_W6692=y
 # CONFIG_MISDN_NETJET is not set
 CONFIG_MISDN_IPAC=y
 CONFIG_MISDN_ISAR=y
-# CONFIG_NVM is not set
 
 #
 # Input device support
