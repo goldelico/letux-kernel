@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.312 Kernel Configuration
+# Linux/mips 4.9.314 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -1261,7 +1261,6 @@ CONFIG_RTL_CARDS=m
 #
 # CONFIG_WAN is not set
 # CONFIG_ISDN is not set
-# CONFIG_NVM is not set
 
 #
 # Input device support
