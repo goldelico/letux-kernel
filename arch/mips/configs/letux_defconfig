@@ -1459,7 +1459,7 @@ CONFIG_USB_ARMLINUX=y
 # CONFIG_USB_NET_CX82310_ETH is not set
 # CONFIG_USB_NET_KALMIA is not set
 # CONFIG_USB_NET_QMI_WWAN is not set
-CONFIG_USB_HSO=m
+CONFIG_USB_HSO=y
 CONFIG_USB_NET_INT51X1=m
 # CONFIG_USB_IPHETH is not set
 # CONFIG_USB_SIERRA_NET is not set
@@ -4292,7 +4292,7 @@ CONFIG_DMA_JZ4780=y
 # DMABUF options
 #
 CONFIG_SYNC_FILE=y
-# CONFIG_SW_SYNC is not set
+CONFIG_SW_SYNC=y
 # CONFIG_UDMABUF is not set
 # CONFIG_DMABUF_MOVE_NOTIFY is not set
 # CONFIG_DMABUF_DEBUG is not set
@@ -5911,7 +5911,7 @@ CONFIG_PROBE_EVENTS=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel"
+CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_DEBUG_ZBOOT is not set
 # CONFIG_SPINLOCK_TEST is not set
@@ -5932,3 +5932,6 @@ CONFIG_ARCH_USE_MEMTEST=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+CONFIG_ANDROID_LOGGER=y
+CONFIG_ANDROID_TIMED_OUTPUT=y
+CONFIG_ANDROID_LOW_MEMORY_KILLER=y
