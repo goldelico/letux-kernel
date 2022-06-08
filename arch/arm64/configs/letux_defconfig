@@ -467,7 +467,7 @@ CONFIG_RELOCATABLE=y
 # Boot options
 #
 # CONFIG_ARM64_ACPI_PARKING_PROTOCOL is not set
-CONFIG_CMDLINE=""
+CONFIG_CMDLINE=" g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"
 CONFIG_EFI_STUB=y
 CONFIG_EFI=y
 CONFIG_DMI=y
@@ -5932,7 +5932,7 @@ CONFIG_DMA_ENGINE_RAID=y
 # DMABUF options
 #
 CONFIG_SYNC_FILE=y
-# CONFIG_SW_SYNC is not set
+CONFIG_SW_SYNC=y
 # CONFIG_UDMABUF is not set
 # CONFIG_DMABUF_MOVE_NOTIFY is not set
 # CONFIG_DMABUF_DEBUG is not set
@@ -7853,3 +7853,6 @@ CONFIG_ARCH_USE_MEMTEST=y
 CONFIG_MEMTEST=y
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+CONFIG_ANDROID_LOGGER=y
+CONFIG_ANDROID_TIMED_OUTPUT=y
+CONFIG_ANDROID_LOW_MEMORY_KILLER=y
