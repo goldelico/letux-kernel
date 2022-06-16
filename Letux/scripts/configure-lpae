@@ -22,8 +22,11 @@ scripts/config --file arch/arm/configs/letux_lpae_defconfig -d ARCH_OMAP4
 # enable LPAE
 scripts/config --file arch/arm/configs/letux_lpae_defconfig -e ARM_LPAE
 
+# strip twl4030 kernel parameter
+CMDLINE=$(scripts/config --file arch/arm/configs/letux_lpae_defconfig -s CMDLINE)
+CMDLINE=$(echo "$CMDLINE" | sed 's/ twl4030_charger.allow_usb=1//g')
+
 # configure for 4GB RAM
-# read current and modify
-# sed -i.bak 's/CONFIG_CMDLINE="/CONFIG_CMDLINE="mem=2032M@0x80000000 mem=2048M@0x200000000 /g' $CONF
-NEWVAL=$(scripts/config --file arch/arm/configs/letux_lpae_defconfig -s CMDLINE | sed 's/CONFIG_CMDLINE="/CONFIG_CMDLINE="mem=2032M@0x80000000 mem=2048M@0x200000000 /g')
-# scripts/config --file arch/arm/configs/letux_lpae_defconfig --set-str CMDLINE "$NEWVAL"
+# CMDLINE=$(echo "$CMDLINE" | sed 's/CONFIG_CMDLINE="/CONFIG_CMDLINE="mem=2032M@0x80000000 mem=2048M@0x200000000 /g')
+
+scripts/config --file arch/arm/configs/letux_lpae_defconfig --set-str CMDLINE "$CMDLINE"
