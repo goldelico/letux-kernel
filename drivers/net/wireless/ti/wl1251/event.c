@@ -216,7 +216,7 @@ int wl1251_event_handle(struct wl1251 *wl, u8 mbox_num)
 
 	/* first we read the mbox descriptor */
 	wl1251_mem_read(wl, wl->mbox_ptr[mbox_num], mbox,
-			    sizeof(*mbox));
+			sizeof(*mbox));
 
 	/* process the descriptor */
 	ret = wl1251_event_process(wl, mbox);
