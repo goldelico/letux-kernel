@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.17.13 Kernel Configuration
+# Linux/mips 5.17.15 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -961,6 +961,7 @@ CONFIG_PROC_EVENTS=y
 
 # CONFIG_FIRMWARE_MEMMAP is not set
 # CONFIG_GOOGLE_FIRMWARE is not set
+# CONFIG_EFI_DISABLE_RUNTIME is not set
 
 #
 # Tegra firmware driver

@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.17.13 Kernel Configuration
+# Linux/x86 5.17.15 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2190,6 +2190,7 @@ CONFIG_UEFI_CPER_X86=y
 CONFIG_EFI_DEV_PATH_PARSER=y
 CONFIG_EFI_EARLYCON=y
 CONFIG_EFI_CUSTOM_SSDT_OVERLAYS=y
+# CONFIG_EFI_DISABLE_RUNTIME is not set
 
 #
 # Tegra firmware driver
