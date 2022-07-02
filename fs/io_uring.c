@@ -926,7 +926,7 @@ struct io_kiocb {
 		/* used by request caches, completion batching and iopoll */
 		struct io_wq_work_node	comp_list;
 		/* cache ->apoll->events */
-		int apoll_events;
+		__poll_t apoll_events;
 	};
 	atomic_t			refs;
 	atomic_t			poll_refs;
@@ -3187,6 +3187,21 @@ static int io_prep_rw(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 	int ret;
 
 	kiocb->ki_pos = READ_ONCE(sqe->off);
+	/* used for fixed read/write too - just read unconditionally */
+	req->buf_index = READ_ONCE(sqe->buf_index);
+	req->imu = NULL;
+
+	if (req->opcode == IORING_OP_READ_FIXED ||
+	    req->opcode == IORING_OP_WRITE_FIXED) {
+		struct io_ring_ctx *ctx = req->ctx;
+		u16 index;
+
+		if (unlikely(req->buf_index >= ctx->nr_user_bufs))
+			return -EFAULT;
+		index = array_index_nospec(req->buf_index, ctx->nr_user_bufs);
+		req->imu = ctx->user_bufs[index];
+		io_req_set_rsrc_node(req, ctx, 0);
+	}
 
 	ioprio = READ_ONCE(sqe->ioprio);
 	if (ioprio) {
@@ -3199,11 +3214,9 @@ static int io_prep_rw(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 		kiocb->ki_ioprio = get_current_ioprio();
 	}
 
-	req->imu = NULL;
 	req->rw.addr = READ_ONCE(sqe->addr);
 	req->rw.len = READ_ONCE(sqe->len);
 	req->rw.flags = READ_ONCE(sqe->rw_flags);
-	req->buf_index = READ_ONCE(sqe->buf_index);
 	return 0;
 }
 
@@ -3335,20 +3348,9 @@ static int __io_import_fixed(struct io_kiocb *req, int rw, struct iov_iter *iter
 static int io_import_fixed(struct io_kiocb *req, int rw, struct iov_iter *iter,
 			   unsigned int issue_flags)
 {
-	struct io_mapped_ubuf *imu = req->imu;
-	u16 index, buf_index = req->buf_index;
-
-	if (likely(!imu)) {
-		struct io_ring_ctx *ctx = req->ctx;
-
-		if (unlikely(buf_index >= ctx->nr_user_bufs))
-			return -EFAULT;
-		io_req_set_rsrc_node(req, ctx, issue_flags);
-		index = array_index_nospec(buf_index, ctx->nr_user_bufs);
-		imu = READ_ONCE(ctx->user_bufs[index]);
-		req->imu = imu;
-	}
-	return __io_import_fixed(req, rw, iter, imu);
+	if (WARN_ON_ONCE(!req->imu))
+		return -EFAULT;
+	return __io_import_fixed(req, rw, iter, req->imu);
 }
 
 static void io_ring_submit_unlock(struct io_ring_ctx *ctx, bool needs_lock)
@@ -5984,7 +5986,8 @@ static void io_apoll_task_func(struct io_kiocb *req, bool *locked)
 		io_req_complete_failed(req, ret);
 }
 
-static void __io_poll_execute(struct io_kiocb *req, int mask, int events)
+static void __io_poll_execute(struct io_kiocb *req, int mask,
+			      __poll_t __maybe_unused events)
 {
 	req->result = mask;
 	/*
@@ -5993,7 +5996,6 @@ static void __io_poll_execute(struct io_kiocb *req, int mask, int events)
 	 * CPU. We want to avoid pulling in req->apoll->events for that
 	 * case.
 	 */
-	req->apoll_events = events;
 	if (req->opcode == IORING_OP_POLL_ADD)
 		req->io_task_work.func = io_poll_task_func;
 	else
@@ -6003,7 +6005,8 @@ static void __io_poll_execute(struct io_kiocb *req, int mask, int events)
 	io_req_task_work_add(req, false);
 }
 
-static inline void io_poll_execute(struct io_kiocb *req, int res, int events)
+static inline void io_poll_execute(struct io_kiocb *req, int res,
+		__poll_t events)
 {
 	if (io_poll_get_ownership(req))
 		__io_poll_execute(req, res, events);
@@ -6142,6 +6145,8 @@ static int __io_arm_poll_handler(struct io_kiocb *req,
 	io_init_poll_iocb(poll, mask, io_poll_wake);
 	poll->file = req->file;
 
+	req->apoll_events = poll->events;
+
 	ipt->pt._key = mask;
 	ipt->req = req;
 	ipt->error = 0;
@@ -6172,8 +6177,11 @@ static int __io_arm_poll_handler(struct io_kiocb *req,
 
 	if (mask) {
 		/* can't multishot if failed, just queue the event we've got */
-		if (unlikely(ipt->error || !ipt->nr_entries))
+		if (unlikely(ipt->error || !ipt->nr_entries)) {
 			poll->events |= EPOLLONESHOT;
+			req->apoll_events |= EPOLLONESHOT;
+			ipt->error = 0;
+		}
 		__io_poll_execute(req, mask, poll->events);
 		return 0;
 	}
@@ -6386,7 +6394,7 @@ static int io_poll_add_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe
 		return -EINVAL;
 
 	io_req_set_refcount(req);
-	req->apoll_events = poll->events = io_poll_parse_events(sqe, flags);
+	poll->events = io_poll_parse_events(sqe, flags);
 	return 0;
 }
 
@@ -6399,6 +6407,8 @@ static int io_poll_add(struct io_kiocb *req, unsigned int issue_flags)
 	ipt.pt._qproc = io_poll_queue_proc;
 
 	ret = __io_arm_poll_handler(req, &req->poll, &ipt, poll->events);
+	if (!ret && ipt.error)
+		req_set_fail(req);
 	ret = ret ?: ipt.error;
 	if (ret)
 		__io_req_complete(req, issue_flags, ret, 0);
