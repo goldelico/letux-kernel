@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.199 Kernel Configuration
+# Linux/mips 5.4.203 Kernel Configuration
 #
 
 #
@@ -1671,9 +1671,8 @@ CONFIG_HW_RANDOM=y
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
-# end of Character devices
-
 # CONFIG_RANDOM_TRUST_BOOTLOADER is not set
+# end of Character devices
 
 #
 # I2C support
