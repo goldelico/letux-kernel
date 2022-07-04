@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.10.123 Kernel Configuration
+# Linux/arm 5.10.128 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2948,9 +2948,8 @@ CONFIG_DEVKMEM=y
 CONFIG_DEVPORT=y
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
-# end of Character devices
-
 # CONFIG_RANDOM_TRUST_BOOTLOADER is not set
+# end of Character devices
 
 #
 # I2C support
@@ -7010,6 +7009,7 @@ CONFIG_CRYPTO_LIB_POLY1305_RSIZE=9
 CONFIG_CRYPTO_LIB_SHA256=y
 # end of Crypto library routines
 
+CONFIG_LIB_MEMNEQ=y
 CONFIG_CRC_CCITT=y
 CONFIG_CRC16=y
 CONFIG_CRC_T10DIF=y
