@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.18.5 Kernel Configuration
+# Linux/arm 5.18.9 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -149,6 +149,7 @@ CONFIG_GENERIC_SCHED_CLOCK=y
 #
 # end of Scheduler features
 
+CONFIG_GCC12_NO_ARRAY_BOUNDS=y
 CONFIG_CGROUPS=y
 # CONFIG_MEMCG is not set
 # CONFIG_BLK_CGROUP is not set
@@ -7397,6 +7398,7 @@ CONFIG_CRYPTO_LIB_POLY1305_RSIZE=9
 CONFIG_CRYPTO_LIB_SHA256=y
 # end of Crypto library routines
 
+CONFIG_LIB_MEMNEQ=y
 CONFIG_CRC_CCITT=y
 CONFIG_CRC16=y
 CONFIG_CRC_T10DIF=y
