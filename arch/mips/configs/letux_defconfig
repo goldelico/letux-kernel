@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.9.319 Kernel Configuration
+# Linux/mips 4.9.321 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -1495,6 +1495,7 @@ CONFIG_HW_RANDOM=y
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
+CONFIG_RANDOM_TRUST_BOOTLOADER=y
 
 #
 # I2C support
@@ -3692,6 +3693,7 @@ CONFIG_DEBUG_PREEMPT=y
 # CONFIG_DEBUG_LOCKING_API_SELFTESTS is not set
 # CONFIG_LOCK_TORTURE_TEST is not set
 CONFIG_STACKTRACE=y
+# CONFIG_WARN_ALL_UNSEEDED_RANDOM is not set
 # CONFIG_DEBUG_KOBJECT is not set
 # CONFIG_DEBUG_LIST is not set
 # CONFIG_DEBUG_PI_LIST is not set
