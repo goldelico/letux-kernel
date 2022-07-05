@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.14.284 Kernel Configuration
+# Linux/arm 4.14.286 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2255,6 +2255,7 @@ CONFIG_HW_RANDOM_OMAP3_ROM=y
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
+CONFIG_RANDOM_TRUST_BOOTLOADER=y
 
 #
 # I2C support

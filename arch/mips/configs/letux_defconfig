@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.14.284 Kernel Configuration
+# Linux/mips 4.14.286 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -1566,6 +1566,7 @@ CONFIG_HW_RANDOM=y
 # CONFIG_RAW_DRIVER is not set
 # CONFIG_TCG_TPM is not set
 # CONFIG_XILLYBUS is not set
+CONFIG_RANDOM_TRUST_BOOTLOADER=y
 
 #
 # I2C support
