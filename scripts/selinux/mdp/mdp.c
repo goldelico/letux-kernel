@@ -16,6 +16,7 @@
 #define __EXPORTED_HEADERS__
 
 #ifdef __APPLE__
+#include <linux/compiler_attributes.h> // we now also need #define __malloc
 #include <linux/compiler_types.h> // get define for __user
 #include <uapi/linux/types.h> // get typedefs for __u16 etc.
 typedef _Bool bool; // get typedef for bool
