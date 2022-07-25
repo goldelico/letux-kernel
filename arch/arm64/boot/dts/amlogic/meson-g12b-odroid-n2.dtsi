@@ -12,9 +12,14 @@
 / {
 	aliases {
 		serial0 = &uart_AO;
+		serial1 = &uart_A;
+		serial2 = &uart_B;
 		ethernet0 = &ethmac;
+		i2c0 = &i2c2;
+		i2c1 = &i2c3;
 		rtc0 = &rtc;
 		rtc1 = &vrtc;
+		spi0 = &spicc0;
 	};
 
 	dio2133: audio-amplifier-0 {
@@ -527,6 +532,27 @@
 	linux,rc-map-name = "rc-odroid";
 };
 
+&i2c2 {
+	status = "okay";
+	pinctrl-0 = <&i2c2_sda_x_pins>, <&i2c2_sck_x_pins>;
+	pinctrl-names = "default";
+	clock-frequency = <400000>;
+};
+
+&i2c2_sda_x_pins {
+	mux {
+		/delete-property/ bias-disable;
+		bias-pull-up;
+	};
+};
+
+&i2c2_sck_x_pins {
+	mux {
+		/delete-property/ bias-disable;
+		bias-pull-up;
+	};
+};
+
 &i2c3 {
 	status = "okay";
 	pinctrl-0 = <&i2c3_sda_a_pins>, <&i2c3_sck_a_pins>;
@@ -536,6 +562,20 @@
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
 		wakeup-source;
+	};
+};
+
+&i2c3_sda_a_pins {
+	mux {
+		/delete-property/ bias-disable;
+		bias-pull-up;
+	};
+};
+
+&i2c3_sck_a_pins {
+	mux {
+		/delete-property/ bias-disable;
+		bias-pull-up;
 	};
 };
 
@@ -668,6 +708,33 @@
 
 &toddr_c {
 	status = "okay";
+};
+
+&spicc0 {
+	status = "disabled";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&spicc0_x_pins>;
+
+	spidev@0 {
+		status = "okay";
+
+		compatible = "linux,spidev";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+	};
+};
+
+&uart_A {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_a_pins>;
+};
+
+&uart_B {
+        status = "disabled";
+        pinctrl-names = "default";
+        pinctrl-0 = <&uart_b_pins>;
 };
 
 &uart_AO {
