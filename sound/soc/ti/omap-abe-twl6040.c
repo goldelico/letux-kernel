@@ -1,26 +1,52 @@
 // SPDX-License-Identifier: GPL-2.0-only
+
 /*
  * omap-abe-twl6040.c  --  SoC audio for TI OMAP based boards with ABE and
  *			   twl6040 codec
  *
- * Author: Misael Lopez Cruz <misael.lopez@ti.com>
+ * This is a mix of upstream omap-abe-twl6040.c from 4.18ff with TI code
+ * Author: H. N. Schaller <hns@goldelico.com> by porting to OMAP5 based Pyra-Handheld
+ *
+ * TI authors:
+ * Authors: Misael Lopez Cruz <misael.lopez@ti.com>
+ *          Peter Ujfalusi <peter.ujfalusi@ti.com>
+ *          Liam Girdwood <lrg@ti.com>
+ *          Sebastien Guiriec <s-guiriec@ti.com>
+ *
+ * Contact: Misael Lopez Cruz <misael.lopez@ti.com>
+ *          Peter Ujfalusi <peter.ujfalusi@ti.com>
+ *
  */
 
 #include <linux/clk.h>
-#include <linux/platform_device.h>
+#include <linux/firmware.h>
 #include <linux/mfd/twl6040.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/platform_device.h>
 
 #include <sound/core.h>
-#include <sound/pcm.h>
-#include <sound/soc.h>
 #include <sound/jack.h>
+#include <sound/pcm.h>
+#include <sound/pcm_params.h>
+#include <sound/soc.h>
+#include <sound/soc-dapm.h>
 
+#include "aess/omap-aess.h"
+#include "../codecs/twl6040.h"
 #include "omap-dmic.h"
 #include "omap-mcpdm.h"
-#include "../codecs/twl6040.h"
 
+#define AESS_FW_NAME   "omap_aess-adfw.bin"
+
+// this defines the DAI-Link endpoints
+// not the links itself!!!
+
+// SND_SOC_DAILINK_DEFS(name, cpu, codec, platform...) i.e. these macros define _name##_cpus etc.
+// COMP_CODEC(_name, _dai_name)
+
+// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n532
+/* legacy links with CPU (userspace visible) */
 SND_SOC_DAILINK_DEFS(link0,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()),
 	DAILINK_COMP_ARRAY(COMP_CODEC("twl6040-codec",
@@ -33,14 +59,341 @@ SND_SOC_DAILINK_DEFS(link1,
 				      "dmic-hifi")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
-struct abe_twl6040 {
-	struct snd_soc_card card;
-	struct snd_soc_dai_link dai_links[2];
-	int	jack_detection;	/* board can detect jack events */
-	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
+/* brauchen wir das überhaupt??? */
+SND_SOC_DAILINK_DEFS(link_mcbsp,
+	DAILINK_COMP_ARRAY(COMP_EMPTY()),
+// erzeugt einen codec-dai mit dem Namen "omap-mcbsp.2" und dem dai_name "snd-soc-dummy-dai"
+// was ist der Unterschied der beiden Namen?
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+
+// mcbsp1 & 3?
+
+SND_SOC_DAILINK_DEFS(link_mcasp,
+	DAILINK_COMP_ARRAY(COMP_EMPTY()),
+	DAILINK_COMP_ARRAY(COMP_CODEC("spdif-dit",
+				      "dit-hifi")),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+
+// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n566
+
+/* Frontend DAIs - i.e. userspace visible interfaces (ALSA PCMs) */
+SND_SOC_DAILINK_DEFS(link_fe_media1,
+	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1")),	// must match with struct snd_soc_dai_driver omap_aess_dai in omap-aess-dai.c
+
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));	// code will set .of_node
+
+SND_SOC_DAILINK_DEFS(link_fe_media2,
+	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia2")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_fe_tones,
+	DAILINK_COMP_ARRAY(COMP_CPU("Tones")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_fe_voice,
+	DAILINK_COMP_ARRAY(COMP_CPU("Voice")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_fe_modem,
+	DAILINK_COMP_ARRAY(COMP_CPU("MODEM")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_fe_lp,
+	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1 LP")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n609
+
+/* Backend DAIs - i.e. dynamically matched interfaces, invisible to userspace */
+SND_SOC_DAILINK_DEFS(link_be_mcpdm,
+	DAILINK_COMP_ARRAY(COMP_CPU("40132000.mcpdm")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_be_mcbsp1,
+	DAILINK_COMP_ARRAY(COMP_CPU("40122000.mcbsp")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+SND_SOC_DAILINK_DEFS(link_be_mcbsp2,
+	DAILINK_COMP_ARRAY(COMP_CPU("40124000.mcbsp")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("snd-soc-dummy",
+				      "snd-soc-dummy-dai")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+// mcbsp3? modem? codec für PLS8?
+
+SND_SOC_DAILINK_DEFS(link_be_dmic,
+	DAILINK_COMP_ARRAY(COMP_CPU("dmic.0")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("dmic-codec",
+				      "dmic-hifi")),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM(NULL)));
+
+// dmic.1 dmic.2?
+
+// from https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82
+// and https://kernel.googlesource.com/pub/scm/linux/kernel/git/lrg/asoc/+/omap/v3.10%5E2..omap/v3.10/
+
+#define SND_SOC_DAI_CONNECT(_name, _stream_name, _linkname) \
+	.name = _name, .stream_name = _stream_name, SND_SOC_DAILINK_REG(_linkname)
+#define SND_SOC_DAI_OPS(_ops, _init) \
+	.ops = _ops, .init = _init
+#define SND_SOC_DAI_IGNORE_SUSPEND .ignore_suspend = 1
+#define SND_SOC_DAI_IGNORE_PMDOWN .ignore_pmdown_time = 1
+#define SND_SOC_DAI_BE_LINK(_id, _fixup) \
+	.id = _id, .be_hw_params_fixup = _fixup, .no_pcm = 1
+#define SND_SOC_DAI_FE_LINK() \
+	.dynamic = 1 /* , .dpcm_capture = 1, .dpcm_playback = 1 */
+#define SND_SOC_DAI_FE_TRIGGER(_play, _capture) \
+	.trigger = {_play, _capture}
+//#define SND_SOC_DAI_LINK_NO_HOST	.no_host_mode = 1
+
+static const struct snd_soc_ops omap_abe_dmic_ops;
+static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd);
+
+/* Digital audio interface glue - connects codec <--> CPU */
+static struct snd_soc_dai_link legacy_dmic_dai = {
+	/* Legacy DMIC */
+	SND_SOC_DAI_CONNECT("Legacy DMIC", "TWL6040", link1),
+	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, omap_abe_dmic_init),
 };
 
+static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd);
+static const struct snd_soc_ops omap_abe_ops;
+
+static struct snd_soc_dai_link legacy_mcpdm_dai = {
+	/* Legacy McPDM */
+// passt das als .name?
+	SND_SOC_DAI_CONNECT("Legacy McPDM", "TWL6040", link0),
+	SND_SOC_DAI_OPS(&omap_abe_ops, omap_abe_twl6040_init),
+};
+
+static const struct snd_soc_ops omap_abe_mcbsp_ops;
+
+/* brauchen wir das??? */
+static struct snd_soc_dai_link legacy_mcbsp_dai = {
+	/* Legacy McBSP */
+	SND_SOC_DAI_CONNECT("Legacy McBSP", "TWL6040", link_mcbsp),
+	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_IGNORE_SUSPEND,
+};
+
+/* brauchen wir das??? */
+static struct snd_soc_dai_link legacy_mcasp_dai = {
+	/* Legacy SPDIF */
+	SND_SOC_DAI_CONNECT("Legacy SPDIF", "TWL6040", link_mcasp),
+	SND_SOC_DAI_IGNORE_SUSPEND,
+};
+
+static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd);
+
+static struct snd_soc_dai_link abe_fe_dai[] = {
+
+/*
+ * Frontend DAIs - i.e. userspace visible interfaces (ALSA PCMs)
+ */
+{
+	/* ABE Media Capture */
+	SND_SOC_DAI_CONNECT("OMAP ABE Media1", "Frontend", link_fe_media1),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
+	SND_SOC_DAI_IGNORE_PMDOWN,
+},
+{
+	/* ABE Media Capture */
+	SND_SOC_DAI_CONNECT("OMAP ABE Media2", "Frontend", link_fe_media2),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
+	SND_SOC_DAI_IGNORE_PMDOWN,
+},
+{
+	/* ABE Voice */
+	SND_SOC_DAI_CONNECT("OMAP ABE Voice", "Frontend", link_fe_voice),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+},
+{
+	/* ABE Tones */
+	SND_SOC_DAI_CONNECT("OMAP ABE Tones", "Frontend", link_fe_tones),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+},
+{
+	/* MODEM */
+	SND_SOC_DAI_CONNECT("OMAP ABE MODEM", "Frontend", link_fe_modem),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+//	SND_SOC_DAI_LINK_NO_HOST,
+},
+{
+	/* Low power ping - pong */
+	SND_SOC_DAI_CONNECT("OMAP ABE Media LP", "Frontend", link_fe_lp),
+	SND_SOC_DAI_FE_LINK(),
+	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
+},
+};
+
+/*
+ * Backend DAIs - i.e. dynamically matched interfaces, invisible to userspace.
+ * Matched to above interfaces at runtime, based upon use case.
+ */
+
+/* This must currently match the BE order in DSP */
+#define OMAP_ABE_DAI_PDM_UL			0
+#define OMAP_ABE_DAI_PDM_DL1			1
+#define OMAP_ABE_DAI_PDM_DL2			2
+#define OMAP_ABE_DAI_PDM_VIB			3
+#define OMAP_ABE_DAI_BT_VX			4
+#define OMAP_ABE_DAI_MM_FM			5
+#define OMAP_ABE_DAI_MODEM			6
+#define OMAP_ABE_DAI_DMIC0			7
+#define OMAP_ABE_DAI_DMIC1			8
+#define OMAP_ABE_DAI_DMIC2			9
+
+/*these constants are not used? */
+#define OMAP_ABE_BE_PDM_DL1		"PDM-DL1"
+#define OMAP_ABE_BE_PDM_UL1		"PDM-UL1"
+#define OMAP_ABE_BE_PDM_DL2		"PDM-DL2"
+#define OMAP_ABE_BE_PDM_VIB		"PDM-VIB"
+#define OMAP_ABE_BE_BT_VX		"BT-VX"
+#define OMAP_ABE_BE_MM_EXT0		"FM-EXT"
+#define OMAP_ABE_BE_MM_EXT1		"MODEM-EXT"
+#define OMAP_ABE_BE_DMIC0		"DMIC0"
+#define OMAP_ABE_BE_DMIC1		"DMIC1"
+#define OMAP_ABE_BE_DMIC2		"DMIC2"
+
+static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd);
+static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_hw_params *params);
+static int omap_mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_hw_params *params);
+
+static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
+{
+	/* McPDM DL1 - Headset */
+	SND_SOC_DAI_CONNECT("McPDM-DL1", "Backend", link_be_mcpdm),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_PDM_DL1, omap_mcpdm_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_ops, NULL/*omap_abe_twl6040_init*/),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+},
+{
+	/* McPDM UL1 - Analog Capture (Headset) */
+	SND_SOC_DAI_CONNECT("McPDM-UL1", "Backend", link_be_mcpdm),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_PDM_UL, omap_mcpdm_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_ops, NULL),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+},
+{
+	/* McPDM DL2 - Handsfree */
+	SND_SOC_DAI_CONNECT("McPDM-DL2", "Backend", link_be_mcpdm),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_PDM_DL2, omap_mcpdm_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_ops, omap_abe_twl6040_dl2_init),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+},
+};
+
+static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
+	/* McBSP 1 - Bluetooth */
+	SND_SOC_DAI_CONNECT("McBSP-1", "Backend", link_be_mcbsp1),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_BT_VX,	omap_mcbsp_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+};
+
+static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
+	/* McBSP 2 - MODEM or FM */
+	SND_SOC_DAI_CONNECT("McBSP-2", "Backend", link_be_mcbsp2),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_MM_FM,	omap_mcbsp_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
+	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
+};
+
+// mcbsp3...
+
+static int omap_dmic_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_hw_params *params);
+
+static struct snd_soc_dai_link abe_be_dmic_dai[] = {
+{
+	/* DMIC0 */
+	SND_SOC_DAI_CONNECT("DMIC-0", "Backend", link_be_dmic),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_DMIC0,	omap_dmic_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
+},
+{
+	/* DMIC1 */
+	SND_SOC_DAI_CONNECT("DMIC-1", "Backend", link_be_dmic),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_DMIC1,	omap_dmic_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
+},
+{
+	/* DMIC2 */
+	SND_SOC_DAI_CONNECT("DMIC-2", "Backend", link_be_dmic),
+	SND_SOC_DAI_BE_LINK(OMAP_ABE_DAI_DMIC2,	omap_dmic_be_hw_params_fixup),
+	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
+},
+};
+
+#define TOTAL_DAI_LINKS (4 + /* legacy DAIs */ \
+	ARRAY_SIZE(abe_fe_dai) + \
+	ARRAY_SIZE(abe_be_mcpdm_dai) + \
+	2 + /* be_mcbsp DAIs */\
+	ARRAY_SIZE(abe_be_dmic_dai))
+
+struct abe_twl6040 {
+	struct snd_soc_card card;
+	struct snd_soc_dai_link dai_links[TOTAL_DAI_LINKS];
+	int	jack_detection;	/* board can detect jack events */
+	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
+	int	twl6040_power_mode;
+	struct omap_aess	*aess;
+};
+
+/*
+ * helper macro to fill the dynamic _card->dai_link array from
+ * static array of struct snd_soc_dai_link and insert of_node
+ */
+
+// can't we directly call ret = snd_soc_card_new_dai_links(_card, dai_link_array, ARRAY_SIZE(dai_link_array));
+// we assume single entries for cpus, codecs, platform etc.
+
+#define ADD_DAILINK(_card, _platform_of_node, _cpu_of_node, dai_link_single) { \
+	BUG_ON(_card->num_links >= TOTAL_DAI_LINKS); \
+	_card->dai_link[_card->num_links] = (dai_link_single); \
+	_card->dai_link[_card->num_links].cpus[0].of_node = (_cpu_of_node); \
+	_card->dai_link[_card->num_links].platforms[0].of_node = (_platform_of_node); \
+	_card->num_links++; \
+	}
+
+#define ADD_DAILINKS(_card, _of_node, dai_link_array) { \
+	int i; \
+	for (i = 0; i < ARRAY_SIZE(dai_link_array); i++, _card->num_links++) { \
+		BUG_ON(_card->num_links >= TOTAL_DAI_LINKS); \
+		_card->dai_link[_card->num_links] = (dai_link_array)[i]; \
+		_card->dai_link[_card->num_links].platforms[0].name = NULL; \
+		_card->dai_link[_card->num_links].platforms[0].of_node = (_of_node); \
+		} \
+	}
+
 static struct platform_device *dmic_codec_dev;
+static struct platform_device *spdif_codec_dev;
 
 static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -63,11 +416,21 @@ static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	/* set the codec mclk */
 	ret = snd_soc_dai_set_sysclk(codec_dai, clk_id, freq,
 				SND_SOC_CLOCK_IN);
-	if (ret) {
-		printk(KERN_ERR "can't set codec system clock\n");
-		return ret;
-	}
+	if (ret < 0)
+		dev_err(card->dev, "can't set codec system clock\n");
+
 	return ret;
+}
+
+static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+                                    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	rate->min = rate->max = 96000;
+
+	return 0;
 }
 
 static const struct snd_soc_ops omap_abe_ops = {
@@ -84,21 +447,52 @@ static int omap_abe_dmic_hw_params(struct snd_pcm_substream *substream,
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_DMIC_SYSCLK_PAD_CLKS,
 				     19200000, SND_SOC_CLOCK_IN);
 	if (ret < 0) {
-		printk(KERN_ERR "can't set DMIC cpu system clock\n");
+		dev_err(rtd->card->dev, "can't set DMIC in system clock\n");
 		return ret;
 	}
 	ret = snd_soc_dai_set_sysclk(cpu_dai, OMAP_DMIC_ABE_DMIC_CLK, 2400000,
 				     SND_SOC_CLOCK_OUT);
-	if (ret < 0) {
-		printk(KERN_ERR "can't set DMIC output clock\n");
-		return ret;
-	}
+	if (ret < 0)
+		dev_err(rtd->card->dev, "can't set DMIC output clock\n");
+
+	return ret;
+}
+
+static int omap_mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+	unsigned int be_id = rtd->dai_link->id;
+
+	if (be_id == OMAP_AESS_BE_ID_MM_FM || be_id == OMAP_AESS_BE_ID_BT_VX)
+		channels->min = 2;
+
+	snd_mask_set(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
+				    SNDRV_PCM_HW_PARAM_FIRST_MASK],
+				    SNDRV_PCM_FORMAT_S16_LE);
+	return 0;
+}
+
+static int omap_dmic_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+		struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_RATE);
+
+	/* The ABE will covert the FE rate to 96k */
+	rate->min = rate->max = 96000;
+
+	snd_mask_set(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
+				    SNDRV_PCM_HW_PARAM_FIRST_MASK],
+				    SNDRV_PCM_FORMAT_S32_LE);
 	return 0;
 }
 
 static const struct snd_soc_ops omap_abe_dmic_ops = {
 	.hw_params = omap_abe_dmic_hw_params,
 };
+
 
 /* Headset jack */
 static struct snd_soc_jack hs_jack;
@@ -115,7 +509,45 @@ static struct snd_soc_jack_pin hs_jack_pins[] = {
 	},
 };
 
-/* SDP4430 machine DAPM */
+static int omap_abe_get_power_mode(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+
+	ucontrol->value.integer.value[0] = priv->twl6040_power_mode;
+
+	return 0;
+}
+
+static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+
+	if (priv->twl6040_power_mode == ucontrol->value.integer.value[0])
+		return 0;
+
+	priv->twl6040_power_mode = ucontrol->value.integer.value[0];
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	omap_aess_pm_set_mode(priv->aess, priv->twl6040_power_mode);
+#endif
+
+	return 1;
+}
+
+static const char *power_texts[] = {"Low-Power", "High-Performance"};
+
+static const struct soc_enum omap_abe_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, power_texts),
+};
+
+static const struct snd_kcontrol_new omap_abe_controls[] = {
+	SOC_ENUM_EXT("TWL6040 Power Mode", omap_abe_enum[0],
+		omap_abe_get_power_mode, omap_abe_set_power_mode),
+};
+
 static const struct snd_soc_dapm_widget twl6040_dapm_widgets[] = {
 	/* Outputs */
 	SND_SOC_DAPM_HP("Headset Stereophone", NULL),
@@ -134,8 +566,11 @@ static const struct snd_soc_dapm_widget twl6040_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic", NULL),
 };
 
+/// this all seems to duplicate the audio-routing in the DTS!
+
 static const struct snd_soc_dapm_route audio_map[] = {
 	/* Routings for outputs */
+// Destination Widget <=== Path Name <=== Source Widget
 	{"Headset Stereophone", NULL, "HSOL"},
 	{"Headset Stereophone", NULL, "HSOR"},
 
@@ -164,21 +599,135 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AFMR", NULL, "Line In"},
 };
 
+static const struct snd_soc_dapm_route aess_audio_map[] = {
+	/* Routings for outputs */
+	/* Connections between twl6040 and ABE */
+	{"Headset Playback", NULL, "PDM_DL1"},
+	{"Handsfree Playback", NULL, "PDM_DL2"},
+	{"PDM_UL1", NULL, "Capture"},
+
+	/* Bluetooth <--> ABE*/
+	{"omap-mcbsp.1 Playback", NULL, "BT_VX_DL"},
+	{"BT_VX_UL", NULL, "omap-mcbsp.1 Capture"},
+
+	/* FM <--> ABE */
+	{"omap-mcbsp.2 Playback", NULL, "MM_EXT_DL"},
+	{"MM_EXT_UL", NULL, "omap-mcbsp.2 Capture"},
+};
+
+static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
+{
+	struct snd_soc_card *card = dapm->card;
+	struct snd_soc_component *component = dapm->component;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+
+	int gain;
+
+	/*
+	 * set DL1 gains dynamically according to the active output
+	 * (Headset, Earpiece) and HSDAC power mode
+	 */
+
+	gain = twl6040_get_dl1_gain(component) * 100;
+
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	omap_aess_set_dl1_gains(priv->aess, gain, gain);
+#endif
+
+	return 0;
+}
+
+static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
+	struct snd_soc_card *card = rtd->card;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	u32 hfotrim, left_offset, right_offset;
+
+#ifdef FIXME	// component is NOT the twl6040!?!
+	/* DC offset cancellation computation */
+	hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
+#endif
+	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
+	left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
+
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	omap_aess_dc_set_hf_offset(priv->aess, left_offset, right_offset);
+#endif
+
+	return 0;
+}
+static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
+{
+#ifdef MATERIAL
+	struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
+	struct snd_soc_card *card = rtd->card;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+#endif
+
+	return 0;
+}
+
 static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
-	int hs_trim;
+	u32 hsotrim, left_offset, right_offset, step_mV;
 	int ret;
 
 	/*
 	 * Configure McPDM offset cancellation based on the HSOTRIM value from
 	 * twl6040.
 	 */
-	hs_trim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
-	omap_mcpdm_configure_dn_offsets(rtd, TWL6040_HSF_TRIM_LEFT(hs_trim),
-					TWL6040_HSF_TRIM_RIGHT(hs_trim));
+	hsotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
+	omap_mcpdm_configure_dn_offsets(rtd, TWL6040_HSF_TRIM_LEFT(hsotrim),
+					TWL6040_HSF_TRIM_RIGHT(hsotrim));
+
+	// FIXME: dapm.stream_event has disappeared in v5.4
+	// card->dapm.stream_event = omap_abe_stream_event;
+	// what is the replacement?
+	// component->driver->stream_event = omap_abe_stream_event;
+/* better in abe_probe?
+
+static const struct snd_soc_component_driver something = {
+	.stream_event = omap_abe_stream_event;
+}
+
+	ret = devm_snd_soc_register_component(dev, &something,
+					      &some_dai, 1);
+*/
+
+#if 0	// REVISIT
+	/* allow audio paths from the audio modem to run during suspend */
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
+// AFML/AFMR belong to the codec twl6040.c and will not be found by &card->dapm
+// which is some generic context but not the one pointing to the codec
+	snd_soc_dapm_ignore_suspend(&card->dapm, "AFML");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "AFMR");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Stereophone");
+#endif
+
+	/* DC offset cancellation computation only if ABE is enabled */
+	if (priv->aess) {
+		hsotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HSOTRIM);
+		right_offset = TWL6040_HSF_TRIM_RIGHT(hsotrim);
+		left_offset = TWL6040_HSF_TRIM_LEFT(hsotrim);
+
+		step_mV = twl6040_get_hs_step_size(component);
+
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+		omap_aess_dc_set_hs_offset(priv->aess, left_offset,
+					   right_offset, step_mV);
+#endif
+
+		/* ABE power control */
+		ret = snd_soc_add_card_controls(card, omap_abe_controls,
+						ARRAY_SIZE(omap_abe_controls));
+		if (ret)
+			return ret;
+	}
 
 	/* Headset jack detection only if it is supported */
 	if (priv->jack_detection) {
@@ -198,15 +747,285 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 static const struct snd_soc_dapm_route dmic_audio_map[] = {
 	{"DMic", NULL, "Digital Mic"},
 	{"Digital Mic", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 0"},
+
+	{"DMic1", NULL, "omap-dmic-abe Capture"},
+	{"omap-dmic-abe Capture", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 1"},
+
+	{"DMic2", NULL, "omap-dmic-abe Capture"},
+	{"omap-dmic-abe Capture", NULL, "Digital Mic1 Bias"},
+	{"Digital Mic1 Bias", NULL, "Digital Mic 2"},
+};
+
+static const struct snd_soc_dapm_widget dmic_dapm_widgets[] = {
+	SND_SOC_DAPM_MIC("Digital Mic 0", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic 1", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic 2", NULL),
 };
 
 static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
+	struct snd_soc_card *card = rtd->card;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	int ret;
 
-	return snd_soc_dapm_add_routes(dapm, dmic_audio_map,
-				ARRAY_SIZE(dmic_audio_map));
+	ret = snd_soc_dapm_new_controls(dapm, dmic_dapm_widgets,
+					ARRAY_SIZE(dmic_dapm_widgets));
+	if (ret)
+		return ret;
+
+	ret = snd_soc_dapm_add_routes(dapm, dmic_audio_map,
+					ARRAY_SIZE(dmic_audio_map));
+	if (ret < 0)
+		return ret;
+
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 0");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 1");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic 2");
+
+	return 0;
 }
+
+static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
+{
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	struct device_node *node = card->dev->of_node;
+	struct device_node *dai_node;
+	int ret;
+
+	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
+	if (!dai_node) {
+		dev_err(card->dev, "McPDM node is not provided\n");
+		return -EINVAL;
+	}
+
+	ADD_DAILINK(card, dai_node, dai_node, legacy_mcpdm_dai);
+
+	dai_node = of_parse_phandle(node, "ti,dmic", 0);
+	if (dai_node)
+		ADD_DAILINK(card, dai_node, dai_node, legacy_dmic_dai);
+
+	/* Add the Legacy McBSP(2) */
+	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
+	if (false && dai_node)
+		ADD_DAILINK(card, dai_node, dai_node, legacy_mcbsp_dai);
+
+	/* Add the Legacy McASP */
+	dai_node = of_parse_phandle(node, "ti,mcasp", 0);
+	if (false && dai_node)
+		ADD_DAILINK(card, dai_node, dai_node, legacy_mcasp_dai);
+
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+/* called after loading firmware */
+static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
+{
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	struct device_node *node = card->dev->of_node;
+	struct device_node *aess_node;
+	struct device_node *dai_node;
+
+	/* FIXME: add DAI links for AE */
+
+	aess_node = of_parse_phandle(node, "ti,aess", 0);
+
+// FIXME: cpu_of_node und platform_of_node unterscheiden!
+// cpu_of_node ist z.B. der ti,mcbsp1 und platform der ti,aess
+
+	ADD_DAILINKS(card, aess_node, abe_fe_dai);
+	ADD_DAILINKS(card, aess_node, abe_be_mcpdm_dai);
+	dai_node = of_parse_phandle(node, "ti,mcbsp1", 0);
+	if (dai_node)
+		ADD_DAILINK(card, aess_node, dai_node, abe_be_mcbsp1_dai);
+	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
+	if (dai_node)
+		ADD_DAILINK(card, aess_node, dai_node, abe_be_mcbsp2_dai);
+	dai_node = of_parse_phandle(node, "ti,dmic", 0);
+	if (dai_node)
+		ADD_DAILINKS(card, aess_node, abe_be_dmic_dai);
+
+#ifdef MATERIAL
+// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n693
+	int ret;
+
+	if (node) {
+		struct device_node *dai_node, *aess_node;
+
+		aess_node = of_parse_phandle(node, "ti,aess", 0);
+		if (!aess_node) {
+			dev_err(card->dev, "AESS node is not provided\n");
+			return -EINVAL;
+		}
+
+		for (i = 4; i < ARRAY_SIZE(abe_fe_dai); i++) {
+			abe_fe_dai[i].platform_name  = NULL;
+			abe_fe_dai[i].platform_of_node = aess_node;
+		}
+
+		dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
+		if (!dai_node) {
+				dev_err(card->dev, "McPDM node is not provided\n");
+				return -EINVAL;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(abe_be_mcpdm_dai); i++) {
+			abe_be_mcpdm_dai[i].platform_name  = NULL;
+			abe_be_mcpdm_dai[i].platform_of_node = aess_node;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(abe_be_dmic_dai); i++) {
+			abe_be_dmic_dai[i].platform_name  = NULL;
+			abe_be_dmic_dai[i].platform_of_node = aess_node;
+		}
+
+		dai_node = of_parse_phandle(node, "ti,mcbsp1", 0);
+		if (!dai_node) {
+			dev_err(card->dev,"McBSP1 node is not provided\n");
+			return -EINVAL;
+		}
+		abe_be_mcbsp1_dai.cpu_dai_name  = NULL;
+		abe_be_mcbsp1_dai.cpu_of_node = dai_node;
+		abe_be_mcbsp1_dai.platform_name  = NULL;
+		abe_be_mcbsp1_dai.platform_of_node = aess_node;
+
+		dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
+		if (!dai_node) {
+			dev_err(card->dev,"McBSP2 node is not provided\n");
+			return -EINVAL;
+		}
+		abe_be_mcbsp2_dai.cpu_dai_name  = NULL;
+		abe_be_mcbsp2_dai.cpu_of_node = dai_node;
+		abe_be_mcbsp2_dai.platform_name  = NULL;
+		abe_be_mcbsp2_dai.platform_of_node = aess_node;
+	}
+
+	/* Add the ABE FEs */
+	ret = snd_soc_card_new_dai_links(card, abe_fe_dai,
+		ARRAY_SIZE(abe_fe_dai));
+	if (ret < 0)
+		return ret;
+
+	/* McPDM BEs */
+	ret = snd_soc_card_new_dai_links(card, abe_be_mcpdm_dai,
+		ARRAY_SIZE(abe_be_mcpdm_dai));
+	if (ret < 0)
+		return ret;
+
+	/* McBSP1 BEs */
+	ret = snd_soc_card_new_dai_links(card, &abe_be_mcbsp1_dai, 1);
+	if (ret < 0)
+		return ret;
+
+	/* McBSP2 BEs */
+	ret = snd_soc_card_new_dai_links(card, &abe_be_mcbsp2_dai, 1);
+	if (ret < 0)
+		return ret;
+	/* DMIC BEs */
+	if (card_data->has_dmic) {
+		ret = snd_soc_card_new_dai_links(card, abe_be_dmic_dai,
+			ARRAY_SIZE(abe_be_dmic_dai));
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = snd_soc_dapm_add_routes(dapm, aess_audio_map,
+					ARRAY_SIZE(aess_audio_map));
+	if (ret < 0)
+		return ret;
+
+#endif
+	return 0;
+}
+
+#if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
+static void omap_abe_fw_ready(const struct firmware *fw, void *context)
+{
+	struct platform_device *pdev = (struct platform_device *)context;
+	struct snd_soc_card *card = &omap_abe_card;
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	if (unlikely(!fw))
+		dev_warn(&pdev->dev, "%s firmware is not loaded.\n",
+			 AESS_FW_NAME);
+
+	priv->aess = omap_aess_get_handle();
+	if (!priv->aess) {
+		dev_err(&pdev->dev, "AESS is not yet available\n");
+		return;
+	}
+
+	ret = omap_aess_load_firmware(priv->aess, fw);
+	if (ret) {
+		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
+			AESS_FW_NAME);
+		omap_aess_put_handle(priv->aess);
+		priv->aess = NULL;
+	}
+
+	/* Release the FW here. */
+//	release_firmware(fw);
+
+	ret = omap_abe_add_legacy_dai_links(card);
+	if (ret < 0)
+		return;
+
+	ret = omap_abe_add_aess_dai_links(card);
+	if (ret < 0)
+		return;
+
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
+	if (ret)
+		dev_err(&pdev->dev, "card registration failed after successful firmware load: %d\n",
+			ret);
+	return;
+}
+
+#else /* !IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
+static int omap_abe_load_fw(struct snd_soc_card *card)
+{
+	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	const struct firmware *fw;
+	int ret;
+
+	priv->aess = omap_aess_get_handle();
+	if (!priv->aess) {
+		dev_err(card->dev, "AESS is not yet available\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = request_firmware(&fw, AESS_FW_NAME, card->dev);
+	if (ret) {
+		dev_err(card->dev, "FW request failed: %d\n", ret);
+		return ret;
+	}
+
+	ret = omap_aess_load_firmware(priv->aess, fw);
+	if (ret) {
+		dev_err(card->dev, "%s firmware was not loaded.\n",
+			AESS_FW_NAME);
+		omap_aess_put_handle(priv->aess);
+		priv->aess = NULL;
+		ret = 0;
+	}
+
+	if (priv->aess)
+		ret = omap_abe_add_aess_dai_links(card);
+
+	/* Release the FW here. */
+// oops - why???
+// and: what about error paths? We should have sort of devm_request_firmware
+//	release_firmware(fw);
+
+	return ret;
+}
+#endif /* IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
+#endif /* IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS) */
 
 static int omap_abe_probe(struct platform_device *pdev)
 {
@@ -214,7 +1033,6 @@ static int omap_abe_probe(struct platform_device *pdev)
 	struct snd_soc_card *card;
 	struct device_node *dai_node;
 	struct abe_twl6040 *priv;
-	int num_links = 0;
 	int ret = 0;
 
 	if (!node) {
@@ -231,56 +1049,21 @@ static int omap_abe_probe(struct platform_device *pdev)
 	card->owner = THIS_MODULE;
 	card->dapm_widgets = twl6040_dapm_widgets;
 	card->num_dapm_widgets = ARRAY_SIZE(twl6040_dapm_widgets);
-	card->dapm_routes = audio_map;
+	card->dapm_routes = audio_map;	/* default map */
 	card->num_dapm_routes = ARRAY_SIZE(audio_map);
+	card->dai_link = priv->dai_links;
+	snd_soc_card_set_drvdata(card, priv);
 
 	if (snd_soc_of_parse_card_name(card, "ti,model")) {
 		dev_err(&pdev->dev, "Card name is not provided\n");
 		return -ENODEV;
 	}
 
+	/* additional mapping (static) */
 	ret = snd_soc_of_parse_audio_routing(card, "ti,audio-routing");
 	if (ret) {
 		dev_err(&pdev->dev, "Error while parsing DAPM routing\n");
 		return ret;
-	}
-
-	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
-	if (!dai_node) {
-		dev_err(&pdev->dev, "McPDM node is not provided\n");
-		return -EINVAL;
-	}
-
-	priv->dai_links[0].name = "DMIC";
-	priv->dai_links[0].stream_name = "TWL6040";
-	priv->dai_links[0].cpus = link0_cpus;
-	priv->dai_links[0].num_cpus = 1;
-	priv->dai_links[0].cpus->of_node = dai_node;
-	priv->dai_links[0].platforms = link0_platforms;
-	priv->dai_links[0].num_platforms = 1;
-	priv->dai_links[0].platforms->of_node = dai_node;
-	priv->dai_links[0].codecs = link0_codecs;
-	priv->dai_links[0].num_codecs = 1;
-	priv->dai_links[0].init = omap_abe_twl6040_init;
-	priv->dai_links[0].ops = &omap_abe_ops;
-
-	dai_node = of_parse_phandle(node, "ti,dmic", 0);
-	if (dai_node) {
-		num_links = 2;
-		priv->dai_links[1].name = "TWL6040";
-		priv->dai_links[1].stream_name = "DMIC Capture";
-		priv->dai_links[1].cpus = link1_cpus;
-		priv->dai_links[1].num_cpus = 1;
-		priv->dai_links[1].cpus->of_node = dai_node;
-		priv->dai_links[1].platforms = link1_platforms;
-		priv->dai_links[1].num_platforms = 1;
-		priv->dai_links[1].platforms->of_node = dai_node;
-		priv->dai_links[1].codecs = link1_codecs;
-		priv->dai_links[1].num_codecs = 1;
-		priv->dai_links[1].init = omap_abe_dmic_init;
-		priv->dai_links[1].ops = &omap_abe_dmic_ops;
-	} else {
-		num_links = 1;
 	}
 
 	priv->jack_detection = of_property_read_bool(node, "ti,jack-detection");
@@ -292,21 +1075,46 @@ static int omap_abe_probe(struct platform_device *pdev)
 
 	card->fully_routed = 1;
 
-	card->dai_link = priv->dai_links;
-	card->num_links = num_links;
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	dai_node = of_parse_phandle(node, "ti,aess", 0);
 
-	snd_soc_card_set_drvdata(card, priv);
+	if (dai_node) {
+		/* When ABE is in use the AESS needs firmware */
+#if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
+		ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
+				      &pdev->dev, GFP_KERNEL, pdev,
+				      omap_abe_fw_ready);
+#else
+		ret = omap_abe_load_fw(card);
+#endif
+		if (ret < 0)
+			/* warn only but continue */
+			dev_warn(&pdev->dev, "Failed to load firmware %s: %d\n",
+				AESS_FW_NAME, ret);
 
-	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret)
-		dev_err(&pdev->dev, "devm_snd_soc_register_card() failed: %d\n",
-			ret);
+#if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
+		/* card is already registered after successful firmware load */
+		return ret;
+#endif
+	}
+#endif
+
+	ret = omap_abe_add_legacy_dai_links(card);
+	if (ret < 0)
+		return ret;
+
+/* replace by devm_snd_soc_register_component and register the stream event */
+	ret = snd_soc_register_card(card);
+	if (ret) {
+		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
+		return ret;
+	}
 
 	return ret;
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
-	{.compatible = "ti,abe-twl6040", },
+	{ .compatible = "ti,abe-twl6040", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, omap_abe_of_match);
@@ -331,9 +1139,18 @@ static int __init omap_abe_init(void)
 		return PTR_ERR(dmic_codec_dev);
 	}
 
+	spdif_codec_dev = platform_device_register_simple("spdif-dit", -1,
+				NULL, 0);
+	if (IS_ERR(spdif_codec_dev)) {
+		pr_err("%s: spdif-dit device registration failed\n", __func__);
+		platform_device_unregister(dmic_codec_dev);
+		return PTR_ERR(spdif_codec_dev);
+	}
+
 	ret = platform_driver_register(&omap_abe_driver);
 	if (ret) {
 		pr_err("%s: platform driver registration failed\n", __func__);
+		platform_device_unregister(spdif_codec_dev);
 		platform_device_unregister(dmic_codec_dev);
 	}
 
@@ -345,10 +1162,12 @@ static void __exit omap_abe_exit(void)
 {
 	platform_driver_unregister(&omap_abe_driver);
 	platform_device_unregister(dmic_codec_dev);
+	platform_device_unregister(spdif_codec_dev);
 }
 module_exit(omap_abe_exit);
 
 MODULE_AUTHOR("Misael Lopez Cruz <misael.lopez@ti.com>");
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
 MODULE_DESCRIPTION("ALSA SoC for OMAP boards with ABE and twl6040 codec");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:omap-abe-twl6040");
