@@ -707,3 +707,8 @@ config TRS3386
 	  chip TRS3386.
 
 endmenu
+
+config RETRODE3
+	tristate "Retrode3 gpio based Cart read"
+	help
+	  Choose Y.
