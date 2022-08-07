@@ -1,29 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0
 
-
 /*
- * Ideen:
- * auf Device-Tree-Treiber mit .compatible = "openpandora,retrode3" umbauen
- * je Device-Tree-CS-Node ein /dev/cart-n anlegen
- * welcher Treiber ist da am ähnlichsten?
- *     /dev/gpiochip0, /dev/i2c-1, /dev/rtc0
- * cart-detect mit integrieren, incl. polling?
- * und /dev nur bei Bedarf anlegen oder löschen?
- * kann man dann ein udev-event abfragen und LEDs sowie Auslesen steuern?
- * wie steuert man RAM?
+ * based on ideas and fragents from
+ *  drivers/char/mem.c
+ *  drivers/gnss/core.c
+ *  arch/arm/common/locomo.c
+
+to be solved
+- 8 bit vw. 16 bit bus width
+- handle polling (o not if user space polls open("/dev/slot*") or if we provide udev or /sys/class/slot sense-status
+- make open(), read() work
+- lock multiple select attempts
+- add read/write for RAM
+
+ *
+ *  Copyright (C) 2022, H. Nikolaus Schaller
+ *
  */
 
-/*
- * based on
- *  linux/drivers/char/mem.c
- *
- *  Copyright (C) 1991, 1992  Linus Torvalds
- *
- *  Added devfs support.
- *    Jan-11-1998, C. Scott Ananian <cananian@alumni.princeton.edu>
- *  Shared /dev/zero mmapping support, Feb 2000, Kanoj Sarcar <kanoj@sgi.com>
- */
-
+#include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/export.h>
@@ -33,6 +28,7 @@
 #include <linux/io.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/platform_device.h>
@@ -45,79 +41,111 @@
 # include <linux/efi.h>
 #endif
 
-#define DEVMEM_MINOR	1
-#define DEVPORT_MINOR	4
+// #define RETRODE3_MAJOR FLOPPY_MAJOR
+#define RETRODE3_MINORS	16
+static DEFINE_IDA(retrode3_minors);
+static dev_t retrode3_first;
+static struct class *retrode3_class;
 
-struct retrode3_cart {
-	struct retrode3_data *data;	// backpointer
-	struct gpio_desc *cs;	// cart select
-	struct gpio_desc *cd;	// cart detect
-	int addr_width;
-	int bus_width;
-	int cd_state;	// previous cart detect state
+/* one slot */
+
+struct retrode3_slot {
+	struct device dev;	// the /dev/slot
+	struct cdev cdev;	// the /dev/slot
+	int id;
+	struct retrode3_bus *bus;	// backpointer to bus
+	struct gpio_desc *cs;	// slot select
+	struct gpio_desc *cd;	// slot detect
+	u32 addr_width;
+	u32 bus_width;
 };
 
-struct retrode3_data {
+/* bus for all slots */
+
+struct retrode3_bus {
 	struct gpio_descs *addrs;
 	struct gpio_descs *datas;
 	struct gpio_desc *oe;
 	struct gpio_descs *we;
 	struct gpio_desc *time;
-	struct retrode3_cart carts[4];
+	struct retrode3_slot *slots[4];
+	struct mutex select_lock;
 };
 
-static void set_address(struct retrode3_data *r3, u32 addr)
+/* low level address and data bus access */
+
+static void set_address(struct retrode3_bus *bus, u32 addr)
 { /* set address on all gpios */
 	int a;
+// printk("%s:\n", __func__);
 // A0 anders behandeln?
-	for (a = 0; a < r3->addrs->ndescs; a++)
-		gpiod_set_value(r3->addrs->desc[a], (addr>>a) & 1);
+	for (a = 0; a < bus->addrs->ndescs; a++)
+		gpiod_set_value(bus->addrs->desc[a], (addr>>a) & 1);
 }
 
 // block wise read/write?
 
-static u16 read_data(struct retrode3_data *r3)
+static u16 read_word(struct retrode3_bus *bus)
 { /* read data from data lines */
 	int d;
 	u16 data;
-	gpiod_set_value(r3->oe, true);
+printk("%s:\n", __func__);
+	gpiod_set_value(bus->oe, true);
 	/* read data bits */
 	data = 0;
-	for (d = 0; d < r3->datas->ndescs; d++)
-		data |= gpiod_get_value(r3->datas->desc[d]) << d;
-	gpiod_set_value(r3->oe, false);
+	for (d = 0; d < bus->datas->ndescs; d++)
+		data |= gpiod_get_value(bus->datas->desc[d]) << d;
+	gpiod_set_value(bus->oe, false);
 	return data;
 }
 
-static void write_data(struct retrode3_data *r3, u16 data, int mode)
+static void write_word(struct retrode3_bus *bus, u16 data, int mode)
 { /* write data to data lines */
 	int d;
 	/* set data bits */
+
+printk("%s:\n", __func__);
+
 	data = 0;
-	for (d = 0; d < r3->datas->ndescs; d++)
-		gpiod_set_value(r3->datas->desc[d], (data>>d) & 1);
+	for (d = 0; d < bus->datas->ndescs; d++)
+		gpiod_set_value(bus->datas->desc[d], (data>>d) & 1);
 	/* single pulse on upper/lower or both depending on mode! */
-	gpiod_set_value(r3->we->desc[0], true);
-	gpiod_set_value(r3->we->desc[0], false);
+	gpiod_set_value(bus->we->desc[0], true);
+	gpiod_set_value(bus->we->desc[0], false);
 }
 
-static void select(struct retrode3_data *r3, int device)
-{
-// immer nur eines oder keines...
-	/* chip select */
+/* cart select */
+
+static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
+{ /* chip select */
 	int i;
-	for(i=0; i<ARRAY_SIZE(r3->carts); i++)
-		gpiod_set_value(r3->carts[i].cs, (i == device) ? true:false);
+
+printk("%s:\n", __func__);
+
+	if (slot)
+		 mutex_lock(&bus->select_lock);
+
+	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
+		if (!bus->slots[i])
+			continue;
+		gpiod_set_value(bus->slots[i]->cs, (bus->slots[i] == slot) ? true:false);
+	}
+
+	if (!slot && mutex_is_locked(&bus->select_lock))
+		 mutex_unlock(&bus->select_lock);
 }
 
 /*
- * This function reads the cart. The f_pos points directly to the
+ * This function reads the slot. The f_pos points directly to the
  * memory location.
  */
-static ssize_t read_mem(struct file *file, char __user *buf,
+static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
-	struct retrode3_data *r3;	// get from *file
+	struct retrode3_slot *slot = file->private_data;
+
+        dev_info(&slot->dev, "%s\n", __func__);
+
 	ssize_t read, sz;
 	void *ptr;
 	char *bounce;
@@ -125,50 +153,50 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 
 	read = 0;
 
-// select specific cart and deselect others
-
-	select(r3, 0);
+	select(slot->bus, slot);
 
 	while (count > 0) {
 		unsigned long remaining;
 		int allowed, probe;
 
-		probe = copy_from_kernel_nofault(bounce, ptr, sz);
+		sz = 1;	// handle word reads
+		set_address(slot->bus, *ppos);
+
+		// read to buffer (bounce)
+
 		remaining = copy_to_user(buf, bounce, sz);
-
-// FIXME: loop over bytes and read them from consecutive addresses
-// handle words for 16 bit bus and faster read
-
-		set_address(r3, *ppos);
 
 		if (remaining)
 			goto failed;
 
+		*ppos += sz;
 		buf += sz;
 		count -= sz;
 		read += sz;
 	}
 
-	select(r3, -1);
+	select(slot->bus, NULL);
 
-	*ppos += read;
 	return read;
 
 failed:
 	return err;
 }
 
-static ssize_t write_mem(struct file *file, const char __user *buf,
+static ssize_t retrode3_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
-	struct retrode3_data *r3;	// get from *file
+	struct retrode3_slot *slot = file->private_data;
+
+        dev_info(&slot->dev, "%s\n", __func__);
+
 	ssize_t written, sz;
 	unsigned long copied;
 	void *ptr;
 
 	written = 0;
 
-	select(r3, 0);
+	select(slot->bus, slot);
 
 	while (count > 0) {
 		int allowed;
@@ -176,10 +204,10 @@ static ssize_t write_mem(struct file *file, const char __user *buf,
 // FIXME: loop over bytes and write them to consecutive addresses
 // handle words for 16 bit bus and faster write
 
-		set_address(r3, *ppos);
+		sz = 1;
+		set_address(slot->bus, *ppos);
 
-
-		copied = copy_from_user(ptr, buf, sz);
+		copied = copy_to_user(ptr, buf, sz);
 		if (copied) {
 			written += sz - copied;
 			if (written)
@@ -187,14 +215,14 @@ static ssize_t write_mem(struct file *file, const char __user *buf,
 			return -EFAULT;
 		}
 
+		*ppos += sz;
 		buf += sz;
 		count -= sz;
 		written += sz;
 	}
 
-	select(r3, -1);
+	select(slot->bus, NULL);
 
-	*ppos += written;
 	return written;
 }
 
@@ -206,7 +234,7 @@ static ssize_t write_mem(struct file *file, const char __user *buf,
  * also note that seeking relative to the "end of file" isn't supported:
  * it has no meaning, so it returns -EINVAL.
  */
-static loff_t memory_lseek(struct file *file, loff_t offset, int orig)
+static loff_t retrode3_lseek(struct file *file, loff_t offset, int orig)
 {
 	loff_t ret;
 
@@ -232,193 +260,183 @@ static loff_t memory_lseek(struct file *file, loff_t offset, int orig)
 	return ret;
 }
 
-static int open_mem(struct inode *inode, struct file *filp)
+static int retrode3_open(struct inode *inode, struct file *file)
 {
-	int rc;
+	struct retrode3_slot *slot;
+	int ret = 0;
 
-	if (iminor(inode) != DEVMEM_MINOR)
-		return 0;
+	slot = container_of(inode->i_cdev, struct retrode3_slot, cdev);
 
-#if OLD
-	/*
-	 * Use a unified address space to have a single point to manage
-	 * revocations when drivers want to take over a /dev/mem mapped
-	 * range.
-	 */
-	filp->f_mapping = iomem_get_mapping();
-#endif
-	return 0;
+        dev_info(&slot->dev, "%s\n", __func__);
+
+	if (!gpiod_get_value(slot->cd))
+		return -ENODEV;	// no cart is inserted
+
+	get_device(&slot->dev);	// increment the reference count for the device
+
+	ret = generic_file_open(inode, file);
+	if (ret < 0)
+		return ret;
+
+	file->private_data = slot;
+
+	return ret;
 }
 
-
-static const struct file_operations __maybe_unused mem_fops = {
-	.llseek		= memory_lseek,
-	.read		= read_mem,
-	.write		= write_mem,
-//	.mmap		= mmap_mem,
-	.open		= open_mem,
-};
-
-static const struct memdev {
-	const char *name;
-	umode_t mode;
-	const struct file_operations *fops;
-	fmode_t fmode;
-} devlist[] = {
-	 [DEVMEM_MINOR] = { "retrode", 0, &mem_fops, FMODE_UNSIGNED_OFFSET },
-};
-
-#if OLD
-
-static int memory_open(struct inode *inode, struct file *filp)
+static int retrode3_release(struct inode *inode, struct file *file)
 {
-	int minor;
-	const struct memdev *dev;
+	struct retrode3_slot *slot = file->private_data;
 
-	minor = iminor(inode);
-	if (minor >= ARRAY_SIZE(devlist))
-		return -ENXIO;
+        dev_info(&slot->dev, "%s\n", __func__);
 
-	dev = &devlist[minor];
-	if (!dev->fops)
-		return -ENXIO;
-
-	filp->f_op = dev->fops;
-	filp->f_mode |= dev->fmode;
-
-	if (dev->fops->open)
-		return dev->fops->open(inode, filp);
+	put_device(&slot->dev);
 
 	return 0;
 }
 
-static const struct file_operations memory_fops = {
-	.open = memory_open,
-	.llseek = noop_llseek,
+static const struct file_operations slot_fops = {
+	.llseek		= retrode3_lseek,
+	.read		= retrode3_read,
+	.write		= retrode3_write,
+	.open		= retrode3_open,
+	.release	= retrode3_release,
 };
 
-static char *mem_devnode(struct device *dev, umode_t *mode)
+// FIXME: duplicate to retrode3_release??
+
+static void retrode3_slot_release(struct device *dev)
 {
-	if (mode && devlist[MINOR(dev->devt)].mode)
-		*mode = devlist[MINOR(dev->devt)].mode;
-	return NULL;
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+
+        dev_info(&slot->dev, "%s\n", __func__);
+
+	ida_simple_remove(&retrode3_minors, slot->id);
+	// FIXME: what else to release
+	kfree(slot);
 }
-
-static struct class *mem_class;
-
-static int __init chr_dev_init(void)
-{
-	int minor;
-
-// FIXME: we should have multiple instances with different names, i.e. /dev/cart0 /dev/cart1 /dev/cart2
-/*
-	addrs = devm_gpiod_get_array(struct device *dev,
-		"addr", GPIOD_OUT_HIGH);
-	datas = devm_gpiod_get_array(struct device *dev,
-		"data", GPIOD_OUT_HIGH);
-	cs = devm_gpiod_get_array(struct device *dev,
-		"cs", GPIOD_OUT_HIGH);
-	oe = devm_gpiod_get(struct device *dev,
-		"cs", GPIOD_OUT_HIGH);
-
-*/
-
-	if (register_chrdev(MEM_MAJOR, "cart", &memory_fops))
-		printk("unable to get major %d for retrode dev\n", MEM_MAJOR);
-
-	mem_class = class_create(THIS_MODULE, "cart");
-	if (IS_ERR(mem_class))
-		return PTR_ERR(mem_class);
-
-	mem_class->devnode = mem_devnode;
-	for (minor = 1; minor < ARRAY_SIZE(devlist); minor++) {
-		if (!devlist[minor].name)
-			continue;
-
-		/*
-		 * Create /dev/port?
-		 */
-		if ((minor == DEVPORT_MINOR) && !arch_has_dev_port())
-			continue;
-
-		device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
-			      NULL, devlist[minor].name);
-	}
-
-	return 0;
-}
-#endif
 
 static int retrode3_probe(struct platform_device *pdev)
 {
         struct device *dev = &pdev->dev;
-        struct retrode3_data *data;
-        int i;
+        struct retrode3_bus *bus;
+        int i = 0;
+	struct device_node *slots, *child = NULL;
 
-        pr_debug("%s()\n", __func__);
+        dev_info(&pdev->dev, "%s\n", __func__);
 
         if (!pdev->dev.of_node) {
                 dev_err(&pdev->dev, "No device tree data\n");
                 return EINVAL;
         }
 
-        data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
-        if (data == NULL)
+        bus = devm_kzalloc(&pdev->dev, sizeof(*bus), GFP_KERNEL);
+        if (bus == NULL)
                 return -ENOMEM;
 
-	data->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
-	data->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_OUT_HIGH);
-	data->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
-// FIXME - one per child:	data->cs = devm_gpiod_get_array(&pdev->dev, "cs", GPIOD_OUT_LOW);
-// FIXME - one per child:	data->cd = devm_gpiod_get_array(&pdev->dev, "cd", GPIOD_OUT_LOW);
-	data->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
-	data->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
+	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
+	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_OUT_HIGH);
+	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
+	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
+	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
 
-// FIXME: scan carts and create data structures
-// setup chip cart detect polling
+	mutex_init(&bus->select_lock);
 
-#if 0
-        for (i=0; i<NUMBER_OF_GPIOS; i++) {
-                enum of_gpio_flags flags;
+	slots = of_get_child_by_name(pdev->dev.of_node, "slots");
+	while ((child = of_get_next_child(slots, child))) {
+		struct retrode3_slot *slot;
+		struct device *dev;
+		int id;
+		int ret;
 
-                data->gpios[i] = of_get_named_gpio_flags(dev->of_node,
-                                        "gpios", i,
-                                        &flags);
+		if (i >= ARRAY_SIZE(bus->slots)) {
+			dev_err(&slot->dev, "too many slots\n");
+// FIXME: better error handling
+			// FIXME: dealloc previously added devices
+			kfree(bus);
+			return ret;
+		}
 
-                if (data->gpios[i] == -EPROBE_DEFER)
-                        return -EPROBE_DEFER;   /* defer until we have all gpios */
-                data->gpioflags[i] = flags;
-        }
+		slot = kzalloc(sizeof(*slot), GFP_KERNEL);
+		if (!slot) {
+			kfree(bus);
+			return -ENOMEM;
+		}
 
-        data->uart = devm_serial_get_uart_by_phandle(&pdev->dev, "uart", 0);
+		slot->bus = bus;
+		bus->slots[i++] = slot;
 
-        if (!data->uart) {
-                dev_err(&pdev->dev, "No UART link\n");
-                return -EINVAL;
-        }
+		if (of_property_match_string(child, "compatible", "openpandora,retrode3-slot") >= 0) {
 
-        if (IS_ERR(data->uart)) {
-                if (PTR_ERR(data->uart) == -EPROBE_DEFER)
-                        return -EPROBE_DEFER;   /* we can't probe yet */
-                data->uart = NULL;      /* no UART */
-        }
+// FIXME: make this separate functions
 
+			id = ida_simple_get(&retrode3_minors, 0, RETRODE3_MINORS, GFP_KERNEL);
+			if (id < 0) {
+				// FIXME: dealloc previously added devices
+				kfree(bus);
+				kfree(slot);
+				return -EINVAL;
+			}
 
-        for (i=0; i<NUMBER_OF_GPIOS; i++)
-                if(gpio_is_valid(data->gpios[i]))
-                        devm_gpio_request(&pdev->dev, data->gpios[i], "mctrl-gpio");
-#endif
+			slot->id = id;
+			dev = &slot->dev;
+			device_initialize(dev);
+			dev->devt = retrode3_first + id;
+			dev->class = retrode3_class;
+			dev->parent = &pdev->dev;
+			dev->release = retrode3_slot_release;
+			dev_set_drvdata(dev, slot);
+			dev_set_name(dev, "slot%d", id);
+			dev->of_node = child;
+			slot->cs = devm_gpiod_get(dev, "cs", GPIOD_OUT_LOW);
+			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_OUT_LOW);
+			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
+			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
 
-        platform_set_drvdata(pdev, data);
+			cdev_init(&slot->cdev, &slot_fops);
+			slot->cdev.owner = THIS_MODULE;
+			ret = cdev_device_add(&slot->cdev, &slot->dev);
+			if (ret) {
+				dev_err(&slot->dev, "failed to add device: %d\n", ret);
+				// FIXME: dealloc previously added devices
+				kfree(bus);
+				kfree(slot);
+				return ret;
+			}
+		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
+			// FIXME: add gamepad input driver initialization
+			dev_info(dev, "%s gamepad not implemented\n", __func__);
+		} else {
+			dev_err(&slot->dev, "unknown child type\n");
+			// FIXME: dealloc previously added devices
+			kfree(bus);
+			kfree(slot);
+			return ret;
+		}
+		dev_info(dev, "%s added\n", __func__);
+	}
 
-        dev_info(&pdev->dev, "retrode3 probed\n");
+        platform_set_drvdata(pdev, bus);
+
+        dev_info(&pdev->dev, "%s successful\n", __func__);
+
+	select(bus, NULL);	// deselect all slots
 
         return 0;
 }
 
 static int retrode3_remove(struct platform_device *pdev)
 {
-        struct retrode3_data *data = platform_get_drvdata(pdev);
+        struct retrode3_bus *bus = platform_get_drvdata(pdev);
+	int i;
+
+	select(bus, NULL);	// deselect all slots
+
+	for (i=0; i<ARRAY_SIZE(bus->slots); i++) {
+		struct retrode3_slot *slot = bus->slots[i];
+		cdev_device_del(&slot->cdev, &slot->dev);
+	}
+
+	mutex_destroy(&bus->select_lock);
 
         return 0;
 }
@@ -439,10 +457,89 @@ static struct platform_driver retrode3_driver = {
         },
 };
 
-module_platform_driver(retrode3_driver);
+static int retrode3_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	struct retrode3_slot *slot = container_of(dev, struct retrode3_slot, dev);
+	int ret;
+
+        dev_info(&slot->dev, "%s\n", __func__);
+
+	ret = add_uevent_var(env, "slot=%s", "name");
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%s\n", gpiod_get_value(slot->cd)?"active":"unused");
+}
+static DEVICE_ATTR_RO(sense);
+
+static struct attribute *retrode3_attrs[] = {
+	&dev_attr_sense.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(retrode3);
+
+static int __init retrode3_module_init(void)
+{
+	int ret;
+
+	ret = alloc_chrdev_region(&retrode3_first, 0, RETRODE3_MINORS, "retrode3");
+	if (ret < 0) {
+		pr_err("failed to allocate device numbers: %d\n", ret);
+		return ret;
+	}
+
+	retrode3_class = class_create(THIS_MODULE, "retrode3");
+	if (IS_ERR(retrode3_class)) {
+		ret = PTR_ERR(retrode3_class);
+		pr_err("failed to create class: %d\n", ret);
+		goto err_unregister_chrdev;
+	}
+
+	retrode3_class->dev_groups = retrode3_groups;	// for additional /sys attributes
+
+// triggers permanent sequence of uEvents...
+//	retrode3_class->dev_uevent = retrode3_uevent;
+
+	ret = platform_driver_register(&retrode3_driver);
+
+	if (ret < 0)
+		goto err_destroy_class;
+
+	pr_info("retrode3 driver registered with major %d\n", MAJOR(retrode3_first));
+
+	return ret;
+
+err_destroy_class:
+	class_destroy(retrode3_class);
+err_unregister_chrdev:
+	unregister_chrdev_region(retrode3_first, RETRODE3_MINORS);
+
+	return ret;
+}
+
+static void __exit retrode3_module_exit(void)
+{
+
+	class_destroy(retrode3_class);
+	unregister_chrdev_region(retrode3_first, RETRODE3_MINORS);
+	ida_destroy(&retrode3_minors);
+
+	platform_driver_unregister(&retrode3_driver);
+}
+
+module_init(retrode3_module_init);
+module_exit(retrode3_module_exit);
 
 MODULE_ALIAS("retrode3");
 
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
-MODULE_DESCRIPTION("retrode 3 cart reader driver");
+MODULE_DESCRIPTION("retrode 3 slot reader driver");
 MODULE_LICENSE("GPL v2");
