@@ -70,31 +70,72 @@ struct retrode3_bus {
 	struct gpio_desc *time;
 	struct retrode3_slot *slots[4];
 	struct mutex select_lock;
+	int a0;
+	u32 prev_addr;
 };
 
 /* low level address and data bus access */
 
-static void set_address(struct retrode3_bus *bus, u32 addr)
+static int set_address(struct retrode3_bus *bus, u32 addr)
 { /* set address on all gpios */
 	int a;
+
+	if (addr >= 1<<24)
+		return -EINVAL;
+
 // printk("%s:\n", __func__);
-// A0 anders behandeln?
-	for (a = 0; a < bus->addrs->ndescs; a++)
-		gpiod_set_value(bus->addrs->desc[a], (addr>>a) & 1);
+	bus->a0 = addr&1;
+	for (a = 1; a < bus->addrs->ndescs; a++) {
+		if (((addr ^ bus->prev_addr) >> a) & 1)	// address bit has changed
+			gpiod_set_value(bus->addrs->desc[a], (addr>>a) & 1);
+	}
+
+	bus->prev_addr = addr;
+	return 0;
 }
 
 // block wise read/write?
 
-static u16 read_word(struct retrode3_bus *bus)
+static int read_byte(struct retrode3_bus *bus)
 { /* read data from data lines */
 	int d;
-	u16 data;
-printk("%s:\n", __func__);
+	u8 data;
+// printk("%s:\n", __func__);
 	gpiod_set_value(bus->oe, true);
 	/* read data bits */
 	data = 0;
-	for (d = 0; d < bus->datas->ndescs; d++)
-		data |= gpiod_get_value(bus->datas->desc[d]) << d;
+	if(bus->a0 == 0)
+		for (d = 0; d < bus->datas->ndescs-8; d++) {
+			int bit = gpiod_get_value(bus->datas->desc[d]);
+			if (bit < 0)
+				return bit;
+			data |= bit << d;
+		}
+	else
+		for (d = 8; d < bus->datas->ndescs; d++) {
+			int bit = gpiod_get_value(bus->datas->desc[d]);
+			if (bit < 0)
+				return bit;
+			data |= bit << d;
+		}
+	gpiod_set_value(bus->oe, false);
+	return data;
+}
+
+static int read_word(struct retrode3_bus *bus)
+{ /* read data from data lines */
+	int d;
+	u16 data;
+// printk("%s:\n", __func__);
+	gpiod_set_value(bus->oe, true);
+	/* read data bits */
+	data = 0;
+	for (d = 0; d < bus->datas->ndescs; d++) {
+		int bit = gpiod_get_value(bus->datas->desc[d]);
+		if (bit < 0)
+			return bit;
+		data |= bit << d;
+	}
 	gpiod_set_value(bus->oe, false);
 	return data;
 }
@@ -120,10 +161,10 @@ static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
 { /* chip select */
 	int i;
 
-printk("%s:\n", __func__);
+// printk("%s:\n", __func__);
 
 	if (slot)
-		 mutex_lock(&bus->select_lock);
+		mutex_lock(&bus->select_lock);
 
 	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		if (!bus->slots[i])
@@ -132,7 +173,7 @@ printk("%s:\n", __func__);
 	}
 
 	if (!slot && mutex_is_locked(&bus->select_lock))
-		 mutex_unlock(&bus->select_lock);
+		mutex_unlock(&bus->select_lock);
 }
 
 /*
@@ -143,28 +184,57 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
-
-        dev_info(&slot->dev, "%s\n", __func__);
-
 	ssize_t read, sz;
-	void *ptr;
-	char *bounce;
 	int err;
+
+//	dev_info(&slot->dev, "%s\n", __func__);
 
 	read = 0;
 
 	select(slot->bus, slot);
 
+// limit count to EOF!
+
+	if (*ppos >= (1L<<24))
+		count = 0;	// beyond EOF
+
+	if (*ppos + count >= (1L<<24))
+		count -= (1L<<24) - *ppos;	// limit to EOF
+
 	while (count > 0) {
 		unsigned long remaining;
-		int allowed, probe;
 
-		sz = 1;	// handle word reads
-		set_address(slot->bus, *ppos);
+		if (count >= 2 && slot->bus_width == 16 && ((*ppos & 1) == 0)) {
+			u16 word;
 
-		// read to buffer (bounce)
+			err = set_address(slot->bus, *ppos);
+			if(err < 0)
+				goto failed;
 
-		remaining = copy_to_user(buf, bounce, sz);
+			err = read_word(slot->bus);
+			if(err < 0)
+				goto failed;
+
+			sz = 2;	// handle word reads
+			word = err;
+
+			remaining = copy_to_user(buf, (char *) &word, sz);
+		} else {
+			u8 byte;
+
+			err = set_address(slot->bus, *ppos);
+			if(err < 0)
+				goto failed;
+
+			err = read_byte(slot->bus);
+			if(err < 0)
+				goto failed;
+
+			sz = 1;	// handle byte read
+			byte = err;
+
+			remaining = copy_to_user(buf, (char *) &byte, sz);
+		}
 
 		if (remaining)
 			goto failed;
@@ -180,6 +250,8 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 	return read;
 
 failed:
+	select(slot->bus, NULL);
+
 	return err;
 }
 
@@ -187,12 +259,11 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
-
-        dev_info(&slot->dev, "%s\n", __func__);
-
 	ssize_t written, sz;
 	unsigned long copied;
 	void *ptr;
+
+	dev_info(&slot->dev, "%s\n", __func__);
 
 	written = 0;
 
@@ -334,10 +405,23 @@ static int retrode3_probe(struct platform_device *pdev)
                 return -ENOMEM;
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
+//printk("%s: %px\n", __func__, bus->addrs);
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_OUT_HIGH);
+//printk("%s: %px\n", __func__, bus->datas);
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
+//printk("%s: %px\n", __func__, bus->oe);
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
+//printk("%s: %px\n", __func__, bus->we);
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
+//printk("%s: %px\n", __func__, bus->time);
+
+	if (bus->addrs->ndescs != 23 ||
+	    bus->datas->ndescs != 16 ||
+	    bus->we->ndescs != 2) {
+		dev_err(&pdev->dev, "Invalid number of gpios (addr=%d, data=%d, we=%d)\n",
+			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
+		return EINVAL;
+	}
 
 	mutex_init(&bus->select_lock);
 
