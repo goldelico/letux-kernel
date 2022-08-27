@@ -1025,6 +1025,8 @@
 			 <0x03000000 0x3 0x00000000 0x3 0x00000000 0x0 0x40000000>;
 		resets = <&cru SRST_PCIE20_POWERUP>;
 		reset-names = "pipe";
+		#address-cells = <3>;
+		#size-cells = <2>;
 		status = "disabled";
 
 		pcie_intc: legacy-interrupt-controller {
