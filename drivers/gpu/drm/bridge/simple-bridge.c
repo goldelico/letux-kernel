@@ -114,6 +114,11 @@ static int simple_bridge_attach(struct drm_bridge *bridge,
 	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
 		return 0;
 
+	ret = drm_bridge_attach(bridge->encoder, sbridge->next_bridge, bridge,
+				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+	if (ret < 0)
+		return ret;
+
 	if (!bridge->encoder) {
 		DRM_ERROR("Missing encoder\n");
 		return -ENODEV;
@@ -208,7 +213,19 @@ static int simple_bridge_probe(struct platform_device *pdev)
 		return PTR_ERR(sbridge->enable);
 	}
 
-	/* Register the bridge. */
+	/* Get the next bridge in the pipeline. */
+	remote = of_graph_get_remote_node(pdev->dev.of_node, 1, -1);
+	if (!remote)
+		return -EINVAL;
+
+	sbridge->next_bridge = of_drm_find_bridge(remote);
+	of_node_put(remote);
+
+	if (!sbridge->next_bridge) {
+		dev_dbg(&pdev->dev, "Next bridge not found, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
+
 	sbridge->bridge.funcs = &simple_bridge_bridge_funcs;
 	sbridge->bridge.of_node = pdev->dev.of_node;
 	sbridge->bridge.timings = sbridge->info->timings;
