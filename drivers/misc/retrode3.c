@@ -24,6 +24,7 @@ to be solved
 #include <linux/export.h>
 #include <linux/fs.h>
 #include <linux/gpio/consumer.h>
+#include <linux/gpio/driver.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/miscdevice.h>
@@ -36,6 +37,8 @@ to be solved
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/uio.h>
+
+#include "../gpio/gpiolib.h"
 
 #ifdef CONFIG_IA64
 # include <linux/efi.h>
@@ -76,18 +79,30 @@ struct retrode3_bus {
 
 /* low level address and data bus access */
 
+// gpio_chip
+// desc->gdev is a device with multiple gpio descriptors incl. base etc.
+// desc->gdev->chip is the gpio_chip
+
+
 static int set_address(struct retrode3_bus *bus, u32 addr)
 { /* set address on all gpios */
 	int a;
 
-	if (addr >= 1<<24)
+	if (addr >= 1 << 24)
 		return -EINVAL;
 
 // printk("%s:\n", __func__);
-	bus->a0 = addr&1;
+	bus->a0 = addr & 1;	// for 16 bit bus access
 	for (a = 1; a < bus->addrs->ndescs; a++) {
-		if (((addr ^ bus->prev_addr) >> a) & 1)	// address bit has changed
-			gpiod_set_value(bus->addrs->desc[a], (addr>>a) & 1);
+		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has changed
+#if 1
+		{
+			struct gpio_chip *gc = bus->addrs->desc[a]->gdev->chip;
+			gc->set(gc, gpio_chip_hwgpio(bus->addrs->desc[a]), (addr >> a) & 1);
+		}
+#else
+		gpiod_set_value(bus->addrs->desc[a], (addr >> a) & 1);
+#endif
 	}
 
 	bus->prev_addr = addr;
@@ -106,14 +121,24 @@ static int read_byte(struct retrode3_bus *bus)
 	data = 0;
 	if(bus->a0 == 0)
 		for (d = 0; d < bus->datas->ndescs-8; d++) {
+#if 1
+			struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
+			int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
+#else
 			int bit = gpiod_get_value(bus->datas->desc[d]);
+#endif
 			if (bit < 0)
 				return bit;
 			data |= bit << d;
 		}
 	else
 		for (d = 8; d < bus->datas->ndescs; d++) {
+#if 1
+			struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
+			int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
+#else
 			int bit = gpiod_get_value(bus->datas->desc[d]);
+#endif
 			if (bit < 0)
 				return bit;
 			data |= bit << d;
@@ -131,7 +156,12 @@ static int read_word(struct retrode3_bus *bus)
 	/* read data bits */
 	data = 0;
 	for (d = 0; d < bus->datas->ndescs; d++) {
+#if 1
+		struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
+		int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
+#else
 		int bit = gpiod_get_value(bus->datas->desc[d]);
+#endif
 		if (bit < 0)
 			return bit;
 		data |= bit << d;
