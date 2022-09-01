@@ -77,73 +77,77 @@ struct retrode3_bus {
 	u32 prev_addr;
 };
 
+#define EOF	(1L<<24)	// 24 address lines = 16 MByte
+
 /* low level address and data bus access */
 
-// gpio_chip
-// desc->gdev is a device with multiple gpio descriptors incl. base etc.
-// desc->gdev->chip is the gpio_chip
+static int get_bus_bit(struct gpio_desc *desc)
+{
+#if 1
+	struct gpio_chip *gc = desc->gdev->chip;
+	return gc->get(gc, gpio_chip_hwgpio(desc));
+#else
+	return gpiod_get_value(desc);
+#endif
 
+}
+
+static void set_bus_bit(struct gpio_desc *desc, int value)
+{
+#if 1
+	struct gpio_chip *gc = desc->gdev->chip;
+	gc->set(gc, gpio_chip_hwgpio(desc), value);
+#else
+	piod_set_value(desc, value);
+#endif
+
+}
+
+/* access to cart bus */
 
 static int set_address(struct retrode3_bus *bus, u32 addr)
 { /* set address on all gpios */
 	int a;
 
-	if (addr >= 1 << 24)
+	if (addr >= EOF)
 		return -EINVAL;
 
 // printk("%s:\n", __func__);
 	bus->a0 = addr & 1;	// for 16 bit bus access
 	for (a = 1; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has changed
-#if 1
-		{
-			struct gpio_chip *gc = bus->addrs->desc[a]->gdev->chip;
-			gc->set(gc, gpio_chip_hwgpio(bus->addrs->desc[a]), (addr >> a) & 1);
-		}
-#else
-		gpiod_set_value(bus->addrs->desc[a], (addr >> a) & 1);
-#endif
+			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 	}
 
 	bus->prev_addr = addr;
 	return 0;
 }
 
-// block wise read/write?
-
 static int read_byte(struct retrode3_bus *bus)
 { /* read data from data lines */
 	int d;
 	u8 data;
 // printk("%s:\n", __func__);
-	gpiod_set_value(bus->oe, true);
-	/* read data bits */
+
+	set_bus_bit(bus->oe, true);
+
+	/* read data bits either on D0..D7 or D8..D15 */
 	data = 0;
 	if(bus->a0 == 0)
 		for (d = 0; d < bus->datas->ndescs-8; d++) {
-#if 1
-			struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
-			int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
-#else
-			int bit = gpiod_get_value(bus->datas->desc[d]);
-#endif
+			int bit = get_bus_bit(bus->datas->desc[d]);
 			if (bit < 0)
 				return bit;
 			data |= bit << d;
 		}
 	else
 		for (d = 8; d < bus->datas->ndescs; d++) {
-#if 1
-			struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
-			int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
-#else
-			int bit = gpiod_get_value(bus->datas->desc[d]);
-#endif
+			int bit = get_bus_bit(bus->datas->desc[d]);
 			if (bit < 0)
 				return bit;
 			data |= bit << d;
 		}
-	gpiod_set_value(bus->oe, false);
+	set_bus_bit(bus->oe, false);
 	return data;
 }
 
@@ -152,21 +156,16 @@ static int read_word(struct retrode3_bus *bus)
 	int d;
 	u16 data;
 // printk("%s:\n", __func__);
-	gpiod_set_value(bus->oe, true);
+	set_bus_bit(bus->oe, true);
 	/* read data bits */
 	data = 0;
 	for (d = 0; d < bus->datas->ndescs; d++) {
-#if 1
-		struct gpio_chip *gc = bus-> datas->desc[d]->gdev->chip;
-		int bit = gc->get(gc, gpio_chip_hwgpio(bus->datas->desc[d]));
-#else
-		int bit = gpiod_get_value(bus->datas->desc[d]);
-#endif
+			int bit = get_bus_bit(bus->datas->desc[d]);
 		if (bit < 0)
 			return bit;
 		data |= bit << d;
 	}
-	gpiod_set_value(bus->oe, false);
+	set_bus_bit(bus->oe, false);
 	return data;
 }
 
@@ -210,6 +209,7 @@ static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
  * This function reads the slot. The f_pos points directly to the
  * memory location.
  */
+
 static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
@@ -223,13 +223,11 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 
 	select(slot->bus, slot);
 
-// limit count to EOF!
-
-	if (*ppos >= (1L<<24))
+	if (*ppos >= EOF)
 		count = 0;	// beyond EOF
 
-	if (*ppos + count >= (1L<<24))
-		count -= (1L<<24) - *ppos;	// limit to EOF
+	if (*ppos + count >= EOF)
+		count -= EOF - *ppos;	// limit to EOF
 
 	while (count > 0) {
 		unsigned long remaining;
@@ -247,6 +245,9 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 
 			sz = 2;	// handle word reads
 			word = err;
+
+// FIXME: wie effizient ist das wenn es byte/wordweise passiert?
+// besser bytes/words in einen buffer schreiben und dann als Block?
 
 			remaining = copy_to_user(buf, (char *) &word, sz);
 		} else {
