@@ -46,6 +46,7 @@ allOf:
                 - ti,twl4030-vusb1v5
                 - ti,twl4030-vusb1v8
                 - ti,twl4030-vusb3v1
+                - ti,twl4030-regen
             ti,retain-on-reset: false
 
       properties:
