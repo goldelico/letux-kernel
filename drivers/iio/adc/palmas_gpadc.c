@@ -538,7 +538,8 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 		ret = adc->irq;
 		goto out;
 	}
-	ret = request_threaded_irq(adc->irq, NULL,
+	ret = devm_request_threaded_irq(&pdev->dev,
+		adc->irq, NULL,
 		palmas_gpadc_irq,
 		IRQF_ONESHOT, dev_name(adc->dev),
 		adc);
@@ -553,14 +554,15 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 			sizeof(adc->wakeup1_data));
 		adc->wakeup1_enable = true;
 		adc->irq_auto_0 =  platform_get_irq(pdev, 1);
-		ret = request_threaded_irq(adc->irq_auto_0, NULL,
+		ret = devm_request_threaded_irq(&pdev->dev,
+				adc->irq_auto_0, NULL,
 				palmas_gpadc_irq_auto,
 				IRQF_ONESHOT,
 				"palmas-adc-auto-0", adc);
 		if (ret < 0) {
 			dev_err(adc->dev, "request auto0 irq %d failed: %d\n",
 				adc->irq_auto_0, ret);
-			goto out_irq_free;
+			goto out;
 		}
 	}
 
@@ -569,14 +571,15 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 				sizeof(adc->wakeup2_data));
 		adc->wakeup2_enable = true;
 		adc->irq_auto_1 =  platform_get_irq(pdev, 2);
-		ret = request_threaded_irq(adc->irq_auto_1, NULL,
+		ret = devm_request_threaded_irq(&pdev->dev,
+				adc->irq_auto_1, NULL,
 				palmas_gpadc_irq_auto,
 				IRQF_ONESHOT,
 				"palmas-adc-auto-1", adc);
 		if (ret < 0) {
 			dev_err(adc->dev, "request auto1 irq %d failed: %d\n",
 				adc->irq_auto_1, ret);
-			goto out_irq_auto0_free;
+			goto out;
 		}
 	}
 
@@ -611,7 +614,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
 		dev_err(adc->dev, "iio_device_register() failed: %d\n", ret);
-		goto out_irq_auto1_free;
+		goto out;
 	}
 
 	device_set_wakeup_capable(&pdev->dev, 1);
@@ -625,14 +628,6 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_irq_auto1_free:
-	if (gpadc_pdata->adc_wakeup2_data)
-		free_irq(adc->irq_auto_1, adc);
-out_irq_auto0_free:
-	if (gpadc_pdata->adc_wakeup1_data)
-		free_irq(adc->irq_auto_0, adc);
-out_irq_free:
-	free_irq(adc->irq, adc);
 out:
 	return ret;
 }
@@ -645,11 +640,6 @@ static int palmas_gpadc_remove(struct platform_device *pdev)
 	if (adc->wakeup1_enable || adc->wakeup2_enable)
 		device_wakeup_disable(&pdev->dev);
 	iio_device_unregister(indio_dev);
-	free_irq(adc->irq, adc);
-	if (adc->wakeup1_enable)
-		free_irq(adc->irq_auto_0, adc);
-	if (adc->wakeup2_enable)
-		free_irq(adc->irq_auto_1, adc);
 
 	return 0;
 }
