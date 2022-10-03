@@ -1,5 +1,6 @@
+# auto-generated from letux_defconfig
 #
-# Linux/mips 4.14.295 Kernel Configuration
+# Linux/mips 4.14.293 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -4323,3 +4324,5 @@ CONFIG_SBITMAP=y
 # CONFIG_STRING_SELFTEST is not set
 CONFIG_HAVE_KVM=y
 # CONFIG_VIRTUALIZATION is not set
+CONFIG_MACH_INGENIC_GENERIC=n
+CONFIG_INGENIC_GENERIC_BOARD=n
