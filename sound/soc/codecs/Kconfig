@@ -312,16 +312,14 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_WSA881X
 	imply SND_SOC_WSA883X
 	imply SND_SOC_ZL38060
+	imply SND_SOC_GTM601
+	imply SND_SOC_SI47XX if I2C
+	imply SND_SOC_W2CBW003
 	help
 	  Normally ASoC codec drivers are only built if a machine driver which
 	  uses them is also built since they are only usable with a machine
 	  driver.  Selecting this option will allow these drivers to be built
 	  without an explicit machine driver for test and development purposes.
-
-	  Support for the bus types used to access the codecs to be built must
-	  be selected separately.
-
-	  If unsure select "N".
 
 config SND_SOC_88PM860X
 	tristate
@@ -928,7 +926,19 @@ config SND_SOC_ES8328_SPI
 	select SND_SOC_ES8328
 
 config SND_SOC_GTM601
-	tristate 'GTM601 UMTS modem audio codec'
+	tristate "Option GTM601 3G Audio Codec"
+	help
+	  PCM interface to a GTM601 UMTS modem chip. Does not control the Modem through USB.
+
+config SND_SOC_SI47XX
+	tristate "Silicon Labs Si47xx FM Audio Codec"
+	help
+	  PCM interface to a Si47xx chip. Needs to enable some I2C or SPI driver.
+
+config SND_SOC_W2CBW003
+	tristate "Wi2Wi W2CBW003 Bluetooth Audio Codec"
+	help
+	  PCM interface to Bluetooth part of W2CBW003. Does not control the bluetooth headset link.
 
 config SND_SOC_HDAC_HDMI
 	tristate
@@ -2132,5 +2142,11 @@ config SND_SOC_LPASS_TX_MACRO
 	select REGMAP_MMIO
 	select SND_SOC_LPASS_MACRO_COMMON
 	tristate "Qualcomm TX Macro in LPASS(Low Power Audio SubSystem)"
+
+config SND_SOC_WM2000
+	tristate
+
+config SND_SOC_WM9090
+	tristate
 
 endmenu
