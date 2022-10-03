@@ -1,6 +1,5 @@
-# auto-generated from letux_defconfig
 #
-# Linux/mips 4.9.328 Kernel Configuration
+# Linux/mips 4.9.330 Kernel Configuration
 #
 CONFIG_MIPS=y
 
@@ -4036,7 +4035,3 @@ CONFIG_SG_POOL=y
 CONFIG_SBITMAP=y
 CONFIG_HAVE_KVM=y
 # CONFIG_VIRTUALIZATION is not set
-CONFIG_ANDROID_LOGGER=y
-CONFIG_ANDROID_TIMED_OUTPUT=y
-CONFIG_MACH_INGENIC_GENERIC=n
-CONFIG_INGENIC_GENERIC_BOARD=n
