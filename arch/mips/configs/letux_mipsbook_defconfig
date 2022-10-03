@@ -1,6 +1,6 @@
 # auto-generated from letux_defconfig
 #
-# Linux/mips 5.10.146 Kernel Configuration
+# Linux/mips 5.10.143 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -360,7 +360,7 @@ CONFIG_MIPS_NO_APPENDED_DTB=y
 # CONFIG_MIPS_RAW_APPENDED_DTB is not set
 # CONFIG_MIPS_CMDLINE_FROM_DTB is not set
 # CONFIG_MIPS_CMDLINE_DTB_EXTEND is not set
-# CONFIG_MIPS_CMDLINE_FROM_BOOTLOADER is not set
+CONFIG_MIPS_CMDLINE_FROM_BOOTLOADER=n
 CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND=y
 # end of Kernel type
 
@@ -4706,7 +4706,6 @@ CONFIG_PWM_SYSFS=y
 # CONFIG_PWM_DEBUG is not set
 # CONFIG_PWM_FSL_FTM is not set
 # CONFIG_PWM_IMG is not set
-# CONFIG_PWM_JZ4730 is not set
 CONFIG_PWM_JZ4740=y
 # CONFIG_PWM_PCA9685 is not set
 
@@ -5556,7 +5555,7 @@ CONFIG_PROBE_EVENTS=y
 #
 CONFIG_TRACE_IRQFLAGS_SUPPORT=y
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="mem=128M earlycon=jz4740_uart,mmio32,0x10030000,115200n8 ignore_loglevel console=tty0 console=ttyS0,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4,ext3 rootwait ethaddr=00:21:4D:01:00:EF"
+CONFIG_CMDLINE="mem=128M earlycon=jz4740_uart,mmio32,0x10030000,115200n8 ignore_loglevel console=tty0 console=ttyS0,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4,ext3 rootwait ethaddr=00:21:4D:01:00:EF g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_DEBUG_ZBOOT is not set
 # CONFIG_SPINLOCK_TEST is not set
