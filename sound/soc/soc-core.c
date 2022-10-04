@@ -42,6 +42,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/soc-dapm.h>
 #include <sound/soc-dpcm.h>
 #include <sound/soc-fw.h>
 #include <sound/initval.h>
