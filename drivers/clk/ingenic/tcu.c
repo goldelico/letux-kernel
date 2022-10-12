@@ -132,7 +132,10 @@ static bool ingenic_tcu_enable_regs(struct clk_hw *hw)
 	 * only be accessed when the channel's stop bit is clear.
 	 */
 	enabled = !!ingenic_tcu_is_enabled(hw);
-	regmap_write(tcu->map, TCU_REG_TSCR, BIT(info->gate_bit));
+	if (tcu->soc_info->jz4740_regs)
+		regmap_write(tcu->map, TCU_REG_TER, BIT(info->gate_bit));
+	else
+		regmap_set_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
 
 	return enabled;
 }
@@ -143,7 +146,10 @@ static void ingenic_tcu_disable_regs(struct clk_hw *hw)
 	const struct ingenic_tcu_clk_info *info = tcu_clk->info;
 	struct ingenic_tcu *tcu = tcu_clk->tcu;
 
-	regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+	if (tcu->soc_info->jz4740_regs)
+		regmap_write(tcu->map, TCU_REG_TSSR, BIT(info->gate_bit));
+	else
+		regmap_clear_bits(tcu->map, TCU_JZ4730_REG_TER, BIT(info->gate_bit));
 }
 
 static u8 ingenic_tcu_get_parent(struct clk_hw *hw)
