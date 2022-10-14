@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 menu "Android"
 
-if ANDROID
-
 config ANDROID_VSOC
 	tristate "Android Virtual SoC support"
 	depends on PCI_MSI
@@ -96,7 +94,5 @@ config ANDROID_LOW_MEMORY_KILLER
 	  The registered process will kill according to the priorities in android init
 	  scripts (/init.rc), and it defines priority values with minimum free memory size
 	  for each priority.
-
-endif # if ANDROID
 
 endmenu
