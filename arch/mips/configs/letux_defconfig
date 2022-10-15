@@ -417,7 +417,7 @@ CONFIG_MIPS_EXTERNAL_TIMER=y
 #
 # CPU Frequency scaling
 #
-# CONFIG_CPU_FREQ is not set
+CONFIG_CPU_FREQ=y
 # end of CPU Frequency scaling
 
 #
