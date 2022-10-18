@@ -14,12 +14,13 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
-#include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_file.h>
 #include <drm/drm_format_helper.h>
+#include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_atomic_helper.h>
-#include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_panel.h>
@@ -73,7 +74,7 @@ static void mxc_epdc_setup_mode_config(struct drm_device *drm)
 }
 
 
-DEFINE_DRM_GEM_CMA_FOPS(fops);
+DEFINE_DRM_GEM_DMA_FOPS(fops);
 
 static int mxc_epdc_get_modes(struct drm_connector *connector)
 {
@@ -221,11 +222,87 @@ static void mxc_epdc_pipe_disable(struct drm_simple_display_pipe *pipe)
 	}
 }
 
+#if 1	// compile fix by backporting some functions from v6.0
+
+static unsigned int clip_offset(const struct drm_rect *clip, unsigned int pitch, unsigned int cpp)
+{
+	return clip->y1 * pitch + clip->x1 * cpp;
+}
+
+static int drm_fb_xfrm(void *dst, unsigned long dst_pitch, unsigned long dst_pixsize,
+		       const void *vaddr, const struct drm_framebuffer *fb,
+		       const struct drm_rect *clip, bool vaddr_cached_hint,
+		       void (*xfrm_line)(void *dbuf, const void *sbuf, unsigned int npixels))
+{
+	unsigned long linepixels = drm_rect_width(clip);
+	unsigned long lines = drm_rect_height(clip);
+	size_t sbuf_len = linepixels * fb->format->cpp[0];
+	void *stmp = NULL;
+	unsigned long i;
+	const void *sbuf;
+
+	/*
+	 * Some source buffers, such as CMA memory, use write-combine
+	 * caching, so reads are uncached. Speed up access by fetching
+	 * one line at a time.
+	 */
+	if (!vaddr_cached_hint) {
+		stmp = kmalloc(sbuf_len, GFP_KERNEL);
+		if (!stmp)
+			return -ENOMEM;
+	}
+
+	if (!dst_pitch)
+		dst_pitch = drm_rect_width(clip) * dst_pixsize;
+	vaddr += clip_offset(clip, fb->pitches[0], fb->format->cpp[0]);
+
+	for (i = 0; i < lines; ++i) {
+		if (stmp)
+			sbuf = memcpy(stmp, vaddr, sbuf_len);
+		else
+			sbuf = vaddr;
+		xfrm_line(dst, sbuf, linepixels);
+		vaddr += fb->pitches[0];
+		dst += dst_pitch;
+	}
+
+	kfree(stmp);
+
+	return 0;
+}
+
+#define drm_fb_xrgb8888_to_gray8 _drm_fb_xrgb8888_to_gray8
+#define drm_fb_xrgb8888_to_gray8_line _drm_fb_xrgb8888_to_gray8_line
+
+static void drm_fb_xrgb8888_to_gray8_line(void *dbuf, const void *sbuf, unsigned int pixels)
+{
+	u8 *dbuf8 = dbuf;
+	const __le32 *sbuf32 = sbuf;
+	unsigned int x;
+
+	for (x = 0; x < pixels; x++) {
+		u32 pix = le32_to_cpu(sbuf32[x]);
+		u8 r = (pix & 0x00ff0000) >> 16;
+		u8 g = (pix & 0x0000ff00) >> 8;
+		u8 b =  pix & 0x000000ff;
+
+		/* ITU BT.601: Y = 0.299 R + 0.587 G + 0.114 B */
+		*dbuf8++ = (3 * r + 6 * g + b) / 10;
+	}
+}
+
+static void drm_fb_xrgb8888_to_gray8(void *dst, unsigned int dst_pitch, const void *vaddr,
+			      const struct drm_framebuffer *fb, const struct drm_rect *clip)
+{
+	drm_fb_xfrm(dst, dst_pitch, 1, vaddr, fb, clip, false, drm_fb_xrgb8888_to_gray8_line);
+}
+#endif
+
 static void mxc_epdc_pipe_update(struct drm_simple_display_pipe *pipe,
 				   struct drm_plane_state *old_state)
 {
 	struct mxc_epdc *priv = drm_pipe_to_mxc_epdc(pipe);
-	struct drm_gem_cma_object *gem;
+	struct drm_gem_dma_object *gem;
 	struct drm_atomic_helper_damage_iter iter;
         struct drm_rect clip;
 
@@ -239,7 +316,7 @@ static void mxc_epdc_pipe_update(struct drm_simple_display_pipe *pipe,
 	if (priv->epdc_mem_virt == NULL)
 		return;
 
-	gem = drm_fb_cma_get_gem_obj(old_state->fb, 0);
+	gem = drm_fb_dma_get_gem_obj(old_state->fb, 0);
         drm_atomic_helper_damage_iter_init(&iter, old_state, pipe->plane.state);
 	drm_atomic_for_each_plane_damage(&iter, &clip) {
 		struct mxcfb_update_data upd_region;
@@ -294,10 +371,10 @@ static const uint32_t mxc_epdc_formats[] = {
 static struct drm_driver mxc_epdc_driver = {
 	.driver_features = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
 	.fops = &fops,
-	.dumb_create	    = drm_gem_cma_dumb_create,
+	.dumb_create	    = drm_gem_dma_dumb_create,
 	.prime_handle_to_fd     = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle     = drm_gem_prime_fd_to_handle,
-	.gem_prime_import_sg_table = drm_gem_cma_prime_import_sg_table,
+	.gem_prime_import_sg_table = drm_gem_dma_prime_import_sg_table,
 	.gem_prime_mmap	 = drm_gem_prime_mmap,
 
 	.name = DRIVER_NAME,
