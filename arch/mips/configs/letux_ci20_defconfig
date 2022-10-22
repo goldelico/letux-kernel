@@ -21,7 +21,7 @@ CONFIG_BUILDTIME_TABLE_SORT=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 # CONFIG_COMPILE_TEST is not set
 # CONFIG_WERROR is not set
-CONFIG_LOCALVERSION="-letux-ci20"
+CONFIG_LOCALVERSION="-letux-replicant-ci20"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_BUILD_SALT=""
 CONFIG_HAVE_KERNEL_GZIP=y
@@ -1473,7 +1473,7 @@ CONFIG_USB_ARMLINUX=y
 # CONFIG_USB_NET_CX82310_ETH is not set
 # CONFIG_USB_NET_KALMIA is not set
 # CONFIG_USB_NET_QMI_WWAN is not set
-CONFIG_USB_HSO=m
+CONFIG_USB_HSO=y
 CONFIG_USB_NET_INT51X1=m
 # CONFIG_USB_IPHETH is not set
 # CONFIG_USB_SIERRA_NET is not set
@@ -4363,7 +4363,7 @@ CONFIG_DMA_JZ4780=y
 # DMABUF options
 #
 CONFIG_SYNC_FILE=y
-# CONFIG_SW_SYNC is not set
+CONFIG_SW_SYNC=y
 # CONFIG_UDMABUF is not set
 # CONFIG_DMABUF_MOVE_NOTIFY is not set
 # CONFIG_DMABUF_DEBUG is not set
@@ -4455,6 +4455,19 @@ CONFIG_STAGING=y
 # end of IIO staging drivers
 
 # CONFIG_STAGING_MEDIA is not set
+
+#
+# Android
+#
+CONFIG_ANDROID_LOGGER=y
+CONFIG_ANDROID_TIMED_OUTPUT=y
+# CONFIG_ANDROID_TIMED_GPIO is not set
+CONFIG_ANDROID_LOW_MEMORY_KILLER=y
+# CONFIG_ANDROID_INTF_ALARM_DEV is not set
+# CONFIG_ASHMEM is not set
+# CONFIG_ION is not set
+# end of Android
+
 # CONFIG_STAGING_BOARD is not set
 # CONFIG_LTE_GDM724X is not set
 # CONFIG_COMMON_CLK_XLNX_CLKWZRD is not set
@@ -6004,7 +6017,7 @@ CONFIG_PROBE_EVENTS=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel"
+CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel g_ffs.idVendor=0x18d1 g_ffs.idProduct=0x4e26 androidboot.hardware=gta04 vt.global_cursor_default=0"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_DEBUG_ZBOOT is not set
 # CONFIG_SPINLOCK_TEST is not set
