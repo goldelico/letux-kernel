@@ -1,7 +1,7 @@
 choice
 	prompt "Machine type"
 	depends on MACH_INGENIC
-	default JZ4740_QI_LB60
+	default JZ4730_MIPSBOOK_400
 
 config JZ4730_MINIBOOK
 	bool "JZ4730 based Minibook (e.g. Skytone, Alpha 400, Razorbook, Letux 400)"
