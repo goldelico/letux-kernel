@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.15.74 Kernel Configuration
+# Linux/arm 5.15.75 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2444,8 +2444,9 @@ CONFIG_MDIO_BUS=y
 CONFIG_FWNODE_MDIO=y
 CONFIG_OF_MDIO=y
 CONFIG_MDIO_DEVRES=y
-# CONFIG_MDIO_BITBANG is not set
+CONFIG_MDIO_BITBANG=y
 # CONFIG_MDIO_BCM_UNIMAC is not set
+# CONFIG_MDIO_GPIO is not set
 # CONFIG_MDIO_HISI_FEMAC is not set
 # CONFIG_MDIO_MVUSB is not set
 # CONFIG_MDIO_MSCC_MIIM is not set
@@ -7325,6 +7326,8 @@ CONFIG_MESSAGE_LOGLEVEL_DEFAULT=4
 CONFIG_SYMBOLIC_ERRNAME=y
 CONFIG_DEBUG_BUGVERBOSE=y
 # end of printk and dmesg options
+
+CONFIG_AS_HAS_NON_CONST_LEB128=y
 
 #
 # Compile-time checks and compiler options
