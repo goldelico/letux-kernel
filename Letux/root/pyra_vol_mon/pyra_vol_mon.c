@@ -59,5 +59,11 @@ int read_value_and_update_thresholds(
 			fprintf(stderr, "Failed to enable lower threshold %d: %d\n", threshold, ret);
 	}
 
+	/* clamp value to [min, max] */
+	if (value > config->max)
+		value = config->max;
+	else if (value < config->min)
+		value = config->min;
+
 	return value;
 }
