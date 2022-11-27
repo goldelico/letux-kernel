@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <linux/iio/events.h>
 #include <linux/iio/types.h>
 
@@ -29,6 +30,7 @@ static bool event_is_ours(struct iio_event_data *event, int channel)
 static int execute_callback(const struct pyra_volume_config *config, int value)
 {
 	pid_t my_pid;
+	int status;
 	char value_string[32];
 	char min_string[32];
 	char max_string[32];
@@ -50,6 +52,8 @@ static int execute_callback(const struct pyra_volume_config *config, int value)
 			return -1;
 		}
 	}
+
+	wait(&status);
 
 	return 0;
 }
