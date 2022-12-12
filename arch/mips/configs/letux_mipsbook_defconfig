@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.267 Kernel Configuration
+# Linux/mips 4.19.268 Kernel Configuration
 #
 
 #
@@ -555,6 +555,7 @@ CONFIG_NET_IP_TUNNEL=m
 # CONFIG_INET_AH is not set
 # CONFIG_INET_ESP is not set
 # CONFIG_INET_IPCOMP is not set
+CONFIG_INET_TABLE_PERTURB_ORDER=16
 CONFIG_INET_TUNNEL=m
 CONFIG_INET_XFRM_MODE_TRANSPORT=y
 CONFIG_INET_XFRM_MODE_TUNNEL=y
