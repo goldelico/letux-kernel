@@ -100,12 +100,18 @@ static struct thermal_trip *thermal_of_trips_init(struct device_node *np, int *n
 	*ntrips = 0;
 	
 	struct device_node *trips __free(device_node) = of_get_child_by_name(np, "trips");
-	if (!trips)
+	if (!trips) {
+		pr_err("Failed to find 'trips' node\n");
 		return NULL;
+	}
 
 	count = of_get_child_count(trips);
-	if (!count)
-		return NULL;
+	if (!count) {
+		pr_err("No trip point defined\n");
+		*ntrips = 0;
+		ret = 0;
+		goto out_of_node_put;
+	}
 
 	struct thermal_trip *tt __free(kfree) = kcalloc(count, sizeof(*tt), GFP_KERNEL);
 	if (!tt)
