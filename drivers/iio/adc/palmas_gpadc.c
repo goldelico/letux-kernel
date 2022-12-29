@@ -123,6 +123,7 @@ struct palmas_gpadc {
 	bool				wakeup2_enable;
 	int				auto_conversion_period;
 	struct mutex			lock;
+	struct mutex			mlock;
 	struct palmas_adc_wakeup_property event0;
 	struct palmas_adc_wakeup_property event1;
 	struct palmas_gpadc_thresholds	thresh_data[PALMAS_ADC_CH_MAX];
@@ -566,13 +567,13 @@ static int palmas_gpadc_read_event_config(struct iio_dev *indio_dev,
 	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&adc->mlock);
 
 	if (palmas_gpadc_get_event_channel(adc, adc_chan, dir)) {
 		ret = 1;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&adc->mlock);
 
 	return ret;
 }
@@ -686,14 +687,14 @@ static int palmas_gpadc_write_event_config(struct iio_dev *indio_dev,
 	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&adc->mlock);
 
 	if (state)
 		ret = palmas_gpadc_enable_event_config(adc, chan, dir);
 	else
 		ret = palmas_gpadc_disable_event_config(adc, chan, dir);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&adc->mlock);
 
 	return ret;
 }
@@ -710,7 +711,7 @@ static int palmas_gpadc_read_event_value(struct iio_dev *indio_dev,
 	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&adc->mlock);
 
 	switch (info) {
 	case IIO_EV_INFO_VALUE:
@@ -724,7 +725,7 @@ static int palmas_gpadc_read_event_value(struct iio_dev *indio_dev,
 		break;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&adc->mlock);
 
 	return ret;
 }
@@ -741,7 +742,7 @@ static int palmas_gpadc_write_event_value(struct iio_dev *indio_dev,
 	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&adc->mlock);
 	switch (info) {
 	case IIO_EV_INFO_VALUE:
 		if (val < 0 || val > 0xFFF) {
@@ -761,7 +762,7 @@ static int palmas_gpadc_write_event_value(struct iio_dev *indio_dev,
 	if (palmas_gpadc_get_event_channel(adc, adc_chan, dir))
 		ret = palmas_gpadc_reconfigure_event_channels(adc);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&adc->mlock);
 
 	return ret;
 }
@@ -880,6 +881,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	adc->adc_info = palmas_gpadc_info;
 
 	mutex_init(&adc->lock);
+	mutex_init(&adc->mlock);
 
 	init_completion(&adc->conv_completion);
 	platform_set_drvdata(pdev, indio_dev);
