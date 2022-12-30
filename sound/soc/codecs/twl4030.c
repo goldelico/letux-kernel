@@ -22,6 +22,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <linux/pinctrl/pinmux.h>
+#include <linux/pinctrl/consumer.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
 
