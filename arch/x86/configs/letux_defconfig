@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.1.1 Kernel Configuration
+# Linux/x86 6.1.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5032,6 +5032,7 @@ CONFIG_SND_SOC_I2C_AND_SPI=m
 # CONFIG_SND_SOC_SI47XX is not set
 # CONFIG_SND_SOC_W2CBW003 is not set
 # CONFIG_SND_SOC_EC25 is not set
+CONFIG_SND_SOC_HDAC_HDA=m
 CONFIG_SND_SOC_HDA=m
 # CONFIG_SND_SOC_ICS43432 is not set
 # CONFIG_SND_SOC_INNO_RK3036 is not set
