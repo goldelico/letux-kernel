@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.0.15 Kernel Configuration
+# Linux/mips 6.0.16 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4563,7 +4563,6 @@ CONFIG_EXTCON_ADC_JACK=m
 # CONFIG_EXTCON_RT8973A is not set
 # CONFIG_EXTCON_SM5502 is not set
 # CONFIG_EXTCON_USB_GPIO is not set
-# CONFIG_EXTCON_USBC_TUSB320 is not set
 CONFIG_MEMORY=y
 CONFIG_JZ4780_NEMC=y
 CONFIG_IIO=y
