@@ -127,6 +127,7 @@ static int freq_table_prepare(void)
 	unsigned int j,i = 0;
 	unsigned int sclka_rate, mpll_rate, apll_rate;
 	unsigned int max_rate = MAX_APLL_FREQ;
+printk("%s\n", __func__);
 	sclka = clk_get(NULL,"sclka");
 	if (IS_ERR(sclka)) {
 		return -EINVAL;
@@ -214,6 +215,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	unsigned long freq, flags, volt = 0;
 	int this_cpu = smp_processor_id();
 
+printk("%s\n", __func__);
 	i = cpufreq_frequency_table_target(policy, target_freq, relation);
 	if (i < 0) {
 		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
@@ -323,6 +325,8 @@ done:
 	return ret;
 }
 
+// CHECKME: what is this strange code to write to user-space?
+
 static int freq_write(char *filename, char *data)
 {
 	int fd = sys_open(filename, O_RDWR, 0);
@@ -400,6 +404,7 @@ static void vol_down_work(struct work_struct *work)
 
 static int jz4780_cpu_init(struct cpufreq_policy *policy)
 {
+printk("%s\n", __func__);
 	if (policy->cpu >= NR_CPUS) {
 		return -EINVAL;
 	}
@@ -439,6 +444,7 @@ static int jz4780_cpu_init(struct cpufreq_policy *policy)
 static unsigned int rate;
 int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 {
+printk("%s\n", __func__);
 	if(cpu_clk) {
 		rate = clk_get_rate(cpu_clk);
 		clk_set_rate(cpu_clk,MIN_FREQ * 1000);
@@ -449,6 +455,7 @@ int jz4780_cpu_suspend(struct cpufreq_policy *policy)
 
 int jz4780_cpu_resume(struct cpufreq_policy *policy)
 {
+printk("%s\n", __func__);
 	if(cpu_clk) {
 		clk_set_rate(cpu_clk,rate);
 	}
@@ -475,6 +482,7 @@ static struct cpufreq_driver jz4780_driver = {
 
 static int __init jz4780_cpufreq_init(void)
 {
+printk("%s\n", __func__);
 	cpu_clk = clk_get(NULL, "cclk");
 
 	if (IS_ERR(cpu_clk))
@@ -511,6 +519,7 @@ static int __init jz4780_cpufreq_init(void)
 
 static void __exit jz4780_cpufreq_exit(void)
 {
+printk("%s\n", __func__);
 	if(cpu_clk) 
 		clk_put(cpu_clk);
 	if(cpu_regulator)
