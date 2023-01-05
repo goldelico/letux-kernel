@@ -12,20 +12,22 @@
  */
 
 /* #define DEBUG */
-#include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/sched.h>
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/delay.h>
-#include <linux/init.h>
 #include <linux/err.h>
-#include <linux/clk.h>
+#include <linux/init.h>
 #include <linux/io.h>
-#include <linux/cpu.h>
+#include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/syscalls.h>
-#include <linux/kthread.h>
+#include <linux/types.h>
 
 #include <asm/cpu.h>
 
@@ -93,9 +95,9 @@ static unsigned int freq_gate;
 static unsigned int freq_high;
 static struct cpufreq_frequency_table freq_table[CPUFREQ_NR];
 static struct task_struct *freq_thread;
-static unsigned long long timer_start = 0;
-static unsigned long long timer_end = 0;
-static unsigned long long radical_time = 0;
+static u64 timer_start = 0;
+static u64 timer_end = 0;
+static u64 radical_time = 0;
 static int radical_cnt = 0;
 
 // FIXME: get OPP table from device tree
@@ -147,10 +149,9 @@ static int freq_table_prepare(void)
 	memset(freq_table,0,sizeof(freq_table));
 
 #define _FREQ_TAB(in, fr)				\
-	freq_table[in].index = in;			\
 	freq_table[in].frequency = fr			\
 
-	if (clk_is_enabled(apll)) {
+	if (__clk_is_enabled(apll)) {
 		freq_high = apll_rate;
 
 		while (max_rate > LOW_APLL_FREQ) {
@@ -190,7 +191,7 @@ apll_err:
 	return -EINVAL;
 }
 
-static int jz4780_verify_speed(struct cpufreq_policy *policy)
+static int jz4780_verify_speed(struct cpufreq_policy_data *policy)
 {
 	return cpufreq_frequency_table_verify(policy, freq_table);
 }
@@ -207,17 +208,16 @@ static int jz4780_target(struct cpufreq_policy *policy,
 		unsigned int target_freq,
 		unsigned int relation)
 {
-	unsigned int i;
+	int i;
 	int r,ret = 0;
 	struct cpufreq_freqs freqs;
 	unsigned long freq, flags, volt = 0;
 	int this_cpu = smp_processor_id();
 
-	ret = cpufreq_frequency_table_target(policy, freq_table, target_freq,
-			relation, &i);
-	if (ret) {
+	i = cpufreq_frequency_table_target(policy, target_freq, relation);
+	if (i < 0) {
 		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
-				__func__, policy->cpu, target_freq, ret);
+				__func__, policy->cpu, target_freq, i);
 		return ret;
 	}
 	freqs.new = freq_table[i].frequency;
@@ -228,7 +228,7 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	}
 
 	freqs.old = jz4780_getspeed(policy->cpu);
-	freqs.cpu = policy->cpu;
+	freqs.policy = policy;
 
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
 		return ret;
@@ -263,8 +263,10 @@ static int jz4780_target(struct cpufreq_policy *policy,
 	}
 	/* notifiers */
 	for_each_cpu(i, policy->cpus) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+// CHECKME: this code previously did freqs.cpu = i to call the notifier for each CPU
+// is this code equivalent?
+		freqs.policy = policy;	// CHECKME: should now be a loop constant
+		cpufreq_freq_transition_begin(policy, &freqs);
 	}
 
 	spin_lock_irqsave(&freq_lock, flags);
@@ -272,9 +274,9 @@ static int jz4780_target(struct cpufreq_policy *policy,
 
 	freqs.new = jz4780_getspeed(policy->cpu);
 	if ((freqs.new > freq_gate) && (freqs.old <= freq_gate)) {
-		timer_start = cpu_clock(this_cpu);
+		timer_start = sched_clock_cpu(this_cpu);
 	} else if ((freqs.new <= freq_gate) && (freqs.old > freq_gate)){
-		timer_end = cpu_clock(this_cpu);
+		timer_end = sched_clock_cpu(this_cpu);
 		radical_time += timer_end - timer_start;
 	}
 #ifdef CONFIG_SMP
@@ -313,8 +315,8 @@ static int jz4780_target(struct cpufreq_policy *policy,
 done:
 	/* notifiers */
 	for_each_cpu(i, policy->cpus) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+		freqs.policy = policy;
+		cpufreq_freq_transition_end(policy, &freqs, 0);
 	}
 	pr_debug("-%d\n", freqs.new);
 
@@ -396,7 +398,7 @@ static void vol_down_work(struct work_struct *work)
 	}
 }
 
-static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
+static int jz4780_cpu_init(struct cpufreq_policy *policy)
 {
 	if (policy->cpu >= NR_CPUS) {
 		return -EINVAL;
@@ -405,7 +407,7 @@ static int __cpuinit jz4780_cpu_init(struct cpufreq_policy *policy)
 	if(cpufreq_frequency_table_cpuinfo(policy, freq_table))
 		return -ENODATA;
 
-	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
+//	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
 
 	policy->min = policy->cpuinfo.min_freq;
 /*
@@ -461,11 +463,11 @@ static struct freq_attr *jz4780_cpufreq_attr[] = {
 
 static struct cpufreq_driver jz4780_driver = {
 	.name		= "jz4780",
-	.flags		= CPUFREQ_STICKY,
+	.flags		= 0,
+	.init		= jz4780_cpu_init,
 	.verify		= jz4780_verify_speed,
 	.target		= jz4780_target,
 	.get		= jz4780_getspeed,
-	.init		= jz4780_cpu_init,
 	.suspend	= jz4780_cpu_suspend,
 	.resume		= jz4780_cpu_resume,
 	.attr		= jz4780_cpufreq_attr,
