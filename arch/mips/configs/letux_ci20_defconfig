@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.1.3 Kernel Configuration
+# Linux/mips 6.1.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5206,7 +5206,7 @@ CONFIG_PHY_INGENIC_USB=m
 # CONFIG_DAX is not set
 CONFIG_NVMEM=y
 CONFIG_NVMEM_SYSFS=y
-# CONFIG_NVMEM_JZ4780_EFUSE is not set
+CONFIG_NVMEM_JZ4780_EFUSE=m
 # CONFIG_NVMEM_RMEM is not set
 # CONFIG_NVMEM_U_BOOT_ENV is not set
 
