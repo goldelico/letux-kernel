@@ -131,6 +131,7 @@ quiet_cmd_modpost = MODPOST $@
 		echo >&2 "WARNING: $(missing-input) is missing."; \
 		echo >&2 "         Modules may not have dependencies or modversions."; \
 		echo >&2 "         You may get many unresolved symbol warnings.";) \
+	echo $(MODPOST) $(modpost-args); \
 	$(MODPOST) $(modpost-args)
 
 targets += $(output-symdump)
