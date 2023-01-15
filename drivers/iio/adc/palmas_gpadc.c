@@ -20,6 +20,7 @@
 #include <linux/completion.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
@@ -76,6 +77,11 @@ static struct palmas_gpadc_info palmas_gpadc_info[] = {
 	PALMAS_ADC_INFO(IN15, 0, 0, 0, 0, INVALID, INVALID, true),
 };
 
+struct palmas_gpadc_thresholds {
+	int high_thresh;
+	int low_thresh;
+};
+
 /*
  * struct palmas_gpadc - the palmas_gpadc structure
  * @ch0_current:	channel 0 current source setting
@@ -117,7 +123,27 @@ struct palmas_gpadc {
 	bool				wakeup2_enable;
 	int				auto_conversion_period;
 	struct mutex			lock;
+	struct mutex			mlock;
+	struct palmas_adc_wakeup_property event0;
+	struct palmas_adc_wakeup_property event1;
+	struct palmas_gpadc_thresholds	thresh_data[PALMAS_ADC_CH_MAX];
 };
+
+static struct palmas_adc_wakeup_property *palmas_gpadc_get_event_channel(
+	struct palmas_gpadc *adc, int adc_chan, enum iio_event_direction dir)
+{
+	if (adc_chan == adc->event0.adc_channel_number &&
+	    ((dir == IIO_EV_DIR_RISING && adc->event0.adc_high_threshold) ||
+	     (dir == IIO_EV_DIR_FALLING && adc->event0.adc_low_threshold)))
+		return &adc->event0;
+
+	if (adc_chan == adc->event1.adc_channel_number &&
+	    ((dir == IIO_EV_DIR_RISING && adc->event1.adc_high_threshold) ||
+	     (dir == IIO_EV_DIR_FALLING && adc->event1.adc_low_threshold)))
+		return &adc->event1;
+
+	return NULL;
+}
 
 /*
  * GPADC lock issue in AUTO mode.
@@ -188,10 +214,24 @@ static irqreturn_t palmas_gpadc_irq(int irq, void *data)
 
 static irqreturn_t palmas_gpadc_irq_auto(int irq, void *data)
 {
-	struct palmas_gpadc *adc = data;
+	struct iio_dev *indio_dev = data;
+	struct palmas_gpadc *adc = iio_priv(indio_dev);
+	struct palmas_adc_wakeup_property *ev;
 
 	dev_dbg(adc->dev, "Threshold interrupt %d occurs\n", irq);
 	palmas_disable_auto_conversion(adc);
+
+	ev = (irq == adc->irq_auto_0) ? &adc->event0 : &adc->event1;
+	if (ev->adc_channel_number != -1) {
+		enum iio_event_direction dir;
+		u64 code;
+
+		dir = ev->adc_high_threshold ?
+			IIO_EV_DIR_RISING : IIO_EV_DIR_FALLING;
+		code = IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, ev->adc_channel_number,
+					    IIO_EV_TYPE_THRESH, dir);
+		iio_push_event(indio_dev, code, iio_get_time_ns(indio_dev));
+	}
 
 	return IRQ_HANDLED;
 }
@@ -280,6 +320,10 @@ static int palmas_gpadc_read_prepare(struct palmas_gpadc *adc, int adc_chan)
 {
 	int ret;
 
+	if (palmas_gpadc_get_event_channel(adc, adc_chan, IIO_EV_DIR_RISING) ||
+	    palmas_gpadc_get_event_channel(adc, adc_chan, IIO_EV_DIR_FALLING))
+		return 0; // ADC in freerunning mode
+
 	ret = palmas_gpadc_enable(adc, adc_chan, true);
 	if (ret < 0)
 		return ret;
@@ -338,29 +382,49 @@ static int palmas_gpadc_start_conversion(struct palmas_gpadc *adc, int adc_chan)
 {
 	unsigned int val;
 	int ret;
+	const bool freerunning =
+		palmas_gpadc_get_event_channel(adc, adc_chan, IIO_EV_DIR_RISING) ||
+		palmas_gpadc_get_event_channel(adc, adc_chan, IIO_EV_DIR_FALLING);
 
-	init_completion(&adc->conv_completion);
-	ret = palmas_update_bits(adc->palmas, PALMAS_GPADC_BASE,
-				PALMAS_GPADC_SW_SELECT,
-				PALMAS_GPADC_SW_SELECT_SW_START_CONV0,
-				PALMAS_GPADC_SW_SELECT_SW_START_CONV0);
-	if (ret < 0) {
-		dev_err(adc->dev, "SELECT_SW_START write failed: %d\n", ret);
-		return ret;
+	if (freerunning) {
+		const unsigned int reg =
+			(adc_chan == adc->event0.adc_channel_number) ?
+				PALMAS_GPADC_AUTO_CONV0_LSB :
+				PALMAS_GPADC_AUTO_CONV1_LSB;
+
+		ret = palmas_bulk_read(adc->palmas, PALMAS_GPADC_BASE,
+					reg, &val, 2);
+		if (ret < 0) {
+			dev_err(adc->dev, "AUTO_CONV%x_LSB read failed: %d\n",
+				reg == PALMAS_GPADC_AUTO_CONV0_LSB ? 0 : 1,
+				ret);
+			return ret;
+		}
 	}
+	else {
+		init_completion(&adc->conv_completion);
+		ret = palmas_update_bits(adc->palmas, PALMAS_GPADC_BASE,
+					PALMAS_GPADC_SW_SELECT,
+					PALMAS_GPADC_SW_SELECT_SW_START_CONV0,
+					PALMAS_GPADC_SW_SELECT_SW_START_CONV0);
+		if (ret < 0) {
+			dev_err(adc->dev, "SELECT_SW_START write failed: %d\n", ret);
+			return ret;
+		}
 
-	ret = wait_for_completion_timeout(&adc->conv_completion,
-				PALMAS_ADC_CONVERSION_TIMEOUT);
-	if (ret == 0) {
-		dev_err(adc->dev, "conversion not completed\n");
-		return -ETIMEDOUT;
-	}
+		ret = wait_for_completion_timeout(&adc->conv_completion,
+					PALMAS_ADC_CONVERSION_TIMEOUT);
+		if (ret == 0) {
+			dev_err(adc->dev, "conversion not completed\n");
+			return -ETIMEDOUT;
+		}
 
-	ret = palmas_bulk_read(adc->palmas, PALMAS_GPADC_BASE,
-				PALMAS_GPADC_SW_CONV0_LSB, &val, 2);
-	if (ret < 0) {
-		dev_err(adc->dev, "SW_CONV0_LSB read failed: %d\n", ret);
-		return ret;
+		ret = palmas_bulk_read(adc->palmas, PALMAS_GPADC_BASE,
+					PALMAS_GPADC_SW_CONV0_LSB, &val, 2);
+		if (ret < 0) {
+			dev_err(adc->dev, "SW_CONV0_LSB read failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	ret = val & 0xFFF;
@@ -382,6 +446,66 @@ static int palmas_gpadc_get_calibrated_code(struct palmas_gpadc *adc,
 	}
 
 	val = (val * adc->adc_info[adc_chan].gain) / 1000;
+
+	return val;
+}
+
+static int palmas_gpadc_get_high_threshold(struct palmas_gpadc *adc,
+					   int adc_chan, int val)
+{
+	const int INL = 2;
+	int gain_drift;
+	int offset_drift;
+
+	if (!val)
+		return 0;
+
+	val = (val * 1000) / adc->adc_info[adc_chan].gain;
+
+	if (!adc->adc_info[adc_chan].is_uncalibrated) {
+		val = (val * adc->adc_info[adc_chan].gain_error +
+		       adc->adc_info[adc_chan].offset) /
+			1000;
+		gain_drift = 1002;
+		offset_drift = 2;
+	}
+	else {
+		gain_drift = 1022;
+		offset_drift = 36;
+	}
+
+	// add tolerance to threshold
+	val = ((val + INL) * gain_drift) / 1000 + offset_drift;
+
+	return val;
+}
+
+static int palmas_gpadc_get_low_threshold(struct palmas_gpadc *adc,
+					  int adc_chan, int val)
+{
+	const int INL = 2;
+	int gain_drift;
+	int offset_drift;
+
+	if (!val)
+		return val;
+
+	val = (val * 1000) / adc->adc_info[adc_chan].gain;
+
+        if (!adc->adc_info[adc_chan].is_uncalibrated) {
+            val = (val * adc->adc_info[adc_chan].gain_error -
+		   adc->adc_info[adc_chan].offset) /
+		    1000;
+            gain_drift = 998;
+            offset_drift = 2;
+        }
+        else {
+            gain_drift = 978;
+            offset_drift = 36;
+        }
+
+	// calculate tolerances
+	val = ((val - INL) * gain_drift) / 1000 - offset_drift;
 
 	return val;
 }
@@ -432,8 +556,237 @@ out:
 	return ret;
 }
 
+static int palmas_gpadc_read_event_config(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir)
+{
+	struct palmas_gpadc *adc = iio_priv(indio_dev);
+	int adc_chan = chan->channel;
+	int ret = 0;
+
+	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
+		return -EINVAL;
+
+	mutex_lock(&adc->mlock);
+
+	if (palmas_gpadc_get_event_channel(adc, adc_chan, dir)) {
+		ret = 1;
+	}
+
+	mutex_unlock(&adc->mlock);
+
+	return ret;
+}
+
+static int palmas_adc_wakeup_configure(struct palmas_gpadc *adc);
+static int palmas_gpadc_reconfigure_event_channels(struct palmas_gpadc *adc)
+{
+	adc->wakeup1_data = adc->event0;
+	adc->wakeup1_enable = adc->event0.adc_channel_number == -1 ?
+		false : true;
+	adc->wakeup2_data = adc->event1;
+	adc->wakeup2_enable = adc->event1.adc_channel_number == -1 ?
+		false : true;
+
+	if (adc->event0.adc_channel_number == -1 &&
+	    adc->event1.adc_channel_number == -1)
+		return palmas_disable_auto_conversion(adc);
+
+	// adjust levels
+	if (adc->wakeup1_enable) {
+		adc->wakeup1_data.adc_low_threshold =
+			palmas_gpadc_get_low_threshold(adc,
+				adc->event0.adc_channel_number,
+				adc->event0.adc_low_threshold);
+		adc->wakeup1_data.adc_high_threshold =
+			palmas_gpadc_get_high_threshold(adc,
+				adc->event0.adc_channel_number,
+				adc->event0.adc_high_threshold);
+	}
+	if (adc->wakeup2_enable) {
+		adc->wakeup2_data.adc_low_threshold =
+			palmas_gpadc_get_low_threshold(adc,
+				adc->event1.adc_channel_number,
+				adc->event1.adc_low_threshold);
+		adc->wakeup2_data.adc_high_threshold =
+			palmas_gpadc_get_high_threshold(adc,
+				adc->event1.adc_channel_number,
+				adc->event1.adc_high_threshold);
+	}
+
+	return palmas_adc_wakeup_configure(adc);
+}
+
+static int palmas_gpadc_enable_event_config(struct palmas_gpadc *adc,
+	const struct iio_chan_spec *chan, enum iio_event_direction dir)
+{
+	struct palmas_adc_wakeup_property *ev;
+	int adc_chan = chan->channel;
+
+	if (palmas_gpadc_get_event_channel(adc, adc_chan, dir))
+		/* already enabled */
+		return 0;
+
+	if (adc->event0.adc_channel_number == -1)
+		ev = &adc->event0;
+	else if (adc->event1.adc_channel_number == -1) {
+		/* event0 has to be the lowest channel */
+		if (adc_chan < adc->event0.adc_channel_number) {
+			adc->event1 = adc->event0;
+			ev = &adc->event0;
+		}
+		else
+			ev = &adc->event1;
+	}
+	else /* both AUTO channels already in use */ {
+		dev_warn(adc->dev, "event0 - %d, event1 - %d\n",
+			 adc->event0.adc_channel_number,
+			 adc->event1.adc_channel_number);
+		return -EBUSY;
+	}
+
+	ev->adc_channel_number = adc_chan;
+	if (dir == IIO_EV_DIR_RISING)
+		ev->adc_high_threshold = adc->thresh_data[adc_chan].high_thresh;
+	else
+		ev->adc_low_threshold = adc->thresh_data[adc_chan].low_thresh;
+
+	return palmas_gpadc_reconfigure_event_channels(adc);
+}
+
+static int palmas_gpadc_disable_event_config(struct palmas_gpadc *adc,
+	const struct iio_chan_spec *chan, enum iio_event_direction dir)
+{
+	int adc_chan = chan->channel;
+	struct palmas_adc_wakeup_property *ev =
+		palmas_gpadc_get_event_channel(adc, adc_chan, dir);
+
+	if (!ev)
+		return 0;
+
+	if (ev == &adc->event0) {
+		adc->event0 = adc->event1;
+		ev = &adc->event1;
+	}
+
+	ev->adc_channel_number = -1;
+	ev->adc_high_threshold = 0;
+	ev->adc_low_threshold = 0;
+
+	return palmas_gpadc_reconfigure_event_channels(adc);
+}
+
+static int palmas_gpadc_write_event_config(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, int state)
+{
+	struct palmas_gpadc *adc = iio_priv(indio_dev);
+	int adc_chan = chan->channel;
+	int ret = 0;
+
+	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
+		return -EINVAL;
+
+	mutex_lock(&adc->mlock);
+
+	if (state)
+		ret = palmas_gpadc_enable_event_config(adc, chan, dir);
+	else
+		ret = palmas_gpadc_disable_event_config(adc, chan, dir);
+
+	mutex_unlock(&adc->mlock);
+
+	return ret;
+}
+
+static int palmas_gpadc_read_event_value(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int *val,
+	int *val2)
+{
+	struct palmas_gpadc *adc = iio_priv(indio_dev);
+	int adc_chan = chan->channel;
+	int ret = 0;
+
+	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
+		return -EINVAL;
+
+	mutex_lock(&adc->mlock);
+
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		*val = (dir == IIO_EV_DIR_RISING) ?
+			adc->thresh_data[adc_chan].high_thresh :
+			adc->thresh_data[adc_chan].low_thresh;
+		ret = IIO_VAL_INT;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	mutex_unlock(&adc->mlock);
+
+	return ret;
+}
+
+static int palmas_gpadc_write_event_value(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, enum iio_event_type type,
+	enum iio_event_direction dir, enum iio_event_info info, int val,
+	int val2)
+{
+	struct palmas_gpadc *adc = iio_priv(indio_dev);
+	int adc_chan = chan->channel;
+	int ret = 0;
+
+	if (adc_chan > PALMAS_ADC_CH_MAX || type != IIO_EV_TYPE_THRESH)
+		return -EINVAL;
+
+	mutex_lock(&adc->mlock);
+	switch (info) {
+	case IIO_EV_INFO_VALUE:
+		if (val < 0 || val > 0xFFF) {
+			ret = -EINVAL;
+			break;
+		}
+		if (dir == IIO_EV_DIR_RISING)
+			adc->thresh_data[adc_chan].high_thresh = val;
+		else
+			adc->thresh_data[adc_chan].low_thresh = val;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	if (palmas_gpadc_get_event_channel(adc, adc_chan, dir))
+		ret = palmas_gpadc_reconfigure_event_channels(adc);
+
+	mutex_unlock(&adc->mlock);
+
+	return ret;
+}
+
 static const struct iio_info palmas_gpadc_iio_info = {
 	.read_raw = palmas_gpadc_read_raw,
+	.read_event_config = palmas_gpadc_read_event_config,
+	.write_event_config = palmas_gpadc_write_event_config,
+	.read_event_value = palmas_gpadc_read_event_value,
+	.write_event_value = palmas_gpadc_write_event_value,
+};
+
+static const struct iio_event_spec palmas_gpadc_events[] = {
+	{
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_RISING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+				BIT(IIO_EV_INFO_ENABLE),
+	}, {
+		.type = IIO_EV_TYPE_THRESH,
+		.dir = IIO_EV_DIR_FALLING,
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+				BIT(IIO_EV_INFO_ENABLE),
+	},
 };
 
 #define PALMAS_ADC_CHAN_IIO(chan, _type, chan_info)	\
@@ -444,6 +797,8 @@ static const struct iio_info palmas_gpadc_iio_info = {
 			BIT(chan_info),			\
 	.indexed = 1,					\
 	.channel = PALMAS_ADC_CH_##chan,		\
+	.event_spec = palmas_gpadc_events,		\
+	.num_event_specs = ARRAY_SIZE(palmas_gpadc_events)	\
 }
 
 static const struct iio_chan_spec palmas_gpadc_iio_channel[] = {
@@ -526,6 +881,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	adc->adc_info = palmas_gpadc_info;
 
 	mutex_init(&adc->lock);
+	mutex_init(&adc->mlock);
 
 	init_completion(&adc->conv_completion);
 	platform_set_drvdata(pdev, indio_dev);
@@ -538,7 +894,8 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 		ret = adc->irq;
 		goto out;
 	}
-	ret = request_threaded_irq(adc->irq, NULL,
+	ret = devm_request_threaded_irq(&pdev->dev,
+		adc->irq, NULL,
 		palmas_gpadc_irq,
 		IRQF_ONESHOT, dev_name(adc->dev),
 		adc);
@@ -548,37 +905,44 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
+	adc->irq_auto_0 = platform_get_irq(pdev, 1);
+	ret = devm_request_threaded_irq(&pdev->dev,
+			adc->irq_auto_0, NULL,
+			palmas_gpadc_irq_auto,
+			IRQF_ONESHOT,
+			"palmas-adc-auto-0", indio_dev);
+	if (ret < 0) {
+		dev_err(adc->dev, "request auto0 irq %d failed: %d\n",
+			adc->irq_auto_0, ret);
+		goto out;
+	}
+
+	adc->irq_auto_1 = platform_get_irq(pdev, 2);
+	ret = devm_request_threaded_irq(&pdev->dev,
+			adc->irq_auto_1, NULL,
+			palmas_gpadc_irq_auto,
+			IRQF_ONESHOT,
+			"palmas-adc-auto-1", indio_dev);
+	if (ret < 0) {
+		dev_err(adc->dev, "request auto1 irq %d failed: %d\n",
+			adc->irq_auto_1, ret);
+		goto out;
+	}
+
 	if (gpadc_pdata->adc_wakeup1_data) {
 		memcpy(&adc->wakeup1_data, gpadc_pdata->adc_wakeup1_data,
 			sizeof(adc->wakeup1_data));
 		adc->wakeup1_enable = true;
-		adc->irq_auto_0 =  platform_get_irq(pdev, 1);
-		ret = request_threaded_irq(adc->irq_auto_0, NULL,
-				palmas_gpadc_irq_auto,
-				IRQF_ONESHOT,
-				"palmas-adc-auto-0", adc);
-		if (ret < 0) {
-			dev_err(adc->dev, "request auto0 irq %d failed: %d\n",
-				adc->irq_auto_0, ret);
-			goto out_irq_free;
-		}
 	}
 
 	if (gpadc_pdata->adc_wakeup2_data) {
 		memcpy(&adc->wakeup2_data, gpadc_pdata->adc_wakeup2_data,
 				sizeof(adc->wakeup2_data));
 		adc->wakeup2_enable = true;
-		adc->irq_auto_1 =  platform_get_irq(pdev, 2);
-		ret = request_threaded_irq(adc->irq_auto_1, NULL,
-				palmas_gpadc_irq_auto,
-				IRQF_ONESHOT,
-				"palmas-adc-auto-1", adc);
-		if (ret < 0) {
-			dev_err(adc->dev, "request auto1 irq %d failed: %d\n",
-				adc->irq_auto_1, ret);
-			goto out_irq_auto0_free;
-		}
 	}
+
+	adc->event0.adc_channel_number = -1;
+	adc->event1.adc_channel_number = -1;
 
 	/* set the current source 0 (value 0/5/15/20 uA => 0..3) */
 	if (gpadc_pdata->ch0_current <= 1)
@@ -611,7 +975,7 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
 		dev_err(adc->dev, "iio_device_register() failed: %d\n", ret);
-		goto out_irq_auto1_free;
+		goto out;
 	}
 
 	device_set_wakeup_capable(&pdev->dev, 1);
@@ -625,31 +989,18 @@ static int palmas_gpadc_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_irq_auto1_free:
-	if (gpadc_pdata->adc_wakeup2_data)
-		free_irq(adc->irq_auto_1, adc);
-out_irq_auto0_free:
-	if (gpadc_pdata->adc_wakeup1_data)
-		free_irq(adc->irq_auto_0, adc);
-out_irq_free:
-	free_irq(adc->irq, adc);
 out:
 	return ret;
 }
 
 static int palmas_gpadc_remove(struct platform_device *pdev)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(&pdev->dev);
+	struct iio_dev *indio_dev = dev_get_drvdata(&pdev->dev);
 	struct palmas_gpadc *adc = iio_priv(indio_dev);
 
 	if (adc->wakeup1_enable || adc->wakeup2_enable)
 		device_wakeup_disable(&pdev->dev);
 	iio_device_unregister(indio_dev);
-	free_irq(adc->irq, adc);
-	if (adc->wakeup1_enable)
-		free_irq(adc->irq_auto_0, adc);
-	if (adc->wakeup2_enable)
-		free_irq(adc->irq_auto_1, adc);
 
 	return 0;
 }
