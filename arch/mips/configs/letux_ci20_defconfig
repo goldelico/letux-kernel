@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.163 Kernel Configuration
+# Linux/mips 5.10.164 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
