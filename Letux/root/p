@@ -1,0 +1,32 @@
+# simple "play" auf PandaES
+# vorher sollte einmal ./twl gelaufen sein damit die Mixer eingestellt sind
+
+CARD=$(./findsoundcard PandaBoardES)
+DEV=11
+LOG=/dev/null
+[ "$1" == "-s" ] && { STRACE=strace ; shift ; }
+[ "$1" ] && DEV="$1"	# 2 is doing something
+
+amixer cset $CARD 1 name='Headset Left Playback' 1
+amixer cset $CARD 1 name='Headset Right Playback' 1
+amixer cset $CARD 1 name='Headset Playback Volume' 12
+amixer cset $CARD 1 name='DL1 PDM Switch' 1
+amixer cset $CARD 1 name='Sidetone Mixer Playback' 1
+amixer cset $CARD 1 name='SDT DL Volume' 120
+amixer cset $CARD 1 name='DL1 Mixer Multimedia' 1
+amixer cset $CARD 1 name='DL1 Media Playback Volume' 110
+amixer sset $CARD 1 'Analog Left',0 'Aux/FM Left'
+amixer sset $CARD 1 'Analog Right',0 'Aux/FM Right'
+amixer sset $CARD 1 'Aux FM',0 7
+amixer sset $CARD 1 'AUDUL Media',0 149
+amixer sset $CARD 1 'Capture',0 4
+amixer sset $CARD 1 MUX_UL00,0 AMic0
+amixer sset $CARD 1 MUX_UL01,0 AMic1
+amixer sset $CARD 1 'AMIC UL',0 120
+
+if [ "$STRACE" ]
+then
+	AUDIODEV=hw:$CARD,$DEV strace play -v 0.98 testmp3.mp3 remix 1 2 1 2 2>$DEV.out
+else
+	AUDIODEV=hw:$CARD,$DEV play -v 0.98 testmp3.mp3 remix 1 2 1 2
+fi
