@@ -1022,6 +1022,7 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 			return ret;
 	}
 #endif
+
 	return 0;
 }
 
@@ -1191,7 +1192,7 @@ static int omap_abe_probe(struct platform_device *pdev)
 		return ret;
 
 /* replace by devm_snd_soc_register_component and register the stream event */
-	ret = snd_soc_register_card(card);
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
 		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
 		return ret;
