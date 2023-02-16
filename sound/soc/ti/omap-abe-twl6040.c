@@ -1022,6 +1022,7 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 			return ret;
 	}
 #endif
+
 	return 0;
 }
 
