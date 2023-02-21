@@ -1,7 +1,12 @@
 # simple "play" auf PandaES
 # vorher sollte einmal ./twl gelaufen sein damit die Mixer eingestellt sind
 
-CARD=$(./findsoundcard PandaBoardES)
+for C in PandaBoardES omap5uevm
+do
+	CARD=$(./findsoundcard $C)
+	[ "$CARD" ] && break
+done
+
 DEV=11
 LOG=/dev/null
 [ "$1" == "-s" ] && { STRACE=strace ; shift ; }
