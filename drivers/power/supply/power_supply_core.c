@@ -1354,7 +1354,7 @@ __power_supply_register(struct device *parent,
 	if (rc)
 		goto register_thermal_failed;
 
-	rc = psy_register_cooler(psy);
+// HACK:	rc = psy_register_cooler(psy);
 	if (rc)
 		goto register_cooler_failed;
 
