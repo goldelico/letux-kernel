@@ -118,7 +118,14 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 	bus->a0 = addr & 1;	// for 16 bit bus access
 	for (a = 1; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has really changed
+#id 1
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
+#else
+{
+printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
+			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
+}
+#endif
 	}
 
 	bus->prev_addr = addr;
@@ -467,6 +474,15 @@ static int retrode3_probe(struct platform_device *pdev)
 			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
 		return EINVAL;
 	}
+
+{
+	struct gpio_chip *gc = bus->addrs->desc[0]->gdev->chip;
+	printk("%s: %ps\n", __func__, gc->get);
+	printk("%s: %ps\n", __func__, gc->get_multiple);
+	printk("%s: %ps\n", __func__, gc->set);
+	printk("%s: %ps\n", __func__, gc->set_multiple);
+	printk("%s: %ps\n", __func__, gc->direction_output);	// no direction_output_multiple!
+}
 
 	mutex_init(&bus->select_lock);
 
