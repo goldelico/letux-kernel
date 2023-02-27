@@ -1,7 +1,7 @@
 # simple "play" auf PandaES
 # vorher sollte einmal ./twl gelaufen sein damit die Mixer eingestellt sind
 
-for C in PandaBoardES omap5uevm
+for C in PandaBoardES omap5uevm L15
 do
 	CARD=$(./findsoundcard $C)
 	[ "$CARD" ] && break
