@@ -14,7 +14,7 @@ to be solved
 - add read/write for RAM
 
  *
- *  Copyright (C) 2022, H. Nikolaus Schaller
+ *  Copyright (C) 2022-23, H. Nikolaus Schaller
  *
  */
 
@@ -81,7 +81,9 @@ struct retrode3_bus {
 
 /* low level address and data bus access */
 
-static int get_bus_bit(struct gpio_desc *desc)
+// FXIME: get_multiple / set_multiple could be much faster, if supported by device driver
+
+static inline int get_bus_bit(struct gpio_desc *desc)
 {
 #if 1
 	struct gpio_chip *gc = desc->gdev->chip;
@@ -92,20 +94,20 @@ static int get_bus_bit(struct gpio_desc *desc)
 
 }
 
-static void set_bus_bit(struct gpio_desc *desc, int value)
+static inline void set_bus_bit(struct gpio_desc *desc, int value)
 {
 #if 1
 	struct gpio_chip *gc = desc->gdev->chip;
 	gc->set(gc, gpio_chip_hwgpio(desc), value);
 #else
-	piod_set_value(desc, value);
+	gpiod_set_value(desc, value);
 #endif
 
 }
 
 /* access to cart bus */
 
-static int set_address(struct retrode3_bus *bus, u32 addr)
+static inline int set_address(struct retrode3_bus *bus, u32 addr)
 { /* set address on all gpios */
 	int a;
 
@@ -115,7 +117,7 @@ static int set_address(struct retrode3_bus *bus, u32 addr)
 // printk("%s:\n", __func__);
 	bus->a0 = addr & 1;	// for 16 bit bus access
 	for (a = 1; a < bus->addrs->ndescs; a++) {
-		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has changed
+		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has really changed
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 	}
 
@@ -145,7 +147,7 @@ static int read_byte(struct retrode3_bus *bus)
 			int bit = get_bus_bit(bus->datas->desc[d]);
 			if (bit < 0)
 				return bit;
-			data |= bit << d;
+			data |= bit << (d-8);
 		}
 	set_bus_bit(bus->oe, false);
 	return data;
@@ -160,7 +162,8 @@ static int read_word(struct retrode3_bus *bus)
 	/* read data bits */
 	data = 0;
 	for (d = 0; d < bus->datas->ndescs; d++) {
-			int bit = get_bus_bit(bus->datas->desc[d]);
+		int bit = get_bus_bit(bus->datas->desc[d]);
+
 		if (bit < 0)
 			return bit;
 		data |= bit << d;
@@ -177,11 +180,17 @@ static void write_word(struct retrode3_bus *bus, u16 data, int mode)
 printk("%s:\n", __func__);
 
 	data = 0;
-	for (d = 0; d < bus->datas->ndescs; d++)
-		gpiod_set_value(bus->datas->desc[d], (data>>d) & 1);
-	/* single pulse on upper/lower or both depending on mode! */
+	for (d = 0; d < bus->datas->ndescs; d++) {
+		gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
+	}
+	/* should single pulse on upper/lower or both bytes depending on mode! */
 	gpiod_set_value(bus->we->desc[0], true);
 	gpiod_set_value(bus->we->desc[0], false);
+	for (d = 0; d < bus->datas->ndescs; d++) {
+#if FIXME
+		gpiod_direction_input(bus->datas->desc[d]);
+#endif
+	}
 }
 
 /* cart select */
@@ -253,7 +262,10 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 		} else {
 			u8 byte;
 
-			err = set_address(slot->bus, *ppos);
+			if (slot->bus_width == 16)
+				err = set_address(slot->bus, *ppos);	// A0 determines lower/upper byte
+			else
+				err = set_address(slot->bus, *ppos*2);	// shift A0->A1 etc., read D0..D7 only
 			if(err < 0)
 				goto failed;
 
@@ -294,7 +306,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	unsigned long copied;
 	void *ptr;
 
-	dev_info(&slot->dev, "%s\n", __func__);
+//	dev_info(&slot->dev, "%s\n", __func__);
 
 	written = 0;
 
@@ -309,7 +321,9 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 		sz = 1;
 		set_address(slot->bus, *ppos);
 
-		copied = copy_to_user(ptr, buf, sz);
+#if FIXME	// ptr is uninitialized here
+		copied = copy_from_user(ptr, buf, sz);
+#endif
 		if (copied) {
 			written += sz - copied;
 			if (written)
@@ -369,7 +383,7 @@ static int retrode3_open(struct inode *inode, struct file *file)
 
 	slot = container_of(inode->i_cdev, struct retrode3_slot, cdev);
 
-        dev_info(&slot->dev, "%s\n", __func__);
+        dev_dbg(&slot->dev, "%s\n", __func__);
 
 	if (!gpiod_get_value(slot->cd))
 		return -ENODEV;	// no cart is inserted
@@ -389,7 +403,7 @@ static int retrode3_release(struct inode *inode, struct file *file)
 {
 	struct retrode3_slot *slot = file->private_data;
 
-        dev_info(&slot->dev, "%s\n", __func__);
+        dev_dbg(&slot->dev, "%s\n", __func__);
 
 	put_device(&slot->dev);
 
@@ -410,7 +424,7 @@ static void retrode3_slot_release(struct device *dev)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
 
-        dev_info(&slot->dev, "%s\n", __func__);
+        dev_dbg(&slot->dev, "%s\n", __func__);
 
 	ida_simple_remove(&retrode3_minors, slot->id);
 	// FIXME: what else to release
@@ -424,7 +438,7 @@ static int retrode3_probe(struct platform_device *pdev)
         int i = 0;
 	struct device_node *slots, *child = NULL;
 
-        dev_info(&pdev->dev, "%s\n", __func__);
+        dev_dbg(&pdev->dev, "%s\n", __func__);
 
         if (!pdev->dev.of_node) {
                 dev_err(&pdev->dev, "No device tree data\n");
@@ -437,7 +451,7 @@ static int retrode3_probe(struct platform_device *pdev)
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
 //printk("%s: %px\n", __func__, bus->addrs);
-	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_OUT_HIGH);
+	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
 //printk("%s: %px\n", __func__, bus->datas);
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
 //printk("%s: %px\n", __func__, bus->oe);
@@ -519,7 +533,7 @@ static int retrode3_probe(struct platform_device *pdev)
 			}
 		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
 			// FIXME: add gamepad input driver initialization
-			dev_info(dev, "%s gamepad not implemented\n", __func__);
+			dev_warn(dev, "%s gamepad not implemented\n", __func__);
 		} else {
 			dev_err(&slot->dev, "unknown child type\n");
 			// FIXME: dealloc previously added devices
@@ -527,12 +541,12 @@ static int retrode3_probe(struct platform_device *pdev)
 			kfree(slot);
 			return ret;
 		}
-		dev_info(dev, "%s added\n", __func__);
+		dev_dbg(dev, "%s added\n", __func__);
 	}
 
         platform_set_drvdata(pdev, bus);
 
-        dev_info(&pdev->dev, "%s successful\n", __func__);
+        dev_dbg(&pdev->dev, "%s successful\n", __func__);
 
 	select(bus, NULL);	// deselect all slots
 
