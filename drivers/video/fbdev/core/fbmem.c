@@ -36,7 +36,6 @@
 #include <linux/fbcon.h>
 #include <linux/mem_encrypt.h>
 #include <linux/pci.h>
-#include <linux/sys_soc.h>
 
 #include <asm/fb.h>
 
@@ -1347,13 +1346,6 @@ static long fb_compat_ioctl(struct file *file, unsigned int cmd,
 }
 #endif
 
-
-
-static const struct soc_device_attribute write_combine_devices[] = {
-	{ .machine = "OMAP543[02]" },
-	{ /* sentinel */ }
-};
-
 static int
 fb_mmap(struct file *file, struct vm_area_struct * vma)
 {
@@ -1409,10 +1401,7 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 	mutex_unlock(&info->mm_lock);
 
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
-	if (soc_device_match(write_combine_devices))
-		vma->vm_page_prot = pgprot_device(vma->vm_page_prot);
-	else  /* all others incl. OMAP3 w/o TILER */
-		fb_pgprotect(file, vma, start);
+	fb_pgprotect(file, vma, start);
 
 	return vm_iomap_memory(vma, start, len);
 }
