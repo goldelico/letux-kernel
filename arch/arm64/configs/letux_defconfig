@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.15.98 Kernel Configuration
+# Linux/arm64 5.15.102 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4476,7 +4476,6 @@ CONFIG_DRM_DW_HDMI=m
 # CONFIG_DRM_ETNAVIV is not set
 # CONFIG_DRM_HISI_HIBMC is not set
 # CONFIG_DRM_HISI_KIRIN is not set
-# CONFIG_DRM_MXSFB is not set
 # CONFIG_DRM_ARCPGU is not set
 # CONFIG_DRM_BOCHS is not set
 # CONFIG_DRM_CIRRUS_QEMU is not set
@@ -5713,7 +5712,6 @@ CONFIG_BCM_SBA_RAID=m
 # CONFIG_DW_AXI_DMAC is not set
 # CONFIG_FSL_EDMA is not set
 # CONFIG_FSL_QDMA is not set
-# CONFIG_HISI_DMA is not set
 # CONFIG_INTEL_IDMA64 is not set
 CONFIG_MV_XOR_V2=y
 CONFIG_PL330_DMA=y

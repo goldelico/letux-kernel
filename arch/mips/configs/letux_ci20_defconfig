@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.98 Kernel Configuration
+# Linux/mips 5.15.102 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3069,7 +3069,6 @@ CONFIG_DRM_INGENIC=m
 # CONFIG_DRM_INGENIC_IPU is not set
 CONFIG_DRM_INGENIC_DW_HDMI=m
 # CONFIG_DRM_ETNAVIV is not set
-# CONFIG_DRM_MXSFB is not set
 # CONFIG_DRM_ARCPGU is not set
 # CONFIG_DRM_GM12U320 is not set
 # CONFIG_DRM_SIMPLEDRM is not set
