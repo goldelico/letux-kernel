@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.2.2 Kernel Configuration
+# Linux/mips 6.2.6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2228,7 +2228,6 @@ CONFIG_HWMON=y
 # CONFIG_SENSORS_PC87427 is not set
 # CONFIG_SENSORS_NTC_THERMISTOR is not set
 # CONFIG_SENSORS_NCT6683 is not set
-# CONFIG_SENSORS_NCT6775 is not set
 # CONFIG_SENSORS_NCT6775_I2C is not set
 # CONFIG_SENSORS_NCT7802 is not set
 # CONFIG_SENSORS_NCT7904 is not set
@@ -3295,8 +3294,6 @@ CONFIG_DRM_INGENIC=m
 CONFIG_DRM_INGENIC_DW_HDMI=m
 # CONFIG_DRM_ETNAVIV is not set
 # CONFIG_DRM_LOGICVC is not set
-# CONFIG_DRM_MXSFB is not set
-# CONFIG_DRM_IMX_LCDIF is not set
 # CONFIG_DRM_ARCPGU is not set
 # CONFIG_DRM_GM12U320 is not set
 # CONFIG_DRM_PANEL_MIPI_DBI is not set
