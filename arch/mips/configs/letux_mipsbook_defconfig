@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.234 Kernel Configuration
+# Linux/mips 5.4.236 Kernel Configuration
 #
 
 #
@@ -2605,7 +2605,6 @@ CONFIG_DRM_PANEL_BRIDGE=y
 CONFIG_DRM_INGENIC=m
 # CONFIG_DRM_ETNAVIV is not set
 # CONFIG_DRM_ARCPGU is not set
-# CONFIG_DRM_MXSFB is not set
 # CONFIG_DRM_GM12U320 is not set
 # CONFIG_TINYDRM_HX8357D is not set
 # CONFIG_TINYDRM_ILI9225 is not set
