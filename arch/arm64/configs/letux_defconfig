@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.10.172 Kernel Configuration
+# Linux/arm64 5.10.174 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4340,7 +4340,6 @@ CONFIG_DRM_DW_HDMI=m
 # CONFIG_DRM_ARCPGU is not set
 # CONFIG_DRM_HISI_HIBMC is not set
 # CONFIG_DRM_HISI_KIRIN is not set
-# CONFIG_DRM_MXSFB is not set
 # CONFIG_DRM_CIRRUS_QEMU is not set
 # CONFIG_DRM_GM12U320 is not set
 # CONFIG_TINYDRM_HX8357D is not set
