@@ -119,7 +119,7 @@ static int aess_put_mixer(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -149,7 +149,7 @@ static int aess_get_mixer(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -187,7 +187,7 @@ static int aess_put_mono_mixer(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -203,7 +203,7 @@ static int aess_get_mono_mixer(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -237,7 +237,7 @@ static int aess_ul_mux_put_route(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update update;
@@ -282,7 +282,7 @@ static int aess_ul_mux_get_route(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	int reg = e->reg - OMAP_AESS_MUX(0), i, rval = 0;
@@ -312,7 +312,7 @@ static int aess_put_switch(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -342,7 +342,7 @@ static int aess_vol_put_mixer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -357,7 +357,7 @@ static int aess_vol_put_gain(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -374,7 +374,7 @@ static int aess_vol_get_mixer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -390,7 +390,7 @@ static int aess_vol_get_gain(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
@@ -516,7 +516,7 @@ static int aess_get_equalizer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_enum *eqc = (struct soc_enum *)kcontrol->private_value;
 
@@ -550,7 +550,7 @@ static int aess_put_equalizer(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct omap_aess *aess = aess_get(kcontrol);
-if(!aess) return 0;
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
 	struct soc_enum *eqc = (struct soc_enum *)kcontrol->private_value;
 	u16 val = ucontrol->value.enumerated.item[0];
