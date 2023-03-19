@@ -123,8 +123,12 @@
 		ti,mclk-freq = <19200000>;
 
 		ti,mcpdm = <&mcpdm>;
+		ti,mcbsp1 = <&mcbsp1>;	/* bluetooth */
+		ti,mcbsp2 = <&mcbsp2>;	/* fm radio */
+		ti,mcbsp3 = <&mcbsp3>;	/* modem */
 
 		ti,twl6040 = <&twl6040>;
+		ti,aess = <&aess>;
 
 		/* Audio routing */
 		ti,audio-routing =
@@ -137,6 +141,10 @@
 			"AFML", "Line In",
 			"AFMR", "Line In";
 	};
+};
+
+&aess {
+	status = "okay";
 };
 
 &gpio8 {
@@ -335,16 +343,24 @@
 	ti,non-removable;
 };
 
+/*
+ * Note that we use gpio_wk14 padconf interrupt as the WLAN wakeirq
+ * for wlcore instead of the sdio_dat1 interrupt as wlcore does not
+ * seem to support sdio_dat1 interrupt. Any boards using other WLAN
+ * chips such as mwifiex_sdio probably need to configure the wakeirq
+ * to <&omap5_pmx_core 0x16a> instead of <&omap5_pmx_wkup 0>.
+ */
 &mmc3 {
 	vmmc-supply = <&vmmcsdio_fixed>;
 	mmc-pwrseq = <&mmc3_pwrseq>;
 	bus-width = <4>;
 	non-removable;
 	cap-power-off-card;
+	keep-power-in-suspend;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc3_pins>;
-	interrupts-extended = <&wakeupgen GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH
-			       &omap5_pmx_core 0x16a>;
+	interrupts-extended = <&wakeupgen GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+			      <&omap5_pmx_wkup 0>;
 
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -633,6 +649,10 @@
 			interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
 			wakeup-source;
 		};
+
+		palmas_wdt: watchdog {
+			compatible = "ti,palmas-wdt";
+		};
 	};
 
 	twl6040: twl@4b {
@@ -701,7 +721,7 @@
 };
 
 &mcspi1 {
-
+	status = "disabled";
 };
 
 &mcspi2 {
@@ -712,6 +732,10 @@
 &mcspi3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mcspi3_pins>;
+};
+
+&mcspi4 {
+	status = "disabled";
 };
 
 &uart1 {
@@ -752,4 +776,8 @@
 			remote-endpoint = <&tpd12s015_in>;
 		};
 	};
+};
+
+&bb2d {
+	status = "disabled";
 };
