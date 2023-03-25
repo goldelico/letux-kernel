@@ -1,5 +1,5 @@
 # simple "play" auf PandaES
-# vorher sollte einmal ./twl gelaufen sein damit die Mixer eingestellt sind
+# vorher sollte evtl. einmal ./twl gelaufen sein damit die Mixer eingestellt sind
 
 for C in PandaBoardES omap5uevm Pyra L15
 do
@@ -7,16 +7,16 @@ do
 	[ "$CARD" ] && break
 done
 
+DEV=11
+
+[ "$1" == "-s" ] && { STRACE=strace ; shift ; }
+[ "$1" ] && DEV="$1"	# 2 is doing something
+
 if [ ! "$CARD" ]
 then
 	echo Unknown Sound Card
 	exit 1
 fi
-
-DEV=11
-LOG=/dev/null
-[ "$1" == "-s" ] && { STRACE=strace ; shift ; }
-[ "$1" ] && DEV="$1"	# 2 is doing something
 
 amixer -c $CARD cset name='Headset Left Playback' 1
 amixer -c $CARD cset name='Headset Right Playback' 1
