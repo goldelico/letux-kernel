@@ -285,7 +285,11 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 		mcpdm->active--;
         }
 
-	return 0;
+	if (!ret)
+		snd_soc_dai_set_dma_data(dai, substream,
+					 &mcpdm->dma_data[substream->stream]);
+
+	return ret;
 }
 
 static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
@@ -549,10 +553,6 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 	mcpdm->config[SNDRV_PCM_STREAM_PLAYBACK].threshold = 2;
 	mcpdm->config[SNDRV_PCM_STREAM_CAPTURE].threshold =
 							MCPDM_UP_THRES_MAX - 3;
-
-	snd_soc_dai_init_dma_data(dai,
-				  &mcpdm->dma_data[SNDRV_PCM_STREAM_PLAYBACK],
-				  &mcpdm->dma_data[SNDRV_PCM_STREAM_CAPTURE]);
 
 	return ret;
 }
