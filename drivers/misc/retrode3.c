@@ -118,7 +118,7 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 	bus->a0 = addr & 1;	// for 16 bit bus access
 	for (a = 1; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has really changed
-#id 1
+#if 1
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 #else
 {
