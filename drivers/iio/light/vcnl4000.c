@@ -77,6 +77,9 @@
 #define VCNL4000_ALS_EN		BIT(2) /* start ALS measurement */
 #define VCNL4000_PROX_EN	BIT(1) /* start proximity measurement */
 #define VCNL4000_SELF_TIMED_EN	BIT(0) /* start self-timed measurement */
+#define VCNL4010_AL_EN		BIT(2) /* enable periodic ALS measurement */
+#define VCNL4010_PS_EN		BIT(1) /* enable periodic proximity measurement */
+#define VCNL4010_SELFTIMED_EN	BIT(0) /* enable state machine and oscillator */
 
 #define VCNL4040_ALS_CONF_ALS_SHUTDOWN	BIT(0)
 #define VCNL4040_PS_CONF1_PS_SHUTDOWN	BIT(0)
@@ -201,6 +204,11 @@ static int vcnl4000_init(struct vcnl4000_data *data)
 		if (data->id != VCNL4010)
 			dev_warn(&data->client->dev,
 					"wrong device id, use vcnl4010/4020");
+		ret = i2c_smbus_write_byte_data(data->client, VCNL4000_COMMAND,
+					VCNL4010_SELFTIMED_EN);
+		if (ret < 0)
+			return ret;
+
 		break;
 	default:
 		return -ENODEV;
@@ -208,7 +216,6 @@ static int vcnl4000_init(struct vcnl4000_data *data)
 
 	data->rev = ret & 0xf;
 	data->al_scale = 250000;
-	mutex_init(&data->vcnl4000_lock);
 
 	return data->chip_spec->set_power_state(data, true);
 };
@@ -368,7 +375,7 @@ static int vcnl4000_measure(struct vcnl4000_data *data, u8 req_mask,
 	mutex_lock(&data->vcnl4000_lock);
 
 	ret = i2c_smbus_write_byte_data(data->client, VCNL4000_COMMAND,
-					req_mask);
+					req_mask | VCNL4010_SELFTIMED_EN);
 	if (ret < 0)
 		goto fail;
 
@@ -1366,6 +1373,8 @@ static int vcnl4000_probe(struct i2c_client *client)
 	data->client = client;
 	data->id = id->driver_data;
 	data->chip_spec = &vcnl4000_chip_spec_cfg[data->id];
+
+	mutex_init(&data->vcnl4000_lock);
 
 	ret = data->chip_spec->init(data);
 	if (ret < 0)
