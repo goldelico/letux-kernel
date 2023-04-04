@@ -8,6 +8,7 @@ obj-$(CONFIG_RTL8192U)		+= rtl8192u/
 obj-$(CONFIG_RTL8192E)		+= rtl8192e/
 obj-$(CONFIG_RTL8189FS)	+= rtl8189es/
 obj-$(CONFIG_RTL8723BS)		+= rtl8723bs/
+obj-$(CONFIG_RTL8723CS_NEW)	+= rtl8723cs-new/
 obj-$(CONFIG_R8712U)		+= rtl8712/
 obj-$(CONFIG_RTS5208)		+= rts5208/
 obj-$(CONFIG_OCTEON_ETHERNET)	+= octeon/
