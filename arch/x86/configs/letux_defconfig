@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.11.0-rc5 Kernel Configuration
+# Linux/x86 6.11.0-rc6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3897,7 +3897,7 @@ CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
 # CONFIG_VIDEO_GO7007 is not set
 # CONFIG_VIDEO_HDPVR is not set
 # CONFIG_VIDEO_PVRUSB2 is not set
-# CONFIG_VIDEO_STK1160 is not set
+CONFIG_VIDEO_STK1160=m
 
 #
 # Analog/digital TV USB devices
@@ -3920,6 +3920,7 @@ CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
 # Webcam, TV (analog/digital) USB devices
 #
 # CONFIG_VIDEO_EM28XX is not set
+CONFIG_VIDEO_SAA711X=m
 
 #
 # Software defined radio USB devices
