@@ -8,7 +8,7 @@
 
 to be solved
 - 8 bit vw. 16 bit bus width
-- handle polling (o not if user space polls open("/dev/slot*") or if we provide udev or /sys/class/slot sense-status
+- handle polling (or not if user space polls open("/dev/slot*") or if we provide udev or /sys/class/slot sense-status
 - make open(), read() work
 - lock multiple select attempts
 - add read/write for RAM
@@ -517,7 +517,7 @@ static int retrode3_probe(struct platform_device *pdev)
 			dev_set_name(dev, "slot%d", id);
 			dev->of_node = child;
 			slot->cs = devm_gpiod_get(dev, "cs", GPIOD_OUT_LOW);
-			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_OUT_LOW);
+			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
 			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
 
