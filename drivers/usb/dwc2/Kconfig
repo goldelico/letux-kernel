@@ -94,4 +94,24 @@ config USB_DWC2_DEBUG_PERIODIC
 	  non-periodic transfers, but of course the debug logs will be
 	  incomplete. Note that this also disables some debug messages
 	  for which the transfer type cannot be deduced.
+
+config USB_DWC2_FORCE_FULL_SPEED
+	bool "Force full speed mode"
+	help
+	  Say Y here to force full speed mode in the DWC2 Driver.
+
+config USB_DWC2_EXT_ID_PIN
+	bool "External Id Pin"
+	help
+	  Say Y here to enable external id pin in the DWC2 Driver.
+	  Example：
+	    echo "device" > /sys/class/usb_role/dwc2_new-role-switch/role
+	    echo "host" > /sys/class/usb_role/dwc2_new-role-switch/role
+	    echo "none" > /sys/class/usb_role/dwc2_new-role-switch/role
+
+config USB_DWC2_EXT_VBUS_DETECT
+	bool "External Vbus Detect"
+	help
+	  Say Y here to enable external vbus detect in the DWC2 Driver.
+
 endif

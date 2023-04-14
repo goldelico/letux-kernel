@@ -167,13 +167,13 @@ int dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
 		dma_addr_t device_addr, size_t size);
 int dma_alloc_from_dev_coherent(struct device *dev, ssize_t size,
 		dma_addr_t *dma_handle, void **ret);
-int dma_release_from_dev_coherent(struct device *dev, int order, void *vaddr);
+int dma_release_from_dev_coherent(struct device *dev, ssize_t size, void *vaddr);
 int dma_mmap_from_dev_coherent(struct device *dev, struct vm_area_struct *vma,
 		void *cpu_addr, size_t size, int *ret);
 
 void *dma_alloc_from_global_coherent(struct device *dev, ssize_t size,
 		dma_addr_t *dma_handle);
-int dma_release_from_global_coherent(int order, void *vaddr);
+int dma_release_from_global_coherent(ssize_t size, void *vaddr);
 int dma_mmap_from_global_coherent(struct vm_area_struct *vma, void *cpu_addr,
 		size_t size, int *ret);
 
@@ -184,7 +184,7 @@ static inline int dma_declare_coherent_memory(struct device *dev,
 	return -ENOSYS;
 }
 #define dma_alloc_from_dev_coherent(dev, size, handle, ret) (0)
-#define dma_release_from_dev_coherent(dev, order, vaddr) (0)
+#define dma_release_from_dev_coherent(dev, size, vaddr) (0)
 #define dma_mmap_from_dev_coherent(dev, vma, vaddr, order, ret) (0)
 
 static inline void *dma_alloc_from_global_coherent(struct device *dev,
@@ -192,7 +192,7 @@ static inline void *dma_alloc_from_global_coherent(struct device *dev,
 {
 	return NULL;
 }
-static inline int dma_release_from_global_coherent(int order, void *vaddr)
+static inline int dma_release_from_global_coherent(ssize_t size, void *vaddr)
 {
 	return 0;
 }

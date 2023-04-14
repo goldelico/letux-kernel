@@ -47,3 +47,5 @@ obj-$(CONFIG_PS3_FLASH)		+= ps3flash.o
 obj-$(CONFIG_XILLYBUS)		+= xillybus/
 obj-$(CONFIG_POWERNV_OP_PANEL)	+= powernv-op-panel.o
 obj-$(CONFIG_ADI)		+= adi.o
+obj-$(CONFIG_INGENIC_SFCNAND_FMW) += jz_spinand_firmware.o
+ccflags-$(CONFIG_INGENIC_SFCNAND_FMW) += -I$(srctree)/module_drivers/drivers/mtd/devices/ingenic_sfc_v2

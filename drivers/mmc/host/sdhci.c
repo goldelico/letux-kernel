@@ -1542,8 +1542,7 @@ static void __sdhci_finish_data(struct sdhci_host *host, bool sw_data_timeout)
 	 */
 	if (data->error) {
 		if (!host->cmd || host->cmd == data_cmd)
-			sdhci_do_reset(host, SDHCI_RESET_CMD);
-		sdhci_do_reset(host, SDHCI_RESET_DATA);
+			sdhci_do_reset(host, SDHCI_RESET_DATA);
 	}
 
 	if ((host->flags & (SDHCI_REQ_USE_DMA | SDHCI_USE_ADMA)) ==
@@ -2097,6 +2096,8 @@ void sdhci_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 			sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 
 		pwr |= SDHCI_POWER_ON;
+		if(host->ops->power_set)
+			host->ops->power_set(host,MMC_POWER_UP);
 
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 
@@ -2316,6 +2317,8 @@ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->power_mode == MMC_POWER_OFF) {
 		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
 		sdhci_reinit(host);
+		if(host->ops->power_set)
+			host->ops->power_set(host,MMC_POWER_OFF);
 	}
 
 	if (host->version >= SDHCI_SPEC_300 &&
@@ -2603,6 +2606,8 @@ int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 		ctrl &= ~SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 
+		if (host->ops->voltage_switch)
+			host->ops->voltage_switch(host,MMC_SIGNAL_VOLTAGE_330);
 		if (!IS_ERR(mmc->supply.vqmmc)) {
 			ret = mmc_regulator_set_vqmmc(mmc, ios);
 			if (ret < 0) {
@@ -2644,7 +2649,7 @@ int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 
 		/* Some controller need to do more when switching */
 		if (host->ops->voltage_switch)
-			host->ops->voltage_switch(host);
+			host->ops->voltage_switch(host,MMC_SIGNAL_VOLTAGE_180);
 
 		/* 1.8V regulator output should be stable within 5 ms */
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -3014,8 +3019,8 @@ static void sdhci_card_event(struct mmc_host *mmc)
 		pr_err("%s: Resetting controller.\n",
 			mmc_hostname(host->mmc));
 
-		sdhci_do_reset(host, SDHCI_RESET_CMD);
 		sdhci_do_reset(host, SDHCI_RESET_DATA);
+		sdhci_do_reset(host, SDHCI_RESET_CMD);
 
 		sdhci_error_out_mrqs(host, -ENOMEDIUM);
 	}
@@ -3157,6 +3162,35 @@ static bool sdhci_request_done(struct sdhci_host *host)
 			}
 			data->host_cookie = COOKIE_UNMAPPED;
 		}
+	}
+
+	/*
+	 * The controller needs a reset of internal state machines
+	 * upon error conditions.
+	 */
+	if (sdhci_needs_reset(host, mrq)) {
+		/*
+		 * Do not finish until command and data lines are available for
+		 * reset. Note there can only be one other mrq, so it cannot
+		 * also be in mrqs_done, otherwise host->cmd and host->data_cmd
+		 * would both be null.
+		 */
+		if (host->cmd || host->data_cmd) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			return true;
+		}
+
+		/* Some controllers need this kick or reset won't work here */
+		if (host->quirks & SDHCI_QUIRK_CLOCK_BEFORE_RESET)
+			/* This is to force an update */
+			host->ops->set_clock(host, host->clock);
+
+		/* Spec says we should do both at the same time, but Ricoh
+		   controllers do not like that. */
+		sdhci_do_reset(host, SDHCI_RESET_DATA);
+		sdhci_do_reset(host, SDHCI_RESET_CMD);
+
+		host->pending_reset = false;
 	}
 
 	host->mrqs_done[i] = NULL;
@@ -3912,8 +3946,8 @@ void sdhci_cqe_disable(struct mmc_host *mmc, bool recovery)
 	host->cqe_on = false;
 
 	if (recovery) {
-		sdhci_do_reset(host, SDHCI_RESET_CMD);
 		sdhci_do_reset(host, SDHCI_RESET_DATA);
+		sdhci_do_reset(host, SDHCI_RESET_CMD);
 	}
 
 	pr_debug("%s: sdhci: CQE off, IRQ mask %#x, IRQ status %#x\n",

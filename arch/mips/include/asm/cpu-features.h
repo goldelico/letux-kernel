@@ -441,6 +441,18 @@
 #define cpu_has_loongson_ext2		__ase(MIPS_ASE_LOONGSON_EXT2)
 #endif
 
+#ifndef cpu_has_mxu		//32bit simd for xburst Series soc.
+#define cpu_has_mxu	0
+#endif
+
+#ifndef cpu_has_mxuv2		//128bit simd for xburst series soc.
+#define cpu_has_mxuv2	0
+#endif
+
+#ifndef cpu_has_mxuv3		//512bit simd for xburst2 series soc.
+#define cpu_has_mxuv3	0
+#endif
+
 #ifndef cpu_has_mipsmt
 #define cpu_has_mipsmt		__isa_range_and_ase(2, 6, MIPS_ASE_MIPSMT)
 #endif
