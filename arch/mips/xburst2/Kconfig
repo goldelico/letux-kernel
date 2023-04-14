@@ -1,0 +1,105 @@
+if MACH_XBURST2
+
+menu "SOC Type Selection"
+	depends on MACH_XBURST2
+
+
+choice
+	prompt "SOC types"
+	depends on MACH_XBURST2
+	default SOC_X2000
+
+config SOC_X2000
+	bool "x2000"
+	select IRQ_INGENIC_CPU
+	select CLK_X2000
+	select INGENIC_INTC_CHIP
+	select PINCTRL
+	select PINCTRL_INGENIC_V2
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select CLKSRC_INGENIC_CORE_OST
+	select MMU_NOTIFIER
+
+config SOC_X2500
+	bool "x2500"
+	select IRQ_INGENIC_CPU
+	select CLK_X2500
+	select INGENIC_INTC_CHIP
+	select PINCTRL
+	select PINCTRL_INGENIC_V2
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select CLKSRC_INGENIC_CORE_OST
+	select MMU_NOTIFIER
+
+config SOC_M300
+	bool "m300"
+	select IRQ_INGENIC_CPU
+	select CLK_M300
+	select INGENIC_INTC_CHIP
+	select PINCTRL
+	select PINCTRL_INGENIC_V2
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select CLKSRC_INGENIC_CORE_OST
+	select MMU_NOTIFIER
+
+config SOC_X2100
+	bool "x2100"
+	select IRQ_INGENIC_CPU
+	select CLK_X2100
+	select INGENIC_INTC_CHIP
+	select PINCTRL
+	select PINCTRL_INGENIC_V2
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select CLKSRC_INGENIC_CORE_OST
+	select MMU_NOTIFIER
+
+endchoice
+
+config INGENIC_BUILTIN_DTB
+	select BUILTIN_DTB
+	depends on MACH_XBURST2
+	bool "Ingenic Device Tree build into Kernel."
+	default y
+
+source "arch/mips/xburst2/soc-x2000/Kconfig.DT"
+source "arch/mips/xburst2/soc-x2500/Kconfig.DT"
+source "arch/mips/xburst2/soc-m300/Kconfig.DT"
+
+
+config RAW_BOOT
+	bool "Raw Boot Kernel"
+	select BOOT_RAW
+	default n
+
+config EXTAL_CLOCK
+	depends on MACH_XBURST2
+	int "extal clock in MHz"
+	default 24
+
+config FPGA_TEST
+	depends on MACH_XBURST2
+	bool "FPGA_TEST"
+	default n
+
+config INGENIC_GPT_CHECK
+	depends on MACH_XBURST2
+	bool "The physical space is larger than the virtual space"
+	default y
+
+config XBURST2_CPU_TEST
+	depends on MACH_XBURST2
+	bool "xburst2 cpu ddr test"
+	default n
+
+
+config FASTBOOT
+	bool "FastBoot"
+	depends on SOC_X2000 || SOC_M300 || SOC_X2100
+
+endmenu
+
+endif
