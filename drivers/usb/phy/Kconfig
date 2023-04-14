@@ -76,6 +76,26 @@ config AM335X_PHY_USB
 	  This driver provides PHY support for that phy which part for the
 	  AM335x SoC.
 
+choice
+	prompt "Ingenic usb Phy selects"
+
+config INGENIC_INNOPHY
+	tristate "Ingenic usb phy(INNO) implemented."
+	select USB_PHY
+	help
+	  Enable this to support Ingenic USB phy helper driver for ingenic SoCs.
+	  This driver provides common interface to interact, for ingenic Inno PHY,
+	  typically used for X2000 SOCs.
+
+config INGENIC_USB_PHY
+	tristate "Ingenic usb phy."
+	select USB_PHY
+	help
+	  Enable this to support Ingenic USB phy helper driver for ingenic SoCs.
+	  This driver provides common interface to interact, typically used for INGENIC SOCs.
+
+endchoice
+
 config TWL6030_USB
 	tristate "TWL6030 USB Transceiver Driver"
 	depends on TWL4030_CORE && OMAP_USB2 && USB_MUSB_OMAP2PLUS

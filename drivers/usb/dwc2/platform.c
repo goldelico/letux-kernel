@@ -49,7 +49,6 @@
 #include <linux/reset.h>
 
 #include <linux/usb/of.h>
-
 #include "core.h"
 #include "hcd.h"
 #include "debug.h"
@@ -269,7 +268,7 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 	hsotg->plat = dev_get_platdata(hsotg->dev);
 
 	/* Clock */
-	hsotg->clk = devm_clk_get_optional(hsotg->dev, "otg");
+	hsotg->clk = devm_clk_get_optional(hsotg->dev, "gate_otg");
 	if (IS_ERR(hsotg->clk)) {
 		dev_err(hsotg->dev, "cannot get otg clock\n");
 		return PTR_ERR(hsotg->clk);
@@ -287,6 +286,7 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 				ret);
 		return ret;
 	}
+
 	return 0;
 }
 
@@ -304,6 +304,31 @@ static int dwc2_lowlevel_hw_init(struct dwc2_hsotg *hsotg)
 static int dwc2_driver_remove(struct platform_device *dev)
 {
 	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
+	struct dwc2_gregs_backup *gr;
+	int ret = 0;
+
+	gr = &hsotg->gr_backup;
+
+	/* Exit Hibernation when driver is removed. */
+	if (hsotg->hibernated) {
+		if (gr->gotgctl & GOTGCTL_CURMODE_HOST)
+			ret = dwc2_exit_hibernation(hsotg, 0, 0, 1);
+		else
+			ret = dwc2_exit_hibernation(hsotg, 0, 0, 0);
+
+		if (ret)
+			dev_err(hsotg->dev,
+				"exit hibernation failed.\n");
+	}
+
+	/* Exit clock gating when driver is removed. */
+	if (hsotg->params.power_down == DWC2_POWER_DOWN_PARAM_NONE &&
+	    hsotg->bus_suspended) {
+		if (dwc2_is_device_mode(hsotg))
+			dwc2_gadget_exit_clock_gating(hsotg, 0);
+		else
+			dwc2_host_exit_clock_gating(hsotg, 0);
+	}
 
 	dwc2_debugfs_exit(hsotg);
 	if (hsotg->hcd_enabled)
@@ -313,16 +338,13 @@ static int dwc2_driver_remove(struct platform_device *dev)
 
 	dwc2_drd_exit(hsotg);
 
-	if (hsotg->params.activate_stm_id_vb_detection)
-		regulator_disable(hsotg->usb33d);
-
 	if (hsotg->ll_hw_enabled)
 		dwc2_lowlevel_hw_disable(hsotg);
 
 	reset_control_assert(hsotg->reset);
 	reset_control_assert(hsotg->reset_ecc);
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -363,7 +385,7 @@ static bool dwc2_check_core_endianness(struct dwc2_hsotg *hsotg)
 }
 
 /**
- * Check core version
+ * dwc2_check_core_version() - Check core version
  *
  * @hsotg: Programming view of the DWC_otg controller
  *
@@ -392,6 +414,44 @@ int dwc2_check_core_version(struct dwc2_hsotg *hsotg)
 		hw->snpsid >> 4 & 0xf, hw->snpsid & 0xf, hw->snpsid);
 	return 0;
 }
+
+static ssize_t show_id_status(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+	unsigned long gotgctl = dwc2_readl(hsotg, GOTGCTL);
+	return sprintf(buf, "%s\n", (gotgctl & GOTGCTL_CONID_B) ? "device" : "host");
+}
+
+static ssize_t dwc2_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	char *mode;
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+
+	if (hsotg->dr_mode == USB_DR_MODE_HOST) {
+		mode = "host";
+	} else if (hsotg->dr_mode == USB_DR_MODE_PERIPHERAL) {
+		mode = "peripheral";
+	} else {
+		mode = "otg";
+	}
+
+	return sprintf(buf, "%s\n", mode);
+}
+
+static DEVICE_ATTR(id_status, S_IRUGO, show_id_status, NULL);
+static DEVICE_ATTR(dwc2_mode, S_IRUGO, dwc2_mode_show, NULL);
+
+#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
+	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+static ssize_t show_connected(struct device *dev, struct device_attribute *attr, char *buf)
+{
+
+	struct dwc2_hsotg *hsotg = dev_get_drvdata(dev);
+	return sprintf(buf, "%s\n", hsotg->connected ? "connect" : "disconnect");
+}
+
+static DEVICE_ATTR(connected, S_IRUGO, show_connected, NULL);
+#endif /* CONFIG_USB_DWC2_NEW_PERIPHERAL || CONFIG_USB_DWC2_NEW_DUAL_ROLE */
 
 /**
  * dwc2_driver_probe() - Called when the DWC_otg core is bound to the DWC_otg
@@ -539,7 +599,7 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (retval) {
 		if (retval != -EPROBE_DEFER)
 			dev_err(hsotg->dev, "failed to initialize dual-role\n");
-		goto error_init;
+		goto error;
 	}
 
 	if (hsotg->dr_mode != USB_DR_MODE_HOST) {
@@ -585,8 +645,12 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	if (hsotg->dr_mode == USB_DR_MODE_PERIPHERAL)
 		dwc2_lowlevel_hw_disable(hsotg);
 
+	device_create_file(hsotg->dev, &dev_attr_id_status);
+	device_create_file(hsotg->dev, &dev_attr_dwc2_mode);
+
 #if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
 	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
+	device_create_file(hsotg->dev, &dev_attr_connected);
 	/* Postponed adding a new gadget to the udc class driver list */
 	if (hsotg->gadget_enabled) {
 		retval = usb_add_gadget_udc(hsotg->dev, &hsotg->gadget);
@@ -608,10 +672,6 @@ error_debugfs:
 #endif
 error_drd:
 	dwc2_drd_exit(hsotg);
-
-error_init:
-	if (hsotg->params.activate_stm_id_vb_detection)
-		regulator_disable(hsotg->usb33d);
 error:
 	if (hsotg->ll_hw_enabled)
 		dwc2_lowlevel_hw_disable(hsotg);
@@ -621,50 +681,22 @@ error:
 static int __maybe_unused dwc2_suspend(struct device *dev)
 {
 	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
-	bool is_device_mode = dwc2_is_device_mode(dwc2);
 	int ret = 0;
 
-	if (is_device_mode)
+#if 0 /* not close endpoint and disconnet */
+	if (dwc2_is_device_mode(dwc2))
 		dwc2_hsotg_suspend(dwc2);
+#endif
 
-	dwc2_drd_suspend(dwc2);
+	usb_phy_set_wakeup(dwc2->uphy, true);
 
-	if (dwc2->params.activate_stm_id_vb_detection) {
-		unsigned long flags;
-		u32 ggpio, gotgctl;
-
-		/*
-		 * Need to force the mode to the current mode to avoid Mode
-		 * Mismatch Interrupt when ID detection will be disabled.
-		 */
-		dwc2_force_mode(dwc2, !is_device_mode);
-
-		spin_lock_irqsave(&dwc2->lock, flags);
-		gotgctl = dwc2_readl(dwc2, GOTGCTL);
-		/* bypass debounce filter, enable overrides */
-		gotgctl |= GOTGCTL_DBNCE_FLTR_BYPASS;
-		gotgctl |= GOTGCTL_BVALOEN | GOTGCTL_AVALOEN;
-		/* Force A / B session if needed */
-		if (gotgctl & GOTGCTL_ASESVLD)
-			gotgctl |= GOTGCTL_AVALOVAL;
-		if (gotgctl & GOTGCTL_BSESVLD)
-			gotgctl |= GOTGCTL_BVALOVAL;
-		dwc2_writel(dwc2, gotgctl, GOTGCTL);
-		spin_unlock_irqrestore(&dwc2->lock, flags);
-
-		ggpio = dwc2_readl(dwc2, GGPIO);
-		ggpio &= ~GGPIO_STM32_OTG_GCCFG_IDEN;
-		ggpio &= ~GGPIO_STM32_OTG_GCCFG_VBDEN;
-		dwc2_writel(dwc2, ggpio, GGPIO);
-
-		regulator_disable(dwc2->usb33d);
-	}
-
-	if (dwc2->ll_hw_enabled &&
-	    (is_device_mode || dwc2_host_can_poweroff_phy(dwc2))) {
+	if (dwc2->ll_hw_enabled && !dwc2->need_phy_for_wake) {
 		ret = __dwc2_lowlevel_hw_disable(dwc2);
 		dwc2->phy_off_for_suspend = true;
 	}
+
+	if (dwc2->need_phy_for_wake)
+		enable_irq_wake(dwc2->irq);
 
 	return ret;
 }
@@ -674,6 +706,9 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
 	int ret = 0;
 
+	if (dwc2->need_phy_for_wake)
+		disable_irq_wake(dwc2->irq);
+
 	if (dwc2->phy_off_for_suspend && dwc2->ll_hw_enabled) {
 		ret = __dwc2_lowlevel_hw_enable(dwc2);
 		if (ret)
@@ -681,38 +716,12 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 	}
 	dwc2->phy_off_for_suspend = false;
 
-	if (dwc2->params.activate_stm_id_vb_detection) {
-		unsigned long flags;
-		u32 ggpio, gotgctl;
+	usb_phy_set_wakeup(dwc2->uphy, false);
 
-		ret = regulator_enable(dwc2->usb33d);
-		if (ret)
-			return ret;
-
-		ggpio = dwc2_readl(dwc2, GGPIO);
-		ggpio |= GGPIO_STM32_OTG_GCCFG_IDEN;
-		ggpio |= GGPIO_STM32_OTG_GCCFG_VBDEN;
-		dwc2_writel(dwc2, ggpio, GGPIO);
-
-		/* ID/VBUS detection startup time */
-		usleep_range(5000, 7000);
-
-		spin_lock_irqsave(&dwc2->lock, flags);
-		gotgctl = dwc2_readl(dwc2, GOTGCTL);
-		gotgctl &= ~GOTGCTL_DBNCE_FLTR_BYPASS;
-		gotgctl &= ~(GOTGCTL_BVALOEN | GOTGCTL_AVALOEN |
-			     GOTGCTL_BVALOVAL | GOTGCTL_AVALOVAL);
-		dwc2_writel(dwc2, gotgctl, GOTGCTL);
-		spin_unlock_irqrestore(&dwc2->lock, flags);
-	}
-
-	/* Need to restore FORCEDEVMODE/FORCEHOSTMODE */
-	dwc2_force_dr_mode(dwc2);
-
-	dwc2_drd_resume(dwc2);
-
+#if 0 /* not close endpoint and disconnet */
 	if (dwc2_is_device_mode(dwc2))
 		ret = dwc2_hsotg_resume(dwc2);
+#endif
 
 	return ret;
 }
@@ -733,7 +742,3 @@ static struct platform_driver dwc2_platform_driver = {
 };
 
 module_platform_driver(dwc2_platform_driver);
-
-MODULE_DESCRIPTION("DESIGNWARE HS OTG Platform Glue");
-MODULE_AUTHOR("Matthijs Kooijman <matthijs@stdin.nl>");
-MODULE_LICENSE("Dual BSD/GPL");

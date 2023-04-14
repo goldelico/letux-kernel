@@ -484,6 +484,9 @@
 /* Implementation specific trap codes used by Loongson cores */
 #define LOONGSON_EXCCODE_GSEXC	16	/* Loongson-specific exception */
 
+/* Ingenic MXUV2 exceptions. */
+#define INGENIC_EXCCODE_MXUV2	16
+
 /*
  * Bits in the coprocessor 0 config register.
  */

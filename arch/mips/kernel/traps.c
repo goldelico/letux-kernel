@@ -89,6 +89,7 @@ extern asmlinkage void handle_ov(void);
 extern asmlinkage void handle_tr(void);
 extern asmlinkage void handle_msa_fpe(void);
 extern asmlinkage void handle_fpe(void);
+extern asmlinkage void handle_mfpe(void);
 extern asmlinkage void handle_ftlb(void);
 extern asmlinkage void handle_gsexc(void);
 extern asmlinkage void handle_msa(void);
@@ -957,6 +958,14 @@ static int simulate_fp(struct pt_regs *regs, unsigned int opcode,
 
 #endif /* !CONFIG_MIPS_FP_SUPPORT */
 
+//MACH_XBURST
+asmlinkage void do_mfpe(struct pt_regs * regs)     
+{
+        die_if_kernel("Kernel bug detected", regs);
+        force_sig(SIGILL);
+}
+
+
 void do_trap_or_bp(struct pt_regs *regs, unsigned int code, int si_code,
 	const char *str)
 {
@@ -1159,6 +1168,20 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	enum ctx_state prev_state;
 	unsigned int opcode = 0;
 	int status = -1;
+
+        /* If Config1.CU2 is not set, the exc_code = 10 of cause reg */
+        if (cpu_has_mxuv3 && (1 == smp_processor_id())) {
+                printk("%s(%d):reschedule to cpu0 to smp_processor_id()=%d, read_c0_status()=0x%x, task_cpu(current)=%d, KSTK_STATUS(current)=0x%lx, current->tgid=%d, current->pid=%d\n", __func__, __LINE__, smp_processor_id(), read_c0_status(), task_cpu(current), KSTK_STATUS(current), current->tgid, current->pid);
+                //resched_cpu(0);
+        	smp_send_reschedule(0);
+                if (0 == smp_processor_id()) {
+                        printk("%s(%d):open cu2 field to cpu0 to smp_processor_id()=%d, read_c0_status()=0x%x, task_cpu(current)=%d, KSTK_STATUS(current)=0x%lx, current->tgid=%d, current->pid=%d\n", __func__, __LINE__, smp_processor_id(), read_c0_status(), task_cpu(current), KSTK_STATUS(current), current->tgid, current->pid);
+                        set_c0_status(ST0_CU2);
+                        KSTK_STATUS(current) |= ST0_CU2;
+                }
+                printk("%s(%d):no cu2 coprocessor to smp_processor_id()=%d, read_c0_status()=0x%x, task_cpu(current)=%d, KSTK_STATUS(current)=0x%lx, current->tgid=%d, current->pid=%d\n", __func__, __LINE__, smp_processor_id(), read_c0_status(), task_cpu(current), KSTK_STATUS(current), current->tgid, current->pid);
+                return;
+        }
 
 	/*
 	 * Avoid any kernel code. Just emulate the R2 instruction
@@ -1500,6 +1523,32 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 #endif /* CONFIG_MIPS_FP_SUPPORT */
 
 	case 2:
+	        /* Processing of MXA instructions needs setting MSA enable. */
+
+		if(cpu_has_msa) {
+			int err = 0;
+			err = enable_restore_fp_context(1);
+			if (err)
+				force_sig(SIGILL);
+
+			break;
+		}
+                /* To Xburst2 T40, If Status.CU2 is not set and Config1.CU2 is set, the exc_code is 10 and CE field is 2 to Cause Reg
+                 * So here only need to open the Status.CU2 field */
+                if (cpu_has_mxuv3 && (0 == smp_processor_id())) {
+                        set_c0_status(ST0_CU2);
+                        KSTK_STATUS(current) |= ST0_CU2;
+			printk("%s(%d):open cu2 field to cpu0 to smp_processor_id()=%d, read_c0_status()=0x%x, task_cpu(current)=%d, KSTK_STATUS(current)=0x%lx, current->tgid=%d, current->pid=%d\n", __func__, __LINE__, smp_processor_id(), read_c0_status(), task_cpu(current), KSTK_STATUS(current), current->tgid, current->pid);
+
+			break;
+
+                } else if (cpu_has_mxuv3 && (1 == smp_processor_id())) {
+                        printk("%s(%d):no cu2 coprocessor to smp_processor_id()=%d, read_c0_status()=0x%x, task_cpu(current)=%d, KSTK_STATUS(current)=0x%lx, current->tgid=%d, current->pid=%d\n", __func__, __LINE__, smp_processor_id(), read_c0_status(), task_cpu(current), KSTK_STATUS(current), current->tgid, current->pid);
+                        force_sig(SIGILL);
+			break;
+                }
+
+		/*others case, call chain.*/
 		raw_notifier_call_chain(&cu2_chain, CU2_EXCEPTION, regs);
 		break;
 	}
@@ -2213,6 +2262,10 @@ static void configure_status(void)
 	if (cpu_has_dsp)
 		status_set |= ST0_MX;
 
+        if (cpu_has_mxuv3 && (KSTK_STATUS(current) & ST0_CU2)) {
+               status_set |= ST0_CU2;
+       }
+
 	change_c0_status(ST0_CU|ST0_MX|ST0_RE|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
 			 status_set);
 	back_to_back_c0_hazard();
@@ -2506,6 +2559,9 @@ void __init trap_init(void)
 
 	if (cpu_has_gsexcex)
 		set_except_vector(LOONGSON_EXCCODE_GSEXC, handle_gsexc);
+
+	if (cpu_has_mxuv2)
+		set_except_vector(INGENIC_EXCCODE_MXUV2, handle_mfpe);
 
 	if (cpu_has_rixiex) {
 		set_except_vector(EXCCODE_TLBRI, tlb_do_page_fault_0);

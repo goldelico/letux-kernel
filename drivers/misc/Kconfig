@@ -399,6 +399,14 @@ config PCH_PHUB
 	  To compile this driver as a module, choose M here: the module will
 	  be called pch_phub.
 
+config BCM_4345C5_RFKILL
+	tristate "Bluetooth power control driver for BCM-4345C5 module"
+	depends on RFKILL && (MMC_SDHCI_INGENIC || INGENIC_MMC_MMC0 || INGENIC_MMC_MMC1)
+	default n
+	help
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm-xxxx chips.
+
 config LATTICE_ECP3_CONFIG
 	tristate "Lattice ECP3 FPGA bitstream configuration via SPI"
 	depends on SPI && SYSFS

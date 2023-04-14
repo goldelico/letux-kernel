@@ -144,6 +144,8 @@ struct usb_phy {
 	 */
 	int	(*set_wakeup)(struct usb_phy *x, bool enabled);
 
+	int	(*get_wakeup)(struct usb_phy *x);
+
 	/* notify phy connect status change */
 	int	(*notify_connect)(struct usb_phy *x,
 			enum usb_device_speed speed);
@@ -312,6 +314,15 @@ usb_phy_set_wakeup(struct usb_phy *x, bool enabled)
 {
 	if (x && x->set_wakeup)
 		return x->set_wakeup(x, enabled);
+	else
+		return 0;
+}
+
+static inline int
+usb_phy_get_wakeup(struct usb_phy *x)
+{
+	if (x && x->get_wakeup)
+		return x->get_wakeup(x);
 	else
 		return 0;
 }

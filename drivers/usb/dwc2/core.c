@@ -80,10 +80,8 @@ int dwc2_backup_global_registers(struct dwc2_hsotg *hsotg)
 	gr->grxfsiz = dwc2_readl(hsotg, GRXFSIZ);
 	gr->gnptxfsiz = dwc2_readl(hsotg, GNPTXFSIZ);
 	gr->gdfifocfg = dwc2_readl(hsotg, GDFIFOCFG);
-	gr->pcgcctl1 = dwc2_readl(hsotg, PCGCCTL1);
 	gr->glpmcfg = dwc2_readl(hsotg, GLPMCFG);
 	gr->gi2cctl = dwc2_readl(hsotg, GI2CCTL);
-	gr->pcgcctl = dwc2_readl(hsotg, PCGCTL);
 
 	gr->valid = true;
 	return 0;
@@ -119,9 +117,7 @@ int dwc2_restore_global_registers(struct dwc2_hsotg *hsotg)
 	dwc2_writel(hsotg, gr->grxfsiz, GRXFSIZ);
 	dwc2_writel(hsotg, gr->gnptxfsiz, GNPTXFSIZ);
 	dwc2_writel(hsotg, gr->gdfifocfg, GDFIFOCFG);
-	dwc2_writel(hsotg, gr->pcgcctl1, PCGCCTL1);
 	dwc2_writel(hsotg, gr->glpmcfg, GLPMCFG);
-	dwc2_writel(hsotg, gr->pcgcctl, PCGCTL);
 	dwc2_writel(hsotg, gr->gi2cctl, GI2CCTL);
 
 	return 0;
@@ -131,54 +127,26 @@ int dwc2_restore_global_registers(struct dwc2_hsotg *hsotg)
  * dwc2_exit_partial_power_down() - Exit controller from Partial Power Down.
  *
  * @hsotg: Programming view of the DWC_otg controller
+ * @rem_wakeup: indicates whether resume is initiated by Reset.
  * @restore: Controller registers need to be restored
  */
-int dwc2_exit_partial_power_down(struct dwc2_hsotg *hsotg, bool restore)
+int dwc2_exit_partial_power_down(struct dwc2_hsotg *hsotg, int rem_wakeup,
+				 bool restore)
 {
-	u32 pcgcctl;
-	int ret = 0;
+	struct dwc2_gregs_backup *gr;
 
-	if (hsotg->params.power_down != DWC2_POWER_DOWN_PARAM_PARTIAL)
-		return -ENOTSUPP;
+	gr = &hsotg->gr_backup;
 
-	pcgcctl = dwc2_readl(hsotg, PCGCTL);
-	pcgcctl &= ~PCGCTL_STOPPCLK;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-
-	pcgcctl = dwc2_readl(hsotg, PCGCTL);
-	pcgcctl &= ~PCGCTL_PWRCLMP;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-
-	pcgcctl = dwc2_readl(hsotg, PCGCTL);
-	pcgcctl &= ~PCGCTL_RSTPDWNMODULE;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-
-	udelay(100);
-	if (restore) {
-		ret = dwc2_restore_global_registers(hsotg);
-		if (ret) {
-			dev_err(hsotg->dev, "%s: failed to restore registers\n",
-				__func__);
-			return ret;
-		}
-		if (dwc2_is_host_mode(hsotg)) {
-			ret = dwc2_restore_host_registers(hsotg);
-			if (ret) {
-				dev_err(hsotg->dev, "%s: failed to restore host registers\n",
-					__func__);
-				return ret;
-			}
-		} else {
-			ret = dwc2_restore_device_registers(hsotg, 0);
-			if (ret) {
-				dev_err(hsotg->dev, "%s: failed to restore device registers\n",
-					__func__);
-				return ret;
-			}
-		}
-	}
-
-	return ret;
+	/*
+	 * Restore host or device regisers with the same mode core enterted
+	 * to partial power down by checking "GOTGCTL_CURMODE_HOST" backup
+	 * value of the "gotgctl" register.
+	 */
+	if (gr->gotgctl & GOTGCTL_CURMODE_HOST)
+		return dwc2_host_exit_partial_power_down(hsotg, rem_wakeup,
+							 restore);
+	else
+		return dwc2_gadget_exit_partial_power_down(hsotg, restore);
 }
 
 /**
@@ -188,57 +156,10 @@ int dwc2_exit_partial_power_down(struct dwc2_hsotg *hsotg, bool restore)
  */
 int dwc2_enter_partial_power_down(struct dwc2_hsotg *hsotg)
 {
-	u32 pcgcctl;
-	int ret = 0;
-
-	if (!hsotg->params.power_down)
-		return -ENOTSUPP;
-
-	/* Backup all registers */
-	ret = dwc2_backup_global_registers(hsotg);
-	if (ret) {
-		dev_err(hsotg->dev, "%s: failed to backup global registers\n",
-			__func__);
-		return ret;
-	}
-
-	if (dwc2_is_host_mode(hsotg)) {
-		ret = dwc2_backup_host_registers(hsotg);
-		if (ret) {
-			dev_err(hsotg->dev, "%s: failed to backup host registers\n",
-				__func__);
-			return ret;
-		}
-	} else {
-		ret = dwc2_backup_device_registers(hsotg);
-		if (ret) {
-			dev_err(hsotg->dev, "%s: failed to backup device registers\n",
-				__func__);
-			return ret;
-		}
-	}
-
-	/*
-	 * Clear any pending interrupts since dwc2 will not be able to
-	 * clear them after entering partial_power_down.
-	 */
-	dwc2_writel(hsotg, 0xffffffff, GINTSTS);
-
-	/* Put the controller in low power state */
-	pcgcctl = dwc2_readl(hsotg, PCGCTL);
-
-	pcgcctl |= PCGCTL_PWRCLMP;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-	ndelay(20);
-
-	pcgcctl |= PCGCTL_RSTPDWNMODULE;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-	ndelay(20);
-
-	pcgcctl |= PCGCTL_STOPPCLK;
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
-
-	return ret;
+	if (dwc2_is_host_mode(hsotg))
+		return dwc2_host_enter_partial_power_down(hsotg);
+	else
+		return dwc2_gadget_enter_partial_power_down(hsotg);
 }
 
 /**
@@ -251,7 +172,6 @@ int dwc2_enter_partial_power_down(struct dwc2_hsotg *hsotg)
 static void dwc2_restore_essential_regs(struct dwc2_hsotg *hsotg, int rmode,
 					int is_host)
 {
-	u32 pcgcctl;
 	struct dwc2_gregs_backup *gr;
 	struct dwc2_dregs_backup *dr;
 	struct dwc2_hregs_backup *hr;
@@ -261,18 +181,6 @@ static void dwc2_restore_essential_regs(struct dwc2_hsotg *hsotg, int rmode,
 	hr = &hsotg->hr_backup;
 
 	dev_dbg(hsotg->dev, "%s: restoring essential regs\n", __func__);
-
-	/* Load restore values for [31:14] bits */
-	pcgcctl = (gr->pcgcctl & 0xffffc000);
-	/* If High Speed */
-	if (is_host) {
-		if (!(pcgcctl & PCGCTL_P2HD_PRT_SPD_MASK))
-			pcgcctl |= BIT(17);
-	} else {
-		if (!(pcgcctl & PCGCTL_P2HD_DEV_ENUM_SPD_MASK))
-			pcgcctl |= BIT(17);
-	}
-	dwc2_writel(hsotg, pcgcctl, PCGCTL);
 
 	/* Umnask global Interrupt in GAHBCFG and restore it */
 	dwc2_writel(hsotg, gr->gahbcfg | GAHBCFG_GLBL_INTR_EN, GAHBCFG);
@@ -288,23 +196,9 @@ static void dwc2_restore_essential_regs(struct dwc2_hsotg *hsotg, int rmode,
 
 	if (is_host) {
 		dwc2_writel(hsotg, hr->hcfg, HCFG);
-		if (rmode)
-			pcgcctl |= PCGCTL_RESTOREMODE;
-		dwc2_writel(hsotg, pcgcctl, PCGCTL);
-		udelay(10);
-
-		pcgcctl |= PCGCTL_ESS_REG_RESTORED;
-		dwc2_writel(hsotg, pcgcctl, PCGCTL);
 		udelay(10);
 	} else {
 		dwc2_writel(hsotg, dr->dcfg, DCFG);
-		if (!rmode)
-			pcgcctl |= PCGCTL_RESTOREMODE | PCGCTL_RSTPDWNMODULE;
-		dwc2_writel(hsotg, pcgcctl, PCGCTL);
-		udelay(10);
-
-		pcgcctl |= PCGCTL_ESS_REG_RESTORED;
-		dwc2_writel(hsotg, pcgcctl, PCGCTL);
 		udelay(10);
 	}
 }
@@ -370,11 +264,16 @@ void dwc2_hib_restore_common(struct dwc2_hsotg *hsotg, int rem_wakeup,
 	if (dwc2_hsotg_wait_bit_set(hsotg, GINTSTS, GINTSTS_RESTOREDONE,
 				    20000)) {
 		dev_dbg(hsotg->dev,
-			"%s: Restore Done wan't generated here\n",
+			"%s: Restore Done wasn't generated here\n",
 			__func__);
 	} else {
 		dev_dbg(hsotg->dev, "restore done  generated here\n");
-	}
+
+		/*
+		 * To avoid restore done interrupt storm after restore is
+		 * generated clear GINTSTS_RESTOREDONE bit.
+		 */
+		dwc2_writel(hsotg, GINTSTS_RESTOREDONE, GINTSTS);	}
 }
 
 /**
@@ -387,7 +286,7 @@ static void dwc2_wait_for_mode(struct dwc2_hsotg *hsotg,
 {
 	ktime_t start;
 	ktime_t end;
-	unsigned int timeout = 110;
+	unsigned int timeout = 5000;
 
 	dev_vdbg(hsotg->dev, "Waiting for %s mode\n",
 		 host_mode ? "host" : "device");
@@ -460,9 +359,6 @@ static bool dwc2_iddig_filter_enabled(struct dwc2_hsotg *hsotg)
  */
 int dwc2_enter_hibernation(struct dwc2_hsotg *hsotg, int is_host)
 {
-	if (hsotg->params.power_down != DWC2_POWER_DOWN_PARAM_HIBERNATION)
-		return -ENOTSUPP;
-
 	if (is_host)
 		return dwc2_host_enter_hibernation(hsotg);
 	else
@@ -527,14 +423,14 @@ int dwc2_core_reset(struct dwc2_hsotg *hsotg, bool skip_wait)
 	if ((hsotg->hw_params.snpsid & DWC2_CORE_REV_MASK) <
 		(DWC2_CORE_REV_4_20a & DWC2_CORE_REV_MASK)) {
 		if (dwc2_hsotg_wait_bit_clear(hsotg, GRSTCTL,
-					      GRSTCTL_CSFTRST, 10000)) {
+					      GRSTCTL_CSFTRST, 100000)) {
 			dev_warn(hsotg->dev, "%s: HANG! Soft Reset timeout GRSTCTL_CSFTRST\n",
 				 __func__);
 			return -EBUSY;
 		}
 	} else {
 		if (dwc2_hsotg_wait_bit_set(hsotg, GRSTCTL,
-					    GRSTCTL_CSFTRST_DONE, 10000)) {
+					    GRSTCTL_CSFTRST_DONE, 100000)) {
 			dev_warn(hsotg->dev, "%s: HANG! Soft Reset timeout GRSTCTL_CSFTRST_DONE\n",
 				 __func__);
 			return -EBUSY;
@@ -544,6 +440,22 @@ int dwc2_core_reset(struct dwc2_hsotg *hsotg, bool skip_wait)
 		greset |= GRSTCTL_CSFTRST_DONE;
 		dwc2_writel(hsotg, greset, GRSTCTL);
 	}
+
+	/*
+	 * Switching from device mode to host mode by disconnecting
+	 * device cable core enters and exits form hibernation.
+	 * However, the fifo map remains not cleared. It results
+	 * to a WARNING (WARNING: CPU: 5 PID: 0 at drivers/usb/dwc2/
+	 * gadget.c:307 dwc2_hsotg_init_fifo+0x12/0x152 [dwc2])
+	 * if in host mode we disconnect the micro a to b host
+	 * cable. Because core reset occurs.
+	 * To avoid the WARNING, fifo_map should be cleared
+	 * in dwc2_core_reset() function by taking into account configs.
+	 * fifo_map must be cleared only if driver is configured in
+	 * "CONFIG_USB_DWC2_PERIPHERAL" or "CONFIG_USB_DWC2_DUAL_ROLE"
+	 * mode.
+	 */
+	dwc2_clear_fifo_map(hsotg);
 
 	/* Wait for AHB master IDLE state */
 	if (dwc2_hsotg_wait_bit_set(hsotg, GRSTCTL, GRSTCTL_AHBIDLE, 10000)) {
@@ -682,16 +594,7 @@ void dwc2_force_dr_mode(struct dwc2_hsotg *hsotg)
 /*
  * dwc2_enable_acg - enable active clock gating feature
  */
-void dwc2_enable_acg(struct dwc2_hsotg *hsotg)
-{
-	if (hsotg->params.acg_enable) {
-		u32 pcgcctl1 = dwc2_readl(hsotg, PCGCCTL1);
-
-		dev_dbg(hsotg->dev, "Enabling Active Clock Gating\n");
-		pcgcctl1 |= PCGCCTL1_GATEEN;
-		dwc2_writel(hsotg, pcgcctl1, PCGCCTL1);
-	}
-}
+void dwc2_enable_acg(struct dwc2_hsotg *hsotg) { }
 
 /**
  * dwc2_dump_host_registers() - Prints the host registers
@@ -819,9 +722,6 @@ void dwc2_dump_global_registers(struct dwc2_hsotg *hsotg)
 	addr = hsotg->regs + GPVNDCTL;
 	dev_dbg(hsotg->dev, "GPVNDCTL	 @0x%08lX : 0x%08X\n",
 		(unsigned long)addr, dwc2_readl(hsotg, GPVNDCTL));
-	addr = hsotg->regs + GGPIO;
-	dev_dbg(hsotg->dev, "GGPIO	 @0x%08lX : 0x%08X\n",
-		(unsigned long)addr, dwc2_readl(hsotg, GGPIO));
 	addr = hsotg->regs + GUID;
 	dev_dbg(hsotg->dev, "GUID	 @0x%08lX : 0x%08X\n",
 		(unsigned long)addr, dwc2_readl(hsotg, GUID));
@@ -852,10 +752,6 @@ void dwc2_dump_global_registers(struct dwc2_hsotg *hsotg)
 	addr = hsotg->regs + HPTXFSIZ;
 	dev_dbg(hsotg->dev, "HPTXFSIZ	 @0x%08lX : 0x%08X\n",
 		(unsigned long)addr, dwc2_readl(hsotg, HPTXFSIZ));
-
-	addr = hsotg->regs + PCGCTL;
-	dev_dbg(hsotg->dev, "PCGCTL	 @0x%08lX : 0x%08X\n",
-		(unsigned long)addr, dwc2_readl(hsotg, PCGCTL));
 #endif
 }
 
@@ -1063,7 +959,7 @@ void dwc2_init_fs_ls_pclk_sel(struct dwc2_hsotg *hsotg)
 
 static int dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 {
-	u32 usbcfg, ggpio, i2cctl;
+	u32 usbcfg, i2cctl;
 	int retval = 0;
 
 	/*
@@ -1085,19 +981,6 @@ static int dwc2_fs_phy_init(struct dwc2_hsotg *hsotg, bool select_phy)
 				dev_err(hsotg->dev,
 					"%s: Reset failed, aborting", __func__);
 				return retval;
-			}
-		}
-
-		if (hsotg->params.activate_stm_fs_transceiver) {
-			ggpio = dwc2_readl(hsotg, GGPIO);
-			if (!(ggpio & GGPIO_STM32_OTG_GCCFG_PWRDWN)) {
-				dev_dbg(hsotg->dev, "Activating transceiver\n");
-				/*
-				 * STM32F4x9 uses the GGPIO register as general
-				 * core configuration register.
-				 */
-				ggpio |= GGPIO_STM32_OTG_GCCFG_PWRDWN;
-				dwc2_writel(hsotg, ggpio, GGPIO);
 			}
 		}
 	}

@@ -341,17 +341,17 @@ config PINCTRL_ZYNQ
 	help
 	  This selects the pinctrl driver for Xilinx Zynq.
 
-config PINCTRL_INGENIC
-	bool "Pinctrl driver for the Ingenic JZ47xx SoCs"
-	default MACH_INGENIC
-	depends on OF
-	depends on MIPS || COMPILE_TEST
-	select GENERIC_PINCONF
-	select GENERIC_PINCTRL_GROUPS
-	select GENERIC_PINMUX_FUNCTIONS
-	select GPIOLIB
-	select GPIOLIB_IRQCHIP
-	select REGMAP_MMIO
+#config PINCTRL_INGENIC
+#	bool "Pinctrl driver for the Ingenic JZ47xx SoCs"
+#	default n
+#	depends on OF
+#	depends on MIPS || COMPILE_TEST
+#	select GENERIC_PINCONF
+#	select GENERIC_PINCTRL_GROUPS
+#	select GENERIC_PINMUX_FUNCTIONS
+#	select GPIOLIB
+#	select GPIOLIB_IRQCHIP
+#	select REGMAP_MMIO
 
 config PINCTRL_RK805
 	tristate "Pinctrl and GPIO driver for RK805 PMIC"
