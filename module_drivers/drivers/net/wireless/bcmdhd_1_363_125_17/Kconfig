@@ -1,0 +1,68 @@
+config BCMDHD_1_363_125_17
+	tristate "Broadcom FullMAC wireless cards support ver:1.363.125.17"
+	help
+	  This module adds support for wireless adapters based on
+	  Broadcom FullMAC chipset.
+
+	  If you choose to build a module, it'll be called dhd. Say M if
+	  unsure.
+
+config BCMDHD_1_363_125_17_SDIO
+	bool "SDIO bus interface support"
+	depends on BCMDHD_1_363_125_17 && MMC
+
+config BCMDHD_1_363_125_17_PCIE
+	bool "PCIe bus interface support"
+	depends on BCMDHD_1_363_125_17 && PCI && !BCMDHD_1_363_125_17_SDIO
+
+config BCM4354
+	tristate "BCM4354 support"
+	depends on BCMDHD_1_363_125_17
+
+config BCM4356
+	tristate "BCM4356 support"
+	depends on BCMDHD_1_363_125_17
+	default n
+
+config BCMDHD_1_363_125_17_FW_PATH
+	depends on BCMDHD_1_363_125_17
+	string "Firmware path"
+	default "/system/vendor/firmware/fw_bcmdhd.bin"
+	help
+	  Path to the firmware file.
+
+config BCMDHD_1_363_125_17_NVRAM_PATH
+	depends on BCMDHD_1_363_125_17
+	string "NVRAM path"
+	default "/system/etc/wifi/bcmdhd.cal"
+	help
+	  Path to the calibration file.
+
+config BCMDHD_1_363_125_17_WEXT
+	bool "Enable WEXT support"
+	depends on BCMDHD_1_363_125_17 && CFG80211 = n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	help
+	  Enables WEXT support
+
+config DHD_USE_STATIC_BUF
+	bool "Enable memory preallocation"
+	depends on BCMDHD_1_363_125_17
+	default n
+	help
+	  Use memory preallocated in platform
+
+config DHD_USE_SCHED_SCAN
+	bool "Use CFG80211 sched scan"
+	depends on BCMDHD_1_363_125_17 && CFG80211
+	default n
+	help
+	  Use CFG80211 sched scan
+
+config DHD_SET_RANDOM_MAC_VAL
+hex "Vendor OUI"
+depends on BCMDHD_1_363_125_17
+default 0x001A11
+ help
+Set vendor OUI for SoftAP

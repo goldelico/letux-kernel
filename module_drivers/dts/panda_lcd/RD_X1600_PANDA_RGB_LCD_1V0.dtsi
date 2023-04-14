@@ -1,0 +1,124 @@
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_kd050wvfpa029 {
+			compatible = "ingenic,kd050wvfpa029";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&tft_lcd_pa_rgb888>;
+		/*	ingenic,lcd-pwm-gpio = <&gpc 2 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+			port {
+				panel_kd050wvfpa029_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 2 100000>; /* arg1: pwm channel id [0~15]. arg2: period in ns. */
+		brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+		default-brightness-level = <5>;
+	};
+
+};
+
+&dpu {
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_kd050wvfpa029_ep>;
+	    };
+	};
+};
+
+
+&i2c0 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&i2c0_pa>;
+
+	goodix@0x14{
+		compatible = "goodix,gt9xx"; /* do not modify */
+		reg = <0x14>; /* do not modify */
+		interrupt-parent = <&gpa>; /* INT pin */
+		interrupts = <9>;
+		reset-gpios = <&gpa 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>; /* RST pin */
+		irq-gpios = <&gpa 30 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		goodix,driver-send-cfg = <1>;
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <800>;
+		goodix,slide-wakeup = <0>;
+		goodix,type-a-report = <0>;
+		goodix,resume-in-workqueue = <0>;
+		goodix,int-sync = <1>;
+		goodix,swap-x2y = <0>;
+		goodix,auto-update-cfg = <0>;
+		goodix,power-off-sleep = <0>;
+		goodix,pen-suppress-finger = <0>;
+		irq-flags = <2>; /* 1 rising, 2 falling */
+		pinctrl-names = "default", "int-output-high", "int-output-low", "int-input";
+		pinctrl-0 = <&touchscreen_default>;
+		pinctrl-1 = <&touchscreen_int_out_high>;
+		pinctrl-2 = <&touchscreen_int_out_low>;
+		pinctrl-3 = <&touchscreen_int_input>;
+		goodix,cfg-group0 = [
+			42 20 03 E0 01 0A 0D 00
+			01 08 28 05 50 32 03 05
+			00 00 00 00 00 00 00 00
+			00 00 00 87 28 09 17 15
+			31 0D 00 00 00 9A 03 1C
+			00 00 00 00 00 03 64 32
+			00 00 00 0F 23 94 C5 02
+			07 00 00 04 A3 10 00 8B
+			13 00 7A 16 00 66 1B 00
+			58 20 00 58 00 00 00 00
+			00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00
+			02 04 06 08 0A 0C 0E 10
+			12 FF FF FF FF FF FF FF
+			FF FF FF FF FF FF FF FF
+			FF FF FF FF FF FF 00 02
+			04 06 08 0A 0C 1D 1E 1F
+			20 21 22 24 26 FF FF FF
+			FF FF FF FF FF FF FF FF
+			FF FF FF FF FF FF FF FF
+			FF FF FF FF FF FF FF FF
+			4A 01];
+	};
+};
+
+
+&pinctrl {
+
+	touchscreen_pins:touchscreen-pins {
+		touchscreen_int_out_high:touchscreen-int-out-high {
+			ingenic,pinmux = <&gpa 30 30>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCHILVL>;
+		};
+		touchscreen_int_out_low:touchscreen-int-out-low {
+			ingenic,pinmux = <&gpa 30 30>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCLOLVL>;
+		};
+		touchscreen_int_input:touchscreen-int-input {
+			ingenic,pinmux = <&gpa 30 30>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT_FE>;
+		};
+		touchscreen_default:touchscreen-default {
+			ingenic,pinmux = <&gpa 30 30>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT>;
+		};
+	};
+};
+
+
+
+

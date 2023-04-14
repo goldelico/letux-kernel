@@ -1,0 +1,110 @@
+/ {
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_kd050wvfpa029 {
+			compatible = "ingenic,fw040";
+			status = "okay";
+			pinctrl-names = "default", "i2c-func";
+			pinctrl-0 = <&tft_lcd_pa_rgb888>;
+			pinctrl-1 = <&i2c1_pb_f2>;
+/*			ingenic,lcd-pwm-gpio = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+			ingenic,vdd-en-gpio = <&gpa 31 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpb 13 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-sdo-gpio = <&gpb 16 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-sck-gpio = <&gpb 15 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-cs-gpio = <&gpb 14 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_fw040_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 1000000>;
+	    brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+	    default-brightness-level = <4>;
+	};
+};
+&dpu {
+	status = "okay";
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_fw040_ep>;
+	    };
+	};
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	/* pinctrl-names = "default"; */
+	status = "okay";
+	/* pinctrl-0 = <&i2c1_pb_f2>; */
+
+	goodix@0x14{
+		compatible = "goodix,gt9xx"; /* do not modify */
+		reg = <0x14>; /* do not modify */
+		interrupt-parent = <&gpa>; /* INT pin */
+		interrupts = <9>;
+		reset-gpios = <&gpb 14 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>; /* RST pin */
+		irq-gpios = <&gpb 17 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		goodix,driver-send-cfg = <1>;
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <800>;
+		goodix,slide-wakeup = <0>;
+		goodix,type-a-report = <0>;
+		goodix,resume-in-workqueue = <0>;
+		goodix,int-sync = <1>;
+		goodix,swap-x2y = <0>;
+		goodix,auto-update-cfg = <0>;
+		goodix,power-off-sleep = <0>;
+		goodix,pen-suppress-finger = <0>;
+		irq-flags = <2>; /* 1 rising, 2 falling */
+		pinctrl-names = "default", "int-output-high", "int-output-low", "int-input";
+		pinctrl-0 = <&touchscreen_default>;
+		pinctrl-1 = <&touchscreen_int_out_high>;
+		pinctrl-2 = <&touchscreen_int_out_low>;
+		pinctrl-3 = <&touchscreen_int_input>;
+		goodix,cfg-group0 = [
+			53 E0 01 20 03 05 05 20 02 2A 19 0F 5A 3C 03
+			05 00 00 00 00 00 00 06 16 18 1E 14 86 26 07
+			7F 81 7C 06 00 00 00 00 02 1D 00 01 00 00 00
+			00 00 00 00 00 00 5A B4 94 C5 03 08 00 00 04
+			8B 60 00 85 6F 00 80 7F 00 7C 92 00 79 A8 00
+			79 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 0E 0C 0A 08 06 04 02 FF
+			FF FF FF FF FF FF 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 02 04 06 08 0A 22 21
+			20 1F 1E 1D FF FF FF FF FF FF FF FF FF FF FF
+			FF FF FF 00 00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 D8 01];
+	};
+};
+
+&pinctrl {
+
+	touchscreen_pins:touchscreen-pins {
+		touchscreen_int_out_high:touchscreen-int-out-high {
+			ingenic,pinmux = <&gpb 17 17>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCHILVL>;
+		};
+		touchscreen_int_out_low:touchscreen-int-out-low {
+			ingenic,pinmux = <&gpb 17 17>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCLOLVL>;
+		};
+		touchscreen_int_input:touchscreen-int-input {
+			ingenic,pinmux = <&gpb 17 17>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT_FE>;
+		};
+		touchscreen_default:touchscreen-default {
+			ingenic,pinmux = <&gpb 17 17>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT>;
+		};
+	};
+};

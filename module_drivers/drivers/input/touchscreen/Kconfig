@@ -1,0 +1,17 @@
+
+#source "module_drivers/drivers/input/touchscreen/cyttsp5/Kconfig"
+source "module_drivers/drivers/input/touchscreen/focaltech_touch/Kconfig"
+#source "module_drivers/drivers/input/touchscreen/focaltech_ft5x16_touch/Kconfig"
+source "module_drivers/drivers/input/touchscreen/hyn_touch/Kconfig"
+#source "module_drivers/drivers/input/touchscreen/chipone_touch/Kconfig"
+#source "module_drivers/drivers/input/touchscreen/msm8909w/Kconfig"
+source "module_drivers/drivers/input/touchscreen/gt9xx_touch/Kconfig"
+source "module_drivers/drivers/input/touchscreen/ft6236_touch/Kconfig"
+
+
+config TOUCHSCREEN_MXT336U
+      tristate "MicroChip MXT336U TouchScreen driver"
+      depends on I2C
+      default n
+      help
+        MicroChip MXT336U TouchScreen driver implemented by Ingenic for Robam.

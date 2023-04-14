@@ -1,0 +1,60 @@
+menuconfig FB_INGENIC
+	tristate "Ingenic Framebuffer Driver"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+		LCD Driver for INGENIC
+
+config FB_VSYNC_SKIP_DISABLE
+        bool "Disable Vsync skip"
+        depends on FB_INGENIC
+        help
+          Disable Vsync skip
+
+config FB_VSYNC_SKIP
+        int "Vsync skip ratio[0..9]"
+        depends on FB_INGENIC
+        default 9
+        help
+          Vsync skip ratio
+
+config FB_INGENIC_NR_FRAMES
+	int "how many frames support"
+	depends on FB_INGENIC
+	default 3
+
+config FB_INGENIC_NR_LAYERS
+	int "how many layers support"
+	depends on FB_INGENIC
+	default 4
+
+config FB_INGENIC_DEBUG
+        bool "fb test for displaying color bar"
+        depends on FB_INGENIC
+        default n
+        help
+           fb test for displaying color bar in your board.
+
+config SLCDC_CONTINUA
+    tristate "SLCDC CONTINUA TRANFER"
+    depends on FB_INGENIC
+    default n
+
+config SLCDC_USE_TE
+	tristate "SLCDC USE TE SIGNAL"
+	depends on FB_INGENIC
+	default n
+
+config FB_INGENIC_MIPI_DSI
+	bool "ingenic mipi dsi interface"
+	depends on FB_INGENIC_V12
+	default n
+
+
+if FB_INGENIC
+#source "module_drivers/drivers/video/fbdev/ingenic/spi_fb_v12/Kconfig"
+source "module_drivers/drivers/video/fbdev/ingenic/fb_stage/Kconfig"
+endif
+

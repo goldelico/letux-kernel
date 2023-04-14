@@ -1,0 +1,38 @@
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pa>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V3.2*/
+	ov4689_0:ov4689@0x21 {
+		status = "okay";
+		compatible = "ovti,ov4689";
+		reg = <0x21>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_mipi_mclk_pc>;
+
+		reset-gpios = <&gpb 3 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ircutp-gpios = <&gpb 4 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ircutn-gpios = <&gpb 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov4689_ep0:endpoint {
+				remote-endpoint = <&cim_0>;
+			};
+		};
+	};
+};
+
+&cim {
+	status = "okay";
+	port {
+		cim_0: endpoint@0 {
+			remote-endpoint = <&ov4689_ep0>;
+			data-lanes = <0 1>;
+			clk-lanes = <2>;
+		};
+	};
+};
+
