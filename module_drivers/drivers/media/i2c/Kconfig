@@ -1,0 +1,4 @@
+
+source "module_drivers/drivers/media/i2c/ingenic-isp/Kconfig"
+source "module_drivers/drivers/media/i2c/ingenic-isp-v2/Kconfig"
+source "module_drivers/drivers/media/i2c/ingenic-cim/Kconfig"

@@ -1,0 +1,27 @@
+君正私有的内核驱动，按照每个驱动基于的框架，以内核的目录结构展开，
+独立存放在该module_drivers目录.
+
+Kconfig 定义原则，尽量清晰，贴近SOC本身. 只显示SOC支持的控制器驱动.
+
+
+
+1. 如何嵌入到内核源码编译
+
+内核源码顶层Kconfig添加
+
+```
+config OUTSIDE_DRIVERS
+	string
+	option env="OUTSIDE_DRIVERS"
+	default "module_drivers"
+
+
+source "$OUTSIDE_DRIVERS/Kconfig"
+```
+
+内核Makefile添加
+
+```
+drivers-y	+= module_drivers/
+```
+

@@ -1,0 +1,9 @@
+config INGENIC_SOC_NNA
+	tristate "[NNA] ingenic soc nna module"
+	depends on SOC_X2500
+	default n
+	help
+		this is ingenic soc-nna for x2500 ,register as a misc device
+
+
+

@@ -1,0 +1,6 @@
+
+obj-$(CONFIG_SND_ASOC_INGENIC_DUMP_CODEC) += dump.o
+obj-$(CONFIG_SND_ASOC_INGENIC_ICDC_D3) += icdc_d3.o
+obj-$(CONFIG_SND_ASOC_INGENIC_ICDC_INNO) += icdc_inno.o
+obj-$(CONFIG_SND_ASOC_INGENIC_ICDC_INNO_V2) += icdc_inno_v2.o
+

@@ -1,0 +1,56 @@
+comment "ingenic-cim camera sensor drivers"
+
+config INGENIC_CIM_CAMERA_OV2735B
+	tristate "ov2735 camera DVP interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV2735 sensor DVP interface
+
+config INGENIC_CIM_CAMERA_AR0144
+	tristate "ar0144 camera mipi interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision AR0144 sensor MIPI interface
+
+config INGENIC_CIM_CAMERA_OV5640
+	tristate "ov5640 camera DVP interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV5640 sensor DVP interface
+
+config INGENIC_CIM_CAMERA_SC031GS
+	tristate "sc031gs camera DVP interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision SC031GS sensor DVP interface
+
+config INGENIC_CIM_CAMERA_MIPI_SC031GS
+	tristate "sc031gs camera mipi interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision SC031GS sensor MIPI interface
+
+config INGENIC_CIM_CAMERA_OV5645
+	tristate "ov5645 camera mipi interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV5645 sensor MIPI interface
+
+config INGENIC_CIM_CAMERA_OV9281
+	tristate "ov9281 camera mipi interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV9281 sensor MIPI interface
+
+config INGENIC_CIM_CAMERA_OV9281_DVP_SNAPSHOT
+	tristate "ov9281 camera support cim snapshot"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV9281 sensor DVP interface
+
+config INGENIC_CIM_CAMERA_OV4689
+	tristate "ov4689 camera mipi interface support"
+	depends on VIDEO_INGENIC_CIM && I2C
+	help
+	  This is a ingenic-cim camera driver for the OmniVision OV4689 sensor MIPI interface
+

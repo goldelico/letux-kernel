@@ -1,0 +1,23 @@
+config CRYPTO_DEV_INGENIC_SHA
+        tristate "[SHA] Support for Ingenic SHA hw accelerator"
+        depends on MACH_XBURST || MACH_XBURST2
+        select CRYPTO_ALGAPI
+        help
+          Some Ingenic processors have MD5/SHA1/SHA224/SHA256/SHA384/SHA512
+          hw accelerator.
+          Select this if you want to use the Ingenic module for
+          MD5/SHA1/SHA224/SHA256/SHA384/SHA512 algorithms.
+
+          To compile this driver as a module, choose M here: the module
+          will be called ingenic-sha.
+
+
+config CRYPTO_DEV_INGENIC_AES
+        tristate "[AES] Support for INGENIC AES hw engine"
+        depends on MACH_XBURST || MACH_XBURST2
+        select CRYPTO_AES
+        select CRYPTO_BLKCIPHER2
+        help
+          INGENIC processors have AES module accelerator. Select this if you
+          want to use the INGENIC module for AES algorithms.
+

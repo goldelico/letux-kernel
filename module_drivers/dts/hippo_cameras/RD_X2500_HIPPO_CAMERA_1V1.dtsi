@@ -1,0 +1,98 @@
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>;
+
+	sc230ai_0:sc230ai@0x30 {
+		status = "ok";
+		compatible = "smartsens,sc230ai";
+		reg = <0x30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim1_vic_mclk_pc>;
+
+		ingenic,mclk = <1>;
+		ingenic,pwdn-gpio = <&gpa 18 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,xshutdn-gpio = <&gpa 17 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,efsync-gpio = <&gpa 19 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,led-gpio = <&gpa 12 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+		port {
+			sc230ai_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+
+	sc230ai_1:sc230ai@0x32 {
+		status = "ok";
+		compatible = "smartsens,sc230ai";
+		reg = <0x32>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim0_vic_mclk_pc>;
+
+		ingenic,mclk = <0>;
+		ingenic,pwdn-gpio = <&gpa 8 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,xshutdn-gpio = <&gpa 11 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,efsync-gpio = <&gpa 20 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,led-gpio = <&gpa 13 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+		port {
+			sc230ai_ep1:endpoint {
+				remote-endpoint = <&isp1_ep>;
+			};
+		};
+	};
+
+	gc2155: gc2155@0x3c {
+		status = "ok";
+		compatible = "GalaxyCore,gc2155";
+		reg = <0x3c>;
+		pinctrl-names = "default", "default";
+
+		pinctrl-0 = <&cim2_vic_mclk_pc>;
+		pinctrl-1 = <&vic_pa_low_8bit>;
+
+		ingenic,mclk = <2>;
+
+		ingenic,pwdn-gpio = <&gpa 10 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,rst-gpio = <&gpa 9 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			gc2155_0: endpoint {
+				remote-endpoint = <&vic2_ep>;
+				bus-width = <8>;	/* Used data lines */
+				data-shift = <0>;	/* Lines 9:0 are used */
+				/* If hsync-active/vsync-active are missing,
+				   embedded BT.656 sync is used */
+				hsync-active = <1>;	/* Active high */
+				vsync-active = <0>;	/* Active high */
+				data-active = <1>;	/* Active high */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
+	};
+};
+
+&isp0_ep {
+	remote-endpoint = <&sc230ai_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+};
+
+&isp1_ep {
+	remote-endpoint = <&sc230ai_ep1>;
+	data-lanes = <3 4>;
+	clk-lanes = <5>;
+};
+
+&vic2_ep{
+	remote-endpoint = <&gc2155_0>;
+	bus-width = <8>;	/* Used data lines */
+	data-shift = <0>;	/* Lines 9:0 are used */
+	hsync-active = <1>;	/* Active high */
+	vsync-active = <0>;	/* Active low */
+	data-active = <1>;	/* Active high */
+	pclk-sample = <1>;	/* Rising */
+};

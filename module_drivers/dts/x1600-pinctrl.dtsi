@@ -1,0 +1,380 @@
+#include <dt-bindings/pinctrl/ingenic-pinctrl.h>
+
+&pinctrl {
+
+	uart0_pin: uart0-pin {
+		uart0_pb: uart0-pb {
+			ingenic,pinmux = <&gpb 7 10>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+	uart1_pin: uart1-pin {
+		uart1_pb: uart1-pb {
+			ingenic,pinmux = <&gpb 2 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	uart2_pin: uart2-pin {
+		uart2_pa: uart2-pa {
+			ingenic,pinmux = <&gpa 30 31>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+		uart2_pb: uart2-pb {
+			ingenic,pinmux = <&gpb 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	uart3_pin: uart3-pin {
+		uart3_pb: uart3-pb {
+			ingenic,pinmux = <&gpb 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+		uart3_pd: uart3-pd {
+			ingenic,pinmux = <&gpd 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	};
+
+	i2c0_pin: i2c0-pin {
+		i2c0_pa: i2c0-pa {
+			ingenic,pinmux = <&gpa 28 29>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+		i2c0_pb: i2c0-pb {
+			ingenic,pinmux = <&gpb 30 31>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	i2c1_pin: i2c1-pin {
+		i2c1_pb_f2: i2c1-pb_f2 {
+			ingenic,pinmux = <&gpb 15 16>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+		i2c1_pb_f0: i2c1-pb_f0 {
+			ingenic,pinmux = <&gpb 19 20>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+	msc0_pin: msc0-pin {
+		msc0_4bit_f0: msc0-4bit_f0 {
+			ingenic,pinmux = <&gpb 12 17>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+		msc0_4bit_f1: msc0-4bit_f1 {
+			ingenic,pinmux = <&gpc 17 22>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+	msc1_pin: msc1-pin {
+		msc1_4bit: msc1-4bit {
+			ingenic,pinmux = <&gpd 0 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+	};
+
+	can0_pin: can0_pin {
+		can0_pd: can0_pd {
+			ingenic,pinmux = <&gpd 2 3>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	can1_pin: can1_pin {
+		can1_pd: can1_pd {
+			ingenic,pinmux = <&gpd 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	cdbus_pin: cdbus_pin {
+		cdbus_pd: cdbus_pd {
+			ingenic,pinmux = <&gpd 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		cdbus_tx_en: cdbus_tx_en {
+			ingenic,pinmux = <&gpb 30 30>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	mac0_phy_clk: mac0-phy-clk {
+		ingenic,pinmux = <&gpb 22 22>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+	};
+
+	mac0_rmii_p0: mac0-rmii-p0 {
+		mac0_rmii_p0_normal: mac0-rmii-normal {
+			ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		mac0_rmii_p0_rst: mac0-rmii-p0-rst {
+			ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+	mac0_rmii_p1: mac0-rmii-p1 {
+		mac0_rmii_p1_normal: mac0-rmii-p1-normal {
+			ingenic,pinmux = <&gpb 21 21>, <&gpb 25 28>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		mac0_rmii_p1_nomdio: mac0-rmii-p1-nomdio {
+			ingenic,pinmux = <&gpb 21 21>, <&gpb 25 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	pwm_pin: pwm-pin {
+		pwm0_pc: pwm0_pc {
+			ingenic,pinmux = <&gpc 0 0>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		pwm1_pc: pwm1_pc {
+			ingenic,pinmux = <&gpc 1 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		pwm2_pc: pwm2_pc {
+			ingenic,pinmux = <&gpc 2 2>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		pwm3_pc: pwm3_pc {
+			ingenic,pinmux = <&gpc 24 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm4_pc: pwm4_pc {
+			ingenic,pinmux = <&gpc 25 25>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm5_pc: pwm5_pc {
+			ingenic,pinmux = <&gpc 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm5_pb: pwm5_pb {
+			ingenic,pinmux = <&gpb 19 19>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		pwm6_pb_9: pwm6_pb_9 {
+			ingenic,pinmux = <&gpb 9 9>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm6_pb_20: pwm6_pb_20 {
+			ingenic,pinmux = <&gpb 20 20>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		pwm7_pb_10: pwm7_pb_10 {
+			ingenic,pinmux = <&gpb 10 10>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm7_pb_21: pwm7_pb_21 {
+			ingenic,pinmux = <&gpb 21 21>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	 };
+
+	sfc_pin: sfc-pin {
+		sfc_ce1_pb_4: sfc_ce1_pb4 {
+			ingenic,pinmux = <&gpb 4 4>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		sfc_ce1_pb_31: sfc_ce1_pb31 {
+			ingenic,pinmux = <&gpb 31 31>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		sfc_pc: sfc-pc {
+			ingenic,pinmux = <&gpc 17 22>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	cim_pin: cim-pin {
+		cim_pa: cim-pa {
+			ingenic,pinmux = <&gpa 8 15>, <&gpa 19 22>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	 };
+
+	cim_mclk: cim-mclk {
+		cim_mclk_pa: cim-mclk-pa {
+			ingenic,pinmux = <&gpa 24 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	};
+
+	cim_mipi_mclk: cim-mipi-mclk {
+		cim_mipi_mclk_pc: cim-mipi-mclk-pc {
+			ingenic,pinmux = <&gpc 25 25>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	lcd_pins: lcd-pins {
+		tft_lcd_pa_rgb888: tft-lcd-pa-rgb888 {
+			ingenic,pinmux = <&gpa 0 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		tft_lcd_pa_rgb666: tft-lcd-pa-rgb666 {
+			ingenic,pinmux = <&gpa 0 17>, <&gpa 24 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		tft_lcd_pa_rgb565: tft-lcd-pa-rgb565 {
+			ingenic,pinmux = <&gpa 0 15>, <&gpa 24 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		smart_lcd_pa_16bit: smart-lcd-pa-16bit {
+			ingenic,pinmux = <&gpa 0 15>, <&gpa 25 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_pa_9bit: smart-lcd-pa-9bit {
+			ingenic,pinmux = <&gpa 0 8>, <&gpa 25 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_pa_8bit: smart-lcd-pa-8bit {
+			ingenic,pinmux = <&gpa 0 7>, <&gpa 25 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_spi: smart-lcd-pa-spi {
+			ingenic,pinmux = <&gpa 0 0>, <&gpa 25 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_pa_te: smart-lcd-pa-te {
+			ingenic,pinmux = <&gpa 27 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+	fw040_pins:fw040-pins {
+		fw040_sck_out_high:fw040-sck-out-high {
+			ingenic,pinmux = <&gpb 15 15>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCHILVL>;
+		};
+		fw040_sck_out_low:fw040-sck-out-low {
+			ingenic,pinmux = <&gpb 15 15>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCLOLVL>;
+		};
+		fw040_sda_out_high:fw040-sda-out-high {
+			ingenic,pinmux = <&gpb 16 16>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCHILVL>;
+		};
+		fw040_sda_out_low:fw040-sda-out-low {
+			ingenic,pinmux = <&gpb 16 16>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCLOLVL>;
+		};
+	};
+
+	aic_pb: aic-pb {
+		ingenic,pinmux = <&gpb 21 28>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+	};
+
+	spi0_pa: spi0-pa {
+		ingenic,pinmux = <&gpa 28 31>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+	};
+
+	spi0_pb: spi0-pb {
+		ingenic,pinmux = <&gpb 12 14>, <&gpb 16 17>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+	};
+
+	spi_slv_pa: spi_slv-pa {
+		ingenic,pinmux = <&gpa 28 31>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+	};
+
+	spi_slv_pb: spi_slv-pb {
+		ingenic,pinmux = <&gpb 12 14>, <&gpb 17 17>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+	};
+
+	pwm_tcu_trig_pa: pwm_tcu_trig_pa {
+		ingenic,pinmux = <&gpa 31 31>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION3>;
+	};
+
+	pwm_tcu_trig_pb: pwm_tcu_trig_pb {
+		ingenic,pinmux = <&gpb 3 3>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+	};
+
+	tcu_pin: tcu-pin {
+		tcu0_pa: tcu0_pc {
+			ingenic,pinmux = <&gpa 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu1_pa: tcu1_pc {
+			ingenic,pinmux = <&gpa 2 3>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu2_pa: tcu2_pc {
+			ingenic,pinmux = <&gpa 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu3_pa: tcu3_pc {
+			ingenic,pinmux = <&gpa 6 7>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu4_pc: tcu4_pc {
+			ingenic,pinmux = <&gpc 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		tcu5_pc_in0: tcu5_pc_in0 {
+			ingenic,pinmux = <&gpc 2 2>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		tcu5_pc_in1: tcu5_pc_in1 {
+			ingenic,pinmux = <&gpc 24 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu6_pc: tcu6_pc {
+			ingenic,pinmux = <&gpb 25 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		tcu7_pb: tcu7_pb {
+			ingenic,pinmux = <&gpb 9 10>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	};
+
+	rtc32k_pins:rtc32k-pins {
+		rtc32k_enable:rtc32k-enable {
+			ingenic,pinmux = <&gpc 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+		rtc32k_disable:rtc32k-disable {
+			ingenic,pinmux = <&gpc 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTIONS>;
+		};
+	};
+
+	drvvbus_pin: drvvbus-pin {
+		ingenic,pinmux = <&gpc 24 24>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+	};
+
+};
+

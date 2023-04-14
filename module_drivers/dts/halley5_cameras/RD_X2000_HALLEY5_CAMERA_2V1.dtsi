@@ -1,0 +1,83 @@
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default", "default";
+	pinctrl-0 = <&i2c3_pa>,<&cim_vic_mclk_pe>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V4.2 DVP interface*/
+	ov2735_0:ov2735@0x3c {
+		status = "ok";
+		compatible = "ovti,ov2735b";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&vic_pa_low_10bit>;
+
+		avdd-supply = <&cam_avdd>;
+		dvdd-supply = <&cam_dvdd>;
+		dovdd-supply = <&cam_dovdd>;
+		ingenic,rst-gpio = <&gpa 10 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpb 3 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpb 0 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov2735_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+				bus-width = <10>;	/* Used data lines */
+				data-shift = <0>;	/* Lines 9:0 are used */
+
+				/* If hsync-active/vsync-active are missing,
+				   embedded BT.656 sync is used */
+				hsync-active = <1>;	/* Active high */
+				vsync-active = <1>;	/* Active high */
+				data-active = <1>;	/* Active high */
+				pclk-sample = <1>;	/* Rising */
+			};
+		};
+	};
+
+
+	/*RD_X2000_HALLEY5_CAMERA_V4.2 MIPI interface*/
+	ov2735_1:ov2735@0x3d {
+		status = "ok";
+		compatible = "ovti,ov2735a";
+		reg = <0x3d>;
+
+		avdd-supply = <&cam_avdd>;
+		dvdd-supply = <&cam_dvdd>;
+		dovdd-supply = <&cam_dovdd>;
+		ingenic,rst-gpio = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpb 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpb 1 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov2735_ep1:endpoint {
+				remote-endpoint = <&isp1_ep>;
+			};
+		};
+	};
+};
+
+
+
+&isp0_ep {
+	remote-endpoint = <&ov2735_ep0>;
+	bus-width = <10>;	/* Used data lines */
+	data-shift = <0>;	/* Lines 9:0 are used */
+	bus-type = <5>;
+
+	/* If hsync-active/vsync-active are missing,
+	   embedded BT.656 sync is used */
+	hsync-active = <1>;	/* Active high */
+	vsync-active = <1>;	/* Active high */
+	data-active = <1>;	/* Active high */
+	pclk-sample = <1>;	/* Rising */
+};
+
+&isp1_ep {
+	remote-endpoint = <&ov2735_ep1>;
+	data-lanes = <3 4>;
+	clk-lanes = <5>;
+	bus-type = <4>;
+};
