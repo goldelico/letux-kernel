@@ -1,0 +1,17 @@
+choice
+	prompt "device tree select for X2000 X2100 boards"
+	depends on SOC_X2000 || SOC_X2100
+
+config DT_X2000_MODULE
+       bool "x2000 module base"
+
+config DT_HALLEY5_V20
+       bool "x2000 halley5_v20"
+
+config DT_HALLEY5_V30
+       bool "x2000 halley5_v30"
+
+config DT_KALE_V10
+       bool "x2100 kale_v10"
+
+endchoice

@@ -1,0 +1,11 @@
+choice
+	prompt "device tree select for m300 boards"
+	depends on SOC_M300
+
+config DT_GEWU_V10
+	bool "m300 gewu v10"
+
+config DT_M300_ZEBRA
+	bool "m300 zebra"
+
+endchoice

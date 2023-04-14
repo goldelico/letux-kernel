@@ -1,0 +1,16 @@
+choice
+	prompt "device tree select for X1600 boards"
+	default DT_HALLEY6_V10
+	depends on SOC_X1600
+
+config DT_X1600_MODULE
+	bool "x1600 module base"
+
+config DT_PANDA_V10
+	bool "x1600 panda v10"
+
+config DT_HALLEY6_V10
+	bool "x1600 halley6 v10"
+
+endchoice
+
