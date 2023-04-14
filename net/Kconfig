@@ -434,7 +434,7 @@ config NET_DEVLINK
 	default n
 
 config PAGE_POOL
-	bool
+	bool "Select page pool"
 
 config FAILOVER
 	tristate "Generic failover module"

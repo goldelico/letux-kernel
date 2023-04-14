@@ -87,6 +87,23 @@ extern unsigned long mips_stack_top(void);
 
 #define NUM_FPU_REGS	32
 
+
+#if cpu_has_mxuv2
+#define NUM_MXU_VPR_REGS  16      //vpr0~15
+#define NUM_MXU_VSR_REGS  0
+#endif
+
+
+#if cpu_has_mxuv3
+#define NUM_MXU_VPR_REGS  32      //vpr0~31
+#define NUM_MXU_VSR_REGS  4       //vsr0~3
+#endif
+
+#if !cpu_has_mxuv2 && !cpu_has_mxuv3
+#define NUM_MXU_VPR_REGS 0
+#define NUM_MXU_VSR_REGS 0
+#endif
+
 #ifdef CONFIG_CPU_HAS_MSA
 # define FPU_REG_WIDTH	128
 #else
@@ -97,6 +114,22 @@ union fpureg {
 	__u32	val32[FPU_REG_WIDTH / 32];
 	__u64	val64[FPU_REG_WIDTH / 64];
 };
+
+typedef union mxuvec {
+#if cpu_has_mxuv2
+    uint8_t    val128[16];     //simd128
+#endif
+#if cpu_has_mxuv3
+    uint8_t    val512[64];     //simd512
+#endif
+} mxuvec_t;
+
+struct xburst_mxu_struct {
+        mxuvec_t   vpr[NUM_MXU_VPR_REGS];
+        mxuvec_t   vsr[NUM_MXU_VSR_REGS];
+	uint32_t	csr;
+};
+
 
 #ifdef CONFIG_CPU_LITTLE_ENDIAN
 # define FPR_IDX(width, idx)	(idx)
@@ -156,8 +189,20 @@ struct mips3264_watch_reg_state {
 union mips_watch_reg_state {
 	struct mips3264_watch_reg_state mips3264;
 };
+#if defined(CONFIG_XBURST_MXUV2)
+typedef union {
+	u64 val64[2];
+} vpr_t;
 
-#if defined(CONFIG_CPU_CAVIUM_OCTEON)
+struct xburst_cop2_state {
+	u32 mxu_csr;
+	vpr_t vr[32];
+};
+
+#define COP2_INIT						\
+	.cp2			= {0,},
+
+#elif defined(CONFIG_CPU_CAVIUM_OCTEON)
 
 struct octeon_cop2_state {
 	/* DMFC2 rt, 0x0201 */
@@ -272,6 +317,11 @@ struct thread_struct {
 	/* Saved state of the DSP ASE, if available. */
 	struct mips_dsp_state dsp;
 
+
+	/* Saved registers of the MXU, if available. */
+	struct xburst_mxu_struct mxu;
+
+
 	/* Saved watch register state, if available. */
 	union mips_watch_reg_state watch;
 
@@ -280,6 +330,10 @@ struct thread_struct {
 	unsigned long cp0_baduaddr;	/* Last kernel fault accessing USEG */
 	unsigned long error_code;
 	unsigned long trap_nr;
+#ifdef CONFIG_XBURST_MXUV2
+	struct xburst_cop2_state cp2;
+#endif
+
 #ifdef CONFIG_CPU_CAVIUM_OCTEON
 	struct octeon_cop2_state cp2 __attribute__ ((__aligned__(128)));
 	struct octeon_cvmseg_state cvmseg __attribute__ ((__aligned__(128)));

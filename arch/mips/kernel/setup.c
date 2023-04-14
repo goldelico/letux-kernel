@@ -689,7 +689,7 @@ static void __init arch_mem_init(char **cmdline_p)
 	memblock_reserve(__pa_symbol(&__nosave_begin),
 		__pa_symbol(&__nosave_end) - __pa_symbol(&__nosave_begin));
 
-	fdt_init_reserved_mem();
+	//fdt_init_reserved_mem();
 
 	memblock_dump_all();
 

@@ -648,7 +648,8 @@ struct sdhci_ops {
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
 	void    (*card_event)(struct sdhci_host *host);
-	void	(*voltage_switch)(struct sdhci_host *host);
+	void	(*voltage_switch)(struct sdhci_host *host,int vlotage);
+	void	(*power_set)(struct sdhci_host *host,int vlotage);
 	void	(*adma_write_desc)(struct sdhci_host *host, void **desc,
 				   dma_addr_t addr, int len, unsigned int cmd);
 	void	(*copy_to_bounce_buffer)(struct sdhci_host *host,

@@ -1567,13 +1567,13 @@ static int ffs_fs_get_tree(struct fs_context *fc)
 		return invalf(fc, "No source specified");
 
 	ffs = ffs_data_new(fc->source);
-	if (unlikely(!ffs))
+	if (!ffs)
 		return -ENOMEM;
 	ffs->file_perms = ctx->perms;
 	ffs->no_disconnect = ctx->no_disconnect;
 
 	ffs->dev_name = kstrdup(fc->source, GFP_KERNEL);
-	if (unlikely(!ffs->dev_name)) {
+	if (!ffs->dev_name) {
 		ffs_data_put(ffs);
 		return -ENOMEM;
 	}
