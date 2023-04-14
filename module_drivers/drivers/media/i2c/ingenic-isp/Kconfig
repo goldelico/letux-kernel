@@ -1,0 +1,92 @@
+comment "ingenic-isp camera sensor drivers"
+
+
+config INGENIC_ISP_CAMERA_OV4689
+	tristate "ov4689 camera support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision OV4689 sensor
+
+config INGENIC_ISP_CAMERA_SC2232H
+	tristate "sc2232h camera support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision sc2232h sensor
+
+config INGENIC_ISP_CAMERA_OV2735B
+	tristate "ov2735 camera DVP interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision OV2735 sensor DVP interface
+
+config INGENIC_ISP_CAMERA_OV2735A
+	tristate "ov2735 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision OV2735 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_GC1054
+	tristate "gc1054 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the Galaxyc gc1054 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_AR0144
+	tristate "ar0144 camera support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the Onsemi ar0144 sensor
+
+config INGENIC_ISP_CAMERA_AR0234
+	tristate "ar0234 camera support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the Onsemi ar0234 sensor
+
+config INGENIC_ISP_CAMERA_OV7251
+	tristate "ov7251 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision OV7251 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_SC031GS
+	tristate "sc031gs camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the SmartSens sc031gs sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_OV6710
+	tristate "ov6710 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision OV6710 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_CISADC
+	tristate "CIS ADC Simulator"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for CIS ADC
+
+config INGENIC_ISP_CAMERA_GC2093
+	tristate "gc2093 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the OmniVision GC2093 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_GM8914_GM8913_GC2093
+	tristate "GM8914 GM8913 gc2093 camera support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for the zhenxin gm8914/gm8913 gc2093 sensor
+
+config INGENIC_ISP_CAMERA_IMX335
+	tristate "IMX335 camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for IMX335 sensor MIPI interface
+
+config INGENIC_ISP_CAMERA_SC230AI
+	tristate "SC230AI camera MIPI interface support"
+	depends on VIDEO_INGENIC_ISP && I2C
+	help
+	  This is a ingenic-isp camera driver for SC230AI sensor MIPI interface

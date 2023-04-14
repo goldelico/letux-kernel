@@ -1,0 +1,8 @@
+config VIDEO_INGENIC_ROTATE
+        depends on VIDEO_DEV && VIDEO_V4L2
+        tristate "Ingenic rotate driver"
+        select VIDEOBUF2_DMA_CONTIG_INGENIC
+        select V4L2_MEM2MEM_DEV
+        help
+          This is a v4l2 driver for Ingenic rotate
+

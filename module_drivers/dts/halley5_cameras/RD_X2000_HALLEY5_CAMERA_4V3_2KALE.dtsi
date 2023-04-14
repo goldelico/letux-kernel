@@ -1,0 +1,58 @@
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>, <&cim_vic_mclk_pe>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V4.2 DVP interface*/
+	ov2735_0:ov2735@3d {
+		status = "ok";
+		compatible = "ovti,ov2735a";
+		reg = <0x3d>;
+
+		ingenic,rst-gpio = <&gpa 10 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpb 31 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpb 28 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov2735_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+
+
+	/*RD_X2000_HALLEY5_CAMERA_V4.2 MIPI interface*/
+	ov2735_1:ov2735@3c {
+		status = "ok";
+		compatible = "ovti,ov2735a";
+		reg = <0x3c>;
+
+		ingenic,rst-gpio = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpb 29 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpb 30 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		port {
+			ov2735_ep1:endpoint {
+				remote-endpoint = <&isp1_ep>;
+			};
+		};
+	};
+};
+
+
+
+&isp0_ep {
+	remote-endpoint = <&ov2735_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+	bus-type = <4>;
+};
+
+&isp1_ep {
+	remote-endpoint = <&ov2735_ep1>;
+	data-lanes = <3 4>;
+	clk-lanes = <5>;
+	bus-type = <4>;
+};

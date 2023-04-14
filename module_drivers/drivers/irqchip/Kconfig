@@ -1,0 +1,20 @@
+config INGENIC_INTC
+        bool "intc v1 interrupt "
+	depends on SOC_X1600
+        select IRQ_DOMAIN
+
+config IRQ_INGENIC_CPU
+        bool "cpu interrupt driver"
+	depends on SOC_X2000 || SOC_X2000_V12 || SOC_X2100 || SOC_X2500 || SOC_M300
+        select IRQ_DOMAIN
+        help
+                Support for ingenic cpu core irq handler.
+
+config INGENIC_INTC_CHIP
+        bool "intc v2 interrupt driver"
+        depends on IRQ_INGENIC_CPU
+        select IRQ_DOMAIN
+        help
+                Support for ingenic XBURST2 based SOCs, which intc is
+                near cpu core,and each logic cpu has an intc.
+

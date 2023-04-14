@@ -1,0 +1,41 @@
+menu "[ISP] Drivers"
+
+
+config VIDEO_INGENIC_ISP
+        tristate "V4L2 Driver for ingenic isp"
+        depends on VIDEO_DEV && VIDEO_V4L2
+	depends on SOC_X2000_V12 || SOC_X2000 || SOC_M300 || SOC_X2100
+        select VIDEOBUF2_DMA_CONTIG
+        select VIDEOBUF2_DMA_CONTIG_INGENIC
+source "module_drivers/drivers/media/platform/ingenic-isp/Kconfig"
+
+
+config VIDEO_INGENIC_ISP_V2
+        tristate "V4L2 Driver for ingenic isp version 2"
+        depends on VIDEO_DEV && VIDEO_V4L2
+	depends on SOC_X2500
+        select VIDEOBUF2_DMA_CONTIG
+        select VIDEOBUF2_DMA_CONTIG_INGENIC
+source "module_drivers/drivers/media/platform/ingenic-isp-v2/Kconfig"
+endmenu
+
+menu "[CIM] Drivers"
+	depends on SOC_X2000_V12 || SOC_X2000 || SOC_M300 || SOC_X1600 || SOC_X2100
+source "module_drivers/drivers/media/platform/ingenic-cim/Kconfig"
+endmenu
+
+
+menu "[Rotator] Drivers"
+	depends on SOC_X2000_V12 || SOC_X2000 || SOC_M300 || SOC_X2100
+source "module_drivers/drivers/media/platform/ingenic-rotate/Kconfig"
+endmenu
+
+menu "[I2D] Drivers"
+	depends on SOC_X2500
+source "module_drivers/drivers/media/platform/ingenic-i2d/Kconfig"
+endmenu
+
+menu "[VPU] Drivers"
+	depends on SOC_X2000_V12 || SOC_X2000 || SOC_M300 || SOC_X2100
+source "module_drivers/drivers/media/platform/ingenic-vcodec/Kconfig"
+endmenu

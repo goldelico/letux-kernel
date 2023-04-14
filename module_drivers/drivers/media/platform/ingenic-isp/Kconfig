@@ -1,0 +1,113 @@
+config VIC_DMA_ROUTE
+	bool "vic dma out route enable"
+	default n
+	depends on VIDEO_INGENIC_ISP
+
+config MSCA_BDEV
+	bool "mscaler bdev support"
+	default n
+	depends on VIDEO_INGENIC_ISP
+
+# halley5 board
+menuconfig HALLEY5_CAMERA_BOARD
+	bool "halley5_camera_board"
+	depends on VIDEO_INGENIC_ISP
+	default n
+	help
+	  Say Y here to enable support for halley5_camera_boards.
+
+config RD_X2000_HALLEY5_CAMERA_1V0
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_1V0"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_AR0144
+	select INGENIC_ISP_CAMERA_AR0234
+
+config RD_X2000_HALLEY5_CAMERA_2V1
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_2V1"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_OV2735B
+	select INGENIC_ISP_CAMERA_OV2735A
+
+config RD_X2000_HALLEY5_CAMERA_4V2
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_4V2"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_OV2735B
+	select INGENIC_ISP_CAMERA_OV2735A
+
+config RD_X2000_HALLEY5_CAMERA_4V3
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_4V3"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_OV2735A
+	select V4L2_FWNODE
+
+config RD_X2000_HALLEY5_CAMERA_3V2
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_3V2"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_OV4689
+
+choice
+	prompt "ov4689 resolution and frame rate select"
+	depends on RD_X2000_HALLEY5_CAMERA_3V2
+	default OV4689_1080P_30FPS
+	help
+	Select ov4689 sensor's resolution and frame rate that driver supported.
+
+config OV4689_1080P_120FPS
+	bool "OV4689_1080P_120fps"
+	depends on RD_X2000_HALLEY5_CAMERA_3V2 || CAMERA_V10
+
+config OV4689_1080P_30FPS
+	bool "OV4689_1080P_30fps"
+	depends on RD_X2000_HALLEY5_CAMERA_3V2 || CAMERA_V10
+
+config OV4689_2048X1520_30FPS
+	bool "ov4689_2048x1520_30fps"
+	depends on RD_X2000_HALLEY5_CAMERA_3V2 || CAMERA_V10
+endchoice
+
+config RD_X2000_HALLEY5_CAMERA_5V0
+	bool "halley5 camera driver for RD_X2000_HALLEY5_CAMERA_5V0"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_AR0144
+
+config RD_X2500_HIPPO_CAMERA_1V1
+	bool "halley5 camera driver for RD_X2500_HIPPO_CAMERA_1V1"
+	depends on HALLEY5_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_SC230AI
+
+# gewu board
+menuconfig GEWU_CAMERA_BOARD
+	bool "gewu_camera_board"
+	depends on VIDEO_INGENIC_ISP
+	default n
+	help
+	  Say Y here to enable support for gewu_camera_boards.
+
+config CAMERA_V10
+	bool "gewu camera driver for CAMERA_1.0"
+	depends on GEWU_CAMERA_BOARD
+	select INGENIC_ISP_CAMERA_OV4689
+
+choice
+	prompt "ov4689 resolution and frame rate select"
+	depends on CAMERA_V10
+	default GEWU_OV4689_1080P_30FPS
+	help
+	Select ov4689 sensor's resolution and frame rate that driver supported.
+
+config GEWU_OV4689_1080P_120FPS
+	bool "OV4689_1080P_120fps"
+	select OV4689_1080P_120FPS
+	depends on CAMERA_V10
+
+config GEWU_OV4689_1080P_30FPS
+	bool "OV4689_1080P_30fps"
+	select OV4689_1080P_30FPS
+	depends on CAMERA_V10
+
+config GEWU_OV4689_2048X1520_30FPS
+	bool "ov4689_2048x1520_30fps"
+	select OV4689_2048X1520_30FPS
+	depends on CAMERA_V10
+endchoice
+

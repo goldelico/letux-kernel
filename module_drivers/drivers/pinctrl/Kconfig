@@ -1,0 +1,16 @@
+
+config PINCTRL_INGENIC_V2
+	bool "Pinctrl driver for the Ingenic X2000/X1600 SoCs"
+	default y
+	depends on OF
+	depends on MIPS || COMPILE_TEST
+	select GENERIC_PINCONF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	select GPIOLIB_IRQCHIP
+	select REGMAP_MMIO
+
+config MULTI_VGPIO_INGENIC
+	   bool "multiple input lineout to signle output"
+

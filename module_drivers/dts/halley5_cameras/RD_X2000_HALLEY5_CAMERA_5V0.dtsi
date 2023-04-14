@@ -1,0 +1,38 @@
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V3.2*/
+	AR0144_0:AR0144@0x18 {
+		status = "ok";
+		compatible = "onsemi,ar0144";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_vic_mclk_pe>;
+
+		avdd-supply = <&cam_avdd>;
+		dvdd-supply = <&cam_dvdd>;
+		dovdd-supply = <&cam_dovdd>;
+		ingenic,rst-gpio = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,expo-gpio = <&gpa 15 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,expo-oe = <&gpa 10 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			AR0144_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+};
+
+&isp0_ep {
+	remote-endpoint = <&AR0144_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+};
+
+
