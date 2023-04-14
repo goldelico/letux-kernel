@@ -17,6 +17,8 @@
 #include <asm/dsp.h>
 #include <asm/cop2.h>
 #include <asm/fpu.h>
+#include <mxu.h>
+#include <mxuv3.h>
 
 struct task_struct;
 
@@ -116,6 +118,23 @@ do {									\
 		__save_dsp(prev);					\
 		__restore_dsp(next);					\
 	}								\
+	if(cpu_has_mxu) {						\
+	        if (KSTK_STATUS(prev) & ST0_CU2) {                      \
+                       __save_mxu(prev);                               \
+               }                                                       \
+               if (KSTK_STATUS(next) & ST0_CU2) {                      \
+                       __restore_mxu(next);                            \
+               }                                                       \
+       }                                                               \
+       if (cpu_has_mxuv3) {                                            \
+		   if ((KSTK_STATUS(prev) & ST0_CU2))  { \
+			   __save_mxuv3(prev);                             \
+		   }                                                       \
+		   if ((KSTK_STATUS(next) & ST0_CU2))  { \
+			   set_c0_status(ST0_CU2);                         \
+			   __restore_mxuv3(next);                          \
+		   }                                                       \
+       }   								\
 	if (cop2_present) {						\
 		u32 status = read_c0_status();				\
 									\

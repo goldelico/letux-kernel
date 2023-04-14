@@ -366,7 +366,10 @@ include scripts/subarch.include
 # Alternatively CROSS_COMPILE can be set in the environment.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
+#ARCH		?= $(SUBARCH)
+ARCH		?= mips
+CROSS_COMPILE 	?= mips-linux-gnu-
+
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -652,6 +655,8 @@ drivers-$(CONFIG_SAMPLES) += samples/
 drivers-y	+= net/ virt/
 libs-y		:= lib/
 endif # KBUILD_EXTMOD
+
+drivers-y += module_drivers/
 
 # The all: target is the default when no target is given on the
 # command line.
@@ -1325,7 +1330,7 @@ kselftest-merge:
 # Devicetree files
 
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
-dtstree := arch/$(SRCARCH)/boot/dts
+dtstree := module_drivers/dts
 endif
 
 ifneq ($(dtstree),)

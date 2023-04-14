@@ -15,5 +15,7 @@ subdir-$(CONFIG_MACH_PIC32)		+= pic32
 subdir-$(CONFIG_ATH79)			+= qca
 subdir-$(CONFIG_RALINK)			+= ralink
 subdir-$(CONFIG_FIT_IMAGE_FDT_XILFPGA)	+= xilfpga
+subdir-$(CONFIG_MACH_XBURST)		+= ingenic
+subdir-$(CONFIG_MACH_XBURST2)		+= ingenic
 
 obj-$(CONFIG_BUILTIN_DTB)	:= $(addsuffix /, $(subdir-y))

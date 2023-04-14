@@ -2246,7 +2246,7 @@ void mmc_rescan(struct work_struct *work)
 	/* If there is a non-removable card registered, only scan once */
 	if (!mmc_card_is_removable(host) && host->rescan_entered)
 		return;
-	host->rescan_entered = 1;
+	//host->rescan_entered = 1; /* To support wifi rescan. */
 
 	if (host->trigger_card_event && host->ops->card_event) {
 		mmc_claim_host(host);
@@ -2258,7 +2258,8 @@ void mmc_rescan(struct work_struct *work)
 	mmc_bus_get(host);
 
 	/* Verify a registered card to be functional, else remove it. */
-	if (host->bus_ops && !host->bus_dead)
+	if (host->bus_ops && !host->bus_dead
+	    && !(host->caps & MMC_CAP_NONREMOVABLE))
 		host->bus_ops->detect(host);
 
 	host->detect_change = 0;

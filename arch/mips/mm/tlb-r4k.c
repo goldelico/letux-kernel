@@ -55,7 +55,7 @@ void local_flush_tlb_all(void)
 {
 	unsigned long flags;
 	unsigned long old_ctx;
-	int entry, ftlbhighset;
+	int entry;
 
 	local_irq_save(flags);
 	/* Save old context and create impossible VPN2 value */
@@ -71,6 +71,8 @@ void local_flush_tlb_all(void)
 	 * If there are any wired entries, fall back to iterating
 	 */
 	if (cpu_has_tlbinv && !entry) {
+#ifndef CONFIG_MACH_XBURST2
+		int ftlbhighset;
 		if (current_cpu_data.tlbsizevtlb) {
 			write_c0_index(0);
 			mtc0_tlbw_hazard();
@@ -85,6 +87,9 @@ void local_flush_tlb_all(void)
 			mtc0_tlbw_hazard();
 			tlbinvf();  /* invalidate one FTLB set */
 		}
+#else
+		tlbinvf();  /* invalide FTLB/VTLB set */
+#endif
 	} else {
 		while (entry < current_cpu_data.tlbsize) {
 			/* Make sure all entries differ. */

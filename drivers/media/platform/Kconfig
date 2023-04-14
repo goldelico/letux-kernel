@@ -154,6 +154,11 @@ source "drivers/media/platform/rcar-vin/Kconfig"
 source "drivers/media/platform/atmel/Kconfig"
 source "drivers/media/platform/sunxi/Kconfig"
 
+config V4L2_LOOPBACK_DEVICE
+tristate "V4l2 loopback device for virtual cameras."
+depends on VIDEO_DEV && VIDEO_V4L2
+default y
+
 config VIDEO_TI_CAL
 	tristate "TI CAL (Camera Adaptation Layer) driver"
 	depends on VIDEO_DEV && VIDEO_V4L2
