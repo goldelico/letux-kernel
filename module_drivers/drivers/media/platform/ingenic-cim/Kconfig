@@ -1,0 +1,82 @@
+config VIDEO_INGENIC_CIM
+	tristate "Ingenic Soc Camera Driver for X2000 && M300 && X1600"
+	select VIDEOBUF2_DMA_CONTIG_INGENIC
+	select V4L2_FWNODE
+	help
+		CIM Driver for X2000 && M300 && X1600
+
+config CAMERA_USE_SNAPSHOT
+	bool "Sensor support snapshot function"
+	depends on VIDEO_INGENIC_CIM
+	help
+		Sensor support snapshot function
+
+config SNAPSHOT_PULSE_WIDTH
+        int "Snapshot pulse width"
+        depends on CAMERA_USE_SNAPSHOT
+        default 8
+        help
+          Snapshot pulse width
+
+config SNAPSHOT_FRAME_DELAY
+        int "One frame end delay"
+        depends on CAMERA_USE_SNAPSHOT
+        default 100
+        help
+          One frame end delay
+
+menuconfig PANDA_CAMERA_BOARD
+	bool "panda_camera_board"
+	depends on VIDEO_INGENIC_CIM
+	depends on SOC_X1600
+	default n
+	help
+	  Say Y here to enable support for panda_camera_boards.
+
+config RD_X1600_PANDA_MIPI_CAMERA_1V0
+	bool "panda camera driver for RD_X1600_PANDA_MIPI_CAMERA_1V0"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_OV5645
+
+config RD_X1600_PANDA_MIPI_CAMERA_2V0
+	bool "panda camera driver for RD_X1600_PANDA_MIPI_CAMERA_2V0"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_OV9281
+
+config RD_X1600_PANDA_MIPI_CAMERA_3V2
+	bool "panda camera driver for RD_X1600_PANDA_MIPI_CAMERA_3V2"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_OV4689
+
+config RD_X1600_PANDA_DVP_CAMERA_1V0
+	bool "panda camera driver for RD_X1600_PANDA_DVP_CAMERA_V1.0"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_SC031GS
+
+config RD_X1600_PANDA_DVP_CAMERA_AND_LCD_1V0
+	bool "panda camera driver for RD_X1600_PANDA_DVP_CAMERA_AND_LCD_V1.0"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_OV5640
+
+config RD_X1600_PANDA_DVP_CAMERA_2V0
+	bool "panda camera driver for RD_X1600_PANDA_DVP_CAMERA_V2.0"
+	depends on PANDA_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_OV9281_DVP_SNAPSHOT
+
+menuconfig HALLEY6_CAMERA_BOARD
+	bool "halley6_camera_board"
+	depends on VIDEO_INGENIC_CIM
+	depends on SOC_X1600
+	default n
+	help
+	  Say Y here to enable support for panda_camera_boards.
+
+config RD_X1600_HALLEY6_MIPI_CAMERA
+	bool "halley6 camera driver for RD_X1600_HALLEY6_MIPI_CAMERA"
+	depends on HALLEY6_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_MIPI_SC031GS
+
+config RD_X1600_HALLEY6_DVP_CAMERA
+	bool "halley6 camera driver for RD_X1600_HALLEY6_DVP_CAMERA"
+	depends on HALLEY6_CAMERA_BOARD
+	select INGENIC_CIM_CAMERA_SC031GS

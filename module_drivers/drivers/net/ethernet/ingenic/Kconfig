@@ -1,0 +1,46 @@
+config INGENIC_MAC
+	tristate "ingenic on-chip MAC support"
+	select CRC32
+	select MII
+	help
+	  This is the driver for INGENIC on-chip mac device.
+
+config INGENIC_MAC_DMA_INTERFACES
+	bool "Ingenic mac dma interfaces"
+	depends on INGENIC_MAC
+	help
+	  This is for MAC Dma interfaces selection
+choice
+	prompt "Ingenic mac dma bus interfaces"
+	depends on INGENIC_MAC_DMA_INTERFACES
+
+config INGENIC_MAC_AXI_BUS
+	bool "MAC_AXI_BUS"
+	help
+	  Select for mac dma AXI bus
+
+config INGENIC_MAC_AHB_BUS
+	bool "MAC_AHB_BUS"
+	help
+	  Select for mac dma AHB bus
+endchoice
+
+config INGENIC_GMAC_USE_HWSTAMP
+    bool "Use IEEE 1588 hwstamp"
+	depends on INGENIC_MAC
+	select PTP_1588_CLOCK
+	help
+	  To support the IEEE 1588 Precision Time Protocol (PTP)
+
+config INGENIC_GMAC_MUTUAL_TRANS
+    bool "Dual core mutex transmission"
+	depends on INGENIC_MAC
+	help
+	  Dual core mutex transmission for cache bumps
+
+config INGENIC_GMAC_RX_DESC_COUNT
+    int "Ingenic gmac receive descriptor number[80..10240]"
+	depends on INGENIC_MAC
+        default 512
+	help
+	  Ingenic gmac receive descriptor number

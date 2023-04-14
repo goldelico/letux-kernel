@@ -1,0 +1,27 @@
+config INGENIC_SPI
+        tristate "Ingenic SPI Controller"
+        depends on (MACH_XBURST || MACH_XBURST2)
+        select SPI_BITBANG
+        help
+                SPI driver for Ingenic series SoCs
+
+config INGENIC_SPI0
+    bool "Ingenic SoC SSI controller 0 for SPI Host driver"
+        depends on INGENIC_SPI
+
+config INGENIC_SPI_PIO_CE
+        bool "Use GPIO CE on Ingenic SSI controller 0"
+        depends on INGENIC_SPI
+        default n
+        help
+                Use GPIO control SSI CE by CPU. Sometimes controller's CE NOT match SPI Protocal
+config INGENIC_SLV
+        tristate "Ingenic series SPI slave driver"
+        depends on MACH_XBURST
+        select SPI_BITBANG
+        help
+                SPI slave driver for Ingenic JZ series SoCs
+config INGENIC_SLV0
+        bool "Ingenic SoC SSI_SLV controller 0 for SPI SLV Host driver"
+        depends on INGENIC_SLV
+

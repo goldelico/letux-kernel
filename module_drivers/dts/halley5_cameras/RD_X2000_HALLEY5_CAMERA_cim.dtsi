@@ -1,0 +1,70 @@
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>;
+
+	/*HALLEY5_CAMERA_V4.2*/
+	ov2735_0:ov2735b@0x3d {
+		status = "ok";
+		compatible = "ovti,ov2735b";
+		reg = <0x3d>;
+		/*
+		pinctrl-names = "default","cim";
+		pinctrl-0 = <&cim_vic_mclk_pe>, <&cim_pa>;
+
+		resetb-gpios = <&gpa 10 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		*/
+
+		port {
+			ov2735b_ep0:endpoint {
+				remote-endpoint = <&cim_0>;
+			};
+		};
+	};
+
+	/*HALLEY5_CAMRERA_V5.0*/
+	AR0144:AR0144@0x18 {
+		status = "ok";
+		compatible = "onsemi,ar0144";
+		reg = <0x18>;
+		pinctrl-names = "default","cim";
+		pinctrl-0 = <&cim_vic_mclk_pe>, <&cim_pa>;
+
+		resetb-gpios = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		pwdn-gpios = <&gpa 10 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+
+		port {
+			AR0144_0:endpoint {
+				remote-endpoint = <&cim_1>;
+			};
+		};
+	};
+
+};
+
+
+&cim {
+	status = "okay";
+	port {
+		cim_0: endpoint0@0 {
+			remote-endpoint = <&ov2735b_ep0>;
+			bus-width = <8>;
+			data-shift = <0>;
+			bus-type = <5>;
+			hsync-active = <1>;
+			vsync-active = <0>;
+			data-active = <1>;
+			pclk-sample = <1>;
+		};
+		cim_1: endpoint1@1 {
+			remote-endpoint = <&AR0144_0>;
+			data-lanes = <0 1>;
+			clk-lanes = <2>;
+		};
+	};
+};
+

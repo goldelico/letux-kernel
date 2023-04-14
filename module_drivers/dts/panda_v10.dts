@@ -1,0 +1,423 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x1600.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+
+#ifdef CONFIG_RD_X1600_PANDA_MIPI_CAMERA_1V0
+#include "panda_cameras/RD_X1600_PANDA_MIPI_CAMERA_1V0.dtsi"
+#endif
+
+#ifdef CONFIG_RD_X1600_PANDA_MIPI_CAMERA_2V0
+#include "panda_cameras/RD_X1600_PANDA_MIPI_CAMERA_2V0.dtsi"
+#endif
+
+#ifdef CONFIG_RD_X1600_PANDA_MIPI_CAMERA_3V2
+#include "panda_cameras/RD_X1600_PANDA_CAMERA_3V2.dtsi"
+#endif
+
+#ifdef CONFIG_RD_X1600_PANDA_DVP_CAMERA_2V0
+#include "panda_cameras/RD_X1600_PANDA_DVP_CAMERA_2V0.dtsi"
+#endif
+
+#ifdef CONFIG_RD_X1600_PANDA_DVP_CAMERA_AND_LCD_1V0
+#include "panda_cameras/RD_X1600_PANDA_DVP_CAMERA_AND_LCD_1V0.dtsi"
+#endif
+
+#ifdef CONFIG_RD_X1600_PANDA_DVP_CAMERA_1V0
+#include "panda_cameras/RD_X1600_PANDA_DVP_CAMERA_1V0.dtsi"
+#endif
+
+#ifdef CONFIG_STAGE_GC9203
+#include "panda_lcd/RD_X1600_PANDA_SPI_LCD_1V0.dtsi"
+#endif
+
+#ifdef CONFIG_STAGE_KD035HVFBD037
+#include "panda_lcd/RD_X1600_PANDA_LCD_AND_DVP_CAMERA_1V0_KD037.dtsi"
+#endif
+
+#ifdef CONFIG_STAGE_KD035HVFMD057
+#include "panda_lcd/RD_X1600_PANDA_LCD_AND_DVP_CAMERA_1V0_KD057.dtsi"
+#endif
+
+#ifdef CONFIG_STAGE_KD050WVFPA029
+#include "panda_lcd/RD_X1600_PANDA_RGB_LCD_1V0.dtsi"
+#endif
+
+/ {
+	compatible = "ingenic,panda", "ingenic,panda";
+
+	/*chosen {
+		bootargs = "console=ttyS1,115200 mem=128M@0x0ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
+	};*/
+
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		reserved_memory: reserved_mem@0x2000000{
+		      compatible = "shared-dma-pool";
+		      reg = <0x02000000 0x2000000>;
+		};
+	};
+
+
+};
+
+&uart0 {
+	status = "disable";
+	/* dma-mode; */
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb>;
+};
+
+&uart1 {
+	status = "disable";
+	/* dma-mode; */
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pb>;
+};
+
+&uart3 {
+	status = "disable";
+};
+
+&cpufreq {
+	status = "okay";
+	operating-points = <
+		/*KHZ uV */
+		1200000	900000
+		750000	900000
+		600000	900000
+		500000	900000
+		400000	900000
+		375000	900000
+		300000	900000
+		200000	900000
+			>;
+
+};
+
+&pdma {
+	status = "okay";
+};
+
+&msc0 {
+	status = "disable";
+	pinctrl-names ="default","enable", "disable";
+	pinctrl-0 = <&msc0_4bit_f0>;
+	pinctrl-1 = <&rtc32k_enable>;
+	pinctrl-2 = <&rtc32k_disable>;
+
+	cap-sd-highspeed;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	non-removable;
+
+	ingenic,sdio_clk = <1>;
+	keep-power-in-suspend;
+
+	/* special property */
+	ingenic,sdr-gpios = <0>;
+	ingenic,wp-gpios = <0>;
+	ingenic,cd-gpios = <0>;
+	ingenic,rst-gpios = <0>;
+	ingenic,removal-manual; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
+
+	bcmdhd_wlan: bcmdhd_wlan {
+		 compatible = "android,bcmdhd_wlan";
+		 ingenic,sdio-irq = <&gpb 4 IRQ_TYPE_LEVEL_HIGH INGENIC_GPIO_NOBIAS>;
+		 ingenic,sdio-reset = <&gpc 28 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+&msc1 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
+	cap-sd-highspeed;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	/* special property */
+	ingenic,wp-gpios = <0>;
+	ingneic,cd-gpios = <0>;
+	ingenic,rst-gpios = <0>;
+	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
+};
+
+&tcu {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_tcu_trig_pa>;
+};
+
+&can0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0_pd>;
+	ingenic,clk-freq = <12000000>;
+};
+
+&can1 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can1_pd>;
+	ingenic,clk-freq = <12000000>;
+};
+
+&cdbus {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&cdbus_pd>, <&cdbus_tx_en>;
+};
+
+&cim {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&aic {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&aic_pb>;
+};
+
+&mac0 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
+	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
+	status = "disable";
+	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-ms = <10>;
+	ingenic,mac-mode = <RMII>;
+	ingenic,mode-reg = <0xb0000054>;
+	ingenic,phy-clk-freq = <50000000>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pc>;
+	ingenic,sfc-init-frequency = <200000000>;
+	ingenic,sfc-max-frequency = <400000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+	norflash@0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nor flash partition */
+			uboot@0 {
+				label = "uboot";
+				reg = <0x0000000 0x40000>;
+				/*read-only;*/
+			};
+
+			kernel@40000 {
+				label = "kernel";
+				reg = <0x40000 0x300000>;
+			};
+
+			rootfs@360000 {
+				label = "rootfs";
+				reg = <0x360000 0xca0000>;
+			};
+		};
+	};
+
+	nandflash@1 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nand flash partition */
+			partition@0 {
+				label = "uboot";
+				reg = <0x0000000 0x100000>;
+				/*read-only;*/
+			};
+
+			partition@100000 {
+				label = "kernel";
+				reg = <0x100000 0x800000>;
+			};
+
+			partition@900000 {
+				label = "rootfs";
+				reg = <0x900000 0xf700000>;
+			};
+		};
+	};
+
+};
+
+&i2c1 {
+	status = "disable";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pb_f0>;
+
+	wm8594: adc@1a {
+		compatible = "wlf,wm8594";
+		status = "okay";
+		reg = <0x1a>;
+		reset-gpios = <&gpb 10 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		mute-gpios = <&gpb 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		pwdn-gpios = <&gpb 9 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+&spi0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pb>;
+	spi-max-frequency = <54000000>;
+	num-cs = <2>;
+	/* cs-gpios = <0>, <0>; */
+	/* cs-gpios = <&gpb 17 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>, <&gpb 16 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>; */
+	ingenic,chnl = <0>;
+	ingenic,allow_cs_same = <1>;
+	ingenic,bus_num = <0>;
+	ingenic,has_dma_support = <0>;
+	ingenic,spi-src-clk = <1>;/*0.ext; 1.ssi*/
+
+	/* Add SPI interface device */
+	spidev: spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+};
+
+&spi_slv0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi_slv_pa>;
+	ingenic,has_dma_support = <1>;
+};
+
+&dtrng {
+	status = "okay";
+};
+
+&pwm {
+	pinctrl-names = "default", "pwm7_pb_21";
+	pinctrl-0 = <&pwm2_pc>,
+		<&pwm7_pb_21>;
+	status = "okay";
+};
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg"; // host,peripheral,otg
+	device-using-dma = <1>;
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&drvvbus_pin>;
+};
+
+&dpu {
+	status = "okay";
+	/*ingenic,disable-rdma-fb = <0>;*/
+};
+
+&efuse {
+	status = "disable";
+	ingenic,efuse-en-gpio = <&gpc 1 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+};
+
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+
+	gpio_keys: gpio_keys {
+		   compatible = "gpio-keys";
+
+		   wakeup {
+			   label = "WAKEUP";
+			   linux,code = <KEY_WAKEUP>;
+			   gpios = <&gpc 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+		   bootsel0 {
+			   label = "bootsel0";
+			   linux,code = <KEY_HOME>;
+			   gpios = <&gpc 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+
+		   bootsel1 {
+			   label = "bootsel1";
+			   linux,code = <KEY_BACK>;
+			   gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+	   };
+
+	/*
+	 * gpc 27 bt wakeup host
+	 */
+	bt_power {
+		compatible = "ingenic,bt_power";
+		ingenic,reg-on-gpio = <&gpb 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,wake-gpio = <&gpc 27 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+
+	spi_gpio {
+		status = "disable";
+	};
+
+#ifdef CONFIG_LINUX_PMEM
+	linux_pmem {
+		status = "okay";
+		compatible = "linux_pmem";
+		linux_pmem,name = "pmem";
+		linux_pmem,no_allocator = <0>;
+		linux_pmem,cached       = <1>;
+		linux_pmem,start        = <0>;
+		linux_pmem,size         = CONFIG_PMEM_RESERVE_SIZE;
+    };
+#endif
+
+	dump_pcm_codec:dump_pcm_codec{
+		compatible = "ingenic,pcm-dump-codec";
+		status = "disable";
+	};
+
+	sound_panda_ecdc {
+		status = "disable";
+		compatible = "ingenic,x1600-sound";
+		ingenic,model = "panda";
+		ingenic,dai-link = "i2s-ecodec", "i2s-tloop";
+		ingenic,stream = "i2s-ecodec", "i2s-tloop";
+		ingenic,cpu-dai = <&i2s>, <&i2s_tloop>;
+		ingenic,platform = <&aic>, <&i2s_tloop>;
+		ingenic,codec = <&wm8594>, <&dump_pcm_codec>;
+		ingenic,codec-dai = "wm8594-hifi", "pcm-dump";
+		en3v3-gpios = <&gpb 13 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		en9v-gpios = <&gpb 12 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	};
+};
+

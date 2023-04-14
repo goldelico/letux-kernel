@@ -1,0 +1,41 @@
+
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>;
+
+	/*RD_X2000_HALLEY5_CAMERA_V3.2*/
+	ov4689_0:ov4689@21 {
+		status = "ok";
+		compatible = "ovti,ov4689";
+		reg = <0x21>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_vic_mclk_pe>;
+
+		ingenic,rst-gpio = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpb 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpb 1 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov4689_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+};
+
+&isp0_ep {
+	remote-endpoint = <&ov4689_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+};
+
+
+&csi0 {
+	clk_precounter = <0x0808>;   /* (precounter_in_clk1 << 8) | precounter_in_clk0*/
+	data_precounter = <0x07070707>; /* (precounter_in_data3 << 24)|(precounter_in_data2 << 16)|(precounter_in_data1 << 8)|precounter_in_data0 */
+};
+
+

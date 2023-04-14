@@ -1,0 +1,110 @@
+comment "---- Minimal required Drivers ----"
+menu "[Interrupt] Drivers"
+source "module_drivers/drivers/irqchip/Kconfig"
+endmenu
+
+menu "[OST] clocksoure Drivers"
+source "module_drivers/drivers/clocksource/Kconfig"
+endmenu
+
+menu "[CPM] clk Drivers"
+source "module_drivers/drivers/clk/ingenic-v2/Kconfig"
+endmenu
+
+menu "[GPIO] Pinctroller Drivers"
+source "module_drivers/drivers/pinctrl/Kconfig"
+endmenu
+
+menu "[UART] Drivers"
+source "module_drivers/drivers/tty/serial/Kconfig"
+endmenu
+
+menu "[MSC] (eMMC/SD/SDIO) and Device Drivers"
+source "module_drivers/drivers/mmc/host/Kconfig"
+endmenu
+
+menu "[DMA] Drivers"
+source "module_drivers/drivers/dma/ingenic/Kconfig"
+endmenu
+
+menu "[SFC] (SPI Nand/Nor Flash) Drivers"
+source "module_drivers/drivers/mtd/devices/Kconfig"
+endmenu
+
+menu "[SPI] Master/Slave Drivers"
+source "module_drivers/drivers/spi/Kconfig"
+endmenu
+
+menu "[I2C] Master Drivers"
+source "module_drivers/drivers/i2c/busses/Kconfig"
+endmenu
+
+comment "---- minimal OS requirements. ----"
+
+menu "[LCD] Panel/Touchscreen Drivers"
+
+source "module_drivers/drivers/video/fbdev/ingenic/Kconfig"
+source "module_drivers/drivers/video/logo-ingenic/Kconfig"
+
+menu "Touchscreen Drivers"
+source "module_drivers/drivers/input/touchscreen/Kconfig"
+endmenu
+endmenu
+
+
+
+menu "[GMAC] (ethernet) Drivers"
+source "module_drivers/drivers/net/ethernet/ingenic/Kconfig"
+endmenu
+menu "[WIFI]  Drivers"
+source "module_drivers/drivers/net/wireless/bcmdhd_1_363_125_17/Kconfig"
+source "module_drivers/drivers/net/wireless/bcmdhd/Kconfig"
+endmenu
+
+menu "[CAN] (ethernet) Drivers"
+#source "module_drivers/drivers/net/can/ingenic/Kconfig"
+endmenu
+
+comment "---- (V4L2) Media Device Drivers ----"
+source "module_drivers/drivers/media/v4l2-core/Kconfig"
+source "module_drivers/drivers/media/platform/Kconfig"
+menu "[Sensors] Camera Sensors"
+source "module_drivers/drivers/media/i2c/Kconfig"
+endmenu
+
+source "module_drivers/drivers/video/ingenic_bscaler/Kconfig"
+source "module_drivers/drivers/video/ingenic-nna/Kconfig"
+source "module_drivers/drivers/video/ingenic_ipu/Kconfig"
+source "module_drivers/drivers/video/ingenic_avpu/Kconfig"
+
+
+
+comment "---- MISC Device Drivers ----"
+source "module_drivers/drivers/misc/Kconfig"
+
+menu "[RANDOM] drivers"
+source "module_drivers/drivers/char/hw_random/Kconfig"
+endmenu
+
+comment "[MFD] Multi Function Device Drivers"
+source "module_drivers/drivers/mfd/Kconfig"
+
+comment "[Power] power and regulator Drivers"
+#source "module_drivers/drivers/power/Kconfig"
+#source "module_drivers/drivers/regulator/Kconfig"
+
+source "module_drivers/drivers/crypto/Kconfig"
+
+
+menu "[WDT] watchdog Drivers"
+source "module_drivers/drivers/watchdog/Kconfig"
+endmenu
+
+
+menu "[PWM] drivers"
+source "module_drivers/drivers/pwm/Kconfig"
+endmenu
+
+menu "[RTC] drivers"
+source "module_drivers/drivers/rtc/Kconfig"
+endmenu

@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "x1000.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "ingenic,x1000";
+	model = "x1000 module base";
+
+	aliases {
+		serial2 = &uart2;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x02000000>;
+	};
+};
+
+&exclk {
+	clock-frequency = <24000000>;
+};
+
+&uart2 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart2>;
+};
+
+
+&pinctrl {
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2_pd";
+		bias-pull-up;
+	};
+};
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg";
+	status = "okay";
+};
+
+&otg_phy {
+	dr_mode = "otg";
+	/*ingenic,id-dete-gpio = <&gpb 29 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;*/
+	/*ingenic,vbus-dete-gpio = <&gpd 17 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;*/
+	/*ingenic,drvvbus-gpio = <&gpe 22 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+	status = "okay";
+};
