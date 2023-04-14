@@ -211,9 +211,11 @@ cpp_flags      = -Wp,-MMD,$(depfile) $(NOSTDINC_FLAGS) $(LINUXINCLUDE)     \
 ld_flags       = $(KBUILD_LDFLAGS) $(ldflags-y) $(LDFLAGS_$(@F))
 
 DTC_INCLUDE    := $(srctree)/scripts/dtc/include-prefixes
+DTC_INCLUDE_ROOT   := $(objtree)/include
 
 dtc_cpp_flags  = -Wp,-MMD,$(depfile).pre.tmp -nostdinc                    \
 		 $(addprefix -I,$(DTC_INCLUDE))                          \
+		 $(addprefix -I,$(DTC_INCLUDE_ROOT))                          \
 		 -undef -D__DTS__
 
 # Useful for describing the dependency of composite objects

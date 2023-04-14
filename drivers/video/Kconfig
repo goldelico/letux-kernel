@@ -43,7 +43,6 @@ endif
 
 if FB || SGI_NEWPORT_CONSOLE
 	source "drivers/video/logo/Kconfig"
-
 endif
 
 

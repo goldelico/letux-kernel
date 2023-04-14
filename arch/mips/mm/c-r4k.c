@@ -96,9 +96,12 @@ static inline void r4k_on_each_cpu(unsigned int type,
 				   void (*func)(void *info), void *info)
 {
 	preempt_disable();
+
+#ifndef CONFIG_MACH_XBURST2 
 	if (r4k_op_needs_ipi(type))
 		smp_call_function_many(&cpu_foreign_map[smp_processor_id()],
 				       func, info, 1);
+#endif
 	func(info);
 	preempt_enable();
 }
@@ -417,9 +420,9 @@ static void r4k_blast_scache_page_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
-	if (scache_size == 0)
+	if (scache_size == 0) {
 		r4k_blast_scache_page = (void *)cache_noop;
-	else if (sc_lsize == 16)
+	} else if (sc_lsize == 16)
 		r4k_blast_scache_page = blast_scache16_page;
 	else if (sc_lsize == 32)
 		r4k_blast_scache_page = blast_scache32_page;
@@ -435,9 +438,9 @@ static void r4k_blast_scache_page_indexed_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
-	if (scache_size == 0)
+	if (scache_size == 0) {
 		r4k_blast_scache_page_indexed = (void *)cache_noop;
-	else if (sc_lsize == 16)
+	} else if (sc_lsize == 16)
 		r4k_blast_scache_page_indexed = blast_scache16_page_indexed;
 	else if (sc_lsize == 32)
 		r4k_blast_scache_page_indexed = blast_scache32_page_indexed;
@@ -453,9 +456,9 @@ static void r4k_blast_scache_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
-	if (scache_size == 0)
+	if (scache_size == 0) {
 		r4k_blast_scache = (void *)cache_noop;
-	else if (sc_lsize == 16)
+	} else if (sc_lsize == 16)
 		r4k_blast_scache = blast_scache16;
 	else if (sc_lsize == 32)
 		r4k_blast_scache = blast_scache32;
@@ -592,7 +595,7 @@ static inline void local_r4k_flush_cache_range(void * args)
 	 * If executable, we must ensure any dirty lines are written back far
 	 * enough to be visible to icache.
 	 */
-	if (cpu_has_dc_aliases || (exec && !cpu_has_ic_fills_f_dc))
+	if (1 /*TODO bypzqi*/ || cpu_has_dc_aliases || (exec && !cpu_has_ic_fills_f_dc))
 		r4k_blast_dcache();
 	/* If executable, blast stale lines from icache */
 	if (exec)
@@ -885,7 +888,11 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	 * we have to use the HIT-type alternative as IPI cannot be used
 	 * here due to interrupts possibly being disabled.
 	 */
+#ifndef CONFIG_MACH_XBURST2
 	if (!r4k_op_needs_ipi(R4K_INDEX) && size >= dcache_size) {
+#else
+	if(size >= dcache_size) {
+#endif
 		r4k_blast_dcache();
 	} else {
 		R4600_HIT_CACHEOP_WAR_IMPL;
@@ -955,10 +962,29 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 		return;
 	}
 
+#ifndef CONFIG_MACH_XBURST2
 	if (!r4k_op_needs_ipi(R4K_INDEX) && size >= dcache_size) {
+#else
+	if(size >= dcache_size) {
+#endif
+
 		r4k_blast_dcache();
 	} else {
+#if defined(CONFIG_MACH_XBURST) || defined(CONFIG_MACH_XBURST2)
+		unsigned long lsize = cpu_dcache_line_size();
+		unsigned long cmask = (lsize - 1);
+		unsigned long lmask = ~(cmask);
+#endif
 		R4600_HIT_CACHEOP_WAR_IMPL;
+#if defined(CONFIG_MACH_XBURST) || defined(CONFIG_MACH_XBURST2)
+		if (addr & cmask) {
+			cache_op(Hit_Writeback_Inv_D, addr & lmask);
+		}
+		if ((addr + size) & cmask) {
+			cache_op(Hit_Writeback_Inv_D, (addr + size - 1) & lmask);
+		}
+#endif
+
 		blast_inv_dcache_range(addr, addr + size);
 	}
 	preempt_enable();
@@ -1645,6 +1671,7 @@ static void loongson3_sc_init(void)
 extern int r5k_sc_init(void);
 extern int rm7k_sc_init(void);
 extern int mips_sc_init(void);
+extern int ingenic_sc_init(void);
 
 static void setup_scache(void)
 {
@@ -1697,6 +1724,10 @@ static void setup_scache(void)
 
 	case CPU_LOONGSON64:
 		loongson3_sc_init();
+		return;
+	case CPU_XBURST:
+	case CPU_XBURST2:
+		ingenic_sc_init();
 		return;
 
 	case CPU_CAVIUM_OCTEON3:

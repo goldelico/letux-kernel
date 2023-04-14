@@ -72,6 +72,7 @@ void local_flush_tlb_all(void)
 	 */
 	if (cpu_has_tlbinv && !entry) {
 #ifndef CONFIG_MACH_X2000
+#ifndef CONFIG_MACH_XBURST2
 		int ftlbhighset;
 		if (current_cpu_data.tlbsizevtlb) {
 			write_c0_index(0);
@@ -89,6 +90,7 @@ void local_flush_tlb_all(void)
 		}
 #else
 		tlbinvf();  /* invalide FTLB/VTLB set */
+#endif
 #endif
 	} else {
 		while (entry < current_cpu_data.tlbsize) {

@@ -48,6 +48,8 @@ config SPI_MASTER
 
 if SPI_MASTER
 
+comment "SPI Master Controller Drivers"
+
 config SPI_MEM
 	bool "SPI memory extension"
 	help

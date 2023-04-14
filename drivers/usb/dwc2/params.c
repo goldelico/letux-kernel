@@ -39,210 +39,65 @@
 
 #include "core.h"
 
-static void dwc2_set_bcm_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->host_rx_fifo_size = 774;
-	p->max_transfer_size = 65535;
-	p->max_packet_count = 511;
-	p->ahbcfg = 0x10;
-}
-
-static void dwc2_set_his_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->speed = DWC2_SPEED_PARAM_HIGH;
-	p->host_rx_fifo_size = 512;
-	p->host_nperio_tx_fifo_size = 512;
-	p->host_perio_tx_fifo_size = 512;
-	p->max_transfer_size = 65535;
-	p->max_packet_count = 511;
-	p->host_channels = 16;
-	p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
-	p->phy_utmi_width = 8;
-	p->i2c_enable = false;
-	p->reload_ctl = false;
-	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 <<
-		GAHBCFG_HBSTLEN_SHIFT;
-	p->change_speed_quirk = true;
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
-}
-
-static void dwc2_set_s3c6400_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
-	p->phy_utmi_width = 8;
-}
-
-static void dwc2_set_rk_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->host_rx_fifo_size = 525;
-	p->host_nperio_tx_fifo_size = 128;
-	p->host_perio_tx_fifo_size = 256;
-	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 <<
-		GAHBCFG_HBSTLEN_SHIFT;
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
-}
-
-static void dwc2_set_ltq_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = 2;
-	p->host_rx_fifo_size = 288;
-	p->host_nperio_tx_fifo_size = 128;
-	p->host_perio_tx_fifo_size = 96;
-	p->max_transfer_size = 65535;
-	p->max_packet_count = 511;
-	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 <<
-		GAHBCFG_HBSTLEN_SHIFT;
-}
-
-static void dwc2_set_amlogic_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->speed = DWC2_SPEED_PARAM_HIGH;
-	p->host_rx_fifo_size = 512;
-	p->host_nperio_tx_fifo_size = 500;
-	p->host_perio_tx_fifo_size = 500;
-	p->host_channels = 16;
-	p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
-	p->ahbcfg = GAHBCFG_HBSTLEN_INCR8 <<
-		GAHBCFG_HBSTLEN_SHIFT;
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
-}
-
-static void dwc2_set_amlogic_g12a_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->lpm = false;
-	p->lpm_clock_gating = false;
-	p->besl = false;
-	p->hird_threshold_en = false;
-}
-
-static void dwc2_set_amcc_params(struct dwc2_hsotg *hsotg)
+static void dwc2_set_hsotg_params(struct dwc2_hsotg *hsotg)
 {
 	struct dwc2_core_params *p = &hsotg->params;
 
 	p->ahbcfg = GAHBCFG_HBSTLEN_INCR16 << GAHBCFG_HBSTLEN_SHIFT;
-}
 
-static void dwc2_set_stm32f4x9_fsotg_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
+	p->otg_caps.otg_rev = 0x200;
 
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
+	p->host_rx_fifo_size = 1528;
+	p->host_nperio_tx_fifo_size = 1024;
+	p->host_perio_tx_fifo_size = 1024;
+
+#ifdef CONFIG_USB_DWC2_EXT_ID_PIN
+	p->external_id_pin_ctl = true;
+#endif
+
+#ifdef CONFIG_USB_DWC2_EXT_VBUS_DETECT
+	p->external_vbus_detect = true;
+#endif
+
+#ifdef CONFIG_USB_DWC2_FORCE_FULL_SPEED
 	p->speed = DWC2_SPEED_PARAM_FULL;
-	p->host_rx_fifo_size = 128;
-	p->host_nperio_tx_fifo_size = 96;
-	p->host_perio_tx_fifo_size = 96;
-	p->max_packet_count = 256;
-	p->phy_type = DWC2_PHY_TYPE_PARAM_FS;
-	p->i2c_enable = false;
-	p->activate_stm_fs_transceiver = true;
-}
-
-static void dwc2_set_stm32f7_hsotg_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->host_rx_fifo_size = 622;
-	p->host_nperio_tx_fifo_size = 128;
-	p->host_perio_tx_fifo_size = 256;
-}
-
-static void dwc2_set_stm32mp15_fsotg_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->speed = DWC2_SPEED_PARAM_FULL;
-	p->host_rx_fifo_size = 128;
-	p->host_nperio_tx_fifo_size = 96;
-	p->host_perio_tx_fifo_size = 96;
-	p->max_packet_count = 256;
-	p->phy_type = DWC2_PHY_TYPE_PARAM_FS;
-	p->i2c_enable = false;
-	p->activate_stm_fs_transceiver = true;
-	p->activate_stm_id_vb_detection = true;
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
-}
-
-static void dwc2_set_stm32mp15_hsotg_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_cap = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
-	p->activate_stm_id_vb_detection = !device_property_read_bool(hsotg->dev, "usb-role-switch");
-	p->host_rx_fifo_size = 440;
-	p->host_nperio_tx_fifo_size = 256;
-	p->host_perio_tx_fifo_size = 256;
-	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
+#endif
 }
 
 const struct of_device_id dwc2_of_match_table[] = {
-	{ .compatible = "brcm,bcm2835-usb", .data = dwc2_set_bcm_params },
-	{ .compatible = "hisilicon,hi6220-usb", .data = dwc2_set_his_params  },
-	{ .compatible = "rockchip,rk3066-usb", .data = dwc2_set_rk_params },
-	{ .compatible = "lantiq,arx100-usb", .data = dwc2_set_ltq_params },
-	{ .compatible = "lantiq,xrx200-usb", .data = dwc2_set_ltq_params },
 	{ .compatible = "snps,dwc2" },
-	{ .compatible = "samsung,s3c6400-hsotg",
-	  .data = dwc2_set_s3c6400_params },
-	{ .compatible = "amlogic,meson8-usb",
-	  .data = dwc2_set_amlogic_params },
-	{ .compatible = "amlogic,meson8b-usb",
-	  .data = dwc2_set_amlogic_params },
-	{ .compatible = "amlogic,meson-gxbb-usb",
-	  .data = dwc2_set_amlogic_params },
-	{ .compatible = "amlogic,meson-g12a-usb",
-	  .data = dwc2_set_amlogic_g12a_params },
-	{ .compatible = "amcc,dwc-otg", .data = dwc2_set_amcc_params },
-	{ .compatible = "apm,apm82181-dwc-otg", .data = dwc2_set_amcc_params },
-	{ .compatible = "st,stm32f4x9-fsotg",
-	  .data = dwc2_set_stm32f4x9_fsotg_params },
-	{ .compatible = "st,stm32f4x9-hsotg" },
-	{ .compatible = "st,stm32f7-hsotg",
-	  .data = dwc2_set_stm32f7_hsotg_params },
-	{ .compatible = "st,stm32mp15-fsotg",
-	  .data = dwc2_set_stm32mp15_fsotg_params },
-	{ .compatible = "st,stm32mp15-hsotg",
-	  .data = dwc2_set_stm32mp15_hsotg_params },
+	{ .compatible = "ingenic,x1000-dwc2-hsotg",
+	  .data = dwc2_set_hsotg_params },
+	{ .compatible = "ingenic,x1600-dwc2-hsotg",
+	  .data = dwc2_set_hsotg_params },
+	{ .compatible = "ingenic,x2000-dwc2-hsotg",
+	  .data = dwc2_set_hsotg_params },
+	{ .compatible = "ingenic,x2500-dwc2-hsotg",
+	  .data = dwc2_set_hsotg_params },
+	{ .compatible = "ingenic,m300-dwc2-hsotg",
+	  .data = dwc2_set_hsotg_params },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
 
 static void dwc2_set_param_otg_cap(struct dwc2_hsotg *hsotg)
 {
-	u8 val;
-
 	switch (hsotg->hw_params.op_mode) {
 	case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
-		val = DWC2_CAP_PARAM_HNP_SRP_CAPABLE;
+		hsotg->params.otg_caps.hnp_support = true;
+		hsotg->params.otg_caps.srp_support = true;
 		break;
 	case GHWCFG2_OP_MODE_SRP_ONLY_CAPABLE:
 	case GHWCFG2_OP_MODE_SRP_CAPABLE_DEVICE:
 	case GHWCFG2_OP_MODE_SRP_CAPABLE_HOST:
-		val = DWC2_CAP_PARAM_SRP_ONLY_CAPABLE;
+		hsotg->params.otg_caps.hnp_support = false;
+		hsotg->params.otg_caps.srp_support = true;
 		break;
 	default:
-		val = DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE;
+		hsotg->params.otg_caps.hnp_support = false;
+		hsotg->params.otg_caps.srp_support = false;
 		break;
 	}
-
-	hsotg->params.otg_cap = val;
 }
 
 static void dwc2_set_param_phy_type(struct dwc2_hsotg *hsotg)
@@ -412,8 +267,8 @@ static void dwc2_set_default_params(struct dwc2_hsotg *hsotg)
 		 * auto-detect if the hardware does not support the
 		 * default.
 		 */
-		p->g_rx_fifo_size = 2048;
-		p->g_np_tx_fifo_size = 1024;
+		p->g_rx_fifo_size = 768;
+		p->g_np_tx_fifo_size = 256;
 		dwc2_set_param_tx_fifo_sizes(hsotg);
 	}
 }
@@ -452,35 +307,47 @@ static void dwc2_get_device_properties(struct dwc2_hsotg *hsotg)
 
 	if (of_find_property(hsotg->dev->of_node, "disable-over-current", NULL))
 		p->oc_disable = true;
+
+	if (of_find_property(hsotg->dev->of_node, "force-full-speed", NULL))
+		p->speed = DWC2_SPEED_PARAM_FULL;
+
+	if (of_find_property(hsotg->dev->of_node, "external-id-pin", NULL))
+		p->external_id_pin_ctl = true;
+
+	if (of_find_property(hsotg->dev->of_node, "external-vbus-detect", NULL))
+		p->external_vbus_detect = true;
+
+	if (of_find_property(hsotg->dev->of_node, "device-using-dma", NULL)) {
+		p->g_dma_desc = false;
+		p->g_dma =  true;
+	}
 }
 
 static void dwc2_check_param_otg_cap(struct dwc2_hsotg *hsotg)
 {
 	int valid = 1;
 
-	switch (hsotg->params.otg_cap) {
-	case DWC2_CAP_PARAM_HNP_SRP_CAPABLE:
+	if (hsotg->params.otg_caps.hnp_support && hsotg->params.otg_caps.srp_support) {
+		/* check HNP && SRP capable */
 		if (hsotg->hw_params.op_mode != GHWCFG2_OP_MODE_HNP_SRP_CAPABLE)
 			valid = 0;
-		break;
-	case DWC2_CAP_PARAM_SRP_ONLY_CAPABLE:
-		switch (hsotg->hw_params.op_mode) {
-		case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
-		case GHWCFG2_OP_MODE_SRP_ONLY_CAPABLE:
-		case GHWCFG2_OP_MODE_SRP_CAPABLE_DEVICE:
-		case GHWCFG2_OP_MODE_SRP_CAPABLE_HOST:
-			break;
-		default:
-			valid = 0;
-			break;
+	} else if (!hsotg->params.otg_caps.hnp_support) {
+		/* check SRP only capable */
+		if (hsotg->params.otg_caps.srp_support) {
+			switch (hsotg->hw_params.op_mode) {
+			case GHWCFG2_OP_MODE_HNP_SRP_CAPABLE:
+			case GHWCFG2_OP_MODE_SRP_ONLY_CAPABLE:
+			case GHWCFG2_OP_MODE_SRP_CAPABLE_DEVICE:
+			case GHWCFG2_OP_MODE_SRP_CAPABLE_HOST:
+				break;
+			default:
+				valid = 0;
+				break;
+			}
 		}
-		break;
-	case DWC2_CAP_PARAM_NO_HNP_SRP_CAPABLE:
-		/* always valid */
-		break;
-	default:
+		/* else: NO HNP && NO SRP capable: always valid */
+	} else {
 		valid = 0;
-		break;
 	}
 
 	if (!valid)

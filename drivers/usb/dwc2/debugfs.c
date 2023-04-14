@@ -535,7 +535,6 @@ static const struct debugfs_reg32 dwc2_regs[] = {
 	dump_register(DTXFSTS(13)),
 	dump_register(DTXFSTS(14)),
 	dump_register(DTXFSTS(15)),
-	dump_register(PCGCTL),
 	dump_register(HCFG),
 	dump_register(HFIR),
 	dump_register(HFNUM),
@@ -670,7 +669,9 @@ static int params_show(struct seq_file *seq, void *v)
 	struct dwc2_core_params *p = &hsotg->params;
 	int i;
 
-	print_param(seq, p, otg_cap);
+	print_param(seq, p, otg_caps.hnp_support);
+	print_param(seq, p, otg_caps.srp_support);
+	print_param(seq, p, otg_caps.otg_rev);
 	print_param(seq, p, dma_desc_enable);
 	print_param(seq, p, dma_desc_fs_enable);
 	print_param(seq, p, speed);
