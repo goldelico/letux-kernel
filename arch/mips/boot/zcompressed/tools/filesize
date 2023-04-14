@@ -1,0 +1,14 @@
+#!/bin/sh
+
+file=$1
+
+which du > /dev/null
+if [ $? != 0 ]; then
+    echo "error: no 'du' cmd found" 1>&2
+    exit 1
+fi
+
+for size in `du -b $file`; do
+    echo $size;
+    exit 0
+done

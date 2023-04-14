@@ -1,0 +1,15 @@
+choice
+	prompt "device tree select for X2500 boards"
+	default DT_HIPPO_V10
+	depends on SOC_X2500
+
+config DT_GANDER_V10
+	bool "x2500 gander_v10"
+config DT_DARWIN_V14
+	bool "x2500 darwin_v14"
+config DT_HIPPO_V10
+	bool "x2500 hippo_v10"
+config DT_HIPPO_V12
+	bool "x2500 hippo_v12"
+
+endchoice

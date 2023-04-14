@@ -1,0 +1,9 @@
+choice
+	prompt "device tree select for X1000 boards"
+	default DT_X1000_MODULE
+	depends on SOC_X1000
+
+config DT_X1000_MODULE
+	bool "x1000 module base"
+
+endchoice

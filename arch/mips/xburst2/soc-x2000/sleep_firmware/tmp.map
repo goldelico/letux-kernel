@@ -1,0 +1,75 @@
+
+Discarded input sections
+
+ .reginfo       0x0000000000000000       0x18 ./src/fastboot_resume.o
+ .comment       0x0000000000000000       0x2f ./src/fastboot_resume.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/fastboot_resume.o
+ .reginfo       0x0000000000000000       0x18 ./src/uart.o
+ .MIPS.abiflags
+                0x0000000000000000       0x18 ./src/uart.o
+ .comment       0x0000000000000000       0x2f ./src/uart.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/uart.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ram              0x00000000b0004000 0x0000000000000ae0
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.text           0x00000000b0004000      0x690
+ *(.resume)
+ .resume        0x00000000b0004000       0x24 ./src/fastboot_resume.o
+                0x00000000b0004000                fastboot_restore_code_1
+ *(.text)
+ *fill*         0x00000000b0004024        0xc 
+ .text          0x00000000b0004030      0x400 ./src/fastboot_resume.o
+                0x00000000b0004030                sys_clk_restore
+                0x00000000b00040c0                fastboot_restore_code_2
+ .text          0x00000000b0004430      0x260 ./src/uart.o
+                0x00000000b000449c                serial_init
+                0x00000000b00045e4                serial_puts
+                0x00000000b000461c                serial_put_hex
+
+.MIPS.abiflags  0x00000000b0004690       0x18
+ .MIPS.abiflags
+                0x00000000b0004690       0x18 ./src/fastboot_resume.o
+
+.data           0x00000000b00046b0        0x0
+ *(.data)
+ .data          0x00000000b00046b0        0x0 ./src/fastboot_resume.o
+ .data          0x00000000b00046b0        0x0 ./src/uart.o
+ *(.rodata)
+
+.bss            0x00000000b00046b0        0x0
+                0x00000000b00046b0                . = ALIGN (0x4)
+                0x00000000b00046b0                __bss_start = .
+ *(.sbss.*)
+ *(.bss.*)
+ *(COMMON)
+                0x00000000b00046b0                . = ALIGN (0x4)
+                0x00000000b00046b0                __bss_end = .
+ .bss           0x00000000b00046b0        0x0 ./src/fastboot_resume.o
+ .bss           0x00000000b00046b0        0x0 ./src/uart.o
+
+/DISCARD/
+ *(COMMON)
+ *(.pdri)
+ *(.comment)
+ *(.gnu.attributes)
+ *(.reginfo)
+LOAD ./src/fastboot_resume.o
+LOAD ./src/uart.o
+OUTPUT(./tmp.elf elf32-tradlittlemips)
+
+.pdr            0x0000000000000000       0xe0
+ .pdr           0x0000000000000000       0x60 ./src/fastboot_resume.o
+ .pdr           0x0000000000000060       0x80 ./src/uart.o
+
+.mdebug.abi32   0x0000000000000000        0x0
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/fastboot_resume.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/uart.o
