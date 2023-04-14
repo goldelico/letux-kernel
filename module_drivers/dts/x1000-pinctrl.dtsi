@@ -1,0 +1,181 @@
+#include <dt-bindings/pinctrl/ingenic-pinctrl.h>
+
+&pinctrl {
+
+	uart0_pin: uart0-pin {
+		uart0_pc_hwflow: uart0-pc-hwflow {
+			ingenic,pinmux = <&gpc 10 13>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+		uart0_pc: uart0-pc {
+			ingenic,pinmux = <&gpc 10 11>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+	uart1_pin: uart1-pin {
+		uart1_pa: uart1-pa {
+			ingenic,pinmux = <&gpa 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+		uart1_pd_hwflow: uart1-pd-hwflow {
+			ingenic,pinmux = <&gpd 2 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		uart1_pd: uart1-pd {
+			ingenic,pinmux = <&gpd 2 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	uart2_pin: uart2-pin {
+		uart2_pa: uart2-pa {
+			ingenic,pinmux = <&gpa 2 3>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		uart2_pd: uart2-pd {
+			ingenic,pinmux = <&gpd 4 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	i2c0_pin: i2c0-pin {
+		i2c0_pb: i2c0-pb {
+			ingenic,pinmux = <&gpb 23 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	i2c1_pin: i2c1-pin {
+		i2c1_pa: i2c1-pa {
+			ingenic,pinmux = <&gpa 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		i2c1_pc: i2c1-pc {
+			ingenic,pinmux = <&gpc 26 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	};
+
+	i2c2_pin: i2c2-pin {
+		i2c2_pd: i2c2-pd {
+			ingenic,pinmux = <&gpd 0 1>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+	msc0_pin: msc0-pin {
+		msc0_pa_8bit: msc0-pa-8bit {
+			ingenic,pinmux = <&gpa 16 25>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		msc0_pa_4bit: msc0-pa-4bit {
+			ingenic,pinmux = <&gpa 20 25>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+	msc1_pin: msc1-pin {
+		msc1_pc_4bit: msc1-pc-4bit {
+			ingenic,pinmux = <&gpc 0 5>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+	};
+
+	mac0_phy_clk: mac0-phy-clk {
+		ingenic,pinmux = <&gpb 6 6>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+	};
+
+	mac0_rmii: mac0-rmii {
+		mac0_rmii_pb: mac0-rmii-pb {
+			ingenic,pinmux = <&gpb 6 15>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	pwm_pin: pwm-pin {
+		pwm0_pc: pwm0_pc {
+			ingenic,pinmux = <&gpc 25 25>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+
+		pwm1_pc: pwm1_pc {
+			ingenic,pinmux = <&gpc 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm2_pc: pwm2_pc {
+			ingenic,pinmux = <&gpc 27 27>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+
+		pwm3_pb: pwm3_pb {
+			ingenic,pinmux = <&gpb 6 6>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+
+		pwm4_pc: pwm4_pc {
+			ingenic,pinmux = <&gpc 24 24>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+	 };
+
+	sfc_pin: sfc-pin {
+		sfc_pa: sfc-pa {
+			ingenic,pinmux = <&gpa 26 31>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	cim_pin: cim-pin {
+		cim_pa: cim-pa {
+			ingenic,pinmux = <&gpa 8 10>, <&gpa 12 19>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	 };
+
+	cim_mclk: cim-mclk {
+		cim_mclk_pa: cim-mclk-pa {
+			ingenic,pinmux = <&gpa 11 11>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION2>;
+		};
+	};
+
+	lcd_pins: lcd-pins {
+		smart_lcd_16bit: smart-lcd-16bit {
+			ingenic,pinmux = <&gpa 0 15>, <&gpb 16 18>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_9bit: smart-lcd-9bit {
+			ingenic,pinmux = <&gpa 0 8>, <&gpb 16 18>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_8bit: smart-lcd-8bit {
+			ingenic,pinmux = <&gpa 0 7>, <&gpb 16 18>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+		smart_lcd_te: smart-lcd-te {
+			ingenic,pinmux = <&gpb 19 19>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		};
+	};
+
+	rtc32k_pins:rtc32k-pins {
+		rtc32k_enable:rtc32k-enable {
+			ingenic,pinmux = <&gpb 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		};
+		rtc32k_disable:rtc32k-disable {
+			ingenic,pinmux = <&gpb 26 26>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCTIONS>;
+		};
+	};
+
+	drvvbus_pin: drvvbus-pin {
+		ingenic,pinmux = <&gpb 25 25>;
+		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+	};
+
+};
+

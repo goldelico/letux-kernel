@@ -1,0 +1,12 @@
+config HW_RANDOM_INGENIC
+        tristate "[RANDOM] Ingenic HW Random Number Generator support"
+        depends on MIPS
+        help
+         This driver provides kernel-side support for the Random Number
+         Generator hardware found on Ingenic processors.
+
+         To compile this driver as a module, choose M here: the
+         module will be called ingenic-rng.
+
+         If unsure, say N.
+

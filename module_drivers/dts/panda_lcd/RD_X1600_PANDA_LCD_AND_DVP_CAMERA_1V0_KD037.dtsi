@@ -1,0 +1,36 @@
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_kd035hvfbd037 {
+			compatible = "ingenic,kd035hvfbd037";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&smart_lcd_pa_16bit>;
+			ingenic,pwm-gpio = <&gpc 2 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,cs-gpio = <&gpa 23 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,vddio-en-gpio = <&gpa 20 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,vdd-en-gpio = <&gpa 19 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpa 27 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_kd035hvfbd037_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+
+};
+
+&dpu {
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_kd035hvfbd037_ep>;
+	    };
+	};
+};
+

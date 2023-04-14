@@ -1,0 +1,25 @@
+config INGENIC_PDMAC
+        bool "Ingenic programmable dma controller (Of Driver)"
+        depends on MACH_XBURST || MACH_XBURST2
+        select DMA_VIRTUAL_CHANNELS
+        select DMA_ENGINE
+        help
+          This selects support for the DMA controller in Ingenic X1000 M200 SoCs.
+          If you have a board based on such a SoC and wish to use DMA for
+          devices which can use the DMA controller, say Y or M here.
+
+
+
+# DMA engine configuration for ingenic
+config INGENIC_DMA_RECEIVE_DXTERNAL_DECIDE
+	tristate "ingenic dma receiving data is externally determined"
+	depends on INGENIC_PDMAC && SOC_X1600
+	default n
+	help
+	How much data is received is externally determined
+
+config INGENIC_AIC_USES_PDMA
+	bool "Ingenic AIC use pdma as dma."
+	depends on INGENIC_PDMAC
+	default n
+

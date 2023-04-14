@@ -1,0 +1,306 @@
+menuconfig SND_ASOC_INGENIC
+	tristate "[AUDIO] ASoC support for Ingenic"
+	depends on (MACH_XBURST=y || MACH_XBURST2=y)
+	select SND_SOC
+	select SND
+	select SOUND
+	help
+		Say 'Y' to enable Alsa drivers of xburst.
+
+if SND_ASOC_INGENIC
+config SND_ASOC_INGENIC_DEBUG
+	bool "enable ingenic debug message"
+	default n
+config SND_ASOC_INGENIC_VERBOSE
+	bool "enable ingenic verbose debug message"
+	default n
+config DMIC_AND_AMIC_SYNC
+	bool "enable dmic and amic sync"
+	default n
+
+choice
+	prompt "Audio Version:"
+	depends on SND_ASOC_INGENIC
+config SND_ASOC_INGENIC_AS_V1
+	bool "AudioSystem Version 1 For Ingenic SOCs"
+	depends on SOC_X1600 || SOC_X2500
+	help
+		Audio System Verison 1 for SOC X1000, X1600, X2500.
+
+config SND_ASOC_INGENIC_AS_V2
+	bool "AudioSystem Version 2 For Ingenic SOCs"
+	select SND_DYNAMIC_MINORS
+	depends on SOC_M300 || SOC_X2000 || SOC_X2100
+	help
+		Audio System Version 2 for SOC X2000,
+endchoice
+
+config SND_ASOC_INGENIC_DMA_PREALLOC_PAGES
+        int "Prealloc Dma buf pages[4..1024]"
+        depends on SND_ASOC_INGENIC_AS_V2
+        default 128
+        help
+	  Specifies the default pre-allocated buffer-size in pages(4096 bytes) for the
+	  ingenic-audio driver.
+
+if SND_ASOC_INGENIC_AS_V1
+
+config SND_ASOC_INGENIC_X1000_BOARD
+	tristate
+
+config SND_ASOC_INGENIC_AIC
+	tristate
+
+config SND_ASOC_PDMA
+	tristate
+	select DMADEVICES
+	select INGENIC_PDMAC
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+
+config SND_ASOC_INGENIC_AIC_SPDIF
+	tristate
+	select SND_ASOC_INGENIC_AIC
+
+config SND_ASOC_INGENIC_AIC_I2S
+	tristate
+	select SND_ASOC_INGENIC_AIC
+
+config SND_ASOC_INGENIC_DMIC
+	tristate
+
+config SND_ASOC_INGENIC_PCM
+	tristate
+
+config SND_ASOC_INGENIC_ICDC_D3
+	tristate
+	select SND_ASOC_INGENIC_AIC
+	select SND_ASOC_INGENIC_INCODEC
+
+config SND_ASOC_INGENIC_DUMP_CODEC
+	tristate
+
+config SND_ASOC_INGENIC_ICDC_INNO_V2
+	tristate
+
+config SND_ASOC_INGENIC_AIC_I2S_TLOOP
+	tristate
+	select SND_ASOC_INGENIC_AIC
+
+choice
+	prompt "select aic clock mode"
+	depends on SOC_X1600
+	default SND_ASOC_INGENIC_INDEPENDENT_CLK
+
+config SND_ASOC_INGENIC_INDEPENDENT_CLK
+	bool "aic use independent clock mode"
+
+config SND_ASOC_INGENIC_SHARE_CLK
+	bool "aic use share clock mode"
+
+endchoice
+
+choice
+	prompt "select audio mono channel"
+	depends on SOC_X1600 || SOC_X2500
+	default SND_ASOC_INGENIC_MONO_RIGHT
+
+config SND_ASOC_INGENIC_MONO_RIGHT
+	bool "select audio mono channel right"
+	help
+		When recording mono audio, use the right channel
+
+config SND_ASOC_INGENIC_MONO_LEFT
+	bool "select audio mono channel left"
+	help
+		When recording mono audio, use the left channel
+endchoice
+
+choice
+	prompt "select aic clock direction"
+	depends on SOC_X1600
+	default	SND_ASOC_INGENIC_MASTER_MODE
+
+config SND_ASOC_INGENIC_MASTER_MODE
+	bool "aic as master mode"
+	help
+		aic provide clock to external codec.
+
+config SND_ASOC_INGENIC_SLAVE_MODE
+	bool "aic as slave mode"
+	help
+		aic get clock from external codec.
+endchoice
+
+choice
+	prompt "select aic protocol mode"
+        depends on SOC_X1600
+	default	SND_ASOC_INGENIC_I2S_MODE
+
+config SND_ASOC_INGENIC_I2S_MODE
+	bool "aic use i2s protocol"
+
+config SND_ASOC_INGENIC_LEFT_J_MODE
+	bool "aic use left justified protocol"
+endchoice
+
+endif
+
+if SND_ASOC_INGENIC_AS_V2
+
+config SND_ASOC_INGENIC_AS_FE
+        tristate "ingenic snd asoc as-fe"
+
+config SND_ASOC_INGENIC_AS_BAIC
+        tristate "ingenic snd asoc baic"
+
+config SND_ASOC_INGENIC_AS_SPDIF
+        tristate "ingenic snd asoc spdif"
+        default y
+
+config SND_ASOC_INGENIC_AS_DMIC
+        tristate "ingenic snd asoc dmic"
+        default y
+
+config SND_ASOC_INGENIC_ICDC_INNO
+        tristate "ingenic  inno audio codec"
+        default y
+
+config SND_ASOC_INGENIC_AS_VIR_FE
+	depends on SND_ASOC_INGENIC_AS_FE
+        bool "enable ingenic virtual FE"
+        default y
+endif
+
+
+menu "Ingenic Board Type Select"
+choice
+	prompt "SOC x2000 codec Type select"
+	depends on SOC_X2000
+	depends on SND_ASOC_INGENIC_AS_V2
+
+	config SND_ASOC_INGENIC_BOARD_EXTERNAL_SOURCE
+	tristate "Audio support for external source board"
+
+	config SND_ASOC_INGENIC_ZEBRA
+        tristate "Audio support for x2000 zebra board"
+        select SND_ASOC_INGENIC_AS_FE
+        select SND_ASOC_INGENIC_AS_BAIC
+	select SND_ASOC_INGENIC_ICDC_INNO
+        select SND_SOC_WM8594
+        select SND_SOC_AK4458
+        select SND_SOC_AK5558
+
+	config SND_ASOC_INGENIC_ZEBRA_DMIC_ICDC
+        tristate "Audio support for x2000 zebra dmic icodec board"
+        select SND_ASOC_INGENIC_AS_FE
+        select SND_ASOC_INGENIC_AS_BAIC
+	select SND_ASOC_INGENIC_ICDC_INNO
+
+	config SND_ASOC_INGENIC_HALLEY5_V20
+        tristate "Audio support for x2000 halley5_v20 board"
+        select SND_ASOC_INGENIC_AS_FE
+        select SND_ASOC_INGENIC_AS_BAIC
+	select SND_ASOC_INGENIC_ICDC_INNO
+endchoice
+
+choice
+	prompt "SOC m300 codec Type select"
+	depends on SOC_M300
+	depends on SND_ASOC_INGENIC_AS_V2
+	config SND_ASOC_INGENIC_GEWU
+        tristate "Audio support for m300 gewu board"
+        select SND_ASOC_INGENIC_AS_FE
+        select SND_ASOC_INGENIC_AS_BAIC
+	select SND_ASOC_INGENIC_ICDC_INNO
+endchoice
+
+choice
+        prompt "SOC x2100 codec Type select"
+	depends on SOC_X2100
+        depends on SND_ASOC_INGENIC_AS_V2
+        config SND_ASOC_INGENIC_KALE_V10
+        tristate "Audio support for x2100 kale board"
+        select SND_ASOC_INGENIC_AS_FE
+        select SND_ASOC_INGENIC_AS_BAIC
+        select SND_ASOC_INGENIC_ICDC_INNO
+endchoice
+
+choice
+	prompt "SOC x2500 codec Type select"
+	depends on SOC_X2500
+	depends on SND_ASOC_INGENIC_AS_V1
+	config SND_ASOC_INGENIC_HIPPO_BOARD
+        tristate "Audio support for x2500 hippo  board"
+        select SND_ASOC_INGENIC_ICDC_INNO_V2
+        select SND_ASOC_INGENIC_DUMP_CODEC
+	select SND_ASOC_INGENIC_AIC
+	select SND_ASOC_PDMA
+	select SND_ASOC_INGENIC_AIC_I2S
+	select SND_ASOC_INGENIC_AIC_I2S_TLOOP
+	select SND_ASOC_INGENIC_DMIC
+	select SND_ASOC_INGENIC_PCM
+	select SND_ASOC_INGENIC_MONO_RIGHT
+endchoice
+
+choice
+	prompt "SOC x1600 codec Type select"
+	depends on SOC_X1600
+	depends on SND_ASOC_INGENIC_AS_V1
+
+	config SND_ASOC_INGENIC_PANDA
+        bool "Audio support for x1600 panda board"
+        select SND_SOC_WM8594
+        select SND_ASOC_INGENIC_DUMP_CODEC
+	select SND_ASOC_INGENIC_AIC
+	select SND_ASOC_PDMA
+	select SND_ASOC_INGENIC_AIC_I2S
+	select SND_ASOC_INGENIC_AIC_I2S_TLOOP
+	select SND_ASOC_INGENIC_MONO_RIGHT
+
+	config SND_ASOC_INGENIC_HALLEY6
+        bool "Audio support for x1600 halley6 board"
+        select SND_ASOC_INGENIC_DUMP_CODEC
+	select SND_ASOC_INGENIC_AIC
+	select SND_ASOC_PDMA
+	select SND_ASOC_INGENIC_AIC_I2S
+	select SND_ASOC_INGENIC_AIC_I2S_TLOOP
+	select SND_ASOC_INGENIC_MONO_RIGHT
+
+	config SND_ASOC_INGENIC_X1600_IRIS
+        bool "Audio support for x1600 iris board"
+        select SND_ASOC_INGENIC_DUMP_CODEC
+	select SND_ASOC_INGENIC_AIC
+	select SND_ASOC_PDMA
+	select SND_ASOC_INGENIC_AIC_I2S
+	select SND_ASOC_INGENIC_AIC_I2S_TLOOP
+	select SND_ASOC_INGENIC_MONO_RIGHT
+
+endchoice
+
+endmenu
+
+config SND_ASOC_INGENIC_SPDIF_DUMMY_TIMES
+    int "SOC x2000 spdif out dummy times in ms."
+	range 0 2000
+	default 800
+	depends on SOC_X2000
+	depends on SND_ASOC_INGENIC_AS_V2
+	help
+	    Select spdif out dummy times.
+		Examples:
+			1000 =>  1000 ms
+
+config SND_ASOC_INGENIC_PLAYBACK_DUMMY_TIMES
+    int "SOC x2000 playback dummy times in ms."
+	range 0 500
+	default 20
+	depends on SOC_X2000
+	depends on SND_ASOC_INGENIC_AS_V2
+	help
+	    Select playback dummy times.
+		Examples:
+			20 =>  20 ms
+
+source "module_drivers/sound/soc/ingenic/ecodec/Kconfig"
+
+endif

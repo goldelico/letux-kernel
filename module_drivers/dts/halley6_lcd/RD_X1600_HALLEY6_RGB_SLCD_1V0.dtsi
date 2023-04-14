@@ -1,0 +1,64 @@
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_fw035 {
+			compatible = "ingenic,fw035";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&smart_lcd_pa_8bit>;
+/*			ingenic,pwm-gpio = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+			ingenic,cs-gpio = <&gpa 23 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,rd-gpio = <&gpa 16 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,vdd-en-gpio = <&gpa 31 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpb 13 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_fw035_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 1000000>;
+	    brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+	    default-brightness-level = <4>;
+	};
+};
+
+&dpu {
+	status = "okay";
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_fw035_ep>;
+	    };
+	};
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&i2c1_pb_f2>;
+
+	goodix@0x38{
+		compatible = "goodix,ft6236"; /* do not modify */
+		reg = <0x38>; /* do not modify */
+		interrupt-parent = <&gpa>; /* INT pin */
+		interrupts = <9>;
+		reset-gpios = <&gpb 14 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>; /* RST pin */
+		irq-gpios = <&gpb 17 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		touchscreen-max-x = <480>;
+		touchscreen-max-y = <800>;
+		touchscreen-invert-x = <0>;
+		touchscreen-invert-y = <0>;
+		ft6236,swap-x2y = <0>;
+		irq-flags = <2>; /* 1 rising, 2 falling */
+	};
+};
+

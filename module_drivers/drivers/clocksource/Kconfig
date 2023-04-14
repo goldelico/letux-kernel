@@ -1,0 +1,16 @@
+config CLKSRC_INGENIC_SYS_OST
+        bool "OST clocksource."
+        select CLKSRC_OF
+	depends on SOC_X1600
+	help
+	    sys ost for ingenic xburst base socs.
+
+config CLKSRC_INGENIC_CORE_OST
+        bool "Core OST clocksource."
+        select CLKSRC_OF
+	depends on SOC_X2000 || SOC_X2000_V12 || SOC_M300 || SOC_X2100 || SOC_X2500
+        help
+          core sys ost for ingenic xburst2 based SOCs. each cpu has
+          an ost and all cpu shares a global clocksource.
+
+

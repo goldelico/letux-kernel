@@ -1,0 +1,441 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "m300.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+
+#ifdef CONFIG_CAMERA_V10
+#ifdef CONFIG_OV4689_1080P_120FPS
+#include "gewu_cameras/CAMERA_1.0_4LINE.dtsi"
+#else
+#include "gewu_cameras/CAMERA_1.0.dtsi"
+#endif
+#endif
+
+/ {
+	compatible = "ingenic,gewu_v10", "ingenic,m300";
+
+	/*chosen {
+		bootargs = "console=ttyS1,115200 mem=128M@0x0ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
+	};*/
+
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		reserved_memory: reserved_mem@0x6000000{
+		      compatible = "shared-dma-pool";
+		      reg = <0x06000000 0x2000000>;
+		};
+	};
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pc_rx_tx>;
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pd>;
+};
+
+&cpufreq {
+	status = "okay";
+	operating-points = <
+		/*KHZ uV */
+		1200000	900000
+		750000	900000
+		600000	900000
+		500000	900000
+		400000	900000
+		375000	900000
+		300000	900000
+		200000	900000
+			>;
+
+};
+
+&pinctrl {
+	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
+};
+
+&i2c0 {
+	status = "disable";
+
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4_pc>;
+
+	focaltech@38{
+		status = "okay";
+		compatible = "focaltech,fts"; /* do not modify */
+		reg = <0x38>; /* do not modify */
+		focaltech,reset-gpio = <&gpb 25 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>; /* RST pin */
+		focaltech,irq-gpio = <&gpb 24 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 1080 1920>;	/* resolution */
+
+		/* key settings */
+		focaltech,have-key;
+		focaltech,key-number = <3>;
+		focaltech,keys = <139 172 158>; /* key codes*/
+		focaltech,key-x-coords = <200 600 800>; /* keys x coords */
+		focaltech,key-y-coords = <2000 2000 2000>; /* keys y coords */
+
+	};
+};
+
+&felix {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&helix {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&ispcam0 {
+	status = "okay";
+	memory-region=<&reserved_memory>;
+};
+
+&pdma {
+	status = "okay";
+};
+
+&msc0 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc0_8bit>;
+	mmc-hs200-1_8v;
+	cap-mmc-highspeed;
+	non-removable;
+	max-frequency = <200000000>;
+	bus-width = <8>;
+	non-removable;
+	voltage-ranges = <1800 3300>;
+
+	/* special property */
+	enable_cpm_tx_tuning;
+	ingenic,rst-gpios = <0>;
+};
+
+&msc1 {
+	status = "okay";
+	pinctrl-names ="default","enable", "disable";
+	pinctrl-0 = <&msc1_4bit>;
+	pinctrl-1 = <&rtc32k_enable>;
+	pinctrl-2 = <&rtc32k_disable>;
+
+	sd-uhs-sdr104;
+	max-frequency = <150000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	non-removable;
+
+	ingenic,sdio_clk = <1>;
+	keep-power-in-suspend;
+
+	/* special property */
+	ingenic,sdr-gpios = <0>;
+	ingenic,rst-gpios = <0>;
+	ingenic,removal-manual; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
+
+	bcmdhd_wlan: bcmdhd_wlan {
+		 compatible = "android,bcmdhd_wlan";
+		 ingenic,sdio-irq = <&gpe 26 IRQ_TYPE_LEVEL_HIGH INGENIC_GPIO_NOBIAS>;
+		 ingenic,sdio-reset = <&gpd 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+
+&msc2 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc2_4bit>;
+	sd-uhs-sdr104;
+	sd-uhs-sdr50;
+	/* cd-inverted; */
+	max-frequency = <200000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+
+	cd-gpios = <&gpc 1 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	/* special property */
+	ingenic,sdr-gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-gpios = <0>;
+};
+
+&mac0 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac0_rgmii_p0_normal>, <&mac0_rgmii_p1_normal>;
+	pinctrl-1 = <&mac0_rgmii_p0_rst>, <&mac0_rgmii_p1_normal>;
+	status = "okay";
+	ingenic,rst-gpio = <&gpb 2 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-ms = <10>;
+	ingenic,rst-delay-ms = <15>;
+	ingenic,mac-mode = <RGMII>;
+	ingenic,mode-reg = <0xb00000e4>;
+	ingenic,rx-clk-delay = <0x2>;
+	ingenic,tx-clk-delay = <0x3f>;
+};
+
+&mac1 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac1_rgmii_p0_normal>, <&mac1_rgmii_p1_normal>;
+	pinctrl-1 = <&mac1_rgmii_p0_rst>, <&mac1_rgmii_p1_normal>;
+	status = "okay";
+	ingenic,rst-gpio = <&gpb 26 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-ms = <10>;
+	ingenic,rst-delay-ms = <15>;
+	ingenic,mac-mode = <RGMII>;
+	ingenic,mode-reg = <0xb00000e8>;
+	ingenic,rx-clk-delay = <0x0>;
+	ingenic,tx-clk-delay = <0x3f>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pe>;
+	ingenic,sfc-init-frequency = <200000000>;
+	ingenic,sfc-max-frequency = <400000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+	norflash@0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nor flash partition */
+			uboot@0 {
+				label = "uboot";
+				reg = <0x0000000 0x40000>;
+				/*read-only;*/
+			};
+
+			kernel@40000 {
+				label = "kernel";
+				reg = <0x40000 0x300000>;
+			};
+
+			rootfs@360000 {
+				label = "rootfs";
+				reg = <0x360000 0xca0000>;
+			};
+		};
+	};
+
+	nandflash@1 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nand flash partition */
+			partition@0 {
+				label = "uboot";
+				reg = <0x0000000 0x100000>;
+				/*read-only;*/
+			};
+
+			partition@100000 {
+				label = "kernel";
+				reg = <0x100000 0x800000>;
+			};
+
+			partition@900000 {
+				label = "rootfs";
+				reg = <0x900000 0x2800000>;
+			};
+
+			partition@3100000 {
+				label = "userdata";
+				reg = <0x3100000 0xcf00000>;
+			};
+		};
+	};
+
+};
+
+
+&spi0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pb>;
+
+	spi-max-frequency = <54000000>;
+	num-cs = <2>;
+	cs-gpios = <0>, <0>;
+	/*cs-gpios = <&gpa 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>, <&gpa 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+	ingenic,chnl = <0>;
+	ingenic,allow_cs_same = <1>;
+	ingenic,bus_num = <0>;
+	ingenic,has_dma_support = <0>;
+	ingenic,spi-src-clk = <1>;/*0.ext; 1.ssi*/
+
+	/* Add SPI interface device */
+	spidev: spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+};
+
+&dtrng {
+	status = "okay";
+};
+
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm0_pd>;
+	status = "okay";
+};
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg";
+	device-using-dma = <1>;
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+	ingenic,id-dete-gpio = <&gpc 27 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,vbus-dete-gpio = <&gpc 22 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,drvvbus-gpio = <&gpe 22 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+};
+
+&as_dmic {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dmic_pc_4ch>;
+	status = "disable";
+};
+
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <1>;
+	/*Defines the init state of composer fb export infomations.*/
+	ingenic,layer-exported = <1 1 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <720 1280>, <720 1280>, <320 240>, <320 240>;   /*Max framesize for each layer.*/
+	layer,color_mode	= <0 0 0 0>;					/*src fmt,*/
+	layer,src-size       	= <720 1280>, <720 1280>, <320 240>, <240 200>;	/*Layer src size should smaller than framesize*/
+	layer,target-size	= <720 1280>, <720 640>, <160 240>, <240 200>;	/*Target Size should smaller than src_size.*/
+	layer,target-pos	= <0 0>, <0 640>, <340 480>, <100 980>;	/*target pos , the start point of the target panel.*/
+	layer,enable		= <1 1 1 1>;					/*layer enabled or disabled.*/
+	ingenic,logo-pan-layer	= <0>;						/*on which layer should init logo pan on.*/
+	port {
+		dpu_out_ep: endpoint {
+			remote-endpoint = <&panel_ma0060_ep>;
+	    };
+	};
+};
+
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+
+	gpio_keys: gpio_keys {
+		   compatible = "gpio-keys";
+
+		   wakeup {
+			   label = "WAKEUP";
+			   linux,code = <KEY_WAKEUP>;
+			   gpios = <&gpe 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+		   bootsel0 {
+			   label = "bootsel0";
+			   linux,code = <KEY_HOME>;
+			   gpios = <&gpe 25 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+
+		   /* Conflict with wifi/bt wakeup.
+		   bootsel1 {
+			   label = "bootsel1";
+			   linux,code = <KEY_BACK>;
+			   gpios = <&gpe 26 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+
+		   bootsel2 {
+			   label = "bootsel2";
+			   linux,code = <KEY_MENU>;
+			   gpios = <&gpe 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		   };
+		   */
+	   };
+
+	/*
+	 * gpd 31 bt wakeup host
+	 * gpd 4 host wakeup bt
+	 */
+	bt_power {
+		compatible = "ingenic,bt_power";
+		ingenic,reg-on-gpio = <&gpd 4 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,wake-gpio = <&gpd 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+
+	sound {
+		compatible = "ingenic,m300-sound";
+		ingenic,model = "gewu";
+	};
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_ma0060 {
+			compatible = "ingenic,ma0060";
+			status = "okay";
+			ingenic,vdd-en-gpio = <&gpb 23 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpb 16 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_ma0060_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+	};
+
+	spi_gpio {
+		status = "disable";
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio-sck = <&gpb 28 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		gpio-miso = <&gpb 29 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		gpio-mosi = <&gpb 30 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		cs-gpios = <&gpb 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		num-chipselects = <1>;
+
+		/* clients */
+		spidev1: spidev1@0 {
+			status = "disable";
+			compatible = "rohm,dh2228fv";
+			reg = <0>;
+			spi-max-frequency = <500000>;
+		};
+	};
+};

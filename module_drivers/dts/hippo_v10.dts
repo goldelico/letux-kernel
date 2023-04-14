@@ -1,0 +1,393 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x2500.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+
+
+#ifdef CONFIG_RD_X2000_HALLEY5_CAMERA_3V2
+#include "hippo_cameras/RD_X2000_HALLEY5_CAMERA_3V2.dtsi"
+#elif CONFIG_RD_X2000_HALLEY5_CAMERA_4V3
+#include "hippo_cameras/RD_X2000_HALLEY5_CAMERA_4V3.dtsi"
+#elif CONFIG_RD_X2500_HIPPO_CAMERA_1V0
+#include "hippo_cameras/RD_X2500_HIPPO_CAMERA_1V0.dtsi"
+#elif CONFIG_RD_X2500_HIPPO_CAMERA_1V1
+#include "hippo_cameras/RD_X2500_HIPPO_CAMERA_1V1.dtsi"
+#endif
+
+/ {
+	compatible = "ingenic,hippo", "ingenic,x2500";
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default", "default";
+	pinctrl-0 = <&uart0_pc1>;
+	pinctrl-1 = <&uart0_pc1_1>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+};
+
+&uart2 {
+	status = "disable";
+};
+
+&i2c0 {
+	pinctrl-0 = <&i2c0_pa>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&pinctrl {
+	touchscreen_pins:touchscreen-pins {
+		touchscreen_int_out_high:touchscreen-int-out-high {
+			ingenic,pinmux = <&gpc 6 6>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCHILVL>;
+		};
+		touchscreen_int_out_low:touchscreen-int-out-low {
+			ingenic,pinmux = <&gpc 6 6>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCLOLVL>;
+		};
+		touchscreen_int_input:touchscreen-int-input {
+			ingenic,pinmux = <&gpc 6 6>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT_FE>;
+		};
+		touchscreen_default:touchscreen-default {
+			ingenic,pinmux = <&gpc 6 6>;
+			ingenic,pinmux-funcsel = <PINCTL_FUNCINPUT>;
+		};
+	};
+};
+
+&i2c1 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	status = "okay";
+	pinctrl-0 = <&i2c1_pd>;
+
+	goodix@14{
+		compatible = "goodix,gt9xx"; /* do not modify */
+		reg = <0x14>; /* do not modify */
+		reset-gpios = <&gpc 7 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>; /* RST pin */
+		irq-gpios = <&gpc 6 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		goodix,driver-send-cfg = <1>;
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <720>;
+		goodix,slide-wakeup = <0>;
+		goodix,type-a-report = <0>;
+		goodix,resume-in-workqueue = <0>;
+		goodix,int-sync = <1>;
+		goodix,swap-x2y = <0>;
+		goodix,auto-update-cfg = <0>;
+		goodix,power-off-sleep = <0>;
+		goodix,pen-suppress-finger = <0>;
+		irq-flags = <2>; /* 1 rising, 2 falling */
+		pinctrl-names = "default", "int-output-high", "int-output-low", "int-input";
+		pinctrl-0 = <&touchscreen_default>;
+		pinctrl-1 = <&touchscreen_int_out_high>;
+		pinctrl-2 = <&touchscreen_int_out_low>;
+		pinctrl-3 = <&touchscreen_int_input>;
+		goodix,cfg-group0 = [
+			00 D0 02 00 05 0A 05 00 01 08 28
+			05 50 32 03 05 00 00 00 00 00 00
+			00 00 00 00 00 87 28 09 17 15 31
+			0D 00 00 02 9B 03 25 00 00 00 00
+			00 03 64 32 00 00 00 0F 36 94 C5
+			02 07 00 00 04 9B 11 00 7B 16 00
+			64 1C 00 50 25 00 42 2F 00 42 00
+			00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 00 00 00
+			00 00 12 10 0E 0C 0A 08 06 04 02
+			FF FF FF FF FF 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 00 00 26
+			24 22 21 20 1F 1E 1D 00 02 04 06
+			08 0A 0C FF FF FF FF FF FF FF FF
+			FF FF FF 00 00 00 00 00 00 00 00
+			00 00 00 00 00 00 00 00 CF 01];
+	};
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	pinctrl-0 = <&i2c2_pb>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	rtc_pcf8563:rtc_pcf8563@51{
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+		status = "ok";
+	    };
+};
+
+&i2c3 {
+	pinctrl-0 = <&i2c3_pa>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&ispcam0 {
+	status = "okay";
+};
+
+&cpufreq {
+	status = "disable";
+	operating-points = <
+		/*KHZ uV */
+		1200000	900000
+		750000	900000
+		600000	900000
+		500000	900000
+		400000	900000
+		375000	900000
+		300000	900000
+		200000	900000
+			>;
+
+};
+
+&pwmz {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm3_pb>;
+};
+
+&pdma {
+	status = "okay";
+};
+
+&msc0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&msc0_pb>;
+	cap-mmc-highspeed;
+	max-frequency = <50000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	cd-gpios = <&gpb 20 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	/* special property */
+	ingenic,rst-gpios = <0>;
+	ingenic,pwr-gpios = <0>;
+};
+
+&msc1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&msc1_pc>;
+	cap-mmc-highspeed;
+	max-frequency = <100000000>;
+	bus-width = <4>;
+	voltage-ranges = <1800 3300>;
+	non-removable;
+
+	ingenic,sdio_clk = <1>;
+	keep-power-in-suspend;
+
+	/* special property */
+	ingenic,wp-gpios = <0>;
+	ingenic,removal-manual; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
+
+	bcmdhd_wlan: bcmdhd_wlan {
+		 compatible = "android,bcmdhd_wlan";
+		 ingenic,sdio-irq = <&gpc 23 IRQ_TYPE_LEVEL_HIGH INGENIC_GPIO_NOBIAS>;
+		 ingenic,sdio-reset = <&gpc 20 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+&mac0 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
+	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
+	status = "okay";
+	ingenic,rst-gpio = <&gpb 21 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,rst-ms = <10>;
+	ingenic,mac-mode = <RMII>;
+	ingenic,mode-reg = <0xb00000e8>;
+	ingenic,phy-clk-freq = <50000000>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pa>;
+	ingenic,sfc-init-frequency = <20000000>;
+	ingenic,sfc-max-frequency = <320000000>;
+	ingenic,use_ofpart_info      = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+};
+
+&spi0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pc>;
+
+	spi-max-frequency = <48000000>;
+	num-cs = <2>;
+	cs-gpios = <0>, <0>;
+	ingenic,chnl = <0>;
+	ingenic,allow_cs_same = <1>;
+	ingenic,bus_num = <0>;
+	ingenic,has_dma_support = <1>;
+	ingenic,spi-src-clk = <1>;/*0.ext; 1.ssi*/
+
+	/* Add SPI interface device */
+	spidev: spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+};
+
+&dtrng {
+	status = "okay";
+};
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg";
+	device-using-dma = <1>;
+	status = "okay";
+};
+
+&otg_phy {
+	dr_mode = "otg";
+	compatible = "ingenic,innophy-x2500", "syscon";
+	ingenic,vbus-dete-gpio = <&gpc 28 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,drvvbus-gpio = <&gpb 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	status = "okay";
+};
+
+/ {
+
+	extclk: extclk {
+		   clock-frequency = <24000000>;
+	};
+
+	gpio_keys: gpio_keys {
+		   compatible = "gpio-keys";
+
+		   power {
+			   label = "Power";
+			   linux,code = <KEY_POWER>;
+			   gpios = <&gpa 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+		   bootsel0 {
+			   label = "bootsel0";
+			   linux,code = <KEY_HOME>;
+			   gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+		   bootsel1 {
+			   label = "bootsel1";
+			   linux,code = <KEY_BACK>;
+			   gpios = <&gpc 1 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			   gpio-key,wakeup;
+		   };
+
+	   };
+
+	bt_power {
+		compatible = "ingenic,bt_power";
+		ingenic,reg-on-gpio = <&gpc 27 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,wake-gpio = <&gpc 18 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	};
+};
+
+&soc_nna{
+	status="okay";
+};
+
+&el150 {
+	status = "disable";
+};
+
+
+&dpu {
+	status = "okay";
+	ingenic,disable-rdma-fb = <1>;
+	ingenic,layer-exported = <1 1 0 0>;
+	ingenic,layer-frames   = <2 2 2 2>;
+	ingenic,layer-framesize = <720 1280>, <720 1280>, <320 240>, <320 240>;   /*Max framesize for each layer.*/
+	layer,color_mode	= <0 0 0 0>;					/*src fmt,*/
+	layer,src-size       	= <720 1280>, <720 1280>, <320 240>, <240 200>;	/*Layer src size should smaller than framesize*/
+	layer,target-size	= <720 1280>, <720 1280>, <160 240>, <240 200>;	/*Target Size should smaller than src_size.*/
+	layer,target-pos	= <0 0>, <0 0>, <340 480>, <100 980>;	/*target pos , the start point of the target panel.*/
+	layer,enable		= <1 1 1 1>;					/*layer enabled or disabled.*/
+	ingenic,logo-pan-layer	= <0>;						/*on which layer should init logo pan on.*/
+	port {
+		dpu_out_ep: endpoint {
+			remote-endpoint = <&panel_kd050hdfia020_ep>;
+	    };
+	};
+};
+
+/ {
+	display-dpi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_kd050hdfia020 {
+			compatible = "ingenic,kd050hdfia020";
+			status = "okay";
+			pinctrl-names = "default";
+			ingenic,vdd-en-gpio = <&gpc 3 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpc 2 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	/*		ingenic,lcd-pwm-gpio = <&gpb 31 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;*/
+			port {
+				panel_kd050hdfia020_ep: endpoint {
+					remote-endpoint = <&dpu_out_ep>;
+				};
+			};
+		};
+
+	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwmz 3 10000>; /* arg1: pwm channel id [0~15]. arg2: period in ns. */
+		brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+		default-brightness-level = <5>;
+		/*default brightness is 5, you can echo x > /sys/devices/platform/backlight/backlight/backlight/brightness to adjust backlight*/
+	};
+};
+
+
+/ {
+	dump_dmic_codec:dump_dmic_codec{
+		compatible = "ingenic,dmic-dump-codec";
+		status = "ok";
+	};
+	dump_pcm_codec:dump_pcm_codec{
+		compatible = "ingenic,pcm-dump-codec";
+		status = "ok";
+	};
+
+	sound_hippo_icdc {
+		status = "ok";
+		compatible = "ingenic,x2500-sound";
+		ingenic,model = "hippo";
+		ingenic,dai-link = "i2s-icodec", "dmic", "i2s-tloop";
+		ingenic,stream = "i2s-icodec", "dmic", "i2s-tloop";
+		ingenic,cpu-dai = <&i2s>, <&dmic>, <&i2s_tloop>;
+		ingenic,platform = <&aic>, <&dmic>, <&i2s_tloop>;
+		ingenic,codec = <&icodec>, <&dmic>, <&dump_pcm_codec>;
+		ingenic,codec-dai = "icodec", "dmic-codec-hifi", "pcm-dump";
+		ingenic,audio-routing = "Speaker", "HPOUTL", "DACL", "MICBIAS" ,
+			"ADCL",  "MICL",
+			"ADCR",  "MICR";
+		ingenic,spken-gpio = <&gpb 22 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+	};
+
+};

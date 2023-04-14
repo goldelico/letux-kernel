@@ -1,0 +1,42 @@
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pa>;
+
+	ov5640_0:ov5640@0x3c {
+		status = "okay";
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_pa>, <&cim_mclk_pa>;
+
+		resetb-gpios = <&gpa 16 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		pwdn-gpios = <&gpa 18 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		vcc-en-gpios = <&gpa 17 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov5640_ep0:endpoint {
+				remote-endpoint = <&cim_0>;
+			};
+		};
+	};
+};
+
+&cim {
+	status = "okay";
+	port {
+		cim_0: endpoint@0 {
+			remote-endpoint = <&ov5640_ep0>;
+			bus-width = <8>;
+			data-shift = <0>;
+			bus-type = <5>;
+			hsync-active = <1>;
+			vsync-active = <0>;
+			data-active = <1>;
+			pclk-sample = <1>;
+		       };
+	};
+};
+
