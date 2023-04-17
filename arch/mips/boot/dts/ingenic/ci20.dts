@@ -11,6 +11,8 @@
 / {
 	compatible = "img,ci20", "ingenic,jz4780";
 
+	model = "Imagination creator CI20";
+
 	aliases {
 		serial0 = &uart0;
 		serial1 = &uart1;
@@ -45,13 +47,13 @@
 		led-0 {
 			label = "ci20:red:led0";
 			gpios = <&gpc 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 		};
 
 		led-1 {
 			label = "ci20:red:led1";
 			gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "nand-disk";
+			linux,default-trigger = "mmc0";
 		};
 
 		led-2 {
@@ -65,6 +67,46 @@
 			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "cpu0";
 		};
+	};
+
+	sound {
+		compatible = "ingenic,ci20-audio";
+
+		ingenic,i2s-controller = <&i2s0>;
+		ingenic,codec = <&codec>;
+
+		ingenic,hp-det-gpio = <&gpe 7 GPIO_ACTIVE_HIGH>;	/* 135 */
+		ingenic,hp-mute-gpio = <&gpd 13 GPIO_ACTIVE_HIGH>;	/* 109 */
+		ingenic,mic-detect-gpio = <&gpf 14 GPIO_ACTIVE_HIGH>;	/* 174 */
+
+#if SIMPLE_AUDIO_CARD
+		simple-audio-card,name = "CI20";
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,widgets =
+			"Speaker", "Speaker",
+			"Microphone", "Mic";
+		simple-audio-card,routing =
+			"MIC", "Mic",
+			"Speaker", "OUTL",
+			"Speaker", "OUTR",
+			"INL", "LOUT",
+			"INR", "ROUT";
+
+		simple-audio-card,bitclock-master = <&dai_codec>;
+		simple-audio-card,frame-master = <&dai_codec>;
+
+		simple-audio-card,hp-det-gpio = <&gpe 7 GPIO_ACTIVE_LOW>;
+		/* can't handle mic detect gpio */
+
+		dai_cpu: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		dai_codec: simple-audio-card,codec {
+			sound-dai = <&codec>;
+		};
+#endif
 	};
 
 	eth0_power: fixedregulator@0 {
@@ -97,13 +139,45 @@
 		gpios = <&gpe 3 GPIO_ACTIVE_LOW>;
 	};
 
+	/* WORKAROUND: Keeping WLAN wake high before power on. No simple driver fix */
+	wlan0_wake: fixedregulator@4 {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan0_wake";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpd 9 GPIO_ACTIVE_HIGH>;/* WL_WAKE */
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	/* WORKAROUND: Keeping BT wake high before power on. No simple driver fix */
+	bt_wake: fixedregulator@7 {
+		compatible = "regulator-fixed";
+		regulator-name = "bt_wake";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpf 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	wlan0_pwrseq: wlan0_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpf 7 GPIO_ACTIVE_LOW>;
+		clocks = <&rtc_dev>;
+		clock-names = "clk32k";
+		post-power-on-delay-ms = <150>;
+	};
+
 	wlan0_power: fixedregulator@1 {
 		compatible = "regulator-fixed";
 
 		regulator-name = "wlan0_power";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 
-		gpio = <&gpb 19 GPIO_ACTIVE_LOW>;
+		gpio = <&gpb 19 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	otg_power: fixedregulator@2 {
@@ -154,10 +228,13 @@
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <50000000>;
+	max-frequency = <25000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc0>;
+
+	vmmc-supply = <&vcc_33>;
+	vqmmc-supply = <&vcc_33>;	/* VDDIOMSC */
 
 	cd-gpios = <&gpf 20 GPIO_ACTIVE_LOW>;
 };
@@ -166,19 +243,32 @@
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <50000000>;
+	max-frequency = <25000000>;
 	non-removable;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc1>;
 
+	vmmc-supply = <&wlan0_power>;
+	vqmmc-supply = <&wlan0_io>;
+
+	mmc-pwrseq = <&wlan0_pwrseq>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	brcmf: wifi@1 {
-/*		reg = <4>;*/
+		reg = <1>;
 		compatible = "brcm,bcm4330-fmac";
 		vcc-supply = <&wlan0_power>;
-		device-wakeup-gpios = <&gpd 9 GPIO_ACTIVE_HIGH>;
-		shutdown-gpios = <&gpf 7 GPIO_ACTIVE_LOW>;
 	};
+};
+
+&rtc_dev {
+	clocks = <&extrtc 0>;
+	clock-names = "rtc";
+
+	system-power-controller;
 };
 
 &uart0 {
@@ -204,11 +294,16 @@
 
 	bluetooth {
 		compatible = "brcm,bcm4330-bt";
-		reset-gpios = <&gpf 8 GPIO_ACTIVE_HIGH>;
-		vcc-supply = <&wlan0_power>;
-		device-wakeup-gpios = <&gpf 5 GPIO_ACTIVE_HIGH>;
-		host-wakeup-gpios = <&gpf 6 GPIO_ACTIVE_HIGH>;
-		shutdown-gpios = <&gpf 4 GPIO_ACTIVE_LOW>;
+		vbat-supply = <&wlan0_power &bt_wake>;
+		vddio-supply = <&wlan0_power>;
+		max-speed = <115200>;	/* stay with default data rate */
+		brcm,bt-pcm-int-params = [01 02 00 01 01];
+		shutdown-gpios = <&gpf 4 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpf 8 GPIO_ACTIVE_LOW>;
+		interrupt-parent = <&gpf>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&rtc_dev>;
+		clock-names = "clk32k";
 	};
 };
 
@@ -270,7 +365,7 @@
 				regulator-max-microvolt = <2500000>;
 				regulator-always-on;
 			};
-			wifi_io: LDO_REG6 {
+			wlan0_io: LDO_REG6 {
 				regulator-name = "LDO_REG6";
 				regulator-min-microvolt = <2500000>;
 				regulator-max-microvolt = <2500000>;
@@ -326,6 +421,43 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c2>;
 
+	camera: ov5640@3c {
+		compatible = "omnivision,ov5640";
+		reg = <0x3c>;
+
+		core-supply = <&vcc_15>;
+		analog-supply = <&vcc_28>;
+
+		gpio-enable = <&gpb 18 0>;
+		gpio-reset = <&gpb 26 0>;
+
+		remote = <&cim>;
+		port {
+			ov5640_1: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&camera_ep>;
+			};
+		};
+	};
+
+};
+
+&cim {
+	clock-frequency = <24000000>;
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Parallel bus endpoint */
+		camera_ep: endpoint@0 {
+			reg = <0>;		/* Local endpoint # */
+			remote-endpoint = <&ov5640_1>;
+			hsync-active = <1>;	/* Active high */
+			vsync-active = <1>;	/* Active high */
+			pclk-sample = <0>;	/* Falling */
+		};
+	};
 };
 
 &i2c3 {
@@ -344,8 +476,16 @@
 
 	clock-frequency = <400000>;
 
-		rtc@51 {
+		extrtc: rtc@51 {
+#ifdef BOARD_CI20_V1
+			compatible = "pericom,pt7c4338";
+			/* FIXME: clock out untested */
+			#clock-cells = <1>;
+			clock-output-names = "square", "clkout";
+#else
 			compatible = "nxp,pcf8563";
+			#clock-cells = <1>;
+#endif
 			reg = <0x51>;
 
 			interrupt-parent = <&gpf>;
@@ -453,6 +593,12 @@
 	status = "okay";
 };
 
+&usb_phy {
+	status = "okay";
+
+	vcc-supply = <&otg_power>;
+};
+
 &otg_phy {
 	status = "okay";
 
@@ -461,6 +607,9 @@
 
 &otg {
 	status = "okay";
+
+	assigned-clocks = <&cgu JZ4780_CLK_OTGPHY>;
+	assigned-clock-rates = <48000000>;
 };
 
 &pinctrl {
@@ -557,6 +706,13 @@
 	pins_mmc1: mmc1 {
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
+		bias-disable;
+	};
+
+	pins_cim: cim-pb {
+	/* see https://github.com/freebsd/freebsd/blob/master/sys/gnu/dts/mips/ingenic/jz4780.dtsi */
+		function = "cim";
+		// groups = "cim-???", "cim-???";
 		bias-disable;
 	};
 };
