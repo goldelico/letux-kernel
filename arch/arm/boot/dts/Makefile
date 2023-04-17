@@ -876,8 +876,16 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3430-sdp.dtb \
 	omap3-beagle.dtb \
 	omap3-beagle-ab4.dtb \
+	omap3-beagle+gta04.dtb \
+	omap3-beagle+gta04b1.dtb \
+	omap3-beagle+gta04b4.dtb \
 	omap3-beagle-xm.dtb \
+	omap3-beagle-xm+gta04.dtb \
+	omap3-beagle-xm+gta04b1.dtb \
+	omap3-beagle-xm+gta04b7.dtb \
 	omap3-beagle-xm-ab.dtb \
+	omap3-beagle-xm-ab+gta04b1.dtb \
+	omap3-beagle-xm-ab+gta04b7.dtb \
 	omap3-cm-t3517.dtb \
 	omap3-cm-t3530.dtb \
 	omap3-cm-t3730.dtb \
@@ -887,10 +895,16 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-echo.dtb \
 	omap3-evm.dtb \
 	omap3-evm-37xx.dtb \
+	omap3-gta04a2.dtb \
 	omap3-gta04a3.dtb \
 	omap3-gta04a4.dtb \
 	omap3-gta04a5.dtb \
 	omap3-gta04a5one.dtb \
+	omap3-gta04a3+b2.dtb \
+	omap3-gta04a4+b2.dtb \
+	omap3-gta04a4+b3.dtb \
+	omap3-gta04+b6.dtb \
+	omap3-gta04+b7.dtb \
 	omap3-ha.dtb \
 	omap3-ha-lcd.dtb \
 	omap3-igep0020.dtb \
@@ -940,6 +954,7 @@ dtb-$(CONFIG_SOC_AM33XX) += \
 	am335x-bone.dtb \
 	am335x-boneblack.dtb \
 	am335x-boneblack-wireless.dtb \
+	am335x-boneblack+letux.dtb \
 	am335x-boneblue.dtb \
 	am335x-boneblack+letux.dtb \
 	am335x-bonegreen.dtb \
@@ -992,6 +1007,15 @@ dtb-$(CONFIG_SOC_AM43XX) += \
 	am437x-sbc-t43.dtb \
 	am437x-sk-evm.dtb
 dtb-$(CONFIG_SOC_OMAP5) += \
+	omap5-uevm-broken+pyra4.dtb \
+	omap5-uevm+pyra4.dtb \
+	omap5-uevm+pyra4+lg.dtb omap5-uevm+pyra4+boe.dtb omap5-uevm+pyra4+succ.dtb omap5-uevm+pyra4+ssd+boe.dtb omap5-uevm+pyra4+ssd+succ.dtb \
+	omap5-uevm-broken+pyra4.dtb \
+	omap5-letux-cortex15-v4.9.dtb omap5-letux-cortex15-v4.9+pyra-v5.0.dtb \
+	omap5-letux-cortex15-v5.1+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.2+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.3+evm-v1.0.dtb \
+	omap5-letux-cortex15-v5.3+gta15-v1.0.dtb \
 	omap5-cm-t54.dtb \
 	omap5-igep0050.dtb \
 	omap5-sbc-t54.dtb \
