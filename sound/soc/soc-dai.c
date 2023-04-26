@@ -542,7 +542,7 @@ int snd_soc_pcm_dai_probe(struct snd_soc_pcm_runtime *rtd, int order)
 		if (dai->driver->probe_order != order)
 			continue;
 
-		if (dai->driver->probe) {
+		if (!dai->probed && dai->driver->probe) {
 			int ret = dai->driver->probe(dai);
 
 			if (ret < 0)
@@ -657,6 +657,7 @@ int snd_soc_pcm_dai_trigger(struct snd_pcm_substream *substream,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(snd_soc_pcm_dai_trigger);
 
 int snd_soc_pcm_dai_bespoke_trigger(struct snd_pcm_substream *substream,
 				    int cmd)
