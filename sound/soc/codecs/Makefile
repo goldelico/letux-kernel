@@ -114,6 +114,7 @@ snd-soc-es8328-spi-objs := es8328-spi.o
 
 # GTA04
 snd-soc-gtm601-objs := gtm601.o
+snd-soc-ec25-objs := ec25.o
 snd-soc-hdac-hdmi-objs := hdac_hdmi.o
 snd-soc-hdac-hda-objs := hdac_hda.o
 snd-soc-hda-codec-objs := hda.o hda-dai.o
@@ -484,6 +485,7 @@ obj-$(CONFIG_SND_SOC_ES8328)	+= snd-soc-es8328.o
 obj-$(CONFIG_SND_SOC_ES8328_I2C)+= snd-soc-es8328-i2c.o
 obj-$(CONFIG_SND_SOC_ES8328_SPI)+= snd-soc-es8328-spi.o
 obj-$(CONFIG_SND_SOC_GTM601)    += snd-soc-gtm601.o
+obj-$(CONFIG_SND_SOC_EC25)    += snd-soc-ec25.o
 obj-$(CONFIG_SND_SOC_HDAC_HDMI) += snd-soc-hdac-hdmi.o
 obj-$(CONFIG_SND_SOC_HDAC_HDA) += snd-soc-hdac-hda.o
 obj-$(CONFIG_SND_SOC_HDA) += snd-soc-hda-codec.o
