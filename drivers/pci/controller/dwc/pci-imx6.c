@@ -1566,11 +1566,9 @@ DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_SYNOPSYS, 0xabcd,
 static int __init imx6_pcie_init(void)
 {
 #ifdef CONFIG_ARM
-	const struct of_device_id *reboot_id;
 	struct device_node *np;
 
-	np = of_find_matching_node_and_match(NULL, imx6_pcie_of_match,
-					     &reboot_id);
+	np = of_find_matching_node(NULL, imx6_pcie_of_match);
 	if (!np)
 		return -ENODEV;
 	of_node_put(np);
