@@ -43,6 +43,20 @@
 		};
 	};
 
+	dac: pcm1773-codec {
+		compatible = "ti,pcm1773";
+		vcc-supply = <&vsim>;
+		enable-gpio = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
+		status = "okay";
+	};
+
+	sound: omap3pandora-sound {
+		compatible = "openpandora,omap3pandora-sound";
+		amp-gpio = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		amp-supply = <&regen>;
+		status = "okay";
+	};
+
 	gpio-leds {
 
 		compatible = "gpio-leds";
@@ -597,6 +611,14 @@
 	regulator-always-on;
 };
 
+&regen {
+	regulator-min-microvolt = <5000000>;
+	regulator-max-microvolt = <5000000>;
+	startup-delay-us = <5000>;
+	regulator-always-on;
+	status = "okay";
+};
+
 &i2c2 {
 	clock-frequency = <100000>;
 	/* no clients so we should disable clock */
@@ -841,12 +863,30 @@
 
 };
 
+/*
+ * Only mcspi1 is used on the pandora, the others do not surface on the board
+ * due to pinmux configuration. disable the unused ones so that they do not
+ * consume DMA channels
+ */
+&mcspi2 {
+	status = "disabled";
+};
+
+&mcspi3 {
+	status = "disabled";
+};
+
+&mcspi4 {
+	status = "disabled";
+};
+
 /* n/a - used as GPIOs */
 &mcbsp1 {
 };
 
 /* audio DAC */
 &mcbsp2 {
+	status = "okay";
 };
 
 /* bluetooth */
@@ -855,6 +895,7 @@
 
 /* to twl4030*/
 &mcbsp4 {
+	status = "okay";
 };
 
 &venc {
