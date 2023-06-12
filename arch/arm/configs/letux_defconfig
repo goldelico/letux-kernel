@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.245 Kernel Configuration
+# Linux/arm 5.4.246 Kernel Configuration
 #
 
 #
@@ -1914,6 +1914,7 @@ CONFIG_ISCSI_TCP=m
 # CONFIG_SCSI_AIC94XX is not set
 # CONFIG_SCSI_MVSAS is not set
 # CONFIG_SCSI_MVUMI is not set
+# CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_ESAS2R is not set
