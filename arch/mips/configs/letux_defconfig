@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.182 Kernel Configuration
+# Linux/mips 5.10.183 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2904,7 +2904,7 @@ CONFIG_DRM_VM=y
 # CONFIG_DRM_VKMS is not set
 # CONFIG_DRM_UDL is not set
 # CONFIG_DRM_RCAR_DW_HDMI is not set
-# CONFIG_DRM_RCAR_LVDS is not set
+# CONFIG_DRM_RCAR_USE_LVDS is not set
 CONFIG_DRM_PANEL=y
 
 #
