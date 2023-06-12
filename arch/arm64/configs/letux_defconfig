@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.15.115 Kernel Configuration
+# Linux/arm64 5.15.116 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1820,6 +1820,7 @@ CONFIG_SCSI_HISI_SAS_PCI=y
 # CONFIG_SCSI_HISI_SAS_DEBUGFS_DEFAULT_ENABLE is not set
 # CONFIG_SCSI_MVSAS is not set
 # CONFIG_SCSI_MVUMI is not set
+# CONFIG_SCSI_DPT_I2O is not set
 # CONFIG_SCSI_ADVANSYS is not set
 # CONFIG_SCSI_ARCMSR is not set
 # CONFIG_SCSI_ESAS2R is not set
@@ -4340,7 +4341,7 @@ CONFIG_DRM_I2C_SIL164=m
 # CONFIG_DRM_AST is not set
 # CONFIG_DRM_MGAG200 is not set
 # CONFIG_DRM_RCAR_DW_HDMI is not set
-# CONFIG_DRM_RCAR_LVDS is not set
+# CONFIG_DRM_RCAR_USE_LVDS is not set
 CONFIG_DRM_SUN4I=m
 CONFIG_DRM_SUN4I_HDMI=m
 # CONFIG_DRM_SUN4I_HDMI_CEC is not set
