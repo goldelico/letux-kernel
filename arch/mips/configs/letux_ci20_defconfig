@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.247 Kernel Configuration
+# Linux/mips 5.4.248 Kernel Configuration
 #
 
 #
@@ -709,7 +709,6 @@ CONFIG_NETFILTER_INGRESS=y
 CONFIG_HAVE_NET_DSA=y
 # CONFIG_NET_DSA is not set
 # CONFIG_VLAN_8021Q is not set
-# CONFIG_DECNET is not set
 # CONFIG_LLC2 is not set
 # CONFIG_ATALK is not set
 # CONFIG_X25 is not set
