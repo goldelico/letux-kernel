@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.15.117 Kernel Configuration
+# Linux/arm 5.15.118 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1324,7 +1324,6 @@ CONFIG_BRIDGE_IGMP_SNOOPING=y
 # CONFIG_BRIDGE_CFM is not set
 # CONFIG_NET_DSA is not set
 # CONFIG_VLAN_8021Q is not set
-# CONFIG_DECNET is not set
 CONFIG_LLC=m
 # CONFIG_LLC2 is not set
 # CONFIG_ATALK is not set

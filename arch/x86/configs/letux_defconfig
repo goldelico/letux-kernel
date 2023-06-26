@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.15.117 Kernel Configuration
+# Linux/x86 5.15.118 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1461,13 +1461,6 @@ CONFIG_IP6_NF_TARGET_NPT=m
 # end of IPv6: Netfilter Configuration
 
 CONFIG_NF_DEFRAG_IPV6=m
-
-#
-# DECnet: Netfilter Configuration
-#
-CONFIG_DECNET_NF_GRABULATOR=m
-# end of DECnet: Netfilter Configuration
-
 CONFIG_NF_TABLES_BRIDGE=m
 # CONFIG_NFT_BRIDGE_META is not set
 CONFIG_NFT_BRIDGE_REJECT=m
@@ -1553,8 +1546,6 @@ CONFIG_BRIDGE_VLAN_FILTERING=y
 CONFIG_VLAN_8021Q=m
 CONFIG_VLAN_8021Q_GVRP=y
 CONFIG_VLAN_8021Q_MVRP=y
-CONFIG_DECNET=m
-# CONFIG_DECNET_ROUTER is not set
 CONFIG_LLC=m
 CONFIG_LLC2=m
 CONFIG_ATALK=m
