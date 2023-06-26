@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.1.34 Kernel Configuration
+# Linux/mips 6.1.35 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1233,6 +1233,7 @@ CONFIG_ISCSI_TCP=m
 # CONFIG_SCSI_DH is not set
 # end of SCSI device support
 
+CONFIG_HAVE_PATA_PLATFORM=y
 CONFIG_ATA=y
 CONFIG_SATA_HOST=y
 CONFIG_ATA_VERBOSE_ERROR=y
@@ -1265,6 +1266,7 @@ CONFIG_ATA_BMDMA=y
 #
 # PIO-only SFF controllers
 #
+# CONFIG_PATA_PLATFORM is not set
 # CONFIG_PATA_OF_PLATFORM is not set
 
 #
