@@ -3659,7 +3659,15 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID *pvCPUVAddr,
     bMMapSemHeld = IMG_TRUE;
 
     /* Get page list */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,5,0))
+    psInfo->iNumPagesMapped = get_user_pages_remote(current->mm, ulStartAddr, psInfo->iNumPages, FOLL_WRITE, psInfo->ppsPages, NULL);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0))
+    psInfo->iNumPagesMapped = get_user_pages_remote(current->mm, ulStartAddr, psInfo->iNumPages, FOLL_WRITE, psInfo->ppsPages, NULL, NULL);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
+    psInfo->iNumPagesMapped = get_user_pages_remote(current, current->mm, ulStartAddr, psInfo->iNumPages, FOLL_WRITE, psInfo->ppsPages, NULL, NULL);
+#else
     psInfo->iNumPagesMapped = get_user_pages(current, current->mm, ulStartAddr, psInfo->iNumPages, 1, 0, psInfo->ppsPages, NULL);
+#endif
 
     if (psInfo->iNumPagesMapped >= 0)
     {
