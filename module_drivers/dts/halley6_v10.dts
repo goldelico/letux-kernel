@@ -30,6 +30,8 @@
 / {
 	compatible = "ingenic,halley6_v10", "ingenic,halley6_v10";
 
+	model = "Letux LX16";
+
 	/*chosen {
 		bootargs = "console=ttyS1,115200 mem=128M@0x0ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
 	};*/
@@ -253,7 +255,11 @@
 };
 
 &pwm {
+#ifdef PWM_LED	// intereferes with gpc 0 led
 	status = "okay";
+#else
+	status = "disabled";
+#endif
 	pinctrl-names = "default";
 	pinctrl-0 = <&pwm0_pc>;
 };
@@ -288,11 +294,20 @@
 	};
 
 	leds: leds {
+#ifdef PWM_LED
+		compatible = "pwm-leds";
+#else
 		compatible = "gpio-leds";
+#endif
 
 		led-0 {
-			gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
 			linux,default-trigger = "heartbeat";
+#ifdef PWM_LED
+			pwms = <&pwm 2 100000>;
+			max-brightness = <255>;
+#else
+			gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+#endif
 		};
 	};
 
