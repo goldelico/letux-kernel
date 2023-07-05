@@ -287,6 +287,15 @@
 		clock-frequency = <24000000>;
 	};
 
+	leds: leds {
+		compatible = "gpio-leds";
+
+		led-0 {
+			gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			linux,default-trigger = "heartbeat";
+		};
+	};
+
 	gpio_keys: gpio_keys {
 		   compatible = "gpio-keys";
 
