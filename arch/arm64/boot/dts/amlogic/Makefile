@@ -88,5 +88,5 @@ dtb-$(CONFIG_ARCH_MESON) += meson64_odroidhc4.dtb
 dtb-$(CONFIG_ARCH_MESON) += meson64_odroidn2.dtb
 dtb-$(CONFIG_ARCH_MESON) += meson64_odroidn2_plus.dtb
 
-subdir-y += overlays/odroidc4
-subdir-y += overlays/odroidn2
+subdir-$(CONFIG_ARCH_MESON) += overlays/odroidc4
+subdir-$(CONFIG_ARCH_MESON) += overlays/odroidn2
