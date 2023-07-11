@@ -3,7 +3,7 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 2021 by nick shen <xianghui.shen@ingneic.com>
+ * Copyright (C) 2021 by nick shen <xianghui.shen@ingenic.com>
  */
 #ifndef __ASM_MACH_INGENIC_PDMA_H__
 #define __ASM_MACH_INGENIC_PDMA_H__
