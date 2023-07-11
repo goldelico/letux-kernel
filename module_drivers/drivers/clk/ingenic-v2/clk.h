@@ -386,7 +386,7 @@ struct ingenic_gate_clock {
  * @delay_ms: wait for ms time stable @reg.
  * @gate_flags: flags for gate-type clock.
  * @alias: optional clock alias name to be assigned to this clock.
- * @clk_flags: ingneic special flags.
+ * @clk_flags: ingenic special flags.
  */
 struct ingenic_gate_power {
 	unsigned int		id;

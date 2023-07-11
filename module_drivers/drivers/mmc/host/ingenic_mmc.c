@@ -1563,10 +1563,10 @@ static struct ingenic_mmc_pdata *of_get_mmc_ingenic_pdata(struct device *dev)
 	card_gpio = devm_kzalloc(dev, sizeof(struct card_gpio), GFP_KERNEL);
 	if(!card_gpio)
 		return NULL;
-	ingenic_mmc_get_gpio(np, &card_gpio->rst, "ingneic,rst-gpios");
-	ingenic_mmc_get_gpio(np, &card_gpio->wp, "ingneic,wp-gpios");
-	ingenic_mmc_get_gpio(np, &card_gpio->pwr, "ingneic,pwr-gpios");
-	ingenic_mmc_get_gpio(np, &card_gpio->cd, "ingneic,cd-gpios");
+	ingenic_mmc_get_gpio(np, &card_gpio->rst, "ingenic,rst-gpios");
+	ingenic_mmc_get_gpio(np, &card_gpio->wp, "ingenic,wp-gpios");
+	ingenic_mmc_get_gpio(np, &card_gpio->pwr, "ingenic,pwr-gpios");
+	ingenic_mmc_get_gpio(np, &card_gpio->cd, "ingenic,cd-gpios");
 	pdata->gpio = card_gpio;
 
 	if(of_property_read_bool(np, "pio-mode")) {
