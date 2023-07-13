@@ -8,8 +8,8 @@
 #
 
 THIS="$PWD"
-BRANCH=letux-$(uname -r | sed -e 's/-letux.*+//' -e 's/-rc[0-9]*//' -e 's/\([0-9]*\.[0-9]\)*\.0/\1/')
-FALLBACK=letux-5.17
+BRANCH=letux-$(uname -r | sed -e 's/-letux.*+//' -e 's/\([0-9]*\.[0-9]\)*\.0/\1/')
+FALLBACK=letux-6.1
 case "$BRANCH" in
 	letux-[1-4].* | letux-5.[0-9] | letux-5.[0-9].* | letux-5.[0-9]-rc )
 		BRANCH=$FALLBACK
@@ -22,7 +22,7 @@ VERSION=009590
 #
 
 echo +++ make sure we have the required build tools
-yes | apt-get -yinstall build-essential bison flex bc libssl-dev git autogen automake libtool || exit 1
+yes | apt-get -y install build-essential bison flex bc libssl-dev git autogen automake libtool || exit 1
 
 echo +++ create and go to $PWD/aess
 mkdir -p aess && cd aess || exit 1
@@ -54,7 +54,10 @@ echo +++ configure kernel and build generated headers
 (
 cd $LINUX || exit
 
-[ -f include/generated/uapi/linux/version.h ] || ( make ARCH=arm letux_lpae_defconfig modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers && ln -sf asm-generic include/asm)
+DEFCONFIG=letux_defconfig
+uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
+
+[ -f include/generated/uapi/linux/version.h ] || ( make ARCH=arm $DEFCONFIG modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers && ln -sf asm-generic include/asm)
 ) || exit
 
 
