@@ -2162,6 +2162,7 @@ CONFIG_MTD_REDBOOT_DIRECTORY_BLOCK=-1
 #
 CONFIG_MTD_BLKDEVS=y
 CONFIG_MTD_BLOCK=y
+# CONFIG_MTD_BLOCK_BBT_RO is not set
 CONFIG_FTL=y
 CONFIG_NFTL=y
 CONFIG_NFTL_RW=y
@@ -3144,6 +3145,7 @@ CONFIG_HIPPI=y
 CONFIG_ROADRUNNER=y
 # CONFIG_ROADRUNNER_LARGE_RINGS is not set
 CONFIG_NET_SB1000=y
+# CONFIG_PHYLINK is not set
 CONFIG_PHYLIB=y
 CONFIG_SWPHY=y
 CONFIG_LED_TRIGGER_PHY=y
@@ -4185,6 +4187,10 @@ CONFIG_I2C_STUB=m
 CONFIG_SPI=y
 # CONFIG_SPI_DEBUG is not set
 CONFIG_SPI_MASTER=y
+
+#
+# SPI Master Controller Drivers
+#
 CONFIG_SPI_MEM=y
 
 #
@@ -5315,6 +5321,7 @@ CONFIG_VIDEO_CAFE_CCIC=m
 CONFIG_VIDEO_VIA_CAMERA=m
 # CONFIG_VIDEO_CADENCE is not set
 # CONFIG_VIDEO_ASPEED is not set
+CONFIG_V4L2_LOOPBACK_DEVICE=m
 CONFIG_V4L_MEM2MEM_DRIVERS=y
 # CONFIG_VIDEO_MEM2MEM_DEINTERLACE is not set
 # CONFIG_DVB_PLATFORM_DRIVERS is not set
@@ -6931,6 +6938,8 @@ CONFIG_USB_XUSBATM=y
 # USB Physical Layer drivers
 #
 # CONFIG_NOP_USB_XCEIV is not set
+# CONFIG_INGENIC_INNOPHY is not set
+# CONFIG_INGENIC_USB_PHY is not set
 # CONFIG_USB_GPIO_VBUS is not set
 # CONFIG_USB_ISP1301 is not set
 # end of USB Physical Layer drivers
@@ -6987,6 +6996,7 @@ CONFIG_USB_F_MIDI=m
 CONFIG_USB_F_HID=y
 CONFIG_USB_F_PRINTER=y
 CONFIG_USB_CONFIGFS=y
+# CONFIG_CONFIGFS_UEVENT_REPORT is not set
 CONFIG_USB_CONFIGFS_SERIAL=y
 CONFIG_USB_CONFIGFS_ACM=y
 CONFIG_USB_CONFIGFS_OBEX=y
@@ -7007,6 +7017,7 @@ CONFIG_USB_CONFIGFS_F_HID=y
 CONFIG_USB_CONFIGFS_F_UVC=y
 CONFIG_USB_CONFIGFS_F_PRINTER=y
 # CONFIG_USB_CONFIGFS_F_TCM is not set
+# CONFIG_USB_CONFIGFS_F_MTP is not set
 
 #
 # USB Gadget precomposed configurations
@@ -9363,3 +9374,165 @@ CONFIG_MEMTEST=y
 # CONFIG_HYPERV_TESTING is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+
+#
+# Ingenic device-drivers Configurations
+#
+CONFIG_OUTSIDE_DRIVERS_PATH="module_drivers"
+
+#
+# ---- Minimal required Drivers ----
+#
+
+#
+# [Interrupt] Drivers
+#
+# end of [Interrupt] Drivers
+
+#
+# [OST] clocksoure Drivers
+#
+# end of [OST] clocksoure Drivers
+
+#
+# [CPM] clk Drivers
+#
+# end of [CPM] clk Drivers
+
+#
+# [GPIO] Pinctroller Drivers
+#
+# CONFIG_MULTI_VGPIO_INGENIC is not set
+# end of [GPIO] Pinctroller Drivers
+
+#
+# [UART] Drivers
+#
+# CONFIG_SERIAL_INGENIC_UART is not set
+# end of [UART] Drivers
+
+#
+# [MSC] (eMMC/SD/SDIO) and Device Drivers
+#
+# end of [MSC] (eMMC/SD/SDIO) and Device Drivers
+
+#
+# [DMA] Drivers
+#
+# end of [DMA] Drivers
+
+#
+# [SFC] (SPI Nand/Nor Flash) Drivers
+#
+# end of [SFC] (SPI Nand/Nor Flash) Drivers
+
+#
+# [SPI] Master/Slave Drivers
+#
+# end of [SPI] Master/Slave Drivers
+
+#
+# [I2C] Master Drivers
+#
+# CONFIG_I2C_INGENIC is not set
+# end of [I2C] Master Drivers
+
+#
+# ---- minimal OS requirements. ----
+#
+
+#
+# [LCD] Panel/Touchscreen Drivers
+#
+# CONFIG_FB_INGENIC is not set
+
+#
+# Touchscreen Drivers
+#
+# CONFIG_TOUCHSCREEN_FTS is not set
+# CONFIG_TOUCHSCREEN_HYN is not set
+# CONFIG_TOUCHSCREEN_GT9XX is not set
+# CONFIG_TOUCHSCREEN_FT6236 is not set
+# CONFIG_TOUCHSCREEN_MXT336U is not set
+# end of Touchscreen Drivers
+# end of [LCD] Panel/Touchscreen Drivers
+
+#
+# [GMAC] (ethernet) Drivers
+#
+# CONFIG_INGENIC_MAC is not set
+# end of [GMAC] (ethernet) Drivers
+
+#
+# [WIFI]  Drivers
+#
+# CONFIG_BCMDHD_1_363_125_17 is not set
+# CONFIG_BCMDHD is not set
+# end of [WIFI]  Drivers
+
+#
+# [CAN] (ethernet) Drivers
+#
+
+#
+# ---- (V4L2) Media Device Drivers ----
+#
+
+#
+# [ISP] Drivers
+#
+# end of [ISP] Drivers
+
+#
+# [Sensors] Camera Sensors
+#
+
+#
+# ingenic-isp camera sensor drivers
+#
+
+#
+# ingenic-isp-v2 camera sensor drivers
+#
+
+#
+# ingenic-cim camera sensor drivers
+#
+# end of [Sensors] Camera Sensors
+
+#
+# ---- MISC Device Drivers ----
+#
+# CONFIG_LINUX_PMEM is not set
+
+#
+# [RANDOM] drivers
+#
+# end of [RANDOM] drivers
+
+#
+# [MFD] Multi Function Device Drivers
+#
+# CONFIG_MFD_RICOH619 is not set
+
+#
+# [Power] power and regulator Drivers
+#
+
+#
+# [WDT] watchdog Drivers
+#
+# CONFIG_SGM820_WATCHDOG is not set
+# end of [WDT] watchdog Drivers
+
+#
+# [PWM] drivers
+#
+# end of [PWM] drivers
+
+#
+# [RTC] drivers
+#
+# CONFIG_RTC_DRV_INGENIC is not set
+# end of [RTC] drivers
+# end of Ingenic device-drivers Configurations

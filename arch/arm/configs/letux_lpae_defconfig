@@ -1664,6 +1664,7 @@ CONFIG_MTD_OF_PARTS=y
 #
 CONFIG_MTD_BLKDEVS=y
 CONFIG_MTD_BLOCK=y
+# CONFIG_MTD_BLOCK_BBT_RO is not set
 # CONFIG_FTL is not set
 # CONFIG_NFTL is not set
 # CONFIG_INFTL is not set
@@ -2316,6 +2317,7 @@ CONFIG_NET_VENDOR_XILINX=y
 # CONFIG_XILINX_LL_TEMAC is not set
 # CONFIG_FDDI is not set
 # CONFIG_HIPPI is not set
+# CONFIG_PHYLINK is not set
 CONFIG_PHYLIB=y
 CONFIG_SWPHY=y
 # CONFIG_LED_TRIGGER_PHY is not set
@@ -3038,6 +3040,10 @@ CONFIG_I2C_OMAP=y
 # CONFIG_I3C is not set
 CONFIG_SPI=y
 CONFIG_SPI_MASTER=y
+
+#
+# SPI Master Controller Drivers
+#
 CONFIG_SPI_MEM=y
 
 #
@@ -3854,6 +3860,7 @@ CONFIG_V4L_PLATFORM_DRIVERS=y
 # CONFIG_VIDEO_MUX is not set
 # CONFIG_VIDEO_AM437X_VPFE is not set
 # CONFIG_VIDEO_XILINX is not set
+CONFIG_V4L2_LOOPBACK_DEVICE=m
 # CONFIG_VIDEO_TI_CAL is not set
 CONFIG_V4L_MEM2MEM_DRIVERS=y
 # CONFIG_VIDEO_CODA is not set
@@ -5065,6 +5072,9 @@ CONFIG_USB_DWC2_DUAL_ROLE=y
 # CONFIG_USB_DWC2_PCI is not set
 # CONFIG_USB_DWC2_DEBUG is not set
 # CONFIG_USB_DWC2_TRACK_MISSED_SOFS is not set
+# CONFIG_USB_DWC2_FORCE_FULL_SPEED is not set
+# CONFIG_USB_DWC2_EXT_ID_PIN is not set
+# CONFIG_USB_DWC2_EXT_VBUS_DETECT is not set
 CONFIG_USB_CHIPIDEA=m
 CONFIG_USB_CHIPIDEA_UDC=y
 CONFIG_USB_CHIPIDEA_HOST=y
@@ -5169,6 +5179,8 @@ CONFIG_USB_PHY=y
 CONFIG_NOP_USB_XCEIV=y
 CONFIG_AM335X_CONTROL_USB=y
 CONFIG_AM335X_PHY_USB=y
+# CONFIG_INGENIC_INNOPHY is not set
+# CONFIG_INGENIC_USB_PHY is not set
 CONFIG_TWL6030_USB=m
 # CONFIG_USB_GPIO_VBUS is not set
 # CONFIG_USB_ISP1301 is not set
@@ -5224,6 +5236,7 @@ CONFIG_USB_F_UAC2=m
 CONFIG_USB_F_HID=m
 CONFIG_USB_F_PRINTER=m
 CONFIG_USB_CONFIGFS=m
+# CONFIG_CONFIGFS_UEVENT_REPORT is not set
 CONFIG_USB_CONFIGFS_SERIAL=y
 CONFIG_USB_CONFIGFS_ACM=y
 CONFIG_USB_CONFIGFS_OBEX=y
@@ -5242,6 +5255,7 @@ CONFIG_USB_CONFIGFS_MASS_STORAGE=y
 # CONFIG_USB_CONFIGFS_F_HID is not set
 # CONFIG_USB_CONFIGFS_F_UVC is not set
 # CONFIG_USB_CONFIGFS_F_PRINTER is not set
+# CONFIG_USB_CONFIGFS_F_MTP is not set
 
 #
 # USB Gadget precomposed configurations
@@ -7258,3 +7272,166 @@ CONFIG_ARCH_HAS_KCOV=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
+
+#
+# Ingenic device-drivers Configurations
+#
+CONFIG_OUTSIDE_DRIVERS_PATH="module_drivers"
+
+#
+# ---- Minimal required Drivers ----
+#
+
+#
+# [Interrupt] Drivers
+#
+# end of [Interrupt] Drivers
+
+#
+# [OST] clocksoure Drivers
+#
+# end of [OST] clocksoure Drivers
+
+#
+# [CPM] clk Drivers
+#
+# end of [CPM] clk Drivers
+
+#
+# [GPIO] Pinctroller Drivers
+#
+# CONFIG_MULTI_VGPIO_INGENIC is not set
+# end of [GPIO] Pinctroller Drivers
+
+#
+# [UART] Drivers
+#
+# CONFIG_SERIAL_INGENIC_UART is not set
+# end of [UART] Drivers
+
+#
+# [MSC] (eMMC/SD/SDIO) and Device Drivers
+#
+# end of [MSC] (eMMC/SD/SDIO) and Device Drivers
+
+#
+# [DMA] Drivers
+#
+# end of [DMA] Drivers
+
+#
+# [SFC] (SPI Nand/Nor Flash) Drivers
+#
+# end of [SFC] (SPI Nand/Nor Flash) Drivers
+
+#
+# [SPI] Master/Slave Drivers
+#
+# end of [SPI] Master/Slave Drivers
+
+#
+# [I2C] Master Drivers
+#
+# CONFIG_I2C_INGENIC is not set
+# end of [I2C] Master Drivers
+
+#
+# ---- minimal OS requirements. ----
+#
+
+#
+# [LCD] Panel/Touchscreen Drivers
+#
+# CONFIG_FB_INGENIC is not set
+# CONFIG_TRUE_COLOR_LOGO is not set
+
+#
+# Touchscreen Drivers
+#
+# CONFIG_TOUCHSCREEN_FTS is not set
+# CONFIG_TOUCHSCREEN_HYN is not set
+# CONFIG_TOUCHSCREEN_GT9XX is not set
+# CONFIG_TOUCHSCREEN_FT6236 is not set
+# CONFIG_TOUCHSCREEN_MXT336U is not set
+# end of Touchscreen Drivers
+# end of [LCD] Panel/Touchscreen Drivers
+
+#
+# [GMAC] (ethernet) Drivers
+#
+# CONFIG_INGENIC_MAC is not set
+# end of [GMAC] (ethernet) Drivers
+
+#
+# [WIFI]  Drivers
+#
+# CONFIG_BCMDHD_1_363_125_17 is not set
+# CONFIG_BCMDHD is not set
+# end of [WIFI]  Drivers
+
+#
+# [CAN] (ethernet) Drivers
+#
+
+#
+# ---- (V4L2) Media Device Drivers ----
+#
+
+#
+# [ISP] Drivers
+#
+# end of [ISP] Drivers
+
+#
+# [Sensors] Camera Sensors
+#
+
+#
+# ingenic-isp camera sensor drivers
+#
+
+#
+# ingenic-isp-v2 camera sensor drivers
+#
+
+#
+# ingenic-cim camera sensor drivers
+#
+# end of [Sensors] Camera Sensors
+
+#
+# ---- MISC Device Drivers ----
+#
+# CONFIG_LINUX_PMEM is not set
+
+#
+# [RANDOM] drivers
+#
+# end of [RANDOM] drivers
+
+#
+# [MFD] Multi Function Device Drivers
+#
+# CONFIG_MFD_RICOH619 is not set
+
+#
+# [Power] power and regulator Drivers
+#
+
+#
+# [WDT] watchdog Drivers
+#
+# CONFIG_SGM820_WATCHDOG is not set
+# end of [WDT] watchdog Drivers
+
+#
+# [PWM] drivers
+#
+# end of [PWM] drivers
+
+#
+# [RTC] drivers
+#
+# CONFIG_RTC_DRV_INGENIC is not set
+# end of [RTC] drivers
+# end of Ingenic device-drivers Configurations
