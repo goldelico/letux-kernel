@@ -5,37 +5,15 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <generated/autoconf.h>
 
-#ifdef CONFIG_RD_X1600_HALLEY6_MIPI_CAMERA
-#include "halley6_cameras/RD_X1600_HALLEY6_MIPI_CAMERA.dtsi"
-#endif
-
-#ifdef CONFIG_RD_X1600_HALLEY6_DVP_CAMERA
-#include "halley6_cameras/RD_X1600_HALLEY6_DVP_CAMERA.dtsi"
-#endif
-
-#ifdef CONFIG_STAGE_FW040
-#include "halley6_lcd/RD_X1600_HALLEY6_RGB_SPI_LCD_1V0.dtsi"
-#endif
-
-#ifdef CONFIG_STAGE_FW035
-#include "halley6_lcd/RD_X1600_HALLEY6_RGB_SLCD_1V0.dtsi"
-#endif
-
-#ifdef CONFIG_STAGE_KD050WVFPA029
-#include "halley6_lcd/RD_X1600_HALLEY6_RGB_LCD_1V0.dtsi"
-#endif
-
-
 
 / {
-	compatible = "ingenic,halley6_v10", "ingenic,halley6_v10";
+	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
 
 	model = "Letux LX16";
 
 	/*chosen {
 		bootargs = "console=ttyS1,115200 mem=128M@0x0ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
 	};*/
-
 
 	reserved-memory {
 		#address-cells = <1>;
@@ -51,7 +29,7 @@
 };
 
 &uart0 {
-	status = "okay";
+	status = "disable";
 	/* dma-mode; */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pb>;
@@ -115,7 +93,7 @@
 };
 
 &cim {
-	status = "okay";
+	status = "disable";
 	memory-region=<&reserved_memory>;
 };
 
@@ -130,15 +108,9 @@
 	max-frequency = <50000000>;
 	bus-width = <4>;
 	voltage-ranges = <1800 3300>;
-#if 0
-	non-removable;
-#else
 	broken-cd;
-#endif
 	ingenic,sdio_clk = <1>;
-#if 0
-	keep-power-in-suspend;
-#endif
+
 	/* special property */
 	ingenic,wp-gpios = <0>;
 	ingenic,cd-gpios = <0>;
@@ -157,35 +129,21 @@
 	max-frequency = <50000000>;
 	bus-width = <4>;
 	voltage-ranges = <1800 3300>;
-#if 0
-	non-removable;
-#else
 	broken-cd;
-#endif
 	ingenic,sdio_clk = <1>;
-#if 0
-	keep-power-in-suspend;
-#endif
 
 	/* special property */
 	ingenic,wp-gpios = <0>;
 	ingenic,cd-gpios = <0>;
 	ingenic,rst-gpios = <0>;
 	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
-#if 0
-	bcmdhd_wlan: bcmdhd_wlan {
-		 compatible = "android,bcmdhd_wlan";
-		 ingenic,sdio-irq = <&gpb 3 IRQ_TYPE_LEVEL_HIGH INGENIC_GPIO_NOBIAS>;
-		 ingenic,sdio-reset = <&gpb 4 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
-	};
-#endif
 };
 
 &mac0 {
 	pinctrl-names = "default", "reset";
 	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
 	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
-	status = "okay";
+	status = "disable";
 	ingenic,pwr-gpio = <&gpb 30 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
 	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
 	ingenic,rst-ms = <10>;
@@ -195,7 +153,6 @@
 };
 
 &sfc {
-	status = "okay";
 	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&sfc_pc>;
@@ -368,15 +325,6 @@
 			   gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
 		   };
 	   };
-
-	/*
-	 * gpb 2 bt wakeup host
-	 */
-	bt_power {
-		compatible = "ingenic,bt_power";
-		ingenic,reg-on-gpio = <&gpb 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
-		ingenic,wake-gpio = <&gpb 2 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
-	};
 
 	dump_pcm_codec:dump_pcm_codec{
 		compatible = "ingenic,pcm-dump-codec";
