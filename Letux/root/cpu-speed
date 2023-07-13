@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 	pthread_t threads[16];
 	struct timeval start, end;
 	numthreads=argv[1] ? atoi(argv[1]) : 1;
-	printf("PNumber of threads: %u\n", numthreads);
+	printf("Number of threads: %u\n", numthreads);
 	printf("Prime numbers limit: %u\n", MAXPRIME);
 	gettimeofday(&start, NULL);
 	// run $1 threads in parallel
