@@ -12,5 +12,8 @@ config DT_PANDA_V10
 config DT_HALLEY6_V10
 	bool "x1600 halley6 v10"
 
+config DT_LX16
+	bool "x1600 Letux X16"
+
 endchoice
 
