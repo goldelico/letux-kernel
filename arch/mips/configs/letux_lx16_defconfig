@@ -1198,6 +1198,9 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_TRS3386 is not set
 # end of Misc devices
 
+CONFIG_RETRODE3=m
+# CONFIG_RETRODE3_BUFFER is not set
+
 #
 # SCSI device support
 #
