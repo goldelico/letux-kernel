@@ -796,7 +796,7 @@ static int dwc2_handle_gpwrdn_intr(struct dwc2_hsotg *hsotg)
 		   (gpwrdn & GPWRDN_RST_DET_MSK)) {
 		dev_dbg(hsotg->dev, "%s: GPWRDN_RST_DET\n", __func__);
 			dwc2_exit_hibernation(hsotg, 0, 1, 0);
-		if (!linestate && (gpwrdn & GPWRDN_BSESSVLD))
+		if (!linestate && (gpwrdn & GPWRDN_BSESSVLD)) {
 			ret = dwc2_exit_hibernation(hsotg, 0, 1, 0);
 			if (ret)
 				dev_err(hsotg->dev,
