@@ -1,0 +1,12 @@
+# patch debian installation
+DEBIAN=$(cat /etc/debian_version 2>/dev/null)
+
+case "$DEBIAN" in 1.* | 2.* | 3.* | 4.* | 5.* | 6.* )
+		# does not understand the "source" command in /etc/network/interfaces
+		echo "-- flatten /etc/network/interfaces to be compatible with Debian $DEBIAN fsck --"
+		cat /etc/network/interfaces.d/* >/etc/network/interfaces
+		# does not understand "inherits" keywords
+		sed -i.bak 's/.*inherits.*//' /etc/network/interfaces
+		# modprobe from module-init-tools may differ from kmod variants
+		depmod -a
+;; esac
