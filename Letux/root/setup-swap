@@ -1,0 +1,19 @@
+#!/bin/bash
+
+GB="$1"
+
+[ "$GB" ] || GB=$(ls -l --block-size=1G /swapfile 2>/dev/null | cut -d ' ' -f 5)
+[ "$GB" ] || GB=1
+
+echo "### setting up ${GB}GB swap"
+swapoff -a
+if [ ! -r /swapfile ]
+then
+	SWAPFILE=/swapfile
+	dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$( echo | awk "{print int(($GB) * 1048576)}")
+	chmod 0600 "$SWAPFILE"
+	mkswap "$SWAPFILE"
+fi || exit
+chmod 0600 "$SWAPFILE"
+swapon "$SWAPFILE"
+echo "### set up"
