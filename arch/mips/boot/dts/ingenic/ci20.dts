@@ -250,7 +250,7 @@
 	pinctrl-0 = <&pins_mmc1>;
 
 	vmmc-supply = <&wlan0_power>;
-	vqmmc-supply = <&wlan0_io>;
+	vqmmc-supply = <&wifi_io>;
 
 	mmc-pwrseq = <&wlan0_pwrseq>;
 
@@ -414,8 +414,8 @@
 		compatible = "omnivision,ov5640";
 		reg = <0x3c>;
 
-		core-supply = <&vcc_15>;
-		analog-supply = <&vcc_28>;
+		core-supply = <&cim_io_15>;
+		analog-supply = <&cim_io_28>;
 
 		gpio-enable = <&gpb 18 0>;
 		gpio-reset = <&gpb 26 0>;
