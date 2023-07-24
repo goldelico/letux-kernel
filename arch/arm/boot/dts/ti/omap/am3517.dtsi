@@ -132,6 +132,13 @@
 			pinctrl-single,function-mask = <0xff1f>;
 		};
 
+		bandgap: bandgap@48002524 {
+/*			reg = <0x48002524 0x4>;
+			compatible = "ti,omap36xx-bandgap";
+			#thermal-sensor-cells = <0>;
+*/
+		};
+
 		hecc: can@5c050000 {
 			compatible = "ti,am3517-hecc";
 			status = "disabled";
@@ -161,10 +168,11 @@
 			#size-cells = <1>;
 			ranges = <0 0x50000000 0x4000>;
 
-			/*
-			 * Closed source PowerVR driver, no child device
-			 * binding or driver in mainline
-			 */
+			gpu: gpu@0 {
+				compatible = "ti,am3517-sgx530-125", "img,sgx530-125", "img,sgx530";
+				reg = <0x0 0x4000>;
+				interrupts = <21>;
+			};
 		};
 	};
 };
