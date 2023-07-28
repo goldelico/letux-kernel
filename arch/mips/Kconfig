@@ -2216,6 +2216,16 @@ config MIPS_FP_SUPPORT
 
 	  If unsure, say y.
 
+config MIPS_FP_DISABLE_EMULATOR
+	bool "Disable FPU emulator"
+	depends on MIPS_FP_SUPPORT
+	default n
+	help
+	  If you know that your processor supports all floating point instructions
+	  then you can say y here to shrink the kernel a little (~40KiB on MIPS32).
+
+	  Don't enable this unless you absolutely know what you're doing.
+
 config CPU_R2300_FPU
 	bool
 	depends on MIPS_FP_SUPPORT

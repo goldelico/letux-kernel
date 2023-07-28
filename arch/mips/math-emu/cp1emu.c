@@ -1465,6 +1465,10 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 {
 	unsigned int rcsr = 0;	/* resulting csr */
 
+#ifdef CONFIG_MIPS_FP_DISABLE_EMULATOR
+	return 0;
+#endif
+
 	MIPS_FPU_EMU_INC_STATS(cp1xops);
 
 	switch (MIPSInst_FMA_FFMT(ir)) {
@@ -1694,6 +1698,10 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		s64 l;
 	} rv;			/* resulting value */
 	u64 bits;
+
+#ifdef CONFIG_MIPS_FP_DISABLE_EMULATOR
+	return 0;
+#endif
 
 	MIPS_FPU_EMU_INC_STATS(cp1ops);
 	switch (rfmt = (MIPSInst_FFMT(ir) & 0xf)) {
