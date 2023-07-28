@@ -88,6 +88,12 @@ config N64CART
 	help
 	  Support for the N64 cart.
 
+config LYONTEK_LY68
+	tristate "Lyontek LY68 series SPI PSRAM"
+	depends on SPI_MASTER
+	help
+	  This enables access to Lyontek LY68 series SPI PSRAM chips.
+
 config CDROM
 	tristate
 
