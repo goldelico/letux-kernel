@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
 
 #include "x1501.dtsi"
@@ -7,8 +8,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "sudomaker,internal-01", "ingenic,x1501";
-	model = "SudoMaker Internal Project #01";
+	compatible = "sudomaker,canbox", "ingenic,x1501";
+	model = "SudoMaker CANBOX";
 
 	aliases {
 		serial2 = &uart2;

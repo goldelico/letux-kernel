@@ -64,6 +64,10 @@ config X1501_LOSHARK_V2
 	bool "SudoMaker LoShark V2"
 	select MACH_X1000
 
+config X1501_LOSHARK_V2_2
+	bool "SudoMaker LoShark V2.2"
+	select MACH_X1000
+
 config X1000_INGENIC_JDI_V1
 	bool "Ingenic JDI v1"
 	select MACH_X1000
@@ -74,6 +78,10 @@ config X1000_SUDOMAKER_CLE
 
 config X1501_SUDOMAKER_CANBOX
 	bool "SudoMaker CANBOX"
+	select MACH_X1000
+
+config X1501_WIRELESS_TERMINAL
+	bool "SudoMaker Wireless Terminal"
 	select MACH_X1000
 
 config X2000_CU2000_NEO

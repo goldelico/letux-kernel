@@ -3,13 +3,14 @@
 
 #include "x1501.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/clock/ingenic,sysost.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "sudomaker,x1501-pico-evb", "ingenic,x1501";
-	model = "SudoMaker X1501 Pico EVB";
+	compatible = "sudomaker,loshark-v2.2", "ingenic,x1501";
+	model = "SudoMaker LoShark v2.2";
 
 	aliases {
 		serial2 = &uart2;
@@ -21,7 +22,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x800000>;
+		reg = <0x0 0x00800000>;
 	};
 
 };
@@ -41,64 +42,78 @@
 	assigned-clock-rates = <1500000>, <1500000>;
 };
 
-&ssi {
+&i2c1 {
 	status = "okay";
 
-	// MPLL = 552MHz
-	assigned-clocks = <&cgu X1000_CLK_SSIPLL>;
-	assigned-clock-rates = <276000000>;
+	clock-frequency = <50000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c1>;
+
+	led-controller@45 {
+		compatible = "awinic,aw2023";
+		reg = <0x45>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		led@0 {
+			reg = <0>;
+			led-max-microamp = <8000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+		};
+
+		led@1 {
+			reg = <1>;
+			led-max-microamp = <7000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led@2 {
+			reg = <2>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_BLUE>;
+		};
+	};
+
+	rtc@32 {
+		compatible = "epson,rx8900";
+		reg = <0x32>;
+
+		interrupt-parent = <&gpa>;
+		interrupts = <10 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
+
+		epson,vdet-disable;
+		trickle-diode-disable;
+	};
+};
+
+&ssi {
+	status = "okay";
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_spi0>;
 
-	num-cs = <4>;
-	cs-gpios = <0>, <&gpa 18 GPIO_ACTIVE_LOW>, <&gpa 17 GPIO_ACTIVE_LOW>, <&gpa 16 GPIO_ACTIVE_LOW>;
+	num-cs = <2>;
+	cs-gpios = <0>, <&gpa 13 GPIO_ACTIVE_LOW>;
 
-	lcd: lcd@0 {
+	lora: sx126x@0 {
 		reg = <0>;
-		compatible = "sudomaker,spidev-zerocopy";
+		compatible = "semtech,sx1301";
 
-		spi-max-frequency = <100000000>;
+		spi-max-frequency = <12000000>;
 	};
 
-	ts: tsc2046@1 {
+	psram: ly68@1 {
 		reg = <1>;
-		compatible = "ti,tsc2046";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&pins_xpt2046>;
-
-		interrupt-parent = <&gpa>;
-		interrupts = <19 0>;
-		wakeup-source;
-
-		spi-max-frequency = <1000000>;
-		pendown-gpio = <&gpa 19 0>;
-	};
-
-	psram: ly68@2 {
-		reg = <2>;
 		compatible = "lyontek,ly68l6400";
 
-		spi-max-frequency = <84000000>;
-		lyontek,rx-max-frequency = <34000000>;
-		lyontek,op-sleep-ratio = <30>; // 85 degrees C rating
-		// lyontek,op-sleep-ratio = <8>; // 105 degrees C rating
+		spi-max-frequency = <25000000>;
+		op-sleep-ratio = <20>;
 	};
-
-	ext_lora: lora@3 {
-		reg = <3>;
-		compatible = "sudomaker,spidev-zerocopy";
-
-		spi-max-frequency = <8000000>;
-	};
-};
-
-&uart1 {
-	status = "okay";
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&pins_uart1>;
 };
 
 &uart2 {
@@ -108,38 +123,17 @@
 	pinctrl-0 = <&pins_uart2>;
 };
 
-&audio {
-	status = "okay";
-};
-
-&i2c1 {
-	status = "okay";
-
-	clock-frequency = <400000>;
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&pins_i2c1>;
-
-	edt-ft5x06@38 {
-		compatible = "edt,edt-ft5206";
-		reg = <0x38>;
-		interrupt-parent = <&gpa>;
-		interrupts = <8 IRQ_TYPE_EDGE_FALLING>;
-	};
-};
-
 &sfc {
 	status = "okay";
 
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_sfc>;
 
-	flash: m25p80@0 {
-		compatible = "xtx,xt25f16b-kgd", "jedec,spi-nor";
+	flash: xt25f16b@0 {
+		compatible = "xtx,xt25f16b-kgd", "xtx,xt25f16b", "jedec,spi-nor";
 		spi-max-frequency = <133000000>;
 		reg = <0>;
 
@@ -151,48 +145,48 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			uboot@0 {
-				reg = <0x0 0x01a000>;
+			boot {
+				reg = <0x0 0x8000>;
 			};
 
-			kernel@1a000 {
-				reg = <0x01a000 0x100000>;
+			kernel {
+				reg = <0x8000 0x138000>;
 			};
 
-			rootfs@100000 {
-				reg = <0x11a000 0xe6000>;
+			early_rootfs {
+				reg = <0x140000 0xC0000>;
 			};
+
 		};
 	};
-
 };
 
 &msc1 {
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <25000000>;
+	max-frequency = <50000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_msc1>;
+
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 
 	non-removable;
 };
 
 &otg_phy {
 	status = "okay";
+	wakeup-source;
 };
 
 &otg {
 	status = "okay";
+	wakeup-source;
 };
 
 &pinctrl {
-	pins_xpt2046: pa19 {
-		pins = "PA19";
-		bias-pull-up;
-	};
-
 	pins_sfc: sfc {
 		function = "sfc";
 		groups = "sfc-data", "sfc-clk", "sfc-ce";
@@ -204,21 +198,15 @@
 		groups = "ssi-dt-d", "ssi-dr-d", "ssi-clk-d", "ssi-ce0-d";
 	};
 
-	pins_uart2: uart2 {
-		function = "uart2";
-		groups = "uart2-data-a";
-		bias-pull-up;
-	};
-
-	pins_uart1: uart1 {
-		function = "uart1";
-		groups = "uart1-data-a", "uart1-hwflow";
-		bias-pull-up;
-	};
-
 	pins_i2c1: i2c1 {
 		function = "i2c1";
 		groups = "i2c1-data-a";
+		bias-pull-up;
+	};
+
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data-a";
 		bias-pull-up;
 	};
 
@@ -227,5 +215,4 @@
 		groups = "mmc1-1bit", "mmc1-4bit";
 		bias-pull-up;
 	};
-
 };

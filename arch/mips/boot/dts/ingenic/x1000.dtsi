@@ -144,7 +144,7 @@
 	};
 
 	rtc: rtc@10003000 {
-		compatible = "ingenic,x1000-rtc", "ingenic,jz4780-rtc";
+		compatible = "ingenic,x1000-rtc";
 		reg = <0x10003000 0x4c>;
 
 		interrupt-parent = <&intc>;
@@ -337,6 +337,22 @@
 		status = "disabled";
 	};
 
+	dmic: audio-controller@10021000 {
+		compatible = "ingenic,x1000-dmic";
+		reg = <0x10021000 0x100>;
+
+		interrupt-parent = <&intc>;
+		interrupts = <0>;
+
+		clocks = <&cgu X1000_CLK_DMIC>;
+		clock-names = "dmic";
+
+		dmas = <&pdma X1000_DMA_DMIC_RX>;
+		dma-names = "rx";
+
+		status = "disabled";
+	};
+
 	i2c0: i2c-controller@10050000 {
 		compatible = "ingenic,x1000-i2c";
 		reg = <0x10050000 0x1000>;
@@ -406,10 +422,6 @@
 		cap-mmc-highspeed;
 		cap-sdio-irq;
 
-		dmas = <&pdma X1000_DMA_MSC0_RX>,
-			   <&pdma X1000_DMA_MSC0_TX>;
-		dma-names = "rx", "tx";
-
 		status = "disabled";
 	};
 
@@ -426,10 +438,6 @@
 		cap-sd-highspeed;
 		cap-mmc-highspeed;
 		cap-sdio-irq;
-
-		dmas = <&pdma X1000_DMA_MSC1_RX>,
-			   <&pdma X1000_DMA_MSC1_TX>;
-		dma-names = "rx", "tx";
 
 		status = "disabled";
 	};

@@ -68,20 +68,43 @@
 
 		status = "okay";
 
+		simple-audio-card,mclk-fs = <256>;
+
 		simple-audio-card,bitclock-master = <&dai_codec>;
 		simple-audio-card,frame-master = <&dai_codec>;
 
 		simple-audio-card,format = "i2s";
 
+
+		/////
+
+		// playback_link: simple-audio-card,dai-link@1 {
+		// 		format = "i2s";
+
+		// 		bitclock-master = <&codec_nau88c22>;
+		// 		frame-master = <&codec_nau88c22>;
+
+		// 		p_cpu_dai: cpu {
+		// 			sound-dai = <&aic>;
+		// 		};
+
+		// 		p_codec_dai: codec {
+		// 			sound-dai = <&codec_nau88c22>;
+		// 		};
+		// };
+
+		/////
+
 		dai_cpu: simple-audio-card,cpu {
 			sound-dai = <&aic>;
-			system-clock-frequency = <24000000>;
-			system-clock-direction-out;
+			// system-clock-frequency = <24000000>;
+			// system-clock-direction-out;
 		};
 
 		dai_codec: simple-audio-card,codec {
-			sound-dai = <&codec>;
-			system-clock-frequency = <24000000>;
+			sound-dai = <&codec_out>;
+			// sound-dai = <&codec_nau88c22>;
+			// system-clock-frequency = <24000000>;
 		};
 	};
 
@@ -121,11 +144,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2s>;
 
-	use-internal-codec;
+	// use-internal-codec;
 };
 
-&codec {
+// &codec {
+// 	status = "okay";
+// };
+
+&dmic {
 	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_dmic>;
 };
 
 &slcd {
@@ -617,10 +647,30 @@
 &i2c0 {
 	status = "okay";
 
-	clock-frequency = <100000>;
+	clock-frequency = <10000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c0>;
+
+	// tpa6130a2: tpa6130a2@60 {
+	// 	compatible = "ti,tpa6130a2";
+	// 	reg = <0x60>;
+	// 	power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;
+	// };
+
+	// ts3a227e: ts3a227e@3b {
+	// 		compatible = "ti,ts3a227e";
+	// 		reg = <0x3b>;
+	// 		interrupt-parent = <&gpc>;
+	// 		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+	// };
+
+	// codec_nau88c22: nau88c22@1a {
+	// 	compatible = "nuvoton,nau8822";
+	// 	reg = <0x1a>;
+
+	// 	#sound-dai-cells = <0>;
+	// };
 };
 
 
@@ -652,12 +702,12 @@
 			};
 
 			kernel@100000 {
-				reg = <0x100000 0x400000>;
+				reg = <0x100000 0x600000>;
 				read-only;
 			};
 
-			rootfs@500000 {
-				reg = <0x500000 0xFB00000>;
+			rootfs@700000 {
+				reg = <0x700000 0xFB00000>;
 			};
 		};
 	};
@@ -668,7 +718,7 @@
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <50000000>;
+	max-frequency = <60000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_msc0>;
@@ -682,7 +732,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		bus-width = <4>;
-		max-frequency = <25000000>;
+		max-frequency = <50000000>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pins_msc1>;
@@ -698,12 +748,12 @@
 				compatible = "brcm,bcm4329-fmac";
 				reg = <1>;
 
-				interrupt-parent = <&gpc>;
-				interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
-				interrupt-names = "host-wake";
-				wakeup-source;
+				// interrupt-parent = <&gpc>;
+				// interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+				// interrupt-names = "host-wake";
+				// wakeup-source;
 
-				reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
+				// reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
 
 				brcm,drive-strength = <10>;
 		};
@@ -781,6 +831,11 @@
 	pins_i2s: i2s {
 		function = "i2s";
 		groups = "i2s-data-tx", "i2s-data-rx", "i2s-clk-txrx", "i2s-sysclk";
+	};
+
+	pins_dmic: dmic {
+		function = "dmic";
+		groups = "dmic-if0", "dmic-if1";
 	};
 
 	pins_msc0: msc0 {

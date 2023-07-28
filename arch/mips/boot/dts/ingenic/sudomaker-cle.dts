@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
+
 /dts-v1/;
 
 #include "x1000.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/clock/ingenic,sysost.h>
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -124,28 +127,28 @@
 		btn_0 {
 			wakeup-source;
 			label = "BTN_BOOT0_MENU";
-			linux,code = <KEY_F1>;
+			linux,code = <KEY_UP>;
 			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
 		};
 
 		btn_1 {
 			wakeup-source;
 			label = "BTN_BOOT1_HOME";
-			linux,code = <KEY_F2>;
+			linux,code = <KEY_ESC>;
 			gpios = <&gpb 29 GPIO_ACTIVE_LOW>;
 		};
 
 		btn_2 {
 			wakeup-source;
 			label = "BTN_TARE";
-			linux,code = <KEY_F3>;
+			linux,code = <KEY_DOWN>;
 			gpios = <&gpa 19 GPIO_ACTIVE_LOW>;
 		};
 
 		btn_3 {
 			wakeup-source;
 			label = "BTN_QON_OK";
-			linux,code = <KEY_F4>;
+			linux,code = <KEY_ENTER>;
 			gpios = <&gpa 17 GPIO_ACTIVE_LOW>;
 		};
 
@@ -210,12 +213,13 @@
 
 		bluetooth {
 				compatible = "brcm,bcm43438-bt";
-				max-speed = <1000000>;
+				max-speed = <921600>;
 				brcm,bt-pcm-int-params = [01 02 00 01 01];
-				reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
+				shutdown-gpios = <&gpc 18 GPIO_ACTIVE_HIGH>;
 				device-wakeup-gpios = <&gpc 19 GPIO_ACTIVE_HIGH>;
 				interrupt-parent = <&gpc>;
 				interrupts = <20 IRQ_TYPE_EDGE_FALLING>;
+				// brcm,requires-autobaud-mode;
 		};
 };
 
@@ -229,7 +233,7 @@
 &i2c0 {
 	status = "okay";
 
-	clock-frequency = <25000>;
+	clock-frequency = <100000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c0>;
@@ -255,6 +259,34 @@
 		wakeup-source;
 
 		maxim,alert-low-soc-level = <10>;
+	};
+
+	led-controller@45 {
+		compatible = "awinic,aw2023";
+		reg = <0x45>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		led@0 {
+			reg = <0>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+		};
+
+		led@1 {
+			reg = <1>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led@2 {
+			reg = <2>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_BLUE>;
+		};
 	};
 
 	charger@6a {
@@ -322,10 +354,11 @@
 	bus-width = <4>;
 	max-frequency = <25000000>;
 
-	//mmc-pwrseq = <&sdnand_pwrseq>;
-
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_msc0>;
+
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 
 	non-removable;
 };
@@ -346,8 +379,6 @@
 		keep-power-in-suspend;
 		wakeup-source;
 
-		//mmc-pwrseq = <&wlan_pwrseq>;
-
 		ap6212a: wifi@1 {
 				compatible = "brcm,bcm4329-fmac";
 				reg = <1>;
@@ -357,7 +388,7 @@
 				interrupt-names = "host-wake";
 				wakeup-source;
 
-				reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
+				// reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
 
 				brcm,drive-strength = <10>;
 		};
@@ -403,27 +434,31 @@
 	pins_uart0: uart0 {
 		function = "uart0";
 		groups = "uart0-data", "uart0-hwflow";
+		bias-pull-up;
 	};
 
 	pins_uart2: uart2 {
 		function = "uart2";
 		groups = "uart2-data-d";
+		bias-pull-up;
 	};
 
 	pins_i2c0: i2c0 {
 		function = "i2c0";
 		groups = "i2c0-data";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	pins_msc0: msc0 {
 		function = "mmc0";
 		groups = "mmc0-1bit", "mmc0-4bit";
+		bias-pull-up;
 	};
 
 	pins_msc1: msc1 {
 		function = "mmc1";
 		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-pull-up;
 	};
 
 };
