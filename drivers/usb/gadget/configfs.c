@@ -40,9 +40,7 @@ struct gadget_info {
 	struct config_group strings_group;
 	struct config_group os_desc_group;
 	struct config_group webusb_group;
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 	struct config_group msos20_group;
-#endif
 
 	struct mutex lock;
 	struct usb_gadget_strings *gstrings[MAX_USB_STRING_LANGS + 1];
@@ -59,13 +57,11 @@ struct gadget_info {
 	u8 b_webusb_vendor_code;
 	char landing_page[WEBUSB_URL_RAW_MAX_LENGTH];
 
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 	bool use_msos20;
 	u8 b_msos20_vendor_code;
 	u32 msos20_win_ver;
 	u16 msos20_desc_set_len;
 	u8 *msos20_desc_set;
-#endif
 
 	spinlock_t spinlock;
 	bool unbind;
@@ -954,7 +950,6 @@ static struct config_item_type webusb_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 static inline struct gadget_info *msos20_item_to_gadget_info(
 		struct config_item *item)
 {
@@ -1101,7 +1096,6 @@ static struct config_item_type msos20_type = {
 	.ct_attrs	= msos20_attrs,
 	.ct_owner	= THIS_MODULE,
 };
-#endif
 
 static inline struct gadget_info *os_desc_item_to_gadget_info(
 		struct config_item *item)
@@ -1671,7 +1665,6 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 		memcpy(cdev->landing_page, gi->landing_page, WEBUSB_URL_RAW_MAX_LENGTH);
 	}
 
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 	if (gi->use_msos20) {
 		cdev->use_msos20 = true;
 		cdev->b_msos20_vendor_code = gi->b_msos20_vendor_code;
@@ -1688,7 +1681,6 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 			}
 		}
 	}
-#endif
 
 	if (gi->use_os_desc) {
 		cdev->use_os_string = true;
@@ -1781,12 +1773,10 @@ static void configfs_composite_unbind(struct usb_gadget *gadget)
 	gi->unbind = 1;
 	spin_unlock_irqrestore(&gi->spinlock, flags);
 
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 	if (cdev->msos20_desc_set) {
 		kfree(cdev->msos20_desc_set);
 		cdev->msos20_desc_set = NULL;
 	}
-#endif
 
 	kfree(otg_desc[0]);
 	otg_desc[0] = NULL;
@@ -1964,11 +1954,9 @@ static struct config_group *gadgets_make(
 			&webusb_type);
 	configfs_add_default_group(&gi->webusb_group, &gi->group);
 
-#ifdef CONFIG_USB_GADGET_MSOS20_DESC
 	config_group_init_type_name(&gi->msos20_group, "msos20",
 			&msos20_type);
 	configfs_add_default_group(&gi->msos20_group, &gi->group);
-#endif
 
 	gi->composite.bind = configfs_do_nothing;
 	gi->composite.unbind = configfs_do_nothing;
