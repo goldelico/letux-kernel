@@ -115,10 +115,13 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 		return -EINVAL;
 
 // printk("%s:\n", __func__);
-	bus->a0 = addr & 1;	// for 16 bit bus access
+	bus->a0 = addr & 1;	// save for 16 bit bus access
+
+// NOTE: this will not use the A0 gpio
+
 	for (a = 1; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has really changed
-#if 1
+#if 0
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 #else
 {
@@ -392,8 +395,12 @@ static int retrode3_open(struct inode *inode, struct file *file)
 
         dev_dbg(&slot->dev, "%s\n", __func__);
 
-	if (!gpiod_get_value(slot->cd))
+	ret = gpiod_get_value(slot->cd);	// check cart detect
+
+#if 0
+	if (!ret)
 		return -ENODEV;	// no cart is inserted
+#endif
 
 	get_device(&slot->dev);	// increment the reference count for the device
 
@@ -456,32 +463,43 @@ static int retrode3_probe(struct platform_device *pdev)
         if (bus == NULL)
                 return -ENOMEM;
 
-	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
-//printk("%s: %px\n", __func__, bus->addrs);
-	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-//printk("%s: %px\n", __func__, bus->datas);
-	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
-//printk("%s: %px\n", __func__, bus->oe);
-	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
-//printk("%s: %px\n", __func__, bus->we);
-	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
-//printk("%s: %px\n", __func__, bus->time);
+printk("%s: a\n", __func__);
 
-	if (bus->addrs->ndescs != 23 ||
+	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
+// if (IS_ERR(bus->addrs)) usw...
+printk("%s: %px\n", __func__, bus->addrs);
+	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
+printk("%s: %px\n", __func__, bus->datas);
+	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
+printk("%s: %px\n", __func__, bus->oe);
+	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
+printk("%s: %px\n", __func__, bus->we);
+	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
+printk("%s: %px\n", __func__, bus->time);
+
+printk("%s: 1\n", __func__);
+printk("%s: bus=%px\n", __func__, bus);
+printk("%s: addrs=%px\n", __func__, bus->addrs);
+printk("%s: desc[0]=%px\n", __func__, bus->addrs->desc[0]);
+printk("%s: gdev=%px\n", __func__, bus->addrs->desc[0]->gdev);
+printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
+
+	if (bus->addrs->ndescs != 24 ||
 	    bus->datas->ndescs != 16 ||
 	    bus->we->ndescs != 2) {
 		dev_err(&pdev->dev, "Invalid number of gpios (addr=%d, data=%d, we=%d)\n",
 			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
 		return EINVAL;
 	}
-
 {
 	struct gpio_chip *gc = bus->addrs->desc[0]->gdev->chip;
-	printk("%s: %ps\n", __func__, gc->get);
-	printk("%s: %ps\n", __func__, gc->get_multiple);
-	printk("%s: %ps\n", __func__, gc->set);
-	printk("%s: %ps\n", __func__, gc->set_multiple);
-	printk("%s: %ps\n", __func__, gc->direction_output);	// no direction_output_multiple!
+	printk("%s: get %ps\n", __func__, gc->get);
+	printk("%s: getmult %ps\n", __func__, gc->get_multiple);
+	printk("%s: set %ps\n", __func__, gc->set);
+	printk("%s: setmult %ps\n", __func__, gc->set_multiple);
+	printk("%s: dirout %ps\n", __func__, gc->direction_output);	// no direction_output_multiple!
+	printk("%s: dirin %ps\n", __func__, gc->direction_input);	// no direction_input_multiple!
+	printk("%s: setconf %ps\n", __func__, gc->set_config);
 }
 
 	mutex_init(&bus->select_lock);
@@ -547,6 +565,9 @@ static int retrode3_probe(struct platform_device *pdev)
 				kfree(slot);
 				return ret;
 			}
+// des geht net :/
+			set_address(slot->bus, 0xffffffff);
+			set_address(slot->bus, 0x00000000);	// bring all address gpios in a defined state
 		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
 			// FIXME: add gamepad input driver initialization
 			dev_warn(dev, "%s gamepad not implemented\n", __func__);
