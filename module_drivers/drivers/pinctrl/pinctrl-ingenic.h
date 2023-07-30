@@ -62,9 +62,9 @@ enum gpio_function {
 	#define PxPENS	0x64
 	#define PxPENC	0x68
 #elif defined(CONFIG_SOC_X1600)
-	#define PxPEN	0x70
-	#define PxPENS	0x74
-	#define PxPENC	0x78
+	#define PxPEN	0x80
+	#define PxPENS	0x84
+	#define PxPENC	0x88
 #else
 	#define PxPEN	-1
 	#define PxPENS	-1
