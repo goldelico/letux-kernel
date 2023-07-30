@@ -120,15 +120,10 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 // NOTE: this will not use the A0 gpio
 
 	for (a = 1; a < bus->addrs->ndescs; a++) {
-		if ((addr ^ bus->prev_addr) & (1 << a))	// address bit has really changed
-#if 0
+		if ((addr ^ bus->prev_addr) & (1 << a))	{ // address bit has really changed
+// printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
-#else
-{
-printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
-			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
-}
-#endif
+		}
 	}
 
 	bus->prev_addr = addr;
@@ -187,7 +182,7 @@ static void write_word(struct retrode3_bus *bus, u16 data, int mode)
 	int d;
 	/* set data bits */
 
-printk("%s:\n", __func__);
+// printk("%s:\n", __func__);
 
 	data = 0;
 	for (d = 0; d < bus->datas->ndescs; d++) {
@@ -397,10 +392,8 @@ static int retrode3_open(struct inode *inode, struct file *file)
 
 	ret = gpiod_get_value(slot->cd);	// check cart detect
 
-#if 0
 	if (!ret)
 		return -ENODEV;	// no cart is inserted
-#endif
 
 	get_device(&slot->dev);	// increment the reference count for the device
 
@@ -463,26 +456,28 @@ static int retrode3_probe(struct platform_device *pdev)
         if (bus == NULL)
                 return -ENOMEM;
 
-printk("%s: a\n", __func__);
+// printk("%s: a\n", __func__);
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
 // if (IS_ERR(bus->addrs)) usw...
-printk("%s: %px\n", __func__, bus->addrs);
+// printk("%s: %px\n", __func__, bus->addrs);
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-printk("%s: %px\n", __func__, bus->datas);
-	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_LOW);
-printk("%s: %px\n", __func__, bus->oe);
-	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_LOW);
-printk("%s: %px\n", __func__, bus->we);
-	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_LOW);
-printk("%s: %px\n", __func__, bus->time);
+// printk("%s: %px\n", __func__, bus->datas);
+	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+// printk("%s: %px\n", __func__, bus->oe);
+	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+// printk("%s: %px\n", __func__, bus->we);
+	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+// printk("%s: %px\n", __func__, bus->time);
 
+#if 0
 printk("%s: 1\n", __func__);
 printk("%s: bus=%px\n", __func__, bus);
 printk("%s: addrs=%px\n", __func__, bus->addrs);
 printk("%s: desc[0]=%px\n", __func__, bus->addrs->desc[0]);
 printk("%s: gdev=%px\n", __func__, bus->addrs->desc[0]->gdev);
 printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
+#endif
 
 	if (bus->addrs->ndescs != 24 ||
 	    bus->datas->ndescs != 16 ||
@@ -491,6 +486,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
 		return EINVAL;
 	}
+#if 0
 {
 	struct gpio_chip *gc = bus->addrs->desc[0]->gdev->chip;
 	printk("%s: get %ps\n", __func__, gc->get);
@@ -501,6 +497,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 	printk("%s: dirin %ps\n", __func__, gc->direction_input);	// no direction_input_multiple!
 	printk("%s: setconf %ps\n", __func__, gc->set_config);
 }
+#endif
 
 	mutex_init(&bus->select_lock);
 
@@ -550,7 +547,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			dev_set_drvdata(dev, slot);
 			dev_set_name(dev, "slot%d", id);
 			dev->of_node = child;
-			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_LOW);
+			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
 			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
@@ -642,7 +639,7 @@ static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%s\n", gpiod_get_value(slot->cd)?"active":"unused");
+	return sprintf(buf, "%s\n", gpiod_get_value(slot->cd)?"active":"empty");
 }
 static DEVICE_ATTR_RO(sense);
 
