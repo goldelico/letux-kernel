@@ -162,12 +162,16 @@ static int read_word(struct retrode3_bus *bus)
 { /* read data from data lines */
 	int d;
 	u16 data;
+
 // printk("%s:\n", __func__);
+
 	set_bus_bit(bus->oe, true);
 	/* read data bits */
 	data = 0;
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		int bit = get_bus_bit(bus->datas->desc[d]);
+
+// printk("bit=%d\n", bit);
 
 		if (bit < 0)
 			return bit;
