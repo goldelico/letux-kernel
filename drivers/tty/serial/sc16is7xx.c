@@ -236,7 +236,8 @@
 
 /* IOControl register bits (Only 750/760) */
 #define SC16IS7XX_IOCONTROL_LATCH_BIT	(1 << 0) /* Enable input latching */
-#define SC16IS7XX_IOCONTROL_MODEM_BIT	(1 << 1) /* Enable GPIO[7:4] as modem pins */
+#define SC16IS7XX_IOCONTROL_MODEMA_BIT	(1 << 1) /* Enable GPIO[7:4] as modem pins */
+#define SC16IS7XX_IOCONTROL_MODEMB_BIT	(1 << 2) /* Enable GPIO[3:0] as modem pins */
 #define SC16IS7XX_IOCONTROL_SRESET_BIT	(1 << 3) /* Software Reset */
 
 /* EFCR register bits */
@@ -459,9 +460,9 @@ static const struct sc16is7xx_devtype sc16is750_devtype = {
 
 static const struct sc16is7xx_devtype sc16is752_devtype = {
 	.name		= "SC16IS752",
-	.nr_gpio	= 0,
+	.nr_gpio	= 8,
 	.nr_uart	= 2,
-	.has_mctrl	= 1,
+	.has_mctrl	= 2,
 };
 
 static const struct sc16is7xx_devtype sc16is760_devtype = {
@@ -473,9 +474,9 @@ static const struct sc16is7xx_devtype sc16is760_devtype = {
 
 static const struct sc16is7xx_devtype sc16is762_devtype = {
 	.name		= "SC16IS762",
-	.nr_gpio	= 0,
+	.nr_gpio	= 8,
 	.nr_uart	= 2,
-	.has_mctrl	= 1,
+	.has_mctrl	= 2,
 };
 
 static bool sc16is7xx_regmap_volatile(struct device *dev, unsigned int reg)
@@ -1368,6 +1369,7 @@ static int sc16is7xx_probe(struct device *dev,
 	u32 uartclk = 0;
 	int i, ret;
 	struct sc16is7xx_port *s;
+	bool porta_as_gpio = false, portb_as_gpio = false;
 
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
@@ -1391,6 +1393,12 @@ static int sc16is7xx_probe(struct device *dev,
 
 	/* Always ask for fixed clock rate from a property. */
 	device_property_read_u32(dev, "clock-frequency", &uartclk);
+
+	if (of_find_property(dev->of_node, "nxp,porta-as-gpio", NULL))
+		porta_as_gpio = true;
+
+	if (of_find_property(dev->of_node, "nxp,portb-as-gpio", NULL))
+		portb_as_gpio = true;
 
 	s->clk = devm_clk_get_optional(dev, NULL);
 	if (IS_ERR(s->clk))
@@ -1430,6 +1438,29 @@ static int sc16is7xx_probe(struct device *dev,
 	regmap_write(s->regmap, SC16IS7XX_IOCONTROL_REG << SC16IS7XX_REG_SHIFT,
 			SC16IS7XX_IOCONTROL_SRESET_BIT);
 
+	/* Decide whether to use GPIO lines as modem status registers */
+	if (devtype->has_mctrl) {
+		if (porta_as_gpio)
+			regmap_clear_bits(s->regmap,
+				SC16IS7XX_IOCONTROL_REG << SC16IS7XX_REG_SHIFT,
+				SC16IS7XX_IOCONTROL_MODEMA_BIT);
+		else
+			regmap_set_bits(s->regmap,
+				SC16IS7XX_IOCONTROL_REG << SC16IS7XX_REG_SHIFT,
+				SC16IS7XX_IOCONTROL_MODEMA_BIT);
+	}
+
+	if (devtype->has_mctrl > 1) {
+		if (portb_as_gpio)
+			regmap_clear_bits(s->regmap,
+				SC16IS7XX_IOCONTROL_REG << SC16IS7XX_REG_SHIFT,
+				SC16IS7XX_IOCONTROL_MODEMB_BIT);
+		else
+			regmap_set_bits(s->regmap,
+				SC16IS7XX_IOCONTROL_REG << SC16IS7XX_REG_SHIFT,
+				SC16IS7XX_IOCONTROL_MODEMB_BIT);
+	}
+
 	for (i = 0; i < devtype->nr_uart; ++i) {
 		s->p[i].line		= i;
 		/* Initialize port data */
@@ -1458,12 +1489,6 @@ static int sc16is7xx_probe(struct device *dev,
 		sc16is7xx_port_write(&s->p[i].port, SC16IS7XX_EFCR_REG,
 				     SC16IS7XX_EFCR_RXDISABLE_BIT |
 				     SC16IS7XX_EFCR_TXDISABLE_BIT);
-
-		/* Use GPIO lines as modem status registers */
-		if (devtype->has_mctrl)
-			sc16is7xx_port_write(&s->p[i].port,
-					     SC16IS7XX_IOCONTROL_REG,
-					     SC16IS7XX_IOCONTROL_MODEM_BIT);
 
 		/* Initialize kthread work structs */
 		kthread_init_work(&s->p[i].tx_work, sc16is7xx_tx_proc);
