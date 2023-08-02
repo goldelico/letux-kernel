@@ -7,6 +7,20 @@ Linux kernel source tree with the latest features and modifications to unleash t
 ## Purpose
 Adding stuff to upstream is a lengthy and tough job. Maintaining a separate repo can make new features available to people in a timely manner.
 
+### Stuff that are broken in the upstream kernel and nobody cared
+Last updated: 2023-08-03
+| **Problem**                                       | **Affected Chips**                          | Fixed Here |
+|---------------------------------------------------|---------------------------------------------|------------|
+| Device to Host DMA operations return garbage data | All X series SoCs with a writeback L2 cache | ✅          |
+| PDMA operations corrupts RAM randomly             | All X series SoCs                           | ✅          |
+| Inaccurate UART baudrate calculation              | All Ingenic SoCs                            | ✅          |
+| Suspend to RAM                                    | All X series SoCs                           | ✅          |
+| Incorrect I2S MCLK PLL calculation                | X1000 series SoCs                           | ✅          |
+| RTC on 12/24MHz clocksource                       | X1000 series SoCs                           | ✅          |
+| Ability to use internal analog codec              | X1000 series SoCs                           | ✅          |
+| SPI HW CS still enabled when using cs-gpios       | All X series SoCs                           | ✅          |
+| dwc2_otg must use PIO mode on X1501               | X1501                                       | ✅          |
+
 ## Policy
 We will always add support for longterm Linux versions, we will also do stable versions when we have time.
 
