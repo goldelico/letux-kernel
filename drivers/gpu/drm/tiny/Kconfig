@@ -107,8 +107,8 @@ config TINYDRM_REPAPER
 
 config TINYDRM_GDEPAPER
 	tristate "DRM support for Good Display E-Paper Display"
-	depends on DRM_TINYDRM && SPI
-	select TINYDRM_MIPI_DBI
+	depends on DRM && SPI
+	select DRM_MIPI_DBI
 	help
 	  DRM driver for the following Good Display E-Papar displays:
 	  * GDEW027C44 display (2.7 inch)
