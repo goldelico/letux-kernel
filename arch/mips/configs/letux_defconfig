@@ -155,7 +155,7 @@ CONFIG_KALLSYMS=y
 CONFIG_KALLSYMS_BASE_RELATIVE=y
 # CONFIG_BPF_SYSCALL is not set
 # CONFIG_USERFAULTFD is not set
-# CONFIG_KCMP is not set
+CONFIG_KCMP=y
 CONFIG_RSEQ=y
 # CONFIG_DEBUG_RSEQ is not set
 # CONFIG_EMBEDDED is not set
@@ -830,12 +830,15 @@ CONFIG_FW_CACHE=y
 CONFIG_GENERIC_CPU_AUTOPROBE=y
 CONFIG_REGMAP=y
 CONFIG_REGMAP_MMIO=y
+CONFIG_DMA_SHARED_BUFFER=y
+# CONFIG_DMA_FENCE_TRACE is not set
 # end of Generic Driver Options
 
 #
 # Bus devices
 #
 # CONFIG_BRCMSTB_GISB_ARB is not set
+# CONFIG_MOXTET is not set
 # CONFIG_MIPS_CDMM is not set
 # CONFIG_SIMPLE_PM_BUS is not set
 # CONFIG_MHI_BUS is not set
@@ -896,6 +899,9 @@ CONFIG_MTD_CFI_I2=y
 #
 # Self-contained MTD device drivers
 #
+# CONFIG_MTD_DATAFLASH is not set
+# CONFIG_MTD_MCHP23K256 is not set
+# CONFIG_MTD_SST25L is not set
 # CONFIG_MTD_SLRAM is not set
 # CONFIG_MTD_PHRAM is not set
 # CONFIG_MTD_MTDRAM is not set
@@ -933,6 +939,7 @@ CONFIG_MTD_RAW_NAND=y
 #
 # CONFIG_MTD_NAND_NANDSIM is not set
 # CONFIG_MTD_NAND_DISKONCHIP is not set
+# CONFIG_MTD_SPI_NAND is not set
 
 #
 # ECC engine support
@@ -947,6 +954,7 @@ CONFIG_MTD_NAND_ECC=y
 # CONFIG_MTD_LPDDR is not set
 # end of LPDDR & LPDDR2 PCM memory drivers
 
+# CONFIG_MTD_SPI_NOR is not set
 CONFIG_MTD_UBI=y
 CONFIG_MTD_UBI_WL_THRESHOLD=4096
 CONFIG_MTD_UBI_BEB_LIMIT=20
@@ -1000,6 +1008,7 @@ CONFIG_BLK_DEV=y
 # CONFIG_HMC6352 is not set
 # CONFIG_DS1682 is not set
 CONFIG_BCM_4345C5_RFKILL=y
+# CONFIG_LATTICE_ECP3_CONFIG is not set
 # CONFIG_SRAM is not set
 # CONFIG_XILINX_SDFEC is not set
 # CONFIG_PVPANIC is not set
@@ -1011,9 +1020,11 @@ CONFIG_BCM_4345C5_RFKILL=y
 # EEPROM support
 #
 # CONFIG_EEPROM_AT24 is not set
+# CONFIG_EEPROM_AT25 is not set
 # CONFIG_EEPROM_LEGACY is not set
 # CONFIG_EEPROM_MAX6875 is not set
 # CONFIG_EEPROM_93CX6 is not set
+# CONFIG_EEPROM_93XX46 is not set
 # CONFIG_EEPROM_IDT_89HPESX is not set
 # CONFIG_EEPROM_EE1004 is not set
 # end of EEPROM support
@@ -1024,6 +1035,7 @@ CONFIG_BCM_4345C5_RFKILL=y
 # CONFIG_TI_ST is not set
 # end of Texas Instruments shared transport line discipline
 
+# CONFIG_SENSORS_LIS3_SPI is not set
 # CONFIG_SENSORS_LIS3_I2C is not set
 # CONFIG_ALTERA_STAPL is not set
 # CONFIG_ECHO is not set
@@ -1134,8 +1146,11 @@ CONFIG_NET_VENDOR_MELLANOX=y
 # CONFIG_MLXSW_CORE is not set
 # CONFIG_MLXFW is not set
 CONFIG_NET_VENDOR_MICREL=y
+# CONFIG_KS8851 is not set
 # CONFIG_KS8851_MLL is not set
 CONFIG_NET_VENDOR_MICROCHIP=y
+# CONFIG_ENC28J60 is not set
+# CONFIG_ENCX24J600 is not set
 CONFIG_NET_VENDOR_MICROSEMI=y
 CONFIG_NET_VENDOR_NATSEMI=y
 CONFIG_NET_VENDOR_NETRONOME=y
@@ -1146,6 +1161,7 @@ CONFIG_NET_VENDOR_8390=y
 # CONFIG_ETHOC is not set
 CONFIG_NET_VENDOR_PENSANDO=y
 CONFIG_NET_VENDOR_QUALCOMM=y
+# CONFIG_QCA7000_SPI is not set
 # CONFIG_QCA7000_UART is not set
 # CONFIG_QCOM_EMAC is not set
 # CONFIG_RMNET is not set
@@ -1218,6 +1234,7 @@ CONFIG_FIXED_PHY=y
 # CONFIG_DP83869_PHY is not set
 # CONFIG_VITESSE_PHY is not set
 # CONFIG_XILINX_GMII2RGMII is not set
+# CONFIG_MICREL_KS8995MA is not set
 CONFIG_MDIO_DEVICE=y
 CONFIG_MDIO_BUS=y
 CONFIG_OF_MDIO=y
@@ -1366,6 +1383,8 @@ CONFIG_LDISC_AUTOLOAD=y
 #
 # Non-8250 serial port support
 #
+# CONFIG_SERIAL_MAX3100 is not set
+# CONFIG_SERIAL_MAX310X is not set
 # CONFIG_SERIAL_UARTLITE is not set
 CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
@@ -1375,6 +1394,7 @@ CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_SERIAL_BCM63XX is not set
 # CONFIG_SERIAL_ALTERA_JTAGUART is not set
 # CONFIG_SERIAL_ALTERA_UART is not set
+# CONFIG_SERIAL_IFX6X60 is not set
 # CONFIG_SERIAL_XILINX_PS_UART is not set
 # CONFIG_SERIAL_ARC is not set
 # CONFIG_SERIAL_FSL_LPUART is not set
@@ -1431,6 +1451,7 @@ CONFIG_I2C_MUX=y
 # end of Multiplexer I2C Chip support
 
 CONFIG_I2C_HELPER_AUTO=y
+CONFIG_I2C_ALGOBIT=m
 
 #
 # I2C Hardware Bus support
@@ -1473,7 +1494,49 @@ CONFIG_I2C_HELPER_AUTO=y
 # end of I2C support
 
 # CONFIG_I3C is not set
-# CONFIG_SPI is not set
+CONFIG_SPI=y
+# CONFIG_SPI_DEBUG is not set
+CONFIG_SPI_MASTER=y
+
+#
+# SPI Master Controller Drivers
+#
+# CONFIG_SPI_MEM is not set
+
+#
+# SPI Master Controller Drivers
+#
+# CONFIG_SPI_ALTERA is not set
+# CONFIG_SPI_AXI_SPI_ENGINE is not set
+CONFIG_SPI_BITBANG=m
+# CONFIG_SPI_CADENCE is not set
+# CONFIG_SPI_DESIGNWARE is not set
+# CONFIG_SPI_NXP_FLEXSPI is not set
+# CONFIG_SPI_GPIO is not set
+# CONFIG_SPI_IMG_SPFI is not set
+# CONFIG_SPI_FSL_SPI is not set
+# CONFIG_SPI_OC_TINY is not set
+# CONFIG_SPI_ROCKCHIP is not set
+# CONFIG_SPI_SC18IS602 is not set
+# CONFIG_SPI_SIFIVE is not set
+# CONFIG_SPI_MXIC is not set
+# CONFIG_SPI_XCOMM is not set
+# CONFIG_SPI_XILINX is not set
+# CONFIG_SPI_ZYNQMP_GQSPI is not set
+# CONFIG_SPI_AMD is not set
+
+#
+# SPI Multiplexer support
+#
+# CONFIG_SPI_MUX is not set
+
+#
+# SPI Protocol Masters
+#
+# CONFIG_SPI_SPIDEV is not set
+# CONFIG_SPI_LOOPBACK_TEST is not set
+# CONFIG_SPI_TLE62X0 is not set
+# CONFIG_SPI_SLAVE is not set
 # CONFIG_SPMI is not set
 # CONFIG_HSI is not set
 # CONFIG_PPS is not set
@@ -1552,6 +1615,17 @@ CONFIG_GPIO_CDEV_V1=y
 # end of MFD GPIO expanders
 
 #
+# SPI GPIO expanders
+#
+# CONFIG_GPIO_74X164 is not set
+# CONFIG_GPIO_MAX3191X is not set
+# CONFIG_GPIO_MAX7301 is not set
+# CONFIG_GPIO_MC33880 is not set
+# CONFIG_GPIO_PISOSR is not set
+# CONFIG_GPIO_XRA1403 is not set
+# end of SPI GPIO expanders
+
+#
 # USB GPIO expanders
 #
 # end of USB GPIO expanders
@@ -1614,6 +1688,7 @@ CONFIG_BCMA_POSSIBLE=y
 # CONFIG_MFD_AXP20X_I2C is not set
 # CONFIG_MFD_MADERA is not set
 # CONFIG_PMIC_DA903X is not set
+# CONFIG_MFD_DA9052_SPI is not set
 # CONFIG_MFD_DA9052_I2C is not set
 # CONFIG_MFD_DA9055 is not set
 # CONFIG_MFD_DA9062 is not set
@@ -1621,6 +1696,7 @@ CONFIG_BCMA_POSSIBLE=y
 # CONFIG_MFD_DA9150 is not set
 # CONFIG_MFD_DLN2 is not set
 # CONFIG_MFD_GATEWORKS_GSC is not set
+# CONFIG_MFD_MC13XXX_SPI is not set
 # CONFIG_MFD_MC13XXX_I2C is not set
 # CONFIG_MFD_MP2629 is not set
 # CONFIG_MFD_HI6421_PMIC is not set
@@ -1644,6 +1720,8 @@ CONFIG_BCMA_POSSIBLE=y
 # CONFIG_MFD_MT6360 is not set
 # CONFIG_MFD_MT6397 is not set
 # CONFIG_MFD_MENF21BMC is not set
+# CONFIG_EZX_PCAP is not set
+# CONFIG_MFD_CPCAP is not set
 # CONFIG_MFD_VIPERBOARD is not set
 # CONFIG_MFD_RETU is not set
 # CONFIG_MFD_PCF50633 is not set
@@ -1676,6 +1754,7 @@ CONFIG_MFD_SYSCON=y
 # CONFIG_MFD_TPS6586X is not set
 # CONFIG_MFD_TPS65910 is not set
 # CONFIG_MFD_TPS65912_I2C is not set
+# CONFIG_MFD_TPS65912_SPI is not set
 # CONFIG_MFD_TPS80031 is not set
 # CONFIG_TWL4030_CORE is not set
 # CONFIG_TWL6040_CORE is not set
@@ -1685,8 +1764,10 @@ CONFIG_MFD_SYSCON=y
 # CONFIG_MFD_TQMX86 is not set
 # CONFIG_MFD_LOCHNAGAR is not set
 # CONFIG_MFD_ARIZONA_I2C is not set
+# CONFIG_MFD_ARIZONA_SPI is not set
 # CONFIG_MFD_WM8400 is not set
 # CONFIG_MFD_WM831X_I2C is not set
+# CONFIG_MFD_WM831X_SPI is not set
 # CONFIG_MFD_WM8350_I2C is not set
 # CONFIG_MFD_WM8994 is not set
 # CONFIG_MFD_ROHM_BD718XX is not set
@@ -1695,6 +1776,7 @@ CONFIG_MFD_SYSCON=y
 # CONFIG_MFD_STPMIC1 is not set
 # CONFIG_MFD_STMFX is not set
 # CONFIG_RAVE_SP_CORE is not set
+# CONFIG_MFD_INTEL_M10_BMC is not set
 # end of Multifunction device drivers
 
 # CONFIG_REGULATOR is not set
@@ -1705,19 +1787,136 @@ CONFIG_MFD_SYSCON=y
 #
 # Graphics support
 #
-# CONFIG_DRM is not set
+CONFIG_DRM=m
+# CONFIG_DRM_DP_AUX_CHARDEV is not set
+# CONFIG_DRM_DEBUG_SELFTEST is not set
+CONFIG_DRM_KMS_HELPER=m
+CONFIG_DRM_KMS_FB_HELPER=y
+# CONFIG_DRM_DEBUG_DP_MST_TOPOLOGY_REFS is not set
+CONFIG_DRM_FBDEV_EMULATION=y
+CONFIG_DRM_FBDEV_OVERALLOC=100
+# CONFIG_DRM_FBDEV_LEAK_PHYS_SMEM is not set
+# CONFIG_DRM_LOAD_EDID_FIRMWARE is not set
+# CONFIG_DRM_DP_CEC is not set
+
+#
+# I2C encoder or helper chips
+#
+# CONFIG_DRM_I2C_CH7006 is not set
+# CONFIG_DRM_I2C_SIL164 is not set
+# CONFIG_DRM_I2C_NXP_TDA998X is not set
+# CONFIG_DRM_I2C_NXP_TDA9950 is not set
+# end of I2C encoder or helper chips
 
 #
 # ARM devices
 #
+# CONFIG_DRM_KOMEDA is not set
 # end of ARM devices
 
+# CONFIG_DRM_VGEM is not set
+# CONFIG_DRM_VKMS is not set
+# CONFIG_DRM_UDL is not set
+# CONFIG_DRM_RCAR_DW_HDMI is not set
+# CONFIG_DRM_RCAR_USE_LVDS is not set
+CONFIG_DRM_PANEL=y
+
+#
+# Display Panels
+#
+# CONFIG_DRM_PANEL_ARM_VERSATILE is not set
+# CONFIG_DRM_PANEL_ILITEK_IL9322 is not set
+# CONFIG_DRM_PANEL_SAMSUNG_LD9040 is not set
+# CONFIG_DRM_PANEL_LG_LB035Q02 is not set
+# CONFIG_DRM_PANEL_LG_LG4573 is not set
+# CONFIG_DRM_PANEL_NEC_NL8048HL11 is not set
+# CONFIG_DRM_PANEL_SAMSUNG_S6E88A0_AMS452EF01 is not set
+# CONFIG_DRM_PANEL_SAMSUNG_S6E8AA0 is not set
+# CONFIG_DRM_PANEL_XINPENG_XPP055C272 is not set
+# end of Display Panels
+
+CONFIG_DRM_BRIDGE=y
+CONFIG_DRM_PANEL_BRIDGE=y
+
+#
+# Display Interface Bridges
+#
+# CONFIG_DRM_CDNS_DSI is not set
+# CONFIG_DRM_CHRONTEL_CH7033 is not set
+# CONFIG_DRM_DISPLAY_CONNECTOR is not set
+# CONFIG_DRM_LONTIUM_LT9611 is not set
+# CONFIG_DRM_LVDS_CODEC is not set
+# CONFIG_DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW is not set
+# CONFIG_DRM_NWL_MIPI_DSI is not set
+# CONFIG_DRM_NXP_PTN3460 is not set
+# CONFIG_DRM_PARADE_PS8622 is not set
+# CONFIG_DRM_PARADE_PS8640 is not set
+# CONFIG_DRM_SIL_SII8620 is not set
+# CONFIG_DRM_SII902X is not set
+# CONFIG_DRM_SII9234 is not set
+# CONFIG_DRM_SIMPLE_BRIDGE is not set
+# CONFIG_DRM_THINE_THC63LVD1024 is not set
+# CONFIG_DRM_TOSHIBA_TC358762 is not set
+# CONFIG_DRM_TOSHIBA_TC358764 is not set
+# CONFIG_DRM_TOSHIBA_TC358767 is not set
+# CONFIG_DRM_TOSHIBA_TC358768 is not set
+# CONFIG_DRM_TOSHIBA_TC358775 is not set
+# CONFIG_DRM_TI_TFP410 is not set
+# CONFIG_DRM_TI_SN65DSI86 is not set
+# CONFIG_DRM_TI_TPD12S015 is not set
+# CONFIG_DRM_ANALOGIX_ANX6345 is not set
+# CONFIG_DRM_ANALOGIX_ANX78XX is not set
+# CONFIG_DRM_I2C_ADV7511 is not set
+# CONFIG_DRM_CDNS_MHDP8546 is not set
+# end of Display Interface Bridges
+
+# CONFIG_DRM_ETNAVIV is not set
+# CONFIG_DRM_ARCPGU is not set
+# CONFIG_DRM_GM12U320 is not set
+# CONFIG_TINYDRM_HX8357D is not set
+# CONFIG_TINYDRM_ILI9225 is not set
+# CONFIG_TINYDRM_ILI9341 is not set
+# CONFIG_TINYDRM_ILI9486 is not set
+# CONFIG_TINYDRM_MI0283QT is not set
+# CONFIG_TINYDRM_REPAPER is not set
+CONFIG_TINYDRM_GDEPAPER=m
+# CONFIG_TINYDRM_ST7586 is not set
+# CONFIG_TINYDRM_ST7735R is not set
 # CONFIG_SGX is not set
+# CONFIG_DRM_LEGACY is not set
+CONFIG_DRM_PANEL_ORIENTATION_QUIRKS=m
 
 #
 # Frame buffer Devices
 #
-# CONFIG_FB is not set
+CONFIG_FB_CMDLINE=y
+CONFIG_FB_NOTIFY=y
+CONFIG_FB=m
+# CONFIG_FIRMWARE_EDID is not set
+CONFIG_FB_CFB_FILLRECT=m
+CONFIG_FB_CFB_COPYAREA=m
+CONFIG_FB_CFB_IMAGEBLIT=m
+CONFIG_FB_SYS_FILLRECT=m
+CONFIG_FB_SYS_COPYAREA=m
+CONFIG_FB_SYS_IMAGEBLIT=m
+# CONFIG_FB_FOREIGN_ENDIAN is not set
+CONFIG_FB_SYS_FOPS=m
+CONFIG_FB_DEFERRED_IO=y
+CONFIG_FB_MODE_HELPERS=y
+# CONFIG_FB_TILEBLITTING is not set
+
+#
+# Frame buffer hardware drivers
+#
+# CONFIG_FB_OPENCORES is not set
+# CONFIG_FB_S1D13XXX is not set
+# CONFIG_FB_SMSCUFX is not set
+# CONFIG_FB_UDL is not set
+# CONFIG_FB_IBM_GXT4500 is not set
+# CONFIG_FB_VIRTUAL is not set
+# CONFIG_FB_METRONOME is not set
+# CONFIG_FB_SSD1307 is not set
+CONFIG_FB_MXC=m
 # end of Frame buffer Devices
 
 #
@@ -1727,6 +1926,8 @@ CONFIG_MFD_SYSCON=y
 # CONFIG_BACKLIGHT_CLASS_DEVICE is not set
 # end of Backlight & LCD device support
 
+CONFIG_HDMI=y
+
 #
 # Console display driver support
 #
@@ -1734,7 +1935,10 @@ CONFIG_MFD_SYSCON=y
 CONFIG_DUMMY_CONSOLE=y
 CONFIG_DUMMY_CONSOLE_COLUMNS=80
 CONFIG_DUMMY_CONSOLE_ROWS=25
+# CONFIG_FRAMEBUFFER_CONSOLE is not set
 # end of Console display driver support
+
+# CONFIG_LOGO is not set
 # end of Graphics support
 
 # CONFIG_SOUND is not set
@@ -1871,6 +2075,7 @@ CONFIG_USB_AUTOSUSPEND_DELAY=2
 # CONFIG_USB_OXU210HP_HCD is not set
 # CONFIG_USB_ISP116X_HCD is not set
 # CONFIG_USB_FOTG210_HCD is not set
+# CONFIG_USB_MAX3421_HCD is not set
 # CONFIG_USB_OHCI_HCD is not set
 # CONFIG_USB_SL811_HCD is not set
 # CONFIG_USB_R8A66597_HCD is not set
@@ -2002,6 +2207,7 @@ CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS=2
 # CONFIG_USB_BDC_UDC is not set
 # CONFIG_USB_NET2272 is not set
 # CONFIG_USB_GADGET_XILINX is not set
+# CONFIG_USB_MAX3420_UDC is not set
 # CONFIG_USB_DUMMY_HCD is not set
 # end of USB Peripheral Controller
 
@@ -2076,6 +2282,7 @@ CONFIG_MMC_BLOCK_MINORS=16
 #
 # CONFIG_MMC_DEBUG is not set
 # CONFIG_MMC_SDHCI is not set
+# CONFIG_MMC_SPI is not set
 # CONFIG_MMC_DW is not set
 # CONFIG_MMC_JZ4740 is not set
 # CONFIG_MMC_VUB300 is not set
@@ -2099,6 +2306,8 @@ CONFIG_LEDS_CLASS=y
 # CONFIG_LEDS_AW2013 is not set
 # CONFIG_LEDS_BCM6328 is not set
 # CONFIG_LEDS_BCM6358 is not set
+# CONFIG_LEDS_CR0014114 is not set
+# CONFIG_LEDS_EL15203000 is not set
 # CONFIG_LEDS_LM3530 is not set
 # CONFIG_LEDS_LM3532 is not set
 # CONFIG_LEDS_LM3642 is not set
@@ -2111,6 +2320,7 @@ CONFIG_LEDS_GPIO=y
 # CONFIG_LEDS_LP8860 is not set
 # CONFIG_LEDS_PCA955X is not set
 # CONFIG_LEDS_PCA963X is not set
+# CONFIG_LEDS_DAC124S085 is not set
 CONFIG_LEDS_PWM=y
 # CONFIG_LEDS_BD2802 is not set
 # CONFIG_LEDS_LT3593 is not set
@@ -2127,6 +2337,7 @@ CONFIG_LEDS_PWM=y
 # CONFIG_LEDS_SYSCON is not set
 # CONFIG_LEDS_MLXREG is not set
 # CONFIG_LEDS_USER is not set
+# CONFIG_LEDS_SPI_BYTE is not set
 # CONFIG_LEDS_TI_LMU_COMMON is not set
 
 #
@@ -2209,6 +2420,21 @@ CONFIG_RTC_INTF_DEV=y
 #
 # SPI RTC drivers
 #
+# CONFIG_RTC_DRV_M41T93 is not set
+# CONFIG_RTC_DRV_M41T94 is not set
+# CONFIG_RTC_DRV_DS1302 is not set
+# CONFIG_RTC_DRV_DS1305 is not set
+# CONFIG_RTC_DRV_DS1343 is not set
+# CONFIG_RTC_DRV_DS1347 is not set
+# CONFIG_RTC_DRV_DS1390 is not set
+# CONFIG_RTC_DRV_MAX6916 is not set
+# CONFIG_RTC_DRV_R9701 is not set
+# CONFIG_RTC_DRV_RX4581 is not set
+# CONFIG_RTC_DRV_RX6110 is not set
+# CONFIG_RTC_DRV_RS5C348 is not set
+# CONFIG_RTC_DRV_MAX6902 is not set
+# CONFIG_RTC_DRV_PCF2123 is not set
+# CONFIG_RTC_DRV_MCP795 is not set
 CONFIG_RTC_I2C_AND_SPI=y
 
 #
@@ -2254,7 +2480,11 @@ CONFIG_RTC_I2C_AND_SPI=y
 #
 # DMABUF options
 #
-# CONFIG_SYNC_FILE is not set
+CONFIG_SYNC_FILE=y
+# CONFIG_SW_SYNC is not set
+# CONFIG_UDMABUF is not set
+# CONFIG_DMABUF_MOVE_NOTIFY is not set
+# CONFIG_DMABUF_SELFTESTS is not set
 # CONFIG_DMABUF_HEAPS is not set
 # end of DMABUF options
 
@@ -3251,7 +3481,9 @@ CONFIG_MTD_INGENIC_SFC_NANDFLASH=y
 #
 # [SPI] Master/Slave Drivers
 #
-# CONFIG_INGENIC_SPI is not set
+CONFIG_INGENIC_SPI=m
+# CONFIG_INGENIC_SPI0 is not set
+# CONFIG_INGENIC_SPI_PIO_CE is not set
 # CONFIG_INGENIC_SLV is not set
 # end of [SPI] Master/Slave Drivers
 
@@ -3268,6 +3500,7 @@ CONFIG_MTD_INGENIC_SFC_NANDFLASH=y
 #
 # [LCD] Panel/Touchscreen Drivers
 #
+# CONFIG_FB_INGENIC is not set
 
 #
 # Touchscreen Drivers
