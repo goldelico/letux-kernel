@@ -24,6 +24,11 @@ jobs:
     strategy:
       matrix:
         include:
+        include:
+          - name: loshark_l1_v2.2
+            arch: mipsel
+            defconfig: loshark_l1_v2.2_defconfig
+            image_name: uImage
           - name: ci20
             arch: mipsel
             defconfig: ci20_defconfig
