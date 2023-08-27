@@ -1,0 +1,198 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "x1501.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/clock/ingenic,sysost.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "sudomaker,loshark-l1-v2.2-lite", "ingenic,x1501";
+	model = "SudoMaker LoShark L1 v2.2 Lite";
+
+	aliases {
+		serial2 = &uart2;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x00800000>;
+	};
+
+};
+
+&exclk {
+	clock-frequency = <24000000>;
+};
+
+&cgu {
+	assigned-clocks = <&cgu X1000_CLK_SSIMUX>, <&cgu X1000_CLK_RTC>;
+	assigned-clock-parents = <&cgu X1000_CLK_SSIPLL_DIV2>, <&cgu X1000_CLK_EXCLK_DIV512>;
+};
+
+&ost {
+	/* 1500 kHz for the system timer and clocksource */
+	assigned-clocks = <&ost OST_CLK_EVENT_TIMER>, <&ost OST_CLK_GLOBAL_TIMER>;
+	assigned-clock-rates = <1500000>, <1500000>;
+};
+
+&i2c1 {
+	status = "okay";
+
+	clock-frequency = <50000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c1>;
+
+	led-controller@45 {
+		compatible = "awinic,aw2023";
+		reg = <0x45>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		led@0 {
+			reg = <0>;
+			led-max-microamp = <8000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+		};
+
+		led@1 {
+			reg = <1>;
+			led-max-microamp = <7000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led@2 {
+			reg = <2>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_BLUE>;
+		};
+	};
+};
+
+&ssi {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_spi0>;
+
+	num-cs = <2>;
+	cs-gpios = <0>, <&gpa 13 GPIO_ACTIVE_LOW>;
+
+	lora: sx126x@0 {
+		reg = <0>;
+		compatible = "semtech,sx1301";
+
+		spi-max-frequency = <12000000>;
+	};
+};
+
+&uart2 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart2>;
+};
+
+&sfc {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_sfc>;
+
+	flash: xt25f16b@0 {
+		compatible = "xtx,xt25f16b-kgd", "xtx,xt25f16b", "jedec,spi-nor";
+		spi-max-frequency = <133000000>;
+		reg = <0>;
+
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			boot {
+				reg = <0x0 0x8000>;
+			};
+
+			kernel {
+				reg = <0x8000 0x138000>;
+			};
+
+			early_rootfs {
+				reg = <0x140000 0xC0000>;
+			};
+
+		};
+	};
+};
+
+&msc1 {
+	status = "okay";
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc1>;
+
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+
+	non-removable;
+};
+
+&otg_phy {
+	status = "okay";
+	wakeup-source;
+};
+
+&otg {
+	status = "okay";
+	wakeup-source;
+};
+
+&pinctrl {
+	pins_sfc: sfc {
+		function = "sfc";
+		groups = "sfc-data", "sfc-clk", "sfc-ce";
+		bias-disable;
+	};
+
+	pins_spi0: spi0 {
+		function = "ssi";
+		groups = "ssi-dt-d", "ssi-dr-d", "ssi-clk-d", "ssi-ce0-d";
+	};
+
+	pins_i2c1: i2c1 {
+		function = "i2c1";
+		groups = "i2c1-data-a";
+		bias-pull-up;
+	};
+
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data-a";
+		bias-pull-up;
+	};
+
+	pins_msc1: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-pull-up;
+	};
+};

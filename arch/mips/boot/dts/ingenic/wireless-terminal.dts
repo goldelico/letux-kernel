@@ -113,7 +113,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c1>;
 
-	rtc: rx8900@32 {
+	rtc_ext: rx8900@32 {
 		compatible = "epson,rx8900";
 		reg = <0x32>;
 

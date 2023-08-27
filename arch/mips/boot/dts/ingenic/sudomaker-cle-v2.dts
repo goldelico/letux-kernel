@@ -1,0 +1,447 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/dts-v1/;
+
+#include "x1000.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/clock/ingenic,sysost.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "sudomaker,cle-v2", "ingenic,x1000e";
+	model = "SudoMaker Clé Deux";
+
+	aliases {
+		serial2 = &uart2;
+	};
+
+	chosen {
+		stdout-path = "serial2:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x04000000>;
+	};
+
+	vreg_13v: regulator-13v {
+		compatible = "regulator-fixed";
+
+		regulator-name = "vreg_13v";
+		regulator-min-microvolt = <11480000>;
+		regulator-max-microvolt = <11480000>;
+
+		gpio = <&gpc 23 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
+
+	regswitch-13v {
+		compatible = "reg-userspace-consumer";
+		regulator-name = "vreg_13v";
+		regulator-supplies = "vcc";
+		vcc-supply = <&vreg_13v>;
+		regulator-boot-on;
+		comment = "13V boost switch (OLED and ADC)";
+	};
+
+	vreg_adc_vref: regulator-adc-vref {
+		compatible = "regulator-fixed";
+
+		regulator-name = "vreg_adc_vref";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpb 0 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
+
+	regswitch-adc-vref {
+		compatible = "reg-userspace-consumer";
+		regulator-name = "vreg_adc_vref";
+		regulator-supplies = "vcc";
+		vcc-supply = <&vreg_adc_vref>;
+		regulator-boot-on;
+		comment = "ADC VREF";
+	};
+
+	vreg_34v: regulator-34v {
+		compatible = "regulator-fixed";
+
+		regulator-name = "vreg_34v";
+		regulator-min-microvolt = <34030000>;
+		regulator-max-microvolt = <34030000>;
+
+		gpio = <&gpc 21 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
+
+	regswitch-34v {
+		compatible = "reg-userspace-consumer";
+		regulator-name = "vreg_34v";
+		regulator-supplies = "vcc";
+		vcc-supply = <&vreg_34v>;
+		comment = "34V boost switch";
+	};
+
+	vreg_clicker: regulator-clicker {
+		compatible = "regulator-fixed";
+
+		regulator-name = "vreg_clicker";
+		regulator-min-microvolt = <34030000>;
+		regulator-max-microvolt = <34030000>;
+
+		gpio = <&gpc 22 GPIO_ACTIVE_LOW>;
+		enable-active-high;
+	};
+
+	regswitch-clicker {
+		compatible = "reg-userspace-consumer";
+		regulator-name = "vreg_clicker";
+		regulator-supplies = "vcc";
+		vcc-supply = <&vreg_clicker>;
+		comment = "Clicker switch";
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		btn_0 {
+			wakeup-source;
+			label = "BTN_BOOT0_MENU";
+			linux,code = <KEY_UP>;
+			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
+		};
+
+		btn_1 {
+			wakeup-source;
+			label = "BTN_BOOT1_HOME";
+			linux,code = <KEY_ESC>;
+			gpios = <&gpb 29 GPIO_ACTIVE_LOW>;
+		};
+
+		btn_2 {
+			wakeup-source;
+			label = "BTN_TARE";
+			linux,code = <KEY_DOWN>;
+			gpios = <&gpa 12 GPIO_ACTIVE_LOW>;
+		};
+
+		btn_3 {
+			wakeup-source;
+			label = "BTN_QON_OK";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpb 31 GPIO_ACTIVE_LOW>;
+		};
+
+
+	};
+
+};
+
+&exclk {
+	clock-frequency = <24000000>;
+};
+
+&cgu {
+	assigned-clocks = <&cgu X1000_CLK_SSIMUX>, <&cgu X1000_CLK_RTC>;
+	assigned-clock-parents = <&cgu X1000_CLK_SSIPLL_DIV2>, <&cgu X1000_CLK_EXCLK_DIV512>;
+};
+
+&ost {
+	/* 1500 kHz for the system timer and clocksource */
+	assigned-clocks = <&ost OST_CLK_EVENT_TIMER>, <&ost OST_CLK_GLOBAL_TIMER>;
+	assigned-clock-rates = <1500000>, <1500000>;
+};
+
+&ssi {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_spi0>;
+
+	num-cs = <2>;
+	cs-gpios = <0>, <&gpa 3 GPIO_ACTIVE_LOW>;
+
+	oled@0 {
+		compatible = "syncoam,seps525";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		rotate = <0>;
+		txbuflen = <16256>;
+		buswidth = <8>;
+		fps = <50>;
+		dc-gpios = <&gpb 4 0>;
+		reset-gpios = <&gpb 1 GPIO_ACTIVE_LOW>;
+		debug = <0x4000000>;
+	};
+
+	lora_spidev@1 {
+		reg = <1>;
+		compatible = "sudomaker,spidev-zerocopy";
+
+		spi-max-frequency = <16000000>;
+	};
+
+};
+
+&uart0 {
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_uart0>, <&pins_rtc32k>;
+
+		uart-has-rtscts;
+
+		bluetooth {
+				compatible = "brcm,bcm43438-bt";
+				max-speed = <921600>;
+				brcm,bt-pcm-int-params = [01 02 00 01 01];
+				shutdown-gpios = <&gpc 18 GPIO_ACTIVE_HIGH>;
+				device-wakeup-gpios = <&gpc 19 GPIO_ACTIVE_HIGH>;
+				interrupt-parent = <&gpc>;
+				interrupts = <20 IRQ_TYPE_EDGE_FALLING>;
+				// brcm,requires-autobaud-mode;
+		};
+};
+
+&uart2 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart2>;
+};
+
+&i2c0 {
+	status = "okay";
+
+	clock-frequency = <100000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c0>;
+
+	rtc@32 {
+		compatible = "epson,rx8900";
+		reg = <0x32>;
+
+		interrupt-parent = <&gpa>;
+		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
+
+		epson,vdet-disable;
+		trickle-diode-disable;
+	};
+
+	battery@36 {
+		compatible = "maxim,max17048";
+		reg = <0x36>;
+
+		interrupt-parent = <&gpa>;
+		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
+
+		maxim,alert-low-soc-level = <10>;
+	};
+
+	led-controller@45 {
+		compatible = "awinic,aw2023";
+		reg = <0x45>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		led@0 {
+			reg = <0>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+		};
+
+		led@1 {
+			reg = <1>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led@2 {
+			reg = <2>;
+			led-max-microamp = <2000>;
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_BLUE>;
+		};
+	};
+
+	charger@6a {
+		compatible = "ti,bq25890";
+		reg = <0x6a>;
+
+		interrupt-parent = <&gpa>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+		wakeup-source;
+
+		ti,battery-regulation-voltage = <4200000>;
+		ti,charge-current = <500000>;
+		ti,termination-current = <25000>;
+		ti,precharge-current = <50000>;
+		ti,minimum-sys-voltage = <3600000>;
+		ti,boost-voltage = <5100000>;
+		ti,boost-max-current = <2400000>;
+		ti,thermal-regulation-threshold = <120>;
+	};
+};
+
+
+&sfc {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_sfc>;
+
+	flash: spinor@0 {
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <133000000>;
+		reg = <0>;
+
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			uboot@0 {
+				reg = <0x0 0x40000>;
+			};
+
+			kernel@40000 {
+				reg = <0x40000 0x300000>;
+			};
+
+			rootfs@840000 {
+				reg = <0x340000 0x10000000>;
+			};
+		};
+	};
+
+};
+
+&msc1 {
+	status = "okay";
+
+	bus-width = <4>;
+	max-frequency = <25000000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc0>;
+
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+
+	non-removable;
+};
+
+&msc0 {
+		status = "okay";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bus-width = <4>;
+		max-frequency = <25000000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_msc1>;
+
+		non-removable;
+		cap-power-off-card;
+		keep-power-in-suspend;
+		wakeup-source;
+
+		ap6212a: wifi@1 {
+				compatible = "brcm,bcm4329-fmac";
+				reg = <1>;
+
+				interrupt-parent = <&gpc>;
+				interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-names = "host-wake";
+				wakeup-source;
+
+				// reset-gpios = <&gpc 17 GPIO_ACTIVE_LOW>;
+
+				brcm,drive-strength = <10>;
+		};
+};
+
+&otg_phy {
+	status = "okay";
+};
+
+&otg {
+	status = "okay";
+};
+
+&pwm {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_pwm4>;
+};
+
+&pinctrl {
+
+	pins_rtc32k: rtc32k {
+		function = "rtc32k";
+		groups = "rtc32k";
+	};
+
+	pins_pwm4: pwm4 {
+		function = "pwm4";
+		groups = "pwm4";
+	};
+
+	pins_sfc: sfc {
+		function = "sfc";
+		groups = "sfc-data", "sfc-clk", "sfc-ce";
+	};
+
+	pins_spi0: spi0 {
+			function = "ssi";
+			groups = "ssi-dt-d", "ssi-dr-d", "ssi-clk-d", "ssi-ce0-d";
+	};
+
+	pins_uart0: uart0 {
+		function = "uart0";
+		groups = "uart0-data", "uart0-hwflow";
+		bias-pull-up;
+	};
+
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data-d";
+		bias-pull-up;
+	};
+
+	pins_i2c0: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data";
+		bias-pull-up;
+	};
+
+	pins_msc0: msc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit", "mmc0-4bit";
+		bias-pull-up;
+	};
+
+	pins_msc1: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-pull-up;
+	};
+
+};

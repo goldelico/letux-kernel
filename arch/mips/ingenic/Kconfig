@@ -60,12 +60,16 @@ config X1000_NOTKIA_V2
 	bool "SudoMaker Notkia V2"
 	select MACH_X1000
 
-config X1501_LOSHARK_V2
-	bool "SudoMaker LoShark V2"
+config X1501_LOSHARK_L1_V2
+	bool "SudoMaker LoShark L1 V2"
 	select MACH_X1000
 
-config X1501_LOSHARK_V2_2
-	bool "SudoMaker LoShark V2.2"
+config X1501_LOSHARK_L1_V2_2
+	bool "SudoMaker LoShark L1 V2.2"
+	select MACH_X1000
+
+config X1501_LOSHARK_L1_V2_2L
+	bool "SudoMaker LoShark L1 V2.2 Lite"
 	select MACH_X1000
 
 config X1000_INGENIC_JDI_V1
@@ -73,7 +77,11 @@ config X1000_INGENIC_JDI_V1
 	select MACH_X1000
 
 config X1000_SUDOMAKER_CLE
-	bool "SudoMaker CLE"
+	bool "SudoMaker Clé"
+	select MACH_X1000
+
+config X1000_SUDOMAKER_CLE_V2
+	bool "SudoMaker Clé Deux"
 	select MACH_X1000
 
 config X1501_SUDOMAKER_CANBOX

@@ -9,8 +9,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "sudomaker,loshark-v2.2", "ingenic,x1501";
-	model = "SudoMaker LoShark v2.2";
+	compatible = "sudomaker,loshark-l1-v2.2", "ingenic,x1501";
+	model = "SudoMaker LoShark L1 v2.2";
 
 	aliases {
 		serial2 = &uart2;
