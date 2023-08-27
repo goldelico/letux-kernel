@@ -24,7 +24,6 @@ jobs:
     strategy:
       matrix:
         include:
-        include:
           - name: loshark_l1_v2.2
             arch: mipsel
             defconfig: loshark_l1_v2.2_defconfig
@@ -47,7 +46,6 @@ jobs:
       run: |
         cd /tmp
         wget https://github.com/SudoMaker/LoShark/raw/master/software/initramfs-loshark-l1-v2.2.cpio
-
       timeout-minutes: 5
 
     - uses: actions/checkout@v3
