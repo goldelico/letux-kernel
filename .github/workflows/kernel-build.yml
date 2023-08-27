@@ -43,6 +43,13 @@ jobs:
       run: sudo apt install -y build-essential gcc-mipsel-linux-gnu u-boot-tools
       timeout-minutes: 5
 
+    - name: Download binary files
+      run: |
+        cd /tmp
+        wget https://github.com/SudoMaker/LoShark/raw/master/software/initramfs-loshark-l1-v2.2.cpio
+
+      timeout-minutes: 5
+
     - uses: actions/checkout@v3
       with:
         fetch-depth: 1
