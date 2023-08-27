@@ -3,7 +3,7 @@
  *
  * Copyright 2015 Ingenic Semiconductor Co.,Ltd
  *
- * Author: cli <chen.li@inegnic.com>
+ * Author: cli <chen.li@ingenic.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
