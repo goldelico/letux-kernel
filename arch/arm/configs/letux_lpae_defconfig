@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.15.127 Kernel Configuration
+# Linux/arm 5.15.128 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6159,6 +6159,11 @@ CONFIG_TWL6030_GPADC=m
 CONFIG_VF610_ADC=m
 # CONFIG_XILINX_XADC is not set
 # end of Analog to digital converters
+
+#
+# Analog to digital and digital to analog converters
+#
+# end of Analog to digital and digital to analog converters
 
 #
 # Analog Front Ends

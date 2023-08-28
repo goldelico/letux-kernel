@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.127 Kernel Configuration
+# Linux/mips 5.15.128 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4459,6 +4459,11 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_VF610_ADC is not set
 # CONFIG_XILINX_XADC is not set
 # end of Analog to digital converters
+
+#
+# Analog to digital and digital to analog converters
+#
+# end of Analog to digital and digital to analog converters
 
 #
 # Analog Front Ends
