@@ -2,6 +2,7 @@
 /*
  *  Copyright (C) 2009-2010, Lars-Peter Clausen <lars@metafoo.de>
  *  Copyright (C) 2010, Paul Cercueil <paul@crapouillou.net>
+ *  Copyright (C) 2023, SudoMaker, Ltd.
  *	 JZ4740 SoC RTC driver
  */
 
@@ -36,6 +37,7 @@
 #define JZ_RTC_CTRL_AF		BIT(4)
 #define JZ_RTC_CTRL_AF_IRQ	BIT(3)
 #define JZ_RTC_CTRL_AE		BIT(2)
+#define JZ_RTC_CTRL_SELEXC	BIT(1)
 #define JZ_RTC_CTRL_ENABLE	BIT(0)
 
 /* Magic value to enable writes on jz4780 */
@@ -48,6 +50,7 @@ enum jz4740_rtc_type {
 	ID_JZ4740,
 	ID_JZ4760,
 	ID_JZ4780,
+	ID_X1000,
 };
 
 struct jz4740_rtc {
@@ -96,13 +99,33 @@ static inline int jz4780_rtc_enable_write(struct jz4740_rtc *rtc)
 	return timeout ? 0 : -EIO;
 }
 
+static inline int x1000_rtc_enable_write(struct jz4740_rtc *rtc)
+{
+	uint32_t ctrl;
+	int timeout = 10000;
+
+	writel(JZ_RTC_WENR_MAGIC, rtc->base + JZ_REG_RTC_WENR);
+
+	do {
+		ctrl = readl(rtc->base + JZ_REG_RTC_WENR);
+	} while (!(ctrl & JZ_RTC_WENR_WEN) && --timeout);
+
+	if (!timeout)
+		return -EIO;
+
+	return jz4740_rtc_wait_write_ready(rtc);
+}
+
 static inline int jz4740_rtc_reg_write(struct jz4740_rtc *rtc, size_t reg,
 	uint32_t val)
 {
 	int ret = 0;
 
-	if (rtc->type >= ID_JZ4760)
+	if (rtc->type >= ID_X1000)
+		ret = x1000_rtc_enable_write(rtc);
+	else if (rtc->type >= ID_JZ4760)
 		ret = jz4780_rtc_enable_write(rtc);
+
 	if (ret == 0)
 		ret = jz4740_rtc_wait_write_ready(rtc);
 	if (ret == 0)
@@ -261,6 +284,7 @@ static const struct of_device_id jz4740_rtc_of_match[] = {
 	{ .compatible = "ingenic,jz4740-rtc", .data = (void *)ID_JZ4740 },
 	{ .compatible = "ingenic,jz4760-rtc", .data = (void *)ID_JZ4760 },
 	{ .compatible = "ingenic,jz4780-rtc", .data = (void *)ID_JZ4780 },
+	{ .compatible = "ingenic,x1000-rtc", .data = (void *)ID_X1000 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, jz4740_rtc_of_match);
@@ -390,6 +414,7 @@ static struct platform_driver jz4740_rtc_driver = {
 module_platform_driver(jz4740_rtc_driver);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
+MODULE_AUTHOR("ReimuNotMoe <reimu@sudomaker.com>");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("RTC driver for the JZ4740 SoC\n");
 MODULE_ALIAS("platform:jz4740-rtc");
