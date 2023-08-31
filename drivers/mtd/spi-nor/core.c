@@ -1616,24 +1616,58 @@ int spi_nor_sr2_bit7_quad_enable(struct spi_nor *nor)
 }
 
 static const struct spi_nor_manufacturer *manufacturers[] = {
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_ATMEL
 	&spi_nor_atmel,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_CATALYST
 	&spi_nor_catalyst,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_EON
 	&spi_nor_eon,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_ESMT
 	&spi_nor_esmt,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_EVERSPIN
 	&spi_nor_everspin,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_FUJITSU
 	&spi_nor_fujitsu,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_GIGADEVICE
 	&spi_nor_gigadevice,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_INTEL
 	&spi_nor_intel,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_ISSI
 	&spi_nor_issi,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_MACRONIX
 	&spi_nor_macronix,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_MICRON_ST
 	&spi_nor_micron,
 	&spi_nor_st,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_SPANSION
 	&spi_nor_spansion,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_SST
 	&spi_nor_sst,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_WINBOND
 	&spi_nor_winbond,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_XILINX
 	&spi_nor_xilinx,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_XMC
 	&spi_nor_xmc,
+#endif
+#ifdef CONFIG_MTD_SPI_NOR_MANUF_XTX
 	&spi_nor_xtx,
+#endif
 };
 
 static const struct flash_info *spi_nor_match_id(struct spi_nor *nor,

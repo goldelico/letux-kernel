@@ -1,23 +1,24 @@
 # SPDX-License-Identifier: GPL-2.0
 
 spi-nor-objs			:= core.o sfdp.o swp.o otp.o sysfs.o
-spi-nor-objs			+= atmel.o
-spi-nor-objs			+= catalyst.o
-spi-nor-objs			+= eon.o
-spi-nor-objs			+= esmt.o
-spi-nor-objs			+= everspin.o
-spi-nor-objs			+= fujitsu.o
-spi-nor-objs			+= gigadevice.o
-spi-nor-objs			+= intel.o
-spi-nor-objs			+= issi.o
-spi-nor-objs			+= macronix.o
-spi-nor-objs			+= micron-st.o
-spi-nor-objs			+= spansion.o
-spi-nor-objs			+= sst.o
-spi-nor-objs			+= winbond.o
-spi-nor-objs			+= xilinx.o
-spi-nor-objs			+= xmc.o
-spi-nor-objs			+= xtx.o
+
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_ATMEL)			+= atmel.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_CATALYST)			+= catalyst.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_EON)				+= eon.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_ESMT)			+= esmt.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_EVERSPIN)			+= everspin.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_FUJITSU)			+= fujitsu.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_GIGADEVICE)			+= gigadevice.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_INTEL)			+= intel.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_ISSI)			+= issi.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_MACRONIX)			+= macronix.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_MICRON_ST)			+= micron-st.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_SPANSION)			+= spansion.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_SST)				+= sst.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_WINBOND)			+= winbond.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_XILINX)			+= xilinx.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_XMC)				+= xmc.o
+spi-nor-$(CONFIG_MTD_SPI_NOR_MANUF_XTX)				+= xtx.o
 
 spi-nor-$(CONFIG_DEBUG_FS)	+= debugfs.o
 obj-$(CONFIG_MTD_SPI_NOR)	+= spi-nor.o

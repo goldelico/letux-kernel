@@ -68,6 +68,74 @@ config MTD_SPI_NOR_SWP_KEEP
 
 endchoice
 
+config MTD_SPI_NOR_MANUF_ATMEL
+	bool "Enable support for ATMEL flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_CATALYST
+	bool "Enable support for Catalyst/OnSemi flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_EON
+	bool "Enable support for EON flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_ESMT
+	bool "Enable support for ESMT flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_EVERSPIN
+	bool "Enable support for Everspin MRAMs"
+	default y
+
+config MTD_SPI_NOR_MANUF_FUJITSU
+	bool "Enable support for Fujitsu flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_GIGADEVICE
+	bool "Enable support for GigaDevice flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_INTEL
+	bool "Enable support for Intel/Numonyx flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_ISSI
+	bool "Enable support for ISSI flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_MACRONIX
+	bool "Enable support for Macronix flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_MICRON_ST
+	bool "Enable support for Micron ST flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_SPANSION
+	bool "Enable support for Spansion/Cypress flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_SST
+	bool "Enable support for SST flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_WINBOND
+	bool "Enable support for Winbond flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_XILINX
+	bool "Enable support for Xilinx flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_XMC
+	bool "Enable support for XMC (Wuhan Xinxin Semiconductor Manufacturing Corp) flashes"
+	default y
+
+config MTD_SPI_NOR_MANUF_XTX
+	bool "Enable support for XTX (Shenzhen Xin Tian Xia Tech) flashes"
+	default y
+
 source "drivers/mtd/spi-nor/controllers/Kconfig"
 
 endif # MTD_SPI_NOR
