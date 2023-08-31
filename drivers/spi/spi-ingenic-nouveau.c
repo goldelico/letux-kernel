@@ -221,6 +221,11 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 		cfg.src_maxburst = 1;
 	}
 
+	// This is another errata. You see see you, Ingenic.
+	if (dir == DMA_DEV_TO_MEM) {
+		cfg.src_maxburst = 1;
+	}
+
 	ret = dmaengine_slave_config(chan, &cfg);
 	if (ret)
 		return ERR_PTR(ret);
@@ -253,10 +258,10 @@ static inline void spi_ingenic_determine_wait(struct ingenic_spi *priv,
 			      struct spi_transfer *xfer, unsigned int bits,
 			      unsigned int target) {
 
-	priv->cur_xfer.udelay = 1000000 * bits * target / xfer->speed_hz;
+	// priv->cur_xfer.udelay = 1000000 * bits * target / xfer->speed_hz;
 
-	if (priv->cur_xfer.udelay <= 50)
-		priv->cur_xfer.wait_with_udelay = true;
+	// if (priv->cur_xfer.udelay <= 50)
+	// 	priv->cur_xfer.wait_with_udelay = true;
 }
 
 static int spi_ingenic_dma_transfer(struct spi_controller *ctlr,
@@ -641,7 +646,7 @@ static int spi_ingenic_transfer_one(struct spi_controller *ctlr,
 		}
 	}
 
-	if (ret == -1) {
+	if (ret < 0) {
 		ret = spi_ingenic_pio_transfer(priv, xfer, bits);
 	}
 
@@ -714,6 +719,9 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 	}
 
 	if (xfer->len > 128) {
+		// if (xfer->bits_per_word > 16 && xfer->rx_buf)
+		// 	return false;
+
 		return !caps.max_sg_burst ||
 			xfer->len <= caps.max_sg_burst * SPI_INGENIC_FIFO_SIZE;
 	} else {
