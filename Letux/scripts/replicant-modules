@@ -19,7 +19,7 @@ export COPYFILE_DISABLE=true
 [ "$1" = "-v" ] && VERBOSE=-v
 
 KERNEL_FILES=/tmp/kernel-$$
-SOURCE=arch/arm/boot/modules.tgz
+SOURCE=arch/$ARCH/boot/modules.tgz
 DEST="$(dirname "$SOURCE")/$(basename "$SOURCE" .tgz).bb.tgz"
 RELEASE=$(cat include/config/kernel.release)
 
