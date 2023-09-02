@@ -1,5 +1,5 @@
 #
-# Linux/mips 4.19.292 Kernel Configuration
+# Linux/mips 4.19.294 Kernel Configuration
 #
 
 #
@@ -3396,6 +3396,10 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_TI_AM335X_ADC is not set
 # CONFIG_TI_TLC4541 is not set
 # CONFIG_VF610_ADC is not set
+
+#
+# Analog to digital and digital to analog converters
+#
 
 #
 # Analog Front Ends
