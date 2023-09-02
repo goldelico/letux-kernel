@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.4.254 Kernel Configuration
+# Linux/mips 5.4.256 Kernel Configuration
 #
 
 #
@@ -3922,6 +3922,11 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_VF610_ADC is not set
 # CONFIG_XILINX_XADC is not set
 # end of Analog to digital converters
+
+#
+# Analog to digital and digital to analog converters
+#
+# end of Analog to digital and digital to analog converters
 
 #
 # Analog Front Ends
