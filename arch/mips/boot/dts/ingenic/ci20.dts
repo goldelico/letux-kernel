@@ -45,13 +45,13 @@
 		led-0 {
 			label = "ci20:red:led0";
 			gpios = <&gpc 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 		};
 
 		led-1 {
 			label = "ci20:red:led1";
 			gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "nand-disk";
+			linux,default-trigger = "mmc0";
 		};
 
 		led-2 {
@@ -109,6 +109,7 @@
 
 		gpio = <&gpb 19 0>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	otg_power: fixedregulator-2 {
@@ -194,10 +195,13 @@
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <50000000>;
+	max-frequency = <25000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc0>;
+
+	vmmc-supply = <&vcc_33>;
+	vqmmc-supply = <&vcc_33>;	/* VDDIOMSC */
 
 	cd-gpios = <&gpf 20 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&vcc_33v>;
@@ -221,13 +225,20 @@
 	#size-cells = <0>;
 
 	wifi@1 {
-		compatible = "brcm,bcm4329-fmac";
+		compatible = "brcm,bcm4330-fmac";
 		reg = <1>;
 
 		interrupt-parent = <&gpd>;
 		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-names = "host-wake";
 	};
+};
+
+&rtc_dev {
+	clocks = <&extrtc 0>;
+	clock-names = "rtc";
+
+	system-power-controller;
 };
 
 &uart0 {
@@ -267,6 +278,9 @@
 		reset-gpios = <&gpf 8 GPIO_ACTIVE_LOW>;
 		device-wakeup-gpios = <&gpf 5 GPIO_ACTIVE_HIGH>;
 		shutdown-gpios = <&gpf 4 GPIO_ACTIVE_HIGH>;
+
+		max-speed = <115200>;	/* stay with default data rate */
+		brcm,bt-pcm-int-params = [01 02 00 01 01];
 	};
 };
 
@@ -298,8 +312,8 @@
 
 		regulators {
 			vddcore: DCDC1 {
-				regulator-min-microvolt = <1125000>;
-				regulator-max-microvolt = <1125000>;
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1200000>;
 				vp1-supply = <&vcc_33v>;
 				regulator-always-on;
 			};
@@ -378,6 +392,43 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c2>;
 
+	camera: ov5640@3c {
+		compatible = "omnivision,ov5640";
+		reg = <0x3c>;
+
+		core-supply = <&cim_io_15>;
+		analog-supply = <&cim_io_28>;
+
+		gpio-enable = <&gpb 18 0>;
+		gpio-reset = <&gpb 26 0>;
+
+		remote = <&cim>;
+		port {
+			ov5640_1: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&camera_ep>;
+			};
+		};
+	};
+
+};
+
+&cim {
+	clock-frequency = <24000000>;
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Parallel bus endpoint */
+		camera_ep: endpoint@0 {
+			reg = <0>;		/* Local endpoint # */
+			remote-endpoint = <&ov5640_1>;
+			hsync-active = <1>;	/* Active high */
+			vsync-active = <1>;	/* Active high */
+			pclk-sample = <0>;	/* Falling */
+		};
+	};
 };
 
 &i2c3 {
@@ -396,8 +447,16 @@
 
 	clock-frequency = <400000>;
 
-		rtc@51 {
+		extrtc: rtc@51 {
+#ifdef BOARD_CI20_V1
+			compatible = "pericom,pt7c4338";
+			/* FIXME: clock out untested */
+			#clock-cells = <1>;
+			clock-output-names = "square", "clkout";
+#else
 			compatible = "nxp,pcf8563";
+			#clock-cells = <1>;
+#endif
 			reg = <0x51>;
 
 			interrupt-parent = <&gpf>;
@@ -513,6 +572,9 @@
 
 &otg {
 	status = "okay";
+
+	assigned-clocks = <&cgu JZ4780_CLK_OTGPHY>;
+	assigned-clock-rates = <48000000>;
 };
 
 &pinctrl {
@@ -609,6 +671,13 @@
 	pins_mmc1: mmc1 {
 		function = "mmc1";
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
+		bias-disable;
+	};
+
+	pins_cim: cim-pb {
+	/* see https://github.com/freebsd/freebsd/blob/master/sys/gnu/dts/mips/ingenic/jz4780.dtsi */
+		function = "cim";
+		// groups = "cim-???", "cim-???";
 		bias-disable;
 	};
 };
