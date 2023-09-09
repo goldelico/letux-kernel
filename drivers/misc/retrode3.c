@@ -558,6 +558,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 
 			cdev_init(&slot->cdev, &slot_fops);
 			slot->cdev.owner = THIS_MODULE;
+// FIXME: should be some devm_cdev_device_add
 			ret = cdev_device_add(&slot->cdev, &slot->dev);
 			if (ret) {
 				dev_err(&slot->dev, "failed to add device: %d\n", ret);
@@ -570,6 +571,12 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			set_address(slot->bus, 0xffffffff);
 			set_address(slot->bus, 0x00000000);	// bring all address gpios in a defined state
 		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
+			dev = &slot->dev;
+			device_initialize(dev);
+			dev->class = retrode3_class;
+			dev->parent = &pdev->dev;
+			dev_set_name(dev, "gamepad");
+			dev->of_node = child;
 			// FIXME: add gamepad input driver initialization
 			dev_warn(dev, "%s gamepad not implemented\n", __func__);
 		} else {
