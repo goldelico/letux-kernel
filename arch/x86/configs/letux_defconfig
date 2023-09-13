@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.5.2 Kernel Configuration
+# Linux/x86 6.5.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3794,8 +3794,11 @@ CONFIG_DVB_CORE=m
 # Video4Linux options
 #
 CONFIG_VIDEO_V4L2_I2C=y
+CONFIG_VIDEO_V4L2_SUBDEV_API=y
 # CONFIG_VIDEO_ADV_DEBUG is not set
 # CONFIG_VIDEO_FIXED_MINOR_RANGES is not set
+CONFIG_V4L2_FWNODE=m
+CONFIG_V4L2_ASYNC=m
 # end of Video4Linux options
 
 #
@@ -4029,10 +4032,7 @@ CONFIG_MEDIA_ATTACH=y
 # IR I2C driver auto-selected by 'Autoselect ancillary drivers'
 #
 # CONFIG_VIDEO_IR_I2C is not set
-
-#
-# Camera sensor devices
-#
+CONFIG_VIDEO_CAMERA_SENSOR=y
 # CONFIG_VIDEO_AR0521 is not set
 # CONFIG_VIDEO_HI556 is not set
 # CONFIG_VIDEO_HI846 is not set
@@ -4093,7 +4093,6 @@ CONFIG_MEDIA_ATTACH=y
 # CONFIG_VIDEO_S5K6A3 is not set
 # CONFIG_VIDEO_CCS is not set
 # CONFIG_VIDEO_ET8EK8 is not set
-# end of Camera sensor devices
 
 #
 # Lens drivers
