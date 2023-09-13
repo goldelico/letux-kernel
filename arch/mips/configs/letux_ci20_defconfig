@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.1.52 Kernel Configuration
+# Linux/mips 6.1.53 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1226,7 +1226,6 @@ CONFIG_ISCSI_TCP=m
 # CONFIG_SCSI_DH is not set
 # end of SCSI device support
 
-CONFIG_HAVE_PATA_PLATFORM=y
 CONFIG_ATA=y
 CONFIG_SATA_HOST=y
 CONFIG_ATA_VERBOSE_ERROR=y
@@ -1259,7 +1258,6 @@ CONFIG_ATA_BMDMA=y
 #
 # PIO-only SFF controllers
 #
-# CONFIG_PATA_PLATFORM is not set
 # CONFIG_PATA_OF_PLATFORM is not set
 
 #
@@ -2740,10 +2738,7 @@ CONFIG_V4L_PLATFORM_DRIVERS=y
 #
 CONFIG_MEDIA_ATTACH=y
 CONFIG_VIDEO_IR_I2C=m
-
-#
-# Camera sensor devices
-#
+CONFIG_VIDEO_CAMERA_SENSOR=y
 # CONFIG_VIDEO_AR0521 is not set
 # CONFIG_VIDEO_HI556 is not set
 # CONFIG_VIDEO_HI846 is not set
@@ -2811,7 +2806,6 @@ CONFIG_VIDEO_OV5640=m
 # CONFIG_VIDEO_CCS is not set
 # CONFIG_VIDEO_ET8EK8 is not set
 # CONFIG_VIDEO_M5MOLS is not set
-# end of Camera sensor devices
 
 #
 # Lens drivers
