@@ -382,27 +382,6 @@
 			clock-names = "gate_pdma";
 	};
 
-	msc0: mmc@13450000 {
-		compatible = "ingenic,x1000-mmc";
-		reg = <0x13450000 0x1000>;
-
-		interrupt-parent = <&intc>;
-		interrupts = <37>;
-
-		clocks = <&cgu X1000_CLK_MSC0>;
-		clock-names = "mmc";
-
-		cap-sd-highspeed;
-		cap-mmc-highspeed;
-		cap-sdio-irq;
-
-		dmas = <&pdma X1000_DMA_MSC0_RX>,
-			   <&pdma X1000_DMA_MSC0_TX>;
-		dma-names = "rx", "tx";
-
-		status = "disabled";
-	};
-
 	msc1: mmc@13460000 {
 		compatible = "ingenic,x1000-mmc";
 		reg = <0x13460000 0x1000>;
@@ -416,10 +395,6 @@
 		cap-sd-highspeed;
 		cap-mmc-highspeed;
 		cap-sdio-irq;
-
-		// dmas = <&pdma X1000_DMA_MSC1_RX>,
-		// 	   <&pdma X1000_DMA_MSC1_TX>;
-		// dma-names = "rx", "tx";
 
 		status = "disabled";
 	};

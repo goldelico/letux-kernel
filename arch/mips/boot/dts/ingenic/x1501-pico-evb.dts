@@ -16,6 +16,7 @@
 	};
 
 	chosen {
+		bootargs = "console=ttyS2,115200n8 mem=8M@0x0 loglevel=7 ingenic_pm_clk=0 devtmpfs.mount=1 lo_prealloc=4 clk_ignore_unused no_hash_pointers";
 		stdout-path = "serial2:115200n8";
 	};
 
@@ -46,7 +47,7 @@
 
 	// MPLL = 552MHz
 	assigned-clocks = <&cgu X1000_CLK_SSIPLL>;
-	assigned-clock-rates = <276000000>;
+	assigned-clock-rates = <100000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_spi0>;

@@ -17,7 +17,7 @@
 	};
 
 	chosen {
-		stdout-path = "serial2:115200n8";
+		bootargs = "console=null mem=8M@0x0 loglevel=7 ingenic_pm_clk=0 devtmpfs.mount=1 clk_ignore_unused no_hash_pointers";
 	};
 
 	memory {
@@ -103,44 +103,6 @@
 	pinctrl-0 = <&pins_uart2>;
 };
 
-&sfc {
-	status = "okay";
-
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&pins_sfc>;
-
-	flash: xt25f16b@0 {
-		compatible = "xtx,xt25f16b-kgd", "xtx,xt25f16b", "jedec,spi-nor";
-		spi-max-frequency = <133000000>;
-		reg = <0>;
-
-		spi-rx-bus-width = <4>;
-		spi-tx-bus-width = <4>;
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			boot {
-				reg = <0x0 0x8000>;
-			};
-
-			kernel {
-				reg = <0x8000 0x138000>;
-			};
-
-			early_rootfs {
-				reg = <0x140000 0xC0000>;
-			};
-
-		};
-	};
-};
-
 &msc1 {
 	status = "okay";
 
@@ -149,9 +111,6 @@
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_msc1>;
-
-	/delete-property/ dmas;
-	/delete-property/ dma-names;
 
 	non-removable;
 };
