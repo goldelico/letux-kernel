@@ -1790,6 +1790,9 @@ struct lineevent_state {
 	struct gpio_desc *desc;
 	u32 eflags;
 	int irq;
+#ifdef CONFIG_SUSPEND
+	int last_level;
+#endif
 	wait_queue_head_t wait;
 	DECLARE_KFIFO(events, struct gpioevent_data, 16);
 	u64 timestamp;
@@ -1798,6 +1801,53 @@ struct lineevent_state {
 #define GPIOEVENT_REQUEST_VALID_FLAGS \
 	(GPIOEVENT_REQUEST_RISING_EDGE | \
 	GPIOEVENT_REQUEST_FALLING_EDGE)
+
+#ifdef CONFIG_SUSPEND
+static bool lineevent_adhoc(struct lineevent_state *le)
+{
+	struct gpioevent_data ge;
+	int level_last = le->last_level;
+
+	if (!level_last)
+		return false;
+
+	/* Do not leak kernel stack to userspace */
+	memset(&ge, 0, sizeof(ge));
+
+	int level = gpiod_get_value_cansleep(le->desc);
+	int level_cmp = level + 1;
+	le->last_level = level_cmp;
+	if (!level_last || level_last == level_cmp)
+		return false;
+
+	ge.timestamp = ktime_get_ns();
+
+	if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE
+	    && le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE) {
+		if (level)
+			/* Emit low-to-high event */
+			ge.id = GPIOEVENT_EVENT_RISING_EDGE;
+		else
+			/* Emit high-to-low event */
+			ge.id = GPIOEVENT_EVENT_FALLING_EDGE;
+	} else if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE) {
+		/* Emit low-to-high event */
+		if (level)
+			ge.id = GPIOEVENT_EVENT_RISING_EDGE;
+	} else if (le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE) {
+		/* Emit high-to-low event */
+		if (!level)
+			ge.id = GPIOEVENT_EVENT_FALLING_EDGE;
+	} else {
+		return false;
+	}
+
+	kfifo_in_spinlocked(&le->events, &ge,
+					    1, &le->wait.lock);
+
+	return true;
+}
+#endif
 
 static __poll_t lineevent_poll_unlocked(struct file *file,
 					struct poll_table_struct *wait)
@@ -1812,6 +1862,13 @@ static __poll_t lineevent_poll_unlocked(struct file *file,
 
 	if (!kfifo_is_empty_spinlocked_noirqsave(&le->events, &le->wait.lock))
 		events = EPOLLIN | EPOLLRDNORM;
+
+#ifdef CONFIG_SUSPEND
+	if (!events) {
+		if (lineevent_adhoc(le))
+			events = EPOLLIN | EPOLLRDNORM;
+	}
+#endif
 
 	return events;
 }
@@ -2006,6 +2063,9 @@ static irqreturn_t lineevent_irq_thread(int irq, void *p)
 	if (le->eflags & GPIOEVENT_REQUEST_RISING_EDGE
 	    && le->eflags & GPIOEVENT_REQUEST_FALLING_EDGE) {
 		int level = gpiod_get_value_cansleep(le->desc);
+#ifdef CONFIG_SUSPEND
+		le->last_level = level + 1;
+#endif
 
 		if (level)
 			/* Emit low-to-high event */
@@ -2147,6 +2207,12 @@ static int lineevent_create(struct gpio_device *gdev, void __user *ip)
 				   le);
 	if (ret)
 		goto out_free_le;
+
+#ifdef CONFIG_SUSPEND
+	ret = enable_irq_wake(irq);
+	if (ret)
+		goto out_free_le;
+#endif
 
 	le->irq = irq;
 
