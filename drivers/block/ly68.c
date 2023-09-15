@@ -44,7 +44,7 @@ struct ly68_ctx {
 #define LY68_CMD_READ			0x0b
 #define LY68_WHOLE_CHIP_REFRESH_TIME	65000000
 
-#define LY68_MAX_TRANS_SEGS		8
+#define LY68_MAX_TRANS_SEGS		CONFIG_LYONTEK_LY68_MAX_TRANS_SEGS
 
 static inline void ly68_dynamic_sleep(u32 nsecs)
 {
@@ -84,10 +84,10 @@ static inline u32 ly68_cmd_word(u32 addr, u32 cmd)
 	return (cmd << 24) | addr;
 }
 
-static int ly68_transfer(struct ly68_ctx *ly68,
+static blk_status_t ly68_transfer(struct ly68_ctx *ly68,
 			enum req_op op, struct request *rq)
 {
-	struct spi_transfer transfer[LY68_MAX_TRANS_SEGS + 1] = {};
+	struct spi_transfer transfer[2] = {};
 	struct spi_message message;
 	u32 command_32b[2];
 
@@ -95,61 +95,68 @@ static int ly68_transfer(struct ly68_ctx *ly68,
 	struct bio_vec bvec;
 	void *data;
 	u32 start_pos = blk_rq_pos(rq) << SECTOR_SHIFT;
+	u32 len = blk_rq_cur_bytes(rq);
 
-	unsigned i = 1;
 	int ret = 0;
 
 	spi_message_init(&message);
-
-	if (op == REQ_OP_READ) {
-		command_32b[0] = ly68_cmd_word(start_pos - 3, LY68_CMD_READ);
-		transfer[0].len = sizeof(u32) * 2;
-		if (ly68->rx_speed_hz)
-			transfer[0].speed_hz = ly68->rx_speed_hz;
-	} else {
-		command_32b[0] = ly68_cmd_word(start_pos, LY68_CMD_WRITE);
-		transfer[0].len = sizeof(u32) * 1;
-		if (ly68->tx_speed_hz)
-			transfer[0].speed_hz = ly68->tx_speed_hz;
-	}
 
 	transfer[0].tx_buf = command_32b;
 	transfer[0].bits_per_word = 32;
 	spi_message_add_tail(&transfer[0], &message);
 
-	rq_for_each_segment(bvec, rq, iter) {
-		data = kmap(bvec.bv_page) + bvec.bv_offset;
+	transfer[1].len = len;
+	transfer[1].bits_per_word = 32;
 
-		if (op == REQ_OP_READ) {
-			transfer[i].rx_buf = data;
-			if (ly68->rx_speed_hz)
-				transfer[i].speed_hz = ly68->rx_speed_hz;
-		} else {
-			transfer[i].tx_buf = data;
-			if (ly68->tx_speed_hz)
-				transfer[i].speed_hz = ly68->tx_speed_hz;
+	if (op == REQ_OP_READ) {
+		if (ly68->rx_speed_hz) {
+			transfer[0].speed_hz = ly68->rx_speed_hz;
+			transfer[1].speed_hz = ly68->rx_speed_hz;
 		}
-		transfer[i].len = bvec.bv_len;
-		transfer[i].bits_per_word = 32;
 
-		spi_message_add_tail(&transfer[i], &message);
+		command_32b[0] = ly68_cmd_word(start_pos - 3, LY68_CMD_READ);
+		transfer[0].len = sizeof(u32) * 2;
 
-		i++;
+		data = kmap(bio_page(rq->bio)) + bio_offset(rq->bio);
+
+		transfer[1].tx_buf = NULL;
+		transfer[1].rx_buf = data;
+		spi_message_add_tail(&transfer[1], &message);
+
+		ly68_timing_start(&ly68->timing);
+		ret = spi_sync(ly68->spi, &message);
+		ly68_timing_end(&ly68->timing);
+
+		kunmap(bio_page(rq->bio));
+
+		rq_for_each_segment(bvec, rq, iter)
+			flush_dcache_page(bvec.bv_page);
+	} else if (op == REQ_OP_WRITE) {
+		if (ly68->tx_speed_hz) {
+			transfer[0].speed_hz = ly68->tx_speed_hz;
+			transfer[1].speed_hz = ly68->tx_speed_hz;
+		}
+
+		command_32b[0] = ly68_cmd_word(start_pos, LY68_CMD_WRITE);
+		transfer[0].len = sizeof(u32) * 1;
+
+		rq_for_each_segment(bvec, rq, iter)
+			flush_dcache_page(bvec.bv_page);
+
+		data = kmap(bio_page(rq->bio)) + bio_offset(rq->bio);
+
+		transfer[1].tx_buf = data;
+		transfer[1].rx_buf = NULL;
+		spi_message_add_tail(&transfer[1], &message);
+
+		ly68_timing_start(&ly68->timing);
+		ret = spi_sync(ly68->spi, &message);
+		ly68_timing_end(&ly68->timing);
+
+		kunmap(bio_page(rq->bio));
 	}
 
-	mutex_lock(&ly68->lock);
-	ly68_timing_start(&ly68->timing);
-
-	ret = spi_sync(ly68->spi, &message);
-
-	ly68_timing_end(&ly68->timing);
-	mutex_unlock(&ly68->lock);
-
-	rq_for_each_segment(bvec, rq, iter) {
-		kunmap(bvec.bv_page);
-	}
-
-	return ret;
+	return ret ? BLK_STS_IOERR : BLK_STS_OK;
 }
 
 static blk_status_t ly68_queue_rq(struct blk_mq_hw_ctx *hctx,
@@ -158,14 +165,21 @@ static blk_status_t ly68_queue_rq(struct blk_mq_hw_ctx *hctx,
 	struct ly68_ctx *ly68 = hctx->queue->queuedata;
 	struct request *rq = bd->rq;
 	enum req_op op = req_op(rq);
-
-	blk_mq_start_request(rq);
+	blk_status_t err;
 
 	switch (op) {
 	case REQ_OP_READ:
 	case REQ_OP_WRITE: {
-		int rc = ly68_transfer(ly68, op, rq);
-		blk_mq_end_request(rq, rc ? BLK_STS_IOERR : BLK_STS_OK);
+		mutex_lock(&ly68->lock);
+
+		blk_mq_start_request(rq);
+		do {
+			err = ly68_transfer(ly68, op, rq);
+		} while (blk_update_request(rq, err, blk_rq_cur_bytes(rq)));
+		blk_mq_end_request(rq, err);
+
+		mutex_unlock(&ly68->lock);
+
 		return BLK_STS_OK;
 	}
 	default:
@@ -209,7 +223,7 @@ static int ly68_probe(struct spi_device *spi)
 	mutex_init(&ly68->lock);
 
 	err = blk_mq_alloc_sq_tag_set(&ly68->tag_set, &ly68_mq_ops, 1,
-				BLK_MQ_F_SHOULD_MERGE | BLK_MQ_F_BLOCKING);
+				BLK_MQ_F_SHOULD_MERGE | BLK_MQ_F_NO_SCHED_BY_DEFAULT | BLK_MQ_F_BLOCKING);
 	if (err)
 		goto out;
 
@@ -228,8 +242,9 @@ static int ly68_probe(struct spi_device *spi)
 	blk_queue_flag_set(QUEUE_FLAG_NONROT, disk->queue);
 	blk_queue_physical_block_size(disk->queue, 4096);
 	blk_queue_logical_block_size(disk->queue, 4096);
-	blk_queue_max_hw_sectors(disk->queue, LY68_MAX_TRANS_SEGS * 4096 >> SECTOR_SHIFT);
+	blk_queue_max_hw_sectors(disk->queue, (LY68_MAX_TRANS_SEGS * 4096) >> SECTOR_SHIFT);
 	blk_queue_max_segments(disk->queue, LY68_MAX_TRANS_SEGS);
+	blk_queue_max_segment_size(disk->queue, LY68_MAX_TRANS_SEGS * 4096);
 
 	err = add_disk(disk);
 	if (err)

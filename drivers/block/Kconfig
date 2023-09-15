@@ -94,6 +94,16 @@ config LYONTEK_LY68
 	help
 	  This enables access to Lyontek LY68 series SPI PSRAM chips.
 
+config LYONTEK_LY68_MAX_TRANS_SEGS
+	int "Maximum transfer segments"
+	default "1"
+	range 1 256
+	depends on LYONTEK_LY68
+	help
+	  One segment is 4KiB.
+
+	  Values <= 4 are sensible if you want to use it as swap.
+
 config CDROM
 	tristate
 
