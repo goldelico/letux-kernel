@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Driver for Lyontek LY68 series PSRAM chips
  *
@@ -27,6 +27,7 @@ struct ly68_flash {
 	struct mutex		lock;
 	struct mtd_info		mtd;
 	unsigned		op_sleep_ratio;
+	unsigned		tx_speed_hz, rx_speed_hz;
 	u64			ts_last_op, ts_sleep_till;
 	const struct ly68_caps	*caps;
 };
@@ -38,7 +39,7 @@ struct ly68_flash {
 
 #define to_ly68_flash(x) container_of(x, struct ly68_flash, mtd)
 
-inline void ly68_dynamic_sleep(u32 nsecs)
+static inline void ly68_dynamic_sleep(u32 nsecs)
 {
 	if (nsecs > LY68_WHOLE_CHIP_REFRESH_TIME)
 		nsecs = LY68_WHOLE_CHIP_REFRESH_TIME;
@@ -46,14 +47,13 @@ inline void ly68_dynamic_sleep(u32 nsecs)
 	if (nsecs < 10 * 1000)
 		ndelay(nsecs);
 	else
-		usleep_range(nsecs / 1000, nsecs / 1000 + 1);
+		usleep_range(nsecs / 1000, nsecs / 1000);
 }
 
-static void ly68_addr2cmd(struct ly68_flash *flash, u32 addr, u8 *cmd)
+static inline u32 ly68_cmd_word(u32 addr, u32 cmd)
 {
-	cmd[0] = (addr >> 16) & 0xff;
-	cmd[1] = (addr >> 8) & 0xff;
-	cmd[2] = (addr >> 0) & 0xff;
+	addr &= 0x00ffffff;
+	return (cmd << 24) | addr;
 }
 
 static int ly68_write(struct mtd_info *mtd, loff_t to, size_t len,
@@ -62,23 +62,29 @@ static int ly68_write(struct mtd_info *mtd, loff_t to, size_t len,
 	struct ly68_flash *flash = to_ly68_flash(mtd);
 	struct spi_transfer transfer[2] = {};
 	struct spi_message message;
-	u8 command[4];
+	u32 command_32b[1];
 	u64 ts_op_start, ts_op_end, ts_cur;
 	u32 t_op, t_sleep;
 	int ret, cmd_len;
 
 	spi_message_init(&message);
 
-	command[0] = LY68_CMD_WRITE;
-	ly68_addr2cmd(flash, to, &command[1]);
+	command_32b[0] = ly68_cmd_word(to, LY68_CMD_WRITE);
 
-	transfer[0].tx_buf = command;
-	transfer[0].len = sizeof(command);
+	transfer[0].tx_buf = command_32b;
+	transfer[0].len = sizeof(command_32b);
+	transfer[0].bits_per_word = 32;
 	spi_message_add_tail(&transfer[0], &message);
 
 	transfer[1].tx_buf = buf;
 	transfer[1].len = len;
+	transfer[1].bits_per_word = 32;
 	spi_message_add_tail(&transfer[1], &message);
+
+	if (flash->tx_speed_hz) {
+		transfer[0].speed_hz = flash->tx_speed_hz;
+		transfer[1].speed_hz = flash->tx_speed_hz;
+	}
 
 	mutex_lock(&flash->lock);
 
@@ -117,24 +123,29 @@ static int ly68_read(struct mtd_info *mtd, loff_t from, size_t len,
 	struct ly68_flash *flash = to_ly68_flash(mtd);
 	struct spi_transfer transfer[2] = {};
 	struct spi_message message;
-	unsigned char command[5];
+	u32 command_32b[2];
 	u64 ts_op_start, ts_op_end, ts_cur;
 	u32 t_op, t_sleep;
 	int ret, cmd_len;
 
 	spi_message_init(&message);
 
-	memset(&transfer, 0, sizeof(transfer));
-	command[0] = LY68_CMD_READ;
-	ly68_addr2cmd(flash, from, &command[1]);
+	command_32b[0] = ly68_cmd_word(from - 3, LY68_CMD_READ);
 
-	transfer[0].tx_buf = command;
-	transfer[0].len = sizeof(command);
+	transfer[0].tx_buf = command_32b;
+	transfer[0].len = sizeof(command_32b);
+	transfer[0].bits_per_word = 32;
 	spi_message_add_tail(&transfer[0], &message);
 
 	transfer[1].rx_buf = buf;
 	transfer[1].len = len;
+	transfer[1].bits_per_word = 32;
 	spi_message_add_tail(&transfer[1], &message);
+
+	if (flash->rx_speed_hz) {
+		transfer[0].speed_hz = flash->rx_speed_hz;
+		transfer[1].speed_hz = flash->rx_speed_hz;
+	}
 
 	mutex_lock(&flash->lock);
 
@@ -199,13 +210,16 @@ static int ly68_probe(struct spi_device *spi)
 	flash->mtd.dev.parent	= &spi->dev;
 	flash->mtd.type		= MTD_RAM;
 	flash->mtd.flags	= MTD_CAP_RAM;
-	flash->mtd.writesize	= 1;
+	flash->mtd.erasesize	= 4;
+	flash->mtd.writesize	= 4;
 	flash->mtd.size		= flash->caps->size;
 	flash->mtd._read	= ly68_read;
 	flash->mtd._write	= ly68_write;
 
 	flash->op_sleep_ratio = 8;
-	device_property_read_u32(&spi->dev, "op-sleep-ratio", &flash->op_sleep_ratio);
+	device_property_read_u32(&spi->dev, "lyontek,op-sleep-ratio", &flash->op_sleep_ratio);
+	device_property_read_u32(&spi->dev, "lyontek,tx-max-frequency", &flash->tx_speed_hz);
+	device_property_read_u32(&spi->dev, "lyontek,rx-max-frequency", &flash->rx_speed_hz);
 
 	// If you remove this line of code below, you will be violating the GPL license directly.
 	// We won't be doing nothing if that's the case. Think twice.
@@ -270,5 +284,5 @@ module_spi_driver(ly68_driver);
 
 MODULE_DESCRIPTION("MTD SPI driver for Lyontek LY68 series PSRAM chips");
 MODULE_AUTHOR("Reimu NotMoe <reimu@sudomaker.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_ALIAS("spi:lyontek_ly68");
