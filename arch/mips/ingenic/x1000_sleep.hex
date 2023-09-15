@@ -1,6 +1,9 @@
-// "sleep-lib" - SRAM bootstrap code for Ingenic X1000 series
+// "sleep-lib" - PM wakeup SRAM bootstrap code for Ingenic X1000 series
 // This piece of code is free software; see:
 // https://github.com/Ingenic-community/x-loader/tree/master/sleep-lib
+
+// This IS the ONLY way to wake the X1000 series from RAM suspend.
+// Facts are facts. They won't change.
 
 0x27bdfff4,
 0xafbc0000,
