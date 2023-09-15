@@ -827,27 +827,6 @@ static const struct of_device_id spidev_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);
 
-/* Dummy SPI devices not to be used in production systems */
-static int spidev_acpi_check(struct device *dev)
-{
-	dev_warn(dev, "do not use this driver in production systems!\n");
-	return 0;
-}
-
-static const struct acpi_device_id spidev_acpi_ids[] = {
-	/*
-	 * The ACPI SPT000* devices are only meant for development and
-	 * testing. Systems used in production should have a proper ACPI
-	 * description of the connected peripheral and they should also use
-	 * a proper driver instead of poking directly to the SPI bus.
-	 */
-	{ "SPT0001", (kernel_ulong_t)&spidev_acpi_check },
-	{ "SPT0002", (kernel_ulong_t)&spidev_acpi_check },
-	{ "SPT0003", (kernel_ulong_t)&spidev_acpi_check },
-	{},
-};
-MODULE_DEVICE_TABLE(acpi, spidev_acpi_ids);
-
 /*-------------------------------------------------------------------------*/
 
 static int spidev_probe(struct spi_device *spi)
@@ -932,7 +911,6 @@ static struct spi_driver spidev_spi_driver = {
 	.driver = {
 		.name =		"spidev",
 		.of_match_table = spidev_dt_ids,
-		.acpi_match_table = spidev_acpi_ids,
 	},
 	.probe =	spidev_probe,
 	.remove =	spidev_remove,
