@@ -7,6 +7,9 @@
  * Based on spi-ingenic.c
  */
 
+// Important Note: If you're confused, please read:
+// Documentation/spi/spi-ingenic-nouveau.rst before you question your life
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dmaengine.h>
@@ -83,7 +86,7 @@ struct jz_soc_info {
 	unsigned int max_native_cs;
 };
 
-// The regmap API has very high overhead, and like LWN said, it's designed
+// The regmap API has some overhead, and like LWN said, it's designed
 // for SLOW things. In order to be FAST, we need this cache.
 struct ingenic_spi_hw_params_cache {
 	unsigned int speed_hz, bits;
@@ -96,8 +99,6 @@ struct ingenic_spi_cur_xfer {
 	void *rxbuf;
 	unsigned int element_size, len, last_xfer_len;
 	unsigned int txpos, rxpos;
-	bool wait_with_udelay;
-	unsigned long udelay;
 };
 
 struct ingenic_spi {
@@ -127,6 +128,8 @@ static void spi_ingenic_set_cs(struct spi_device *spi, bool disable)
 	// Note: FIFO empty detection is moved to spi_ingenic_finish_transfer()
 	// In order to support GPIO CS correctly.
 
+	// Again: read the spi-ingenic-nouveau.rst doc if you're confused!
+
 	if (disable) {
 		regmap_clear_bits(priv->map, REG_SSICR1, REG_SSICR1_UNFIN);
 		regmap_clear_bits(priv->map, REG_SSISR, REG_SSISR_UNDR | REG_SSISR_OVER);
@@ -155,21 +158,27 @@ static void spi_ingenic_finish_transfer(struct ingenic_spi *priv,
 	// delay from FIFO to the shift register connected to hardware pins?
 	// If so, it's only needed when using GPIO CS.
 
-	if (priv->cur_xfer.wait_with_udelay) {
-		udelay(priv->cur_xfer.udelay);
-		priv->cur_xfer.wait_with_udelay = false;
-	} else {
-		regmap_set_bits(priv->map, REG_SSICR0, REG_SSICR0_TEIE);
+	long ret;
 
-		if (wait_for_completion_interruptible(&priv->compl_fifo_empty) < 0) {
-			dev_err(priv->dev, "SPI operation cancelled");
-			regmap_clear_bits(priv->map, REG_SSICR0, REG_SSICR0_TEIE);
-		}
+	regmap_set_bits(priv->map, REG_SSICR0, REG_SSICR0_TEIE);
+
+	// 12 hours wasted here:
+	// Nobody cared to document why the fuck you can't use wait_for_completion_interruptible here.
+
+	// If you look at other SPI drivers, you'll see they use either wait_for_completion_timeout
+	// or wait_for_completion. But nobody knows why. They probably just copied each other.
+
+	ret = wait_for_completion_timeout(&priv->compl_fifo_empty, msecs_to_jiffies(15000));
+
+	if (ret == 0) {
+		dev_err(priv->dev, "SPI operation timed out");
+		regmap_clear_bits(priv->map, REG_SSICR0, REG_SSICR0_TEIE);
+		reinit_completion(&priv->compl_fifo_empty);
 	}
+
 
 	priv->cur_xfer.txbuf = NULL;
 	priv->cur_xfer.rxbuf = NULL;
-
 }
 
 static void spi_ingenic_dma_finished_tx(void *controller)
@@ -221,7 +230,7 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 		cfg.src_maxburst = 1;
 	}
 
-	// This is another errata. You see see you, Ingenic.
+	// This is for another errata.
 	if (dir == DMA_DEV_TO_MEM) {
 		cfg.src_maxburst = 1;
 	}
@@ -252,16 +261,6 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 	}
 
 	return desc;
-}
-
-static inline void spi_ingenic_determine_wait(struct ingenic_spi *priv,
-			      struct spi_transfer *xfer, unsigned int bits,
-			      unsigned int target) {
-
-	// priv->cur_xfer.udelay = 1000000 * bits * target / xfer->speed_hz;
-
-	// if (priv->cur_xfer.udelay <= 50)
-	// 	priv->cur_xfer.wait_with_udelay = true;
 }
 
 static int spi_ingenic_dma_transfer(struct spi_controller *ctlr,
@@ -304,14 +303,13 @@ static int spi_ingenic_dma_transfer(struct spi_controller *ctlr,
 	if (tx_desc)
 		dma_async_issue_pending(ctlr->dma_tx);
 
-	if (wait_for_completion_timeout(&priv->compl_xfer_done, 5000) == 0) {
+	if (wait_for_completion_timeout(&priv->compl_xfer_done, msecs_to_jiffies(15000)) == 0) {
 		dev_err(priv->dev, "DMA operation timed out, DMA driver is buggy or HW errata");
+		reinit_completion(&priv->compl_xfer_done);
 		return -ETIMEDOUT;
 	}
 
 	regmap_update_bits(priv->map, REG_SSICR1, val2, 0);
-
-	spi_ingenic_determine_wait(priv, xfer, bits, SPI_INGENIC_FIFO_SIZE);
 
 	return 0;
 }
@@ -361,7 +359,6 @@ static int spi_ingenic_pio_transfer(struct ingenic_spi *priv,
 	// We're finished here if it's TX only and the data fits
 	// in the entire FIFO
 	if ((tx_remaining_len == 0) && (rx_remaining_len == 0)) {
-		spi_ingenic_determine_wait(priv, xfer, bits, tx_prefill_len);
 		return 0;
 	}
 
@@ -389,18 +386,15 @@ static int spi_ingenic_pio_transfer(struct ingenic_spi *priv,
 	// Letsgooooooo
 	regmap_set_bits(priv->map, REG_SSICR0, val);
 
-	wait_for_completion(&priv->compl_xfer_done);
-
-	// if (wait_for_completion_interruptible(&priv->compl_xfer_done) < 0) {
-	// 	regmap_clear_bits(priv->map, REG_SSICR0, val);
-	// 	dev_err(priv->dev, "PIO operation cancelled");
-	// }
+	// Same as above. I'll just copy the behaviour of other SPI drivers.
+	if (wait_for_completion_timeout(&priv->compl_xfer_done, msecs_to_jiffies(15000)) == 0) {
+		dev_err(priv->dev, "PIO operation timed out, driver is buggy or HW errata");
+		return -ETIMEDOUT;
+	}
 
 	// At this point, TIE & RIE should be disabled
 	// Revert FIFO settings to 0/0 ensure correct detection of FIFO empty
 	regmap_update_bits(priv->map, REG_SSICR1, val2, 0);
-
-	spi_ingenic_determine_wait(priv, xfer, bits, priv->cur_xfer.last_xfer_len);
 
 	return 0;
 }
@@ -719,9 +713,6 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 	}
 
 	if (xfer->len > 128) {
-		// if (xfer->bits_per_word > 16 && xfer->rx_buf)
-		// 	return false;
-
 		return !caps.max_sg_burst ||
 			xfer->len <= caps.max_sg_burst * SPI_INGENIC_FIFO_SIZE;
 	} else {
