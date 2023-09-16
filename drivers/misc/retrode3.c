@@ -59,6 +59,9 @@ struct retrode3_slot {
 	struct retrode3_bus *bus;	// backpointer to bus
 	struct gpio_desc *ce;	// slot enable
 	struct gpio_desc *cd;	// slot detect
+	struct gpio_desc *led;	// status led (optional)
+	struct delayed_work cd_work;
+	int cd_state;
 	u32 addr_width;
 	u32 bus_width;
 };
@@ -351,6 +354,39 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	return written;
 }
 
+static void retrode3_update_cd(struct retrode3_slot *slot)
+{
+	int cd_state = gpiod_get_value(slot->cd);	// check cart detect pin
+
+	if (cd_state < 0)
+		return;	// ignore
+
+	if (cd_state != slot-> cd_state) {
+printk("%s: state changed to %d\n", __func__, cd_state);
+		slot-> cd_state = cd_state;
+	}
+}
+
+static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
+{
+	struct retrode3_slot *slot = dev_id;
+
+	retrode3_update_cd(slot);
+
+	return IRQ_HANDLED;
+}
+
+static void retrode3_cd_work(struct work_struct *work)
+{
+	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, cd_work.work);
+
+	retrode3_update_cd(slot);
+
+	schedule_delayed_work(&slot->cd_work,
+		round_jiffies_relative(
+			msecs_to_jiffies(50)));	// start next check
+}
+
 /*
  * The memory devices use the full 32/64 bits of the offset, and so we cannot
  * check against negative addresses: they are ok. The return value is weird,
@@ -553,11 +589,13 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			dev->of_node = child;
 			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
+			slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
 			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
 
 			cdev_init(&slot->cdev, &slot_fops);
 			slot->cdev.owner = THIS_MODULE;
+
 // FIXME: should be some devm_cdev_device_add
 			ret = cdev_device_add(&slot->cdev, &slot->dev);
 			if (ret) {
@@ -570,6 +608,21 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 // des geht net :/
 			set_address(slot->bus, 0xffffffff);
 			set_address(slot->bus, 0x00000000);	// bring all address gpios in a defined state
+
+			slot-> cd_state = 0;	// assume no cart inserted initially
+#if 1	// use polling
+			INIT_DELAYED_WORK(&slot->cd_work, retrode3_cd_work);
+			schedule_delayed_work(&slot->cd_work,
+				round_jiffies_relative(
+					msecs_to_jiffies(50)));	// start first check
+
+#else	// use interrupt (untested)
+			ret = devm_request_threaded_irq(dev, gpiod_to_irq(slot->cd),
+				NULL, retrode3_gpio_cd_irqt,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					"cart-detect", slot);
+
+#endif
 		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
 			dev = &slot->dev;
 			device_initialize(dev);
@@ -607,6 +660,8 @@ static int retrode3_remove(struct platform_device *pdev)
 
 	for (i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		struct retrode3_slot *slot = bus->slots[i];
+
+		cancel_delayed_work_sync(&slot->cd_work);
 		cdev_device_del(&slot->cdev, &slot->dev);
 	}
 
@@ -631,6 +686,7 @@ static struct platform_driver retrode3_driver = {
         },
 };
 
+// not used ?
 static int retrode3_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct retrode3_slot *slot = container_of(dev, struct retrode3_slot, dev);
