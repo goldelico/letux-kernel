@@ -54,7 +54,7 @@ static struct class *retrode3_class;
 
 struct retrode3_slot {
 	struct device dev;	// the /dev/slot
-	struct cdev cdev;	// the /dev/slot
+	struct cdev cdev;	// the /dev/slot character device
 	int id;
 	struct retrode3_bus *bus;	// backpointer to bus
 	struct gpio_desc *ce;	// slot enable
@@ -354,6 +354,9 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	return written;
 }
 
+static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
+				char *buf);
+
 static void retrode3_update_cd(struct retrode3_slot *slot)
 {
 	int cd_state = gpiod_get_value(slot->cd);	// check cart detect pin
@@ -362,8 +365,23 @@ static void retrode3_update_cd(struct retrode3_slot *slot)
 		return;	// ignore
 
 	if (cd_state != slot-> cd_state) {
-printk("%s: state changed to %d\n", __func__, cd_state);
+		char *envp[3];
+		char buf[20];
+		int len;
+
+// printk("%s: state changed to %d\n", __func__, cd_state);
+
 		slot-> cd_state = cd_state;
+
+		envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
+		len = sense_show(&slot->dev, NULL, buf);
+		if (len < 0)
+			return;
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = 0;	// strip off \n
+		envp[1] = kasprintf(GFP_KERNEL, "SENSE=%s", buf);
+		envp[2] = NULL;
+		kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 	}
 }
 
@@ -480,7 +498,6 @@ static void retrode3_slot_release(struct device *dev)
 
 static int retrode3_probe(struct platform_device *pdev)
 {
-        struct device *dev = &pdev->dev;
         struct retrode3_bus *bus;
         int i = 0;
 	struct device_node *slots, *child = NULL;
@@ -609,7 +626,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			set_address(slot->bus, 0xffffffff);
 			set_address(slot->bus, 0x00000000);	// bring all address gpios in a defined state
 
-			slot-> cd_state = 0;	// assume no cart inserted initially
+			slot->cd_state = -1;	// enforce a state update event for initial state
 #if 1	// use polling
 			INIT_DELAYED_WORK(&slot->cd_work, retrode3_cd_work);
 			schedule_delayed_work(&slot->cd_work,
@@ -686,15 +703,21 @@ static struct platform_driver retrode3_driver = {
         },
 };
 
-// not used ?
 static int retrode3_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
 	struct retrode3_slot *slot = container_of(dev, struct retrode3_slot, dev);
 	int ret;
+	char buf[100];
 
         dev_info(&slot->dev, "%s\n", __func__);
 
-	ret = add_uevent_var(env, "slot=%s", "name");
+	ret = add_uevent_var(env, "SLOT=%s", dev_name(dev));
+	if (ret)
+		return ret;
+
+	sense_show(dev, NULL, buf);
+	// strip off \n?
+	ret = add_uevent_var(env, "STATE=%s", buf);
 	if (ret)
 		return ret;
 
