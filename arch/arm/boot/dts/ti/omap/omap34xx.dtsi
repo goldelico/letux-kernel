@@ -70,7 +70,6 @@
 			opp-microvolt = <1350000 1350000 1350000>;
 			/* only high-speed grade omap3530 devices */
 			opp-supported-hw = <0xffffffff 2>;
-			turbo-mode;
 		};
 	};
 
@@ -164,17 +163,14 @@
 			clock-names = "fck", "ick";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0 0x50000000 0x4000>;
+			ranges = <0 0x50000000 0x10000>;
 
-			/*
-			 * Closed source PowerVR driver, no child device
-			 * binding or driver in mainline
-			 */
+			gpu: gpu@0 {
+				compatible = "ti,omap3-sgx530-121", "img,sgx530-121", "img,sgx530";
+				reg = <0x0 0x10000>;	/* 64kB */
+				interrupts = <21>;
+			};
 		};
-	};
-
-	thermal_zones: thermal-zones {
-		#include "omap3-cpu-thermal.dtsi"
 	};
 };
 
