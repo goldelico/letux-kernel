@@ -68,6 +68,14 @@
 #include <linux/sizes.h>
 #include <linux/ktime.h>
 
+#ifdef CONFIG_ANDROID_BINDER_IPC_32BIT
+#define BINDER_IPC_32BIT 1
+#endif
+
+#ifndef CONFIG_ANDROID_BINDER_IPC_64BIT
+#define BINDER_IPC_32BIT 1
+#endif
+
 #include <uapi/linux/android/binder.h>
 
 #include <linux/cacheflush.h>
