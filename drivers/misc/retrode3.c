@@ -235,8 +235,15 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
-	ssize_t read, sz;
 	int err;
+#ifndef CONFIG_RETRODE3_BUFFER
+	ssize_t read, sz;
+#else
+	ssize_t read;
+	unsigned long remaining;
+	unsigned char buffer[1024];
+	unsigned int fill = 0;
+#endif
 
 //	dev_info(&slot->dev, "%s\n", __func__);
 
@@ -251,7 +258,9 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 		count -= EOF - *ppos;	// limit to EOF
 
 	while (count > 0) {
+#ifndef CONFIG_RETRODE3_BUFFER
 		unsigned long remaining;
+#endif
 
 		if (count >= 2 && slot->bus_width == 16 && ((*ppos & 1) == 0)) {
 			u16 word;
@@ -264,13 +273,27 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			if(err < 0)
 				goto failed;
 
+#ifndef CONFIG_RETRODE3_BUFFER
 			sz = 2;	// handle word reads
 			word = err;
 
-// FIXME: wie effizient ist das wenn es byte/wordweise passiert?
-// besser bytes/words in einen buffer schreiben und dann als Block?
-
 			remaining = copy_to_user(buf, (char *) &word, sz);
+#else
+
+			word = err;
+
+			if (fill == sizeof(buffer)) { // flush buffer
+				remaining = copy_to_user(buf+read, buffer, fill);
+				if (remaining)
+					goto failed;
+				fill = 0;
+			}
+			*((u16 *) &buffer[fill]) = word;
+			fill += 2;
+			*ppos += 2;
+			count -= 2;
+			read += 2;
+#endif
 		} else {
 			u8 byte;
 
@@ -285,20 +308,47 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			if(err < 0)
 				goto failed;
 
+#ifndef CONFIG_RETRODE3_BUFFER
 			sz = 1;	// handle byte read
 			byte = err;
 
 			remaining = copy_to_user(buf, (char *) &byte, sz);
+#else
+			byte = err;
+
+			if (fill == sizeof(buffer)) { // flush buffer
+				remaining = copy_to_user(buf+read, buffer, fill);
+				if (remaining)
+					goto failed;
+				fill = 0;
+			}
+			*((u8 *) &buffer[fill]) = byte;
+			fill += 1;
+			*ppos += 1;
+			count -= 1;
+			read += 1;
+#endif
 		}
 
-		if (remaining)
-			goto failed;
+#ifndef CONFIG_RETRODE3_BUFFER
+                if (remaining)
+                        goto failed;
 
 		*ppos += sz;
 		buf += sz;
 		count -= sz;
 		read += sz;
+#endif
 	}
+
+#ifdef CONFIG_RETRODE3_BUFFER
+#warning buffered
+	if (fill > 0) { // flush remaining bytes
+		remaining = copy_to_user(buf, buffer, fill);
+		if (remaining)
+			goto failed;
+	}
+#endif
 
 	select(slot->bus, NULL);
 
