@@ -307,22 +307,23 @@
 		   compatible = "gpio-keys";
 
 		   wakeup {
-			   label = "WAKEUP";
-			   linux,code = <KEY_WAKEUP>;
-			   gpios = <&gpc 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
-			   gpio-key,wakeup;
+			label = "WAKEUP";
+			linux,code = <KEY_WAKEUP>;
+			gpios = <&gpc 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			gpio-key,wakeup;
 		   };
 
 		   bootsel0 {
-			   label = "bootsel0";
-			   linux,code = <KEY_HOME>;
-			   gpios = <&gpc 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			status = "disabled";	// is not independent of bootsel1
+			label = "bootsel0";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpc 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
 		   };
 
 		   bootsel1 {
-			   label = "bootsel1";
-			   linux,code = <KEY_BACK>;
-			   gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			label = "bootsel1";
+			linux,code = <KEY_BACK>;
+			gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
 		   };
 	   };
 
