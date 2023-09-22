@@ -60,6 +60,7 @@ struct retrode3_slot {
 	struct gpio_desc *ce;	// slot enable
 	struct gpio_desc *cd;	// slot detect
 	struct gpio_desc *led;	// status led (optional)
+	struct gpio_desc *power;	// power control (optional)
 	struct delayed_work cd_work;
 	int cd_state;
 	u32 addr_width;
@@ -69,11 +70,12 @@ struct retrode3_slot {
 /* bus for all slots */
 
 struct retrode3_bus {
-	struct gpio_descs *addrs;
-	struct gpio_descs *datas;
-	struct gpio_desc *oe;
-	struct gpio_descs *we;
-	struct gpio_desc *time;
+	struct gpio_descs *addrs;	// addr-gpios
+	struct gpio_descs *datas;	// data-gpios
+	struct gpio_descs *we;		// we-gpios
+	struct gpio_desc *oe;		// oe-gpio
+	struct gpio_desc *time;		// time-gpio
+	struct gpio_desc *reset;	// reset-gpio
 	struct retrode3_slot *slots[4];
 	struct mutex select_lock;
 	int a0;
@@ -132,6 +134,8 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 	bus->prev_addr = addr;
 	return 0;
 }
+
+// FIXME switch direction of D lines on demand?
 
 static int read_byte(struct retrode3_bus *bus)
 { /* read data from data lines */
@@ -207,6 +211,25 @@ static void write_word(struct retrode3_bus *bus, u16 data, int mode)
 
 /* cart select */
 
+static void set_slot_power(struct retrode3_slot *slot, int mV)
+{
+printk("%s: %d %px\n", __func__, mV, slot->power);
+
+	if (IS_ERR_OR_NULL(slot->power))
+		return;
+
+	switch(mV) {
+		case 5000:
+			gpiod_direction_output(slot->power, false);	// switch to output and pull down
+			break;
+		case 3300:
+			gpiod_direction_input(slot->power);	// floating
+			break;
+		default:
+printk("%s: unknown voltage\n", __func__);
+	}
+}
+
 static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
 { /* chip select */
 	int i;
@@ -227,7 +250,7 @@ static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
 }
 
 /*
- * This function reads the slot. The f_pos points directly to the
+ * This function reads the slot. The ppos points directly to the
  * memory location.
  */
 
@@ -251,11 +274,11 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 
 	select(slot->bus, slot);
 
-	if (*ppos >= EOF)
-		count = 0;	// beyond EOF
-
 	if (*ppos + count >= EOF)
-		count -= EOF - *ppos;	// limit to EOF
+		if (*ppos >= EOF)
+			count = 0;	// read nothing
+		else
+			count = EOF - *ppos;	// limit to EOF
 
 	while (count > 0) {
 #ifndef CONFIG_RETRODE3_BUFFER
@@ -373,6 +396,12 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	written = 0;
 
 	select(slot->bus, slot);
+
+	if (*ppos + count >= EOF)
+		if (*ppos >= EOF)
+			count = 0;	// write nothing
+		else
+			count = EOF - *ppos;	// limit to EOF
 
 	while (count > 0) {
 		int allowed;
@@ -572,10 +601,17 @@ static int retrode3_probe(struct platform_device *pdev)
 // printk("%s: %px\n", __func__, bus->datas);
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: %px\n", __func__, bus->oe);
+	gpiod_set_value(bus->oe, false);	// turn inactive
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: %px\n", __func__, bus->we);
+	gpiod_set_value(bus->we->desc[0], false);	// make both inactive
+	gpiod_set_value(bus->we->desc[1], false);
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: %px\n", __func__, bus->time);
+	gpiod_set_value(bus->time, false);	// make inactive
+	bus->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+// printk("%s: %px\n", __func__, bus->reset);
+	gpiod_set_value(bus->reset, false);	// make inactive
 
 #if 0
 printk("%s: 1\n", __func__);
@@ -654,9 +690,14 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			dev_set_drvdata(dev, slot);
 			dev_set_name(dev, "slot%d", id);
 			dev->of_node = child;
+
 			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+			gpiod_set_value(slot->ce, false);	// turn inactive
 			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
 			slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
+			if (!IS_ERR_OR_NULL(slot->led))
+				gpiod_set_value(slot->led, false);	// turn inactive
+			slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
 			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
 
@@ -672,9 +713,12 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 				kfree(slot);
 				return ret;
 			}
-// des geht net :/
-			set_address(slot->bus, 0xffffffff);
-			set_address(slot->bus, 0x00000000);	// bring all address gpios in a defined state
+
+//			set_slot_power(slot, 5000);	// switch to 5V if possible
+			set_slot_power(slot, 3300);	// switch to 3.3V if possible
+
+			set_address(slot->bus, EOF-1);	// bring all address gpios in a defined state
+			set_address(slot->bus, 0);
 
 			slot->cd_state = -1;	// enforce a state update event for initial state
 #if 1	// use polling
@@ -691,13 +735,19 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 
 #endif
 		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-gamepads") >= 0) {
+			struct gpio_desc *ce;
+
 			dev = &slot->dev;
 			device_initialize(dev);
 			dev->class = retrode3_class;
 			dev->parent = &pdev->dev;
 			dev_set_name(dev, "gamepad");
 			dev->of_node = child;
+
+			ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+			gpiod_set_value(ce, false);	// turn inactive
 			// FIXME: add gamepad input driver initialization
+
 			dev_warn(dev, "%s gamepad not implemented\n", __func__);
 		} else {
 			dev_err(&slot->dev, "unknown child type\n");
