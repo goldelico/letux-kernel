@@ -41,6 +41,8 @@
 
 #include "rtc-ingenic.h"
 
+static struct ingenic_rtc *poweroff_rtc;
+
 /*FIXME by wssong,it should in board info*/
 /* Default time for the first-time power on */
 static struct rtc_time default_tm = {
@@ -454,6 +456,14 @@ static const struct of_device_id ingenic_rtc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ingenic_rtc_of_match);
 
+static void ingenic_rtc_poweroff(void)
+{
+	printk("%s: shut down power\n", __func__);
+	ingenic_rtc_setl(poweroff_rtc,RTC_RTCCR,RTCCR_SELEXC);
+	ingenic_rtc_setl(poweroff_rtc,RTC_HCR,HCR_PD);
+	printk("%s: oops ... did not shut down power\n", __func__);
+}
+
 static int ingenic_rtc_probe(struct platform_device *pdev)
 {
 
@@ -534,6 +544,10 @@ static int ingenic_rtc_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
+	/* register as power off hook */
+	poweroff_rtc = rtc;
+	pm_power_off = ingenic_rtc_poweroff;
+
 	ingenic_rtc_enable(rtc);
 	printk("ingenic RTC probe success \n");
 	return 0;
@@ -554,6 +568,9 @@ err_nomem:
 static int ingenic_rtc_remove(struct platform_device *pdev)
 {
 	struct ingenic_rtc *rtc = platform_get_drvdata(pdev);
+
+	pm_power_off = NULL;
+	poweroff_rtc = NULL;
 
 	ingenic_rtc_writel(rtc, RTC_RTCCR, 0);
 
