@@ -730,7 +730,7 @@ struct ingenic_spi {
 	struct spi_master	*master;
 	struct device		*dev;
 	struct ingenic_spi_info *pdata;
-	struct ingenic_priv     *priv;
+	const struct ingenic_priv     *priv;
 //	struct spi_board_info *pdata;
 };
 
