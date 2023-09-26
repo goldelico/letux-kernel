@@ -13,6 +13,16 @@ to be solved
 - handle status LEDs
 - handle megadrive power
 
+Idee:
+	aufsplitten in BUS openpandora,retrode3 (wie i2c-core)
+	und 2 Arten Device-Treiber on demand laden
+	openpandora,retrode3-slot
+	openpandora,retrode3-controller
+	d.h. einfach über "compatible"
+
+dazu retrode3_device mit Pointer auf den bus
+
+
  *
  *  Copyright (C) 2022-23, H. Nikolaus Schaller
  *
@@ -504,7 +514,7 @@ static void retrode3_polling_work(struct work_struct *work)
 	select(slot->bus, slot);
 
 	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// clear A22 (select MUX)
-	word = read_word(slot->bus);	// 16 bits for both channels
+	word = read_word(slot->bus);	// 16 bits (D0..D15) for both channels
 	if(word < 0) { // invalid read
 		select(slot->bus, NULL);
 		return;
@@ -514,6 +524,8 @@ static void retrode3_polling_work(struct work_struct *work)
 	// no error handling
 	select(slot->bus, NULL);
 
+// printk("%s: word %08x\n", __func__, word);
+
 #define GENESIS_U BIT(3)		// pin 5 / D3
 #define GENESIS_D BIT(2)		// pin 4 / D2
 #define GENESIS_L BIT(1+16)		// pin 3 / D1 (select = 1)
@@ -521,33 +533,35 @@ static void retrode3_polling_work(struct work_struct *work)
 #define GENESIS_A BIT(4)		// pin 9 / D4 (select = 0)
 #define GENESIS_B BIT(4+16)		// pin 9 / D4 (select = 1)
 #define GENESIS_S BIT(5)		// pin 6 / D5 (select = 0)
-#define GENESIS_C BIT(5+16)		// pin 6 / D5(select = 1)
+#define GENESIS_C BIT(5+16)		// pin 6 / D5 (select = 1)
 
 	for (i=0; i < 2; i++) {
 		struct retrode3_controller *c = &slot->controllers[i];
-		int state = word >> c->data_offset;
+		int state = (word >> c->data_offset) & 0x00ff00ff;
 
 		if (c->state_valid) { // skip first analysis after boot
-			int changes = state ^ c->last_state;
+			u32 changes = state ^ c->last_state;
 
-if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
+// if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
 // FIXME: define a macro that takes the GENESIS_* and the KEY_* as arguments
 			if (changes & GENESIS_U)
-				input_report_key(c->input, KEY_U, state & GENESIS_U);
+				input_report_key(c->input, KEY_U, !(state & GENESIS_U));
 			if (changes & GENESIS_D)
-				input_report_key(c->input, KEY_D, state & GENESIS_D);
+				input_report_key(c->input, KEY_D, !(state & GENESIS_D));
 			if (changes & GENESIS_L)
-				input_report_key(c->input, KEY_L, state & GENESIS_L);
+				input_report_key(c->input, KEY_L, !(state & GENESIS_L));
 			if (changes & GENESIS_R)
-				input_report_key(c->input, KEY_R, state & GENESIS_R);
+				input_report_key(c->input, KEY_R, !(state & GENESIS_R));
 			if (changes & GENESIS_A)
-				input_report_key(c->input, KEY_A, state & GENESIS_A);
+				input_report_key(c->input, KEY_A, !(state & GENESIS_A));
 			if (changes & GENESIS_B)
-				input_report_key(c->input, KEY_B, state & GENESIS_B);
+				input_report_key(c->input, KEY_B, !(state & GENESIS_B));
 			if (changes & GENESIS_C)
-				input_report_key(c->input, KEY_C, state & GENESIS_C);
+				input_report_key(c->input, KEY_C, !(state & GENESIS_C));
 			if (changes & GENESIS_S)
-				input_report_key(c->input, KEY_ENTER, state & GENESIS_S);
+				input_report_key(c->input, KEY_ENTER, !(state & GENESIS_S));
+
+			input_sync(c->input);
 		}
 
 		c->last_state = state;
