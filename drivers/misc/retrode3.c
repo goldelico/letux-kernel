@@ -28,28 +28,8 @@ dazu retrode3_device mit Pointer auf den bus
  *
  */
 
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/err.h>
-#include <linux/export.h>
-#include <linux/fs.h>
-#include <linux/gpio/consumer.h>
-#include <linux/gpio/driver.h>
-#include <linux/init.h>
-#include <linux/input.h>
-#include <linux/io.h>
-#include <linux/miscdevice.h>
-#include <linux/module.h>
-#include <linux/mutex.h>
-#include <linux/of.h>
-#include <linux/of_gpio.h>
-#include <linux/platform_device.h>
-#include <linux/ptrace.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
-#include <linux/uio.h>
-
 #include "../gpio/gpiolib.h"
+#include "retrode3_bus.h"
 
 #ifdef CONFIG_IA64
 # include <linux/efi.h>
@@ -60,46 +40,6 @@ dazu retrode3_device mit Pointer auf den bus
 static DEFINE_IDA(retrode3_minors);
 static dev_t retrode3_first;
 static struct class *retrode3_class;
-
-/* one slot */
-
-struct retrode3_controller {
-	struct input_dev *input;
-	u32 data_offset;	// 0 or 8
-	int last_state;
-	int state_valid;
-};
-
-struct retrode3_slot {
-	struct device dev;	// the /dev/slot
-	struct cdev cdev;	// the /dev/slot character device
-	int id;
-	struct retrode3_bus *bus;	// backpointer to bus
-	struct gpio_desc *ce;	// slot enable
-	struct gpio_desc *cd;	// slot detect
-	struct gpio_desc *led;	// status led (optional)
-	struct gpio_desc *power;	// power control (optional)
-	struct delayed_work work;
-	int cd_state;
-	u32 addr_width;
-	u32 bus_width;
-	struct retrode3_controller controllers[2];
-};
-
-/* bus for all slots */
-
-struct retrode3_bus {
-	struct gpio_descs *addrs;	// addr-gpios
-	struct gpio_descs *datas;	// data-gpios
-	struct gpio_descs *we;		// we-gpios
-	struct gpio_desc *oe;		// oe-gpio
-	struct gpio_desc *time;		// time-gpio
-	struct gpio_desc *reset;	// reset-gpio
-	struct retrode3_slot *slots[4];
-	struct mutex select_lock;
-	int a0;
-	u32 prev_addr;
-};
 
 #define EOF	(1L<<24)	// 24 address lines = 16 MByte
 
@@ -249,7 +189,7 @@ printk("%s: unknown voltage %d\n", __func__, mV);
 	}
 }
 
-static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
+static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
 { /* chip select */
 	int i;
 
@@ -267,6 +207,11 @@ static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
 	if (!slot && mutex_is_locked(&bus->select_lock))
 		mutex_unlock(&bus->select_lock);
 }
+
+
+/*
+ * game cart driver
+ */
 
 /*
  * This function reads the slot. The ppos points directly to the
@@ -291,7 +236,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 
 	read = 0;
 
-	select(slot->bus, slot);
+	select_slot(slot->bus, slot);
 
 	if (*ppos + count >= EOF) {
 		if (*ppos >= EOF)
@@ -393,12 +338,12 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 	}
 #endif
 
-	select(slot->bus, NULL);
+	select_slot(slot->bus, NULL);
 
 	return read;
 
 failed:
-	select(slot->bus, NULL);
+	select_slot(slot->bus, NULL);
 
 	return err;
 }
@@ -415,7 +360,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 
 	written = 0;
 
-	select(slot->bus, slot);
+	select_slot(slot->bus, slot);
 
 	if (*ppos + count >= EOF) {
 		if (*ppos >= EOF)
@@ -449,128 +394,9 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 		written += sz;
 	}
 
-	select(slot->bus, NULL);
+	select_slot(slot->bus, NULL);
 
 	return written;
-}
-
-static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
-				char *buf);
-
-static void retrode3_update_cd(struct retrode3_slot *slot)
-{
-	int cd_state = gpiod_get_value(slot->cd);	// check cart detect pin
-
-	if (cd_state < 0)
-		return;	// ignore
-
-	if (cd_state != slot-> cd_state) {
-		char *envp[3];
-		char buf[20];
-		int len;
-
-// printk("%s: state changed to %d\n", __func__, cd_state);
-
-		slot-> cd_state = cd_state;
-
-		envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
-		len = sense_show(&slot->dev, NULL, buf);
-		if (len < 0)
-			return;
-		if (buf[len - 1] == '\n')
-			buf[len - 1] = 0;	// strip off \n
-		envp[1] = kasprintf(GFP_KERNEL, "SENSE=%s", buf);
-		envp[2] = NULL;
-		kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
-	}
-}
-
-static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
-{
-	struct retrode3_slot *slot = dev_id;
-
-	retrode3_update_cd(slot);
-
-	return IRQ_HANDLED;
-}
-
-static void retrode3_cd_work(struct work_struct *work)
-{
-	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, work.work);
-
-	retrode3_update_cd(slot);
-
-	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(50)));	// start next check
-}
-
-static void retrode3_polling_work(struct work_struct *work)
-{
-	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, work.work);
-	int i;
-	u32 word;	// left and right controllers and two mux states combined
-
-	select(slot->bus, slot);
-
-	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// clear A22 (select MUX)
-	word = read_word(slot->bus);	// 16 bits (D0..D15) for both channels
-	if(word < 0) { // invalid read
-		select(slot->bus, NULL);
-		return;
-	}
-	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// set A22 (select MUX)
-	word |= read_word(slot->bus) << 16;
-	// no error handling
-	select(slot->bus, NULL);
-
-// printk("%s: word %08x\n", __func__, word);
-
-#define GENESIS_U BIT(3)		// pin 5 / D3
-#define GENESIS_D BIT(2)		// pin 4 / D2
-#define GENESIS_L BIT(1+16)		// pin 3 / D1 (select = 1)
-#define GENESIS_R BIT(0+16)		// pin 2 / D0 (select = 1)
-#define GENESIS_A BIT(4)		// pin 9 / D4 (select = 0)
-#define GENESIS_B BIT(4+16)		// pin 9 / D4 (select = 1)
-#define GENESIS_S BIT(5)		// pin 6 / D5 (select = 0)
-#define GENESIS_C BIT(5+16)		// pin 6 / D5 (select = 1)
-
-	for (i=0; i < 2; i++) {
-		struct retrode3_controller *c = &slot->controllers[i];
-		int state = (word >> c->data_offset) & 0x00ff00ff;
-
-		if (c->state_valid) { // skip first analysis after boot
-			u32 changes = state ^ c->last_state;
-
-// if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
-// FIXME: define a macro that takes the GENESIS_* and the KEY_* as arguments
-			if (changes & GENESIS_U)
-				input_report_key(c->input, KEY_U, !(state & GENESIS_U));
-			if (changes & GENESIS_D)
-				input_report_key(c->input, KEY_D, !(state & GENESIS_D));
-			if (changes & GENESIS_L)
-				input_report_key(c->input, KEY_L, !(state & GENESIS_L));
-			if (changes & GENESIS_R)
-				input_report_key(c->input, KEY_R, !(state & GENESIS_R));
-			if (changes & GENESIS_A)
-				input_report_key(c->input, KEY_A, !(state & GENESIS_A));
-			if (changes & GENESIS_B)
-				input_report_key(c->input, KEY_B, !(state & GENESIS_B));
-			if (changes & GENESIS_C)
-				input_report_key(c->input, KEY_C, !(state & GENESIS_C));
-			if (changes & GENESIS_S)
-				input_report_key(c->input, KEY_ENTER, !(state & GENESIS_S));
-
-			input_sync(c->input);
-		}
-
-		c->last_state = state;
-		c->state_valid = true;
-	}
-
-	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(20)));	// start next check
 }
 
 /*
@@ -664,6 +490,323 @@ static void retrode3_slot_release(struct device *dev)
 	kfree(slot);
 }
 
+int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node*child)
+{
+	struct device *	dev = &slot->dev;
+	int id;
+	int ret;
+
+	id = ida_simple_get(&retrode3_minors, 0, RETRODE3_MINORS, GFP_KERNEL);
+	if (id < 0)
+		return id;
+
+	slot->id = id;
+
+	device_initialize(dev);
+	dev->devt = retrode3_first + id;
+	dev->class = retrode3_class;
+	dev->release = retrode3_slot_release;
+	dev_set_drvdata(dev, slot);
+	dev_set_name(dev, "slot%d", id);
+	dev->of_node = child;
+
+	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+	gpiod_set_value(slot->ce, false);	// turn inactive
+	slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
+	slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
+	if (!IS_ERR_OR_NULL(slot->led))
+		gpiod_set_value(slot->led, false);	// turn inactive
+	slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
+	of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
+	of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
+
+	cdev_init(&slot->cdev, &slot_fops);
+	slot->cdev.owner = THIS_MODULE;
+
+// FIXME: should be some devm_cdev_device_add
+	ret = cdev_device_add(&slot->cdev, &slot->dev);
+	if (ret)
+		return ret;
+
+//	set_slot_power(slot, 5000);	// switch to 5V if possible
+	set_slot_power(slot, 3300);	// switch to 3.3V if possible
+
+	slot->bus->prev_addr = EOF - 1;	// needed to bring all address gpios in a defined state
+//	set_address(slot->bus, EOF-1);	// bring all address gpios in a defined state
+	set_address(slot->bus, 0);
+
+	slot->cd_state = -1;	// enforce a state update event for initial state
+#if 1	// use polling
+	INIT_DELAYED_WORK(&slot->work, retrode3_cd_work);
+	schedule_delayed_work(&slot->work,
+		round_jiffies_relative(
+			msecs_to_jiffies(50)));	// start first check
+
+#else	// use interrupt (untested)
+	ret = devm_request_threaded_irq(dev, gpiod_to_irq(slot->cd),
+		NULL, retrode3_gpio_cd_irqt,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			"cart-detect", slot);
+#endif
+
+	return 0;
+}
+
+#if FIXME
+
+static const struct retrode3_device_id retrode3_slot_idtable[] = {
+	{ "retrode3-slot", 0 },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(i2c, retrode3_slot_idtable);
+
+static const struct of_device_id retrode3_slot_of_match[] = {
+	{ .compatible = "openpandora,retrode3-slot" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, retrode3_slot_of_match);
+
+static struct retrode3_driver retrode3_slot_driver = {
+	.driver = {
+		.name	= "retrode3-controller",
+		.of_match_table = retrode3_slot_of_match,
+	},
+	.id_table	= retrode3_slot_idtable,
+	.probe		= retrode3_probe_slot,
+};
+
+module_retrode3_driver(retrode3_slot_driver);
+
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
+MODULE_DESCRIPTION("Retrode3 Game Cartridge Slot Driver");
+MODULE_LICENSE("GPL");
+
+#endif/*
+ * cart detect and /sysfs
+ */
+
+static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
+				char *buf);
+
+static void retrode3_update_cd(struct retrode3_slot *slot)
+{
+	int cd_state = gpiod_get_value(slot->cd);	// check cart detect pin
+
+	if (cd_state < 0)
+		return;	// ignore
+
+	if (cd_state != slot-> cd_state) {
+		char *envp[3];
+		char buf[20];
+		int len;
+
+// printk("%s: state changed to %d\n", __func__, cd_state);
+
+		slot-> cd_state = cd_state;
+
+		envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
+		len = sense_show(&slot->dev, NULL, buf);
+		if (len < 0)
+			return;
+		if (buf[len - 1] == '\n')
+			buf[len - 1] = 0;	// strip off \n
+		envp[1] = kasprintf(GFP_KERNEL, "SENSE=%s", buf);
+		envp[2] = NULL;
+		kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
+	}
+}
+
+static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
+{
+	struct retrode3_slot *slot = dev_id;
+
+	retrode3_update_cd(slot);
+
+	return IRQ_HANDLED;
+}
+
+static void retrode3_cd_work(struct work_struct *work)
+{
+	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, work.work);
+
+	retrode3_update_cd(slot);
+
+	schedule_delayed_work(&slot->work,
+		round_jiffies_relative(
+			msecs_to_jiffies(50)));	// start next check
+}
+
+/*
+ * game controller driver
+ */
+
+static void retrode3_polling_work(struct work_struct *work)
+{
+	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, work.work);
+	int i;
+	u32 word;	// left and right controllers and two mux states combined
+
+	select_slot(slot->bus, slot);
+
+	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// clear A22 (select MUX)
+	word = read_word(slot->bus);	// 16 bits (D0..D15) for both channels
+	if(word < 0) { // invalid read
+		select_slot(slot->bus, NULL);
+		return;
+	}
+	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// set A22 (select MUX)
+	word |= read_word(slot->bus) << 16;
+	// no error handling
+	select_slot(slot->bus, NULL);
+
+// printk("%s: word %08x\n", __func__, word);
+
+#define GENESIS_U BIT(3)		// pin 5 / D3
+#define GENESIS_D BIT(2)		// pin 4 / D2
+#define GENESIS_L BIT(1+16)		// pin 3 / D1 (select = 1)
+#define GENESIS_R BIT(0+16)		// pin 2 / D0 (select = 1)
+#define GENESIS_A BIT(4)		// pin 9 / D4 (select = 0)
+#define GENESIS_B BIT(4+16)		// pin 9 / D4 (select = 1)
+#define GENESIS_S BIT(5)		// pin 6 / D5 (select = 0)
+#define GENESIS_C BIT(5+16)		// pin 6 / D5 (select = 1)
+
+	for (i=0; i < 2; i++) {
+		struct retrode3_controller *c = &slot->controllers[i];
+		int state = (word >> c->data_offset) & 0x00ff00ff;
+
+		if (c->state_valid) { // skip first analysis after boot
+			u32 changes = state ^ c->last_state;
+
+// if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
+// FIXME: define a macro that takes the GENESIS_* and the KEY_* as arguments
+			if (changes & GENESIS_U)
+				input_report_key(c->input, KEY_U, !(state & GENESIS_U));
+			if (changes & GENESIS_D)
+				input_report_key(c->input, KEY_D, !(state & GENESIS_D));
+			if (changes & GENESIS_L)
+				input_report_key(c->input, KEY_L, !(state & GENESIS_L));
+			if (changes & GENESIS_R)
+				input_report_key(c->input, KEY_R, !(state & GENESIS_R));
+			if (changes & GENESIS_A)
+				input_report_key(c->input, KEY_A, !(state & GENESIS_A));
+			if (changes & GENESIS_B)
+				input_report_key(c->input, KEY_B, !(state & GENESIS_B));
+			if (changes & GENESIS_C)
+				input_report_key(c->input, KEY_C, !(state & GENESIS_C));
+			if (changes & GENESIS_S)
+				input_report_key(c->input, KEY_ENTER, !(state & GENESIS_S));
+
+			input_sync(c->input);
+		}
+
+		c->last_state = state;
+		c->state_valid = true;
+	}
+
+	schedule_delayed_work(&slot->work,
+		round_jiffies_relative(
+			msecs_to_jiffies(20)));	// start next check
+}
+
+int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*child)
+{
+	struct device *	dev = &slot->dev;
+	struct device_node *controller = NULL;
+	int ret;
+	int id;
+
+	device_initialize(dev);
+	dev->class = retrode3_class;
+	dev_set_name(dev, "gamecontroller");
+	dev->of_node = child;
+
+	ret = device_add(dev);
+	if (ret)
+		return ret;
+
+	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+	gpiod_set_value(slot->ce, false);	// turn inactive
+
+	id = 0;
+	while ((controller = of_get_next_child(child, controller))) {
+		struct input_dev *input_dev;
+
+		dev_info(&slot->dev, "add game controller %d\n", id);
+
+		input_dev = devm_input_allocate_device(dev);
+		if (!input_dev)
+			return -ENOMEM;
+
+		slot->controllers[id].input = input_dev;
+
+		input_dev->name = kasprintf(GFP_KERNEL, "Retrode 3 Game Controller %d", id);
+		input_dev->phys = kasprintf(GFP_KERNEL, "%s/input%d", dev_name(dev), id);
+
+		input_dev->id.bustype = BUS_GAMEPORT;
+
+		input_set_capability(input_dev, EV_KEY, KEY_A);
+		input_set_capability(input_dev, EV_KEY, KEY_B);
+		input_set_capability(input_dev, EV_KEY, KEY_C);
+		input_set_capability(input_dev, EV_KEY, KEY_U);
+		input_set_capability(input_dev, EV_KEY, KEY_D);
+		input_set_capability(input_dev, EV_KEY, KEY_L);
+		input_set_capability(input_dev, EV_KEY, KEY_R);
+		input_set_capability(input_dev, EV_KEY, KEY_ENTER);
+
+		ret = input_register_device(input_dev);
+		if (ret) {
+			dev_err(dev, "Failed to register input device: %d\n", ret);
+			return ret;
+		}
+
+		of_property_read_u32(controller, "data-offset", &slot->controllers[id].data_offset);
+
+		id++;
+	}
+
+	INIT_DELAYED_WORK(&slot->work, retrode3_polling_work);
+	schedule_delayed_work(&slot->work,
+		round_jiffies_relative(
+			msecs_to_jiffies(50)));	// start polling
+
+	return 0;
+}
+
+#if FIXME
+
+static const struct retrode3_device_id retrode3_controller_idtable[] = {
+	{ "retrode3-controller", 0 },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(i2c, retrode3_controller_idtable);
+
+static const struct of_device_id retrode3_controller_of_match[] = {
+	{ .compatible = "openpandora,retrode3-controller" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, retrode3_controller_of_match);
+
+static struct retrode3_driver retrode3_controller_driver = {
+	.driver = {
+		.name	= "retrode3-controller",
+		.of_match_table = retrode3_controller_of_match,
+	},
+	.id_table	= retrode3_controller_idtable,
+	.probe		= retrode3_probe_controller,
+};
+
+module_retrode3_driver(retrode3_controller_driver);
+
+MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
+MODULE_DESCRIPTION("Retrode3 Game Controller Driver");
+MODULE_LICENSE("GPL");
+
+#endif
+
+/* bus driver probe */
+
 static int retrode3_probe(struct platform_device *pdev)
 {
         struct retrode3_bus *bus;
@@ -733,11 +876,11 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 
 	mutex_init(&bus->select_lock);
 
+// FIXME: do we needs this grouping?
+
 	slots = of_get_child_by_name(pdev->dev.of_node, "slots");
 	while ((child = of_get_next_child(slots, child))) {
 		struct retrode3_slot *slot;
-		struct device *dev;
-		int id;
 		int ret;
 
 		if (i >= ARRAY_SIZE(bus->slots)) {
@@ -754,163 +897,36 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			return -ENOMEM;
 		}
 
-		slot->bus = bus;
 		bus->slots[i++] = slot;
+		slot->bus = bus;
+		slot->dev.parent = &pdev->dev;
 
-		if (of_property_match_string(child, "compatible", "openpandora,retrode3-slot") >= 0) {
+// FIXME: should load bus client driver through matching .compatible
+// like i2c bus is doing
 
-// FIXME: make this separate functions
-
-			id = ida_simple_get(&retrode3_minors, 0, RETRODE3_MINORS, GFP_KERNEL);
-			if (id < 0) {
-				// FIXME: dealloc previously added devices
-				kfree(bus);
-				kfree(slot);
-				return -EINVAL;
-			}
-
-			slot->id = id;
-			dev = &slot->dev;
-			device_initialize(dev);
-			dev->devt = retrode3_first + id;
-			dev->class = retrode3_class;
-			dev->parent = &pdev->dev;
-			dev->release = retrode3_slot_release;
-			dev_set_drvdata(dev, slot);
-			dev_set_name(dev, "slot%d", id);
-			dev->of_node = child;
-
-			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-			gpiod_set_value(slot->ce, false);	// turn inactive
-			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
-			slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
-			if (!IS_ERR_OR_NULL(slot->led))
-				gpiod_set_value(slot->led, false);	// turn inactive
-			slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
-			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
-			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
-
-			cdev_init(&slot->cdev, &slot_fops);
-			slot->cdev.owner = THIS_MODULE;
-
-// FIXME: should be some devm_cdev_device_add
-			ret = cdev_device_add(&slot->cdev, &slot->dev);
-			if (ret) {
-				dev_err(&slot->dev, "failed to add device: %d\n", ret);
-				// FIXME: dealloc previously added devices
-				kfree(bus);
-				kfree(slot);
-				return ret;
-			}
-
-//			set_slot_power(slot, 5000);	// switch to 5V if possible
-			set_slot_power(slot, 3300);	// switch to 3.3V if possible
-
-			bus->prev_addr = EOF - 1;	// needed to bring all address gpios in a defined state
-//			set_address(slot->bus, EOF-1);	// bring all address gpios in a defined state
-			set_address(slot->bus, 0);
-
-			slot->cd_state = -1;	// enforce a state update event for initial state
-#if 1	// use polling
-			INIT_DELAYED_WORK(&slot->work, retrode3_cd_work);
-			schedule_delayed_work(&slot->work,
-				round_jiffies_relative(
-					msecs_to_jiffies(50)));	// start first check
-
-#else	// use interrupt (untested)
-			ret = devm_request_threaded_irq(dev, gpiod_to_irq(slot->cd),
-				NULL, retrode3_gpio_cd_irqt,
-				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-					"cart-detect", slot);
-
-#endif
-		} else if (of_property_match_string(child, "compatible", "openpandora,retrode3-controller") >= 0) {
-			struct device_node *controller = NULL;
-
-			dev = &slot->dev;
-			device_initialize(dev);
-			dev->class = retrode3_class;
-			dev->parent = &pdev->dev;
-			dev_set_name(dev, "gamecontroller");
-			dev->of_node = child;
-
-			ret = device_add(dev);
-			if (ret) {
-				dev_err(&slot->dev, "failed to add device: %d\n", ret);
-				// FIXME: dealloc previously added devices
-				kfree(bus);
-				kfree(slot);
-				return ret;
-			}
-
-			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-			gpiod_set_value(slot->ce, false);	// turn inactive
-
-			id = 0;
-			while ((controller = of_get_next_child(child, controller))) {
-				struct input_dev *input_dev;
-
-				dev_info(&slot->dev, "add game controller %d\n", id);
-
-				if (id >= ARRAY_SIZE(bus->slots)) {
-					dev_err(&slot->dev, "too many game controllers\n");
-					// FIXME: better error handling
-					// FIXME: dealloc previously added devices
-					kfree(bus);
-					return -EINVAL;
-				}
-
-				input_dev = devm_input_allocate_device(dev);
-				if (!input_dev)
-					return -ENOMEM;
-
-				slot->controllers[id].input = input_dev;
-
-				input_dev->name = kasprintf(GFP_KERNEL, "Retrode 3 Game Controller %d", i);
-				input_dev->phys = kasprintf(GFP_KERNEL, "%s/input%d", dev_name(dev), i);
-
-				input_dev->id.bustype = BUS_GAMEPORT;
-
-				input_set_capability(input_dev, EV_KEY, KEY_A);
-				input_set_capability(input_dev, EV_KEY, KEY_B);
-				input_set_capability(input_dev, EV_KEY, KEY_C);
-				input_set_capability(input_dev, EV_KEY, KEY_U);
-				input_set_capability(input_dev, EV_KEY, KEY_D);
-				input_set_capability(input_dev, EV_KEY, KEY_L);
-				input_set_capability(input_dev, EV_KEY, KEY_R);
-				input_set_capability(input_dev, EV_KEY, KEY_ENTER);
-
-				ret = input_register_device(input_dev);
-				if (ret) {
-					dev_err(dev,
-						"Failed to register input device: %d\n", ret);
-					return ret;
-				}
-
-				of_property_read_u32(controller, "data-offset", &slot->controllers[id].data_offset);
-
-				id++;
-			}
-
-			INIT_DELAYED_WORK(&slot->work, retrode3_polling_work);
-			schedule_delayed_work(&slot->work,
-				round_jiffies_relative(
-					msecs_to_jiffies(50)));	// start polling
-		} else {
+		if (of_property_match_string(child, "compatible", "openpandora,retrode3-slot") >= 0)
+			ret = retrode3_probe_slot(slot, child);
+		else if (of_property_match_string(child, "compatible", "openpandora,retrode3-controller") >= 0)
+			ret = retrode3_probe_controller(slot, child);
+		else {
 			dev_err(&slot->dev, "unknown child type\n");
+			ret = -EINVAL;
+		}
+
+		if (ret < 0) {
 			// FIXME: dealloc previously added devices
 			kfree(bus);
 			kfree(slot);
 			return ret;
 		}
-		dev_dbg(dev, "%s added\n", __func__);
+		dev_dbg(&pdev->dev, "%s added\n", __func__);
 	}
 
         platform_set_drvdata(pdev, bus);
 
         dev_dbg(&pdev->dev, "%s successful\n", __func__);
 
-	select(bus, NULL);	// deselect all slots
+	select_slot(bus, NULL);	// deselect all slots
 
         return 0;
 }
@@ -920,7 +936,7 @@ static int retrode3_remove(struct platform_device *pdev)
         struct retrode3_bus *bus = platform_get_drvdata(pdev);
 	int i;
 
-	select(bus, NULL);	// deselect all slots
+	select_slot(bus, NULL);	// deselect all slots
 
 	for (i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		struct retrode3_slot *slot = bus->slots[i];
@@ -1041,5 +1057,5 @@ module_exit(retrode3_module_exit);
 MODULE_ALIAS("retrode3");
 
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
-MODULE_DESCRIPTION("retrode 3 slot reader driver");
+MODULE_DESCRIPTION("retrode 3 bus driver");
 MODULE_LICENSE("GPL v2");
