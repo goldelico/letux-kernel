@@ -41,6 +41,8 @@ struct retrode3_bus {
 	u32 prev_addr;
 };
 
+#define EOF	(1L<<24)	// 24 address lines = 16 MByte
+
 /* access to cart bus */
 
 // set the address on the bus
