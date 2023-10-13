@@ -4,6 +4,8 @@
 #include <soc/base.h>
 #include <soc/gpio.h>
 
+#if 0 // FIXME: this should be part of the ingenic-gpio driver
+
 #define GPIO_PORT_OFF    0x100
 #define GPIO_SHADOW_OFF  0x700
 
@@ -128,3 +130,5 @@ int jzgpio_set_func(int port, enum gpio_function func, unsigned long pins)
     return 0;
 }
 EXPORT_SYMBOL(jzgpio_set_func);
+
+#endif
