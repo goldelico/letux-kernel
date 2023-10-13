@@ -4,6 +4,7 @@
 #include "x1600.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <generated/autoconf.h>
+#include <dt-bindings/pinctrl/ingenic-pinctrl.h>
 
 
 / {
@@ -26,6 +27,94 @@
 		};
 	};
 
+};
+
+&pinctrl {
+	uart0_pb: uart0-pb {
+		function = "uart0";
+		groups = "uart0-data";
+		bias-disable;
+	};
+
+	uart1_pb: uart1-pb {
+		function = "uart1";
+		groups = "uart1-data";
+		bias-disable;
+	};
+
+	uart2_pb: uart2-pb {
+		function = "uart2";
+		groups = "uart2-data";
+		bias-disable;
+	};
+
+	uart3_pb: uart3-pb {
+		function = "uart3";
+		groups = "uart3-data";
+		bias-disable;
+	};
+
+	spi0_pb: spi0-pb {
+		function = "spi0";
+		groups = "spi0-data";
+		bias-disable;
+	};
+
+	spi_slv_pa: uart3-pb {
+		bias-disable;
+	};
+
+	aic_pb: uart3-pb {
+		bias-disable;
+	};
+
+	msc0_4bit_f1: uart3-pb {
+		bias-disable;
+	};
+
+	msc1_4bit: uart3-pb {
+		bias-disable;
+	};
+
+	pwm_tcu_trig_pa: uart3-pb {
+		bias-disable;
+	};
+
+	rtc32k_enable: uart3-pb {
+		bias-disable;
+	};
+
+	rtc32k_disable: uart3-pb {
+		bias-disable;
+	};
+
+	can0_pd: uart3-pb {
+		bias-disable;
+	};
+
+	can1_pd: uart3-pb {
+		bias-disable;
+	};
+
+	mac0_rmii_p0_normal: uart3-pb {
+		bias-disable;
+	};
+
+	mac0_rmii_p1_normal: uart3-pb {
+		bias-disable;
+	};
+
+	mac0_rmii_p0_rst: uart3-pb {
+		bias-disable;
+	};
+
+	sfc_pc: uart3-pb {
+		bias-disable;
+	};
+
+	pwm0_pc: uart3-pb {
+		bias-disable;
+	};
 };
 
 &uart0 {
@@ -144,8 +233,8 @@
 	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
 	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
 	status = "disable";
-	ingenic,pwr-gpio = <&gpb 30 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
-	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,pwr-gpio = <&gpb 30 GPIO_ACTIVE_HIGH>;
+	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW>;
 	ingenic,rst-ms = <10>;
 	ingenic,mac-mode = <RMII>;
 	ingenic,mode-reg = <0xb0000054>;
@@ -220,7 +309,7 @@
 	spi-max-frequency = <54000000>;
 	num-cs = <2>;
 	/* cs-gpios = <0>, <0>; */
-	/* cs-gpios = <&gpb 17 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>, <&gpb 16 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>; */
+	/* cs-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>, <&gpb 16 GPIO_ACTIVE_HIGH>; */
 	ingenic,chnl = <0>;
 	ingenic,allow_cs_same = <1>;
 	ingenic,bus_num = <0>;
@@ -265,7 +354,7 @@
 
 &otg_phy {
 	status = "okay";
-	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
 };
 
 &aic {
@@ -298,7 +387,7 @@
 			pwms = <&pwm 2 100000>;
 			max-brightness = <255>;
 #else
-			gpios = <&gpc 0 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
 #endif
 		};
 	};
@@ -309,7 +398,7 @@
 		   wakeup {
 			label = "WAKEUP";
 			linux,code = <KEY_WAKEUP>;
-			gpios = <&gpc 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			gpios = <&gpc 31 GPIO_ACTIVE_LOW>;
 			gpio-key,wakeup;
 		   };
 
@@ -317,13 +406,13 @@
 			status = "disabled";	// is not independent of bootsel1
 			label = "bootsel0";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpc 27 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			gpios = <&gpc 27 GPIO_ACTIVE_HIGH>;
 		   };
 
 		   bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpc 28 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
 		   };
 	   };
 
@@ -342,7 +431,7 @@
 		ingenic,platform = <&aic>, <&i2s_tloop>;
 		ingenic,codec = <&dump_pcm_codec>, <&dump_pcm_codec>;
 		ingenic,codec-dai = "pcm-dump", "pcm-dump";
-		ingenic,en3v3-gpios = <&gpb 30 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,en3v3-gpios = <&gpb 30 GPIO_ACTIVE_HIGH>;
 	};
 
 #if 0
@@ -371,6 +460,7 @@
 #endif
 };
 
+#if 0
 &gpa {
 	ingenic,gpio-sleep-pullup 	= <>;
 	ingenic,gpio-sleep-pulldown 	= <>;
@@ -402,3 +492,4 @@
 	ingenic,gpio-sleep-low		= <>;
 	ingenic,gpio-sleep-high		= <>;
 };
+#endif
