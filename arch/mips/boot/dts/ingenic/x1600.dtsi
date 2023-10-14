@@ -145,9 +145,17 @@
 			ingenic,num-chips = <4>;
 			ingenic,regs-offset = <0x100>;
 
-			gpa: gpa {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpa: gpio@0 {
+				compatible = "ingenic,x1600-gpio";
+				reg = <0>;
+
 				gpio-controller;
-				#gpio-cells = <3>;
+				gpio-ranges = <&pinctrl 0 0 32>;
+				#gpio-cells = <2>;
+
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
 				interrupts = <IRQ_GPIO0>;
@@ -159,9 +167,14 @@
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
-			gpb: gpb {
+			gpb: gpio@1 {
+				compatible = "ingenic,x1600-gpio";
+				reg = <1>;
+
 				gpio-controller;
-				#gpio-cells = <3>;
+				gpio-ranges = <&pinctrl 0 32 32>;
+				#gpio-cells = <2>;
+
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
 				interrupts = <IRQ_GPIO1>;
@@ -173,9 +186,14 @@
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
-			gpc: gpc {
+			gpc: gpio@2 {
+				compatible = "ingenic,x1600-gpio";
+				reg = <2>;
+
 				gpio-controller;
-				#gpio-cells = <3>;
+				gpio-ranges = <&pinctrl 0 64 32>;
+				#gpio-cells = <2>;
+
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
 				interrupts = <IRQ_GPIO2>;
@@ -187,9 +205,14 @@
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
-			gpd: gpd {
+			gpd: gpio@3 {
+				compatible = "ingenic,x1600-gpio";
+				reg = <3>;
+
 				gpio-controller;
-				#gpio-cells = <3>;
+				gpio-ranges = <&pinctrl 0 96 32>;
+				#gpio-cells = <2>;
+
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
 				interrupts = <IRQ_GPIO3>;
@@ -520,4 +543,4 @@
 	};
 
 };
-#include "x1600-pinctrl.dtsi"
+

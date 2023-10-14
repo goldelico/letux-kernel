@@ -5,7 +5,6 @@ dtb-$(CONFIG_DT_HIPPO_V10)	+= hippo_v10.dtb
 dtb-$(CONFIG_DT_HIPPO_V12)	+= hippo_v12.dtb
 dtb-$(CONFIG_DT_PANDA_V10)	+= panda_v10.dtb
 dtb-$(CONFIG_DT_HALLEY6_V10)	+= halley6_v10.dtb
-dtb-$(CONFIG_DT_LX16)		+= lx16.dtb
 dtb-$(CONFIG_DT_GEWU_V10)	+= gewu_v10.dtb
 dtb-$(CONFIG_DT_KALE_V10)	+= kale_v10.dtb
 
