@@ -39,6 +39,7 @@ properties:
           - ingenic,jz4780-pinctrl
           - ingenic,x1000-pinctrl
           - ingenic,x1500-pinctrl
+          - ingenic,x1600-pinctrl
           - ingenic,x1830-pinctrl
       - items:
           - const: ingenic,jz4760b-pinctrl
@@ -69,6 +70,7 @@ patternProperties:
           - ingenic,jz4780-gpio
           - ingenic,x1000-gpio
           - ingenic,x1500-gpio
+          - ingenic,x1600-gpio
           - ingenic,x1830-gpio
 
       reg:
