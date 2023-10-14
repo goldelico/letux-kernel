@@ -180,6 +180,8 @@
 
 &uart3 {
 	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_pb>;
 };
 
 &cpufreq {
