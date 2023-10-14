@@ -40,8 +40,8 @@ config INGENIC_BUILTIN_DTB
 	bool "Ingenic Device Tree build into Kernel."
 	default y
 
-source "arch/mips/xburst/soc-x1000/Kconfig.DT"
-source "arch/mips/xburst/soc-x1600/Kconfig.DT"
+#source "arch/mips/xburst/soc-x1000/Kconfig.DT"
+#source "arch/mips/xburst/soc-x1600/Kconfig.DT"
 
 config EXTAL_CLOCK
 	depends on MACH_XBURST
