@@ -32,7 +32,7 @@
 &pinctrl {
 	uart0_pb: uart0-pb {
 		function = "uart0";
-		groups = "uart0-data";
+		groups = "uart0-data", "uart0-hwflow";
 		bias-disable;
 	};
 
@@ -56,19 +56,19 @@
 
 	spi0_pb: spi0-pb {
 		function = "ssi";
-		groups = "spi0-data";
+		groups = "ssi-dt-b", "ssi-dr-b", "ssi-clk-b", "ssi-ce0-b", "ssi-ce1-b";
 		bias-disable;
 	};
 
 	msc0_4bit_f1: msc0 {
 		function = "mmc0";
-		groups = "mmc0-4bit-c";
+		groups = "mmc0-1bit-c", "mmc0-4bit-c";
 		bias-disable;
 	};
 
 	msc1_4bit: msc1 {
 		function = "mmc1";
-		groups = "mmc1-4bit";
+		groups = "mmc1-1bit", "mmc1-4bit";
 		bias-disable;
 	};
 
@@ -78,48 +78,82 @@
 		bias-disable;
 	};
 
+	i2c0_pa: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data-a";
+		bias-disable;
+	};
+
+	i2c1_pb: i2c1 {
+		function = "i2c1";
+		groups = "i2c1-data-b-19";
+		bias-disable;
+	};
+
 // FIXME:
 	spi_slv_pa: fixme {
+		ingenic,pinmux = <&gpa 28 31>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	aic_pb: fixme {
+		ingenic,pinmux = <&gpb 21 28>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
 
 	pwm_tcu_trig_pa: fixme {
+		ingenic,pinmux = <&gpa 31 31>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION3>;
 		bias-disable;
 	};
 
 	rtc32k_enable: fixme {
+		ingenic,pinmux = <&gpc 26 26>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
 
 	rtc32k_disable: fixme {
+		ingenic,pinmux = <&gpc 26 26>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTIONS>;
 		bias-disable;
 	};
 
 	can0_pd: fixme {
+		ingenic,pinmux = <&gpd 2 3>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	can1_pd: fixme {
+		ingenic,pinmux = <&gpd 4 5>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	mac0_rmii_p0_normal: fixme {
+		ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	mac0_rmii_p1_normal: fixme {
+		ingenic,pinmux = <&gpb 21 21>, <&gpb 25 28>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	mac0_rmii_p0_rst: fixme {
+		ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
 		bias-disable;
 	};
 
 	sfc_pc: fixme {
+		ingenic,pinmux = <&gpc 17 22>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
 };
@@ -191,6 +225,18 @@
 &cim {
 	status = "disable";
 	memory-region=<&reserved_memory>;
+};
+
+&i2c0 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pa>;
+};
+
+&i2c1 {
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pb>;
 };
 
 &msc0 {
