@@ -44,75 +44,82 @@
 
 	uart2_pb: uart2-pb {
 		function = "uart2";
-		groups = "uart2-data";
+		groups = "uart2-data-b";
 		bias-disable;
 	};
 
 	uart3_pb: uart3-pb {
 		function = "uart3";
-		groups = "uart3-data";
+		groups = "uart3-data-b";
 		bias-disable;
 	};
 
 	spi0_pb: spi0-pb {
-		function = "spi0";
+		function = "ssi";
 		groups = "spi0-data";
 		bias-disable;
 	};
 
-	spi_slv_pa: uart3-pb {
+	msc0_4bit_f1: msc0 {
+		function = "mmc0";
+		groups = "mmc0-4bit-c";
 		bias-disable;
 	};
 
-	aic_pb: uart3-pb {
+	msc1_4bit: msc1 {
+		function = "mmc1";
+		groups = "mmc1-4bit";
 		bias-disable;
 	};
 
-	msc0_4bit_f1: uart3-pb {
+	pwm0_pc: pwm0 {
+		function = "pwm0";
+		groups = "pwm0";
 		bias-disable;
 	};
 
-	msc1_4bit: uart3-pb {
+// FIXME:
+	spi_slv_pa: fixme {
 		bias-disable;
 	};
 
-	pwm_tcu_trig_pa: uart3-pb {
+	aic_pb: fixme {
 		bias-disable;
 	};
 
-	rtc32k_enable: uart3-pb {
+	pwm_tcu_trig_pa: fixme {
 		bias-disable;
 	};
 
-	rtc32k_disable: uart3-pb {
+	rtc32k_enable: fixme {
 		bias-disable;
 	};
 
-	can0_pd: uart3-pb {
+	rtc32k_disable: fixme {
 		bias-disable;
 	};
 
-	can1_pd: uart3-pb {
+	can0_pd: fixme {
 		bias-disable;
 	};
 
-	mac0_rmii_p0_normal: uart3-pb {
+	can1_pd: fixme {
 		bias-disable;
 	};
 
-	mac0_rmii_p1_normal: uart3-pb {
+	mac0_rmii_p0_normal: fixme {
 		bias-disable;
 	};
 
-	mac0_rmii_p0_rst: uart3-pb {
+	mac0_rmii_p1_normal: fixme {
 		bias-disable;
 	};
 
-	sfc_pc: uart3-pb {
+	mac0_rmii_p0_rst: fixme {
 		bias-disable;
 	};
 
-	pwm0_pc: uart3-pb {
+	sfc_pc: fixme {
 		bias-disable;
 	};
 };
