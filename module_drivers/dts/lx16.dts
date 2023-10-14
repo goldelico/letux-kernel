@@ -56,7 +56,7 @@
 
 	spi0_pb: spi0-pb {
 		function = "ssi";
-		groups = "ssi-dt-b", "ssi-dr-b", "ssi-clk-b", "ssi-ce0-b", "ssi-ce1-b";
+		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
 		bias-disable;
 	};
 
