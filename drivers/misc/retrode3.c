@@ -228,21 +228,21 @@ static int retrode3_probe(struct platform_device *pdev)
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
 // if (IS_ERR(bus->addrs)) usw...
-// printk("%s: %px\n", __func__, bus->addrs);
+// printk("%s: addrs=%px\n", __func__, bus->addrs);
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-// printk("%s: %px\n", __func__, bus->datas);
+// printk("%s: datas=%px\n", __func__, bus->datas);
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-// printk("%s: %px\n", __func__, bus->oe);
+// printk("%s: oe=%px\n", __func__, bus->oe);
 	gpiod_set_value(bus->oe, false);	// turn inactive
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-// printk("%s: %px\n", __func__, bus->we);
+// printk("%s: we=%px\n", __func__, bus->we);
 	gpiod_set_value(bus->we->desc[0], false);	// make both inactive
 	gpiod_set_value(bus->we->desc[1], false);
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-// printk("%s: %px\n", __func__, bus->time);
+// printk("%s: time=%px\n", __func__, bus->time);
 	gpiod_set_value(bus->time, false);	// make inactive
 	bus->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-// printk("%s: %px\n", __func__, bus->reset);
+// printk("%s: reset=%px\n", __func__, bus->reset);
 	gpiod_set_value(bus->reset, false);	// make inactive
 
 #if 0
@@ -283,6 +283,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 		struct retrode3_slot *slot;
 		int ret;
 
+// printk("%s: slot %d\n", __func__, i);
 		if (i >= ARRAY_SIZE(bus->slots)) {
 			dev_err(&slot->dev, "too many slots\n");
 // FIXME: better error handling
