@@ -33,25 +33,25 @@
 	uart0_pb: uart0-pb {
 		function = "uart0";
 		groups = "uart0-data", "uart0-hwflow";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	uart1_pb: uart1-pb {
 		function = "uart1";
 		groups = "uart1-data";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	uart2_pb: uart2-pb {
 		function = "uart2";
 		groups = "uart2-data-b";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	uart3_pb: uart3-pb {
 		function = "uart3";
 		groups = "uart3-data-b";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	spi0_pb: spi0-pb {
@@ -81,13 +81,13 @@
 	i2c0_pa: i2c0 {
 		function = "i2c0";
 		groups = "i2c0-data-a";
-		bias-disable;
+		bias-pull-up;
 	};
 
 	i2c1_pb: i2c1 {
 		function = "i2c1";
 		groups = "i2c1-data-b-19";
-		bias-disable;
+		bias-pull-up;
 	};
 
 // FIXME:
