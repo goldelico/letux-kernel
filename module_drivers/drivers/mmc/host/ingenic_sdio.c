@@ -36,10 +36,10 @@ struct wifi_data {
 	/* struct wake_lock                wifi_wake_lock; */
 	/* struct regulator                *wifi_vbat; */
 	/* struct regulator                *wifi_vddio; */
-	uint         wifi_reset;
-	uint         wifi_reset_flags;
-	uint         wifi_irq;
-	uint         wifi_irq_flags;
+	int	wifi_reset;
+	uint	wifi_reset_flags;
+	int	wifi_irq;
+	uint	wifi_irq_flags;
 	struct pinctrl *pctrl;
 	atomic_t rtc32k_ref;
 	struct regulator *wlreg_on;
@@ -163,6 +163,7 @@ int ingenic_sdio_wlan_init(struct device *dev, int index)
 	struct device_node *np = dev->of_node, *cnp;
 	unsigned int flags, gpio;
 
+	wifi_data.wifi_reset = -ENOSYS;
 	for_each_child_of_node(np, cnp) {
 		if(of_device_is_compatible(cnp, "android,bcmdhd_wlan")) {
 			printk("----android,bcmdhd_wlan!\n");
@@ -180,7 +181,10 @@ int ingenic_sdio_wlan_init(struct device *dev, int index)
 		}
 	}
 
-  wlan_regulator_get(dev);
+	if (wifi_data.wifi_reset < 0)
+		return wifi_data.wifi_reset;
+
+	wlan_regulator_get(dev);
 
 	rtc32k_init(dev, &wifi_data);
 
