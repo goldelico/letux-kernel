@@ -358,23 +358,37 @@
 };
 
 &spi0 {
-	status = "disable";
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi0_pb>;
 	spi-max-frequency = <54000000>;
 	num-cs = <2>;
-	/* cs-gpios = <0>, <0>; */
-	/* cs-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>, <&gpb 16 GPIO_ACTIVE_HIGH>; */
+	num-chipselects = <1>;
+	cs-gpios = <&gpa 28 GPIO_ACTIVE_HIGH>, <0>;
+
 	ingenic,chnl = <0>;
 	ingenic,allow_cs_same = <1>;
 	ingenic,bus_num = <0>;
 	ingenic,has_dma_support = <0>;
-	ingenic,spi-src-clk = <1>;/*0.ext; 1.ssi*/
+	ingenic,spi-src-clk = <1>;	/*0.ext; 1.ssi*/
+
+
+	/* lcd panel */
+	lcd: waveshare-epaper-hat@0 {
+		compatible = "gooddisplay,generic_epape";
+		reg = <0>;
+		spi-speed-hz = <1000000>;
+		spi-max-frequency = <6000000>;
+		/* the waveshare is a RasPi Hat */
+		dc-gpios = <&gpb 3 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+		busy-gpios = <&gpb 23 GPIO_ACTIVE_HIGH>;
+	};
 
 	/* Add SPI interface device */
-	spidev: spidev@0 {
+	spidev: spidev@1 {
 		compatible = "rohm,dh2228fv";
-		reg = <0>;
+		reg = <1>;
 		spi-max-frequency = <10000000>;
 	};
 };
