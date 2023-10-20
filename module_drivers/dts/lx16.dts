@@ -363,7 +363,6 @@
 	pinctrl-0 = <&spi0_pb>;
 	spi-max-frequency = <54000000>;
 	num-cs = <2>;
-	num-chipselects = <1>;
 	cs-gpios = <&gpa 28 GPIO_ACTIVE_HIGH>, <0>;
 
 	ingenic,chnl = <0>;
@@ -375,7 +374,7 @@
 
 	/* lcd panel */
 	lcd: waveshare-epaper-hat@0 {
-		compatible = "gooddisplay,generic_epape";
+		compatible = "gooddisplay,generic_epaper";
 		reg = <0>;
 		spi-speed-hz = <1000000>;
 		spi-max-frequency = <6000000>;
@@ -392,6 +391,18 @@
 		spi-max-frequency = <10000000>;
 	};
 };
+
+#if 1	// use bitbang driver
+&spi0 {
+	compatible = "spi-gpio";
+	pinctrl-names = "disabled";
+	gpio-sck = <&gpa 31 GPIO_ACTIVE_HIGH>;
+	gpio-miso = <&gpa 29 GPIO_ACTIVE_HIGH>;
+	gpio-mosi = <&gpa 30 GPIO_ACTIVE_HIGH>;
+	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>;
+	num-chipselects = <1>;
+};
+#endif
 
 &spi_slv0 {
 	status = "disable";
