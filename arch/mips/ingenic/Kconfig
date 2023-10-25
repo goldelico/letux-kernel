@@ -8,6 +8,7 @@ config MACH_INGENIC_GENERIC
 	select MACH_JZ4770
 	select MACH_JZ4780
 	select MACH_X1000
+	select MACH_X1600
 	select MACH_X1830
 	select MACH_X2000
 
