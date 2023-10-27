@@ -6,7 +6,13 @@
 #include "clk-div.h"
 #include "clk-bus.h"
 #include "power-gate.h"
-#include <soc/cpm.h>
+#if IS_ENABLED(CONFIG_MACH_X1600)
+#include "cpm-x1600.h"
+#elif IS_ENABLED(CONFIG_MACH_X2000)
+#include "cpm-x2000.h"
+#elif IS_ENABLED(CONFIG_MACH_X2500)
+#include "cpm-x2500.h"
+#endif
 
 struct clk;
 
