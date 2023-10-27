@@ -235,15 +235,14 @@ static const struct of_device_id ext_clk_match[] __initconst = {
 
 
 /* Register x1600 clocks. */
-static void __init x1600_clk_init(struct device_node *np, void __iomem *base)
+static void __init x1600_clk_init(struct device_node *np)
 {
 	struct ingenic_clk_provider *ctx;
 	void __iomem *reg_base;
 
-
 	printk("x1600 Clock Power Management Unit init!\n");
 
-	reg_base = base;
+	reg_base = of_iomap(np, 0);
 
 	if (np) {
 		reg_base = of_iomap(np, 0);
