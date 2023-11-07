@@ -21,14 +21,11 @@ struct ingenic_clk_pll {
 
 #define to_clk_pll(_hw) container_of(_hw, struct ingenic_clk_pll, hw)
 
-
-
 static long ingenic_pll_round_rate(struct clk_hw *hw, unsigned long drate, unsigned long *prate)
 {
 	struct ingenic_clk_pll *pll = to_clk_pll(hw);
 	const struct ingenic_pll_rate_table *rate_table = pll->rate_table;
 	int i;
-	unsigned int rate;
 
 	for (i = 0; i < pll->rate_count; i++) {
 		if (drate >= rate_table[i].rate)
@@ -36,10 +33,7 @@ static long ingenic_pll_round_rate(struct clk_hw *hw, unsigned long drate, unsig
 	}
 
 	return rate_table[i - 1].rate;
-
-
 }
-
 
 static unsigned long ingenic_v2_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -47,7 +41,6 @@ static unsigned long ingenic_v2_pll_recalc_rate(struct clk_hw *hw, unsigned long
 	unsigned int val;
 	unsigned int m, n, od0, od1;
 	unsigned long fout;
-
 
 	val = readl(pll->con_reg);
 
