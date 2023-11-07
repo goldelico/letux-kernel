@@ -1600,8 +1600,8 @@ static int mmc_ingenic_probe(struct platform_device *pdev)
 	struct resource	*regs;
 	struct ingenic_mmc_host *host = NULL;
 	struct mmc_host *mmc;
-	struct ingenic_mmc_priv *priv;
-	struct of_device_id *of_device_id;
+	const struct ingenic_mmc_priv *priv;
+	const struct of_device_id *of_device_id;
 	int ret = 0;
 	char clk_cgu_name[16];
 	char clk_gate_name[16];

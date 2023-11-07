@@ -203,7 +203,7 @@ void ingenic_sfc_shutdown(struct platform_device *pdev)
 
 int flash_type_auto_detect_from_tcsm(struct platform_device *pdev)
 {
-	unsigned char *t;
+	volatile unsigned char *t;
 	int ret;
 
 	t = (volatile unsigned char *)(0xb2401005);
@@ -220,7 +220,7 @@ int flash_type_auto_detect_from_tcsm(struct platform_device *pdev)
 
 int flash_type_auto_detect_from_ddr(struct platform_device *pdev)
 {
-	unsigned char *t;
+	volatile unsigned char *t;
 	int ret;
 
 	t = (volatile unsigned char *)(0x80001005);
