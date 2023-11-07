@@ -360,7 +360,7 @@ void __init ingenic_clk_register_gate(struct ingenic_clk_provider *ctx,
 				unsigned int nr_clk)
 {
 	struct clk *clk;
-	unsigned int idx, ret, i;
+	unsigned int idx, ret;
 
 
 	for (idx = 0; idx < nr_clk; idx++, list++) {
@@ -398,7 +398,7 @@ void __init ingenic_power_register_gate(struct ingenic_clk_provider *ctx,
 				unsigned int nr_clk)
 {
 	struct clk *clk;
-	unsigned int idx, ret, i;
+	unsigned int idx, ret;
 
 	for (idx = 0; idx < nr_clk; idx++, list++) {
 
