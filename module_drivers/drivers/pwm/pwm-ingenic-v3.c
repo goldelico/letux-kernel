@@ -104,7 +104,7 @@ struct ingenic_pwm_chip {
 	struct ingenic_pwm_chan chan[INGENIC_PWM_NUM];
 };
 
-#define GENMASK(hi, lo)   (((1ULL << ((hi) - (lo) + 1)) - 1) << (lo))
+// #define GENMASK(hi, lo)   (((1ULL << ((hi) - (lo) + 1)) - 1) << (lo))
 #define	PWM_ENS		(0x00)
 #define	PWM_ENC		(0x04)
 #define	PWM_EN		(0x08)
@@ -1149,9 +1149,10 @@ static int ingenic_pwm_probe(struct platform_device *pdev)
 		dma_cap_set(DMA_SLAVE, mask);
 
 		for(i = 0; i < INGENIC_PWM_NUM; i++) {
+			char str[2] = "0";
+
 			chip->chan[i].id = i;
 			chip->chan[i].chip = chip;
-			char str[2] = "0";
 			sprintf(str, "%d", i);
 			chip->chan[i].dma_chan = dma_request_chan(&pdev->dev, str);
 			if(!chip->chan[i].dma_chan) {
