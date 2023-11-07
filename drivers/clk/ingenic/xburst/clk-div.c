@@ -87,7 +87,6 @@ static unsigned long clk_cgu_divider_recalc_rate(struct clk_hw *hw,
 						  unsigned long parent_rate)
 {
 	struct clk_cgu_divider *cgu_div = to_clk_cgu_divider(hw);
-	struct clk_divider *divider = &cgu_div->div;
 
 	return cgu_div->div_ops->recalc_rate(&cgu_div->div.hw, parent_rate);
 }
@@ -96,7 +95,6 @@ static long clk_cgu_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 					unsigned long *prate)
 {
 	struct clk_cgu_divider *cgu_div = to_clk_cgu_divider(hw);
-	unsigned long bestrate;
 
 	return  cgu_div->div_ops->round_rate(&cgu_div->div.hw, rate, prate);
 }
@@ -104,7 +102,6 @@ static long clk_cgu_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 static int clk_cgu_divider_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
 	struct clk_cgu_divider *cgu_div = to_clk_cgu_divider(hw);
-	struct clk_divider *divider = &cgu_div->div;
 	int ret;
 	unsigned long flags = 0;
 
