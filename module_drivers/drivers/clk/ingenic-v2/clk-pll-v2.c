@@ -28,7 +28,6 @@ static long ingenic_pll_round_rate(struct clk_hw *hw, unsigned long drate, unsig
 	struct ingenic_clk_pll *pll = to_clk_pll(hw);
 	const struct ingenic_pll_rate_table *rate_table = pll->rate_table;
 	int i;
-	unsigned int rate;
 
 	for (i = 0; i < pll->rate_count; i++) {
 		if (drate >= rate_table[i].rate)

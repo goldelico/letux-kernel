@@ -563,7 +563,7 @@ int32_t create_sfc_desc(struct sfc *sfc, unsigned char *vaddr, size_t len)
 	struct sfc_desc *desc = sfc->desc;
 	uint32_t ualign_size, off_len, last_len, step_len, page_num;
 	int current_pfn = 0, next_pfn = 0;
-	int32_t i = 0, j = 0;
+	int32_t i = 0;
 
 	ualign_size = (unsigned int)vaddr & (PAGE_SIZE - 1);
 	off_len = PAGE_SIZE - ualign_size;
