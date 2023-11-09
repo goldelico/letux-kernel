@@ -910,13 +910,25 @@ ll_printstr("start kernel\n");
 	local_irq_disable();
 	early_boot_irqs_disabled = true;
 
+ll_printk("%s: 5\n", __func__);
+
 	/*
 	 * Interrupts are still disabled. Do necessary setups, then
 	 * enable them.
 	 */
 	boot_cpu_init();
+
+ll_printk("%s: 6\n", __func__);
+
 	page_address_init();
+
+ll_printk("%s: 7\n", __func__);
+
 	pr_notice("%s", linux_banner);
+
+ll_printk("%s: 8: %s\n", __func__, linux_banner);
+
+	early_security_init();
 	setup_arch(&command_line);
 	/* Static keys and static calls are needed by LSMs */
 	jump_label_init();
