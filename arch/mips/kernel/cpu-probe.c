@@ -1768,6 +1768,13 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 
 	switch (c->processor_id & PRID_IMP_MASK) {
 
+	/* XBurst®1 with ISA */
+	case PRID_IMP_XBURST:
+		c->cputype = CPU_XBURST;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst";
+		break;
+
 	/* XBurst®1 with MXU1.0/MXU1.1 SIMD ISA */
 	case PRID_IMP_XBURST_REV1:
 
