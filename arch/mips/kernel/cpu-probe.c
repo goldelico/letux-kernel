@@ -721,6 +721,7 @@ static void decode_configs(struct cpuinfo_mips *c)
 {
 	int ok;
 
+ll_printk("%s: start\n", __func__);
 	/* MIPS32 or MIPS64 compliant CPU.  */
 	c->options = MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER |
 		     MIPS_CPU_DIVEC | MIPS_CPU_LLSC | MIPS_CPU_MCHECK;
@@ -793,6 +794,7 @@ static void decode_configs(struct cpuinfo_mips *c)
 		cpu_set_core(c, core);
 	}
 #endif
+ll_printk("%s: done\n", __func__);
 }
 
 /*
@@ -1642,6 +1644,7 @@ platform:
 		set_elf_platform(cpu, "octeon3");
 		break;
 	default:
+ll_printk(KERN_INFO "Unknown Octeon chip!\n");
 		printk(KERN_INFO "Unknown Octeon chip!\n");
 		c->cputype = CPU_UNKNOWN;
 		break;
@@ -1832,9 +1835,11 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		break;
 
 	default:
+ll_printk("Unknown Ingenic Processor ID!\n");
 		panic("Unknown Ingenic Processor ID!");
 		break;
 	}
+ll_printk("%s: done\n", __func__);
 }
 
 #ifdef CONFIG_64BIT
