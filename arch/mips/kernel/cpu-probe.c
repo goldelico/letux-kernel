@@ -1743,22 +1743,33 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu) 
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+ll_printk("%s: start cpu = %08x\n", __func__, cpu);
 	decode_configs(c);
+ll_printk("%s: after decode_configs\n", __func__);
 
 	/*
 	 * XBurst misses a config2 register, so config3 decode was skipped in
 	 * decode_configs().
 	 */
 	decode_config3(c);
+ll_printk("%s: after decode_config3\n", __func__);
 
 	/* XBurst does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
 	BUG_ON(__builtin_constant_p(cpu_has_counter) && cpu_has_counter);
+ll_printk("%s: after BUG_ON\n", __func__);
 
 	/* XBurst has virtually tagged icache */
 	c->icache.flags |= MIPS_CACHE_VTAG;
 
 	switch (c->processor_id & PRID_IMP_MASK) {
+
+	/* XBurst®1 with ISA */
+	case PRID_IMP_XBURST:
+		c->cputype = CPU_XBURST;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst";
+		break;
 
 	/* XBurst®1 with MXU1.0/MXU1.1 SIMD ISA */
 	case PRID_IMP_XBURST_REV1:
@@ -1818,6 +1829,13 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 	case PRID_IMP_XBURST2:
 		c->cputype = CPU_XBURST;
 		__cpu_name[cpu] = "Ingenic XBurst II";
+		break;
+
+	/* XBurst®2 with MXU3.0 SIMD ISA */
+	case PRID_IMP_XBURST2_R2:
+		c->cputype = CPU_XBURST2;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst II R2";
 		break;
 
 	default:
