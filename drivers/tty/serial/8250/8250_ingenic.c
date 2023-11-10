@@ -240,6 +240,8 @@ static int ingenic_uart_probe(struct platform_device *pdev)
 	struct resource *regs;
 	int irq, err, line;
 
+ll_printk("%s:0 \n", __func__);
+
 	cdata = of_device_get_match_data(&pdev->dev);
 	if (!cdata) {
 		dev_err(&pdev->dev, "Error: No device match found\n");
