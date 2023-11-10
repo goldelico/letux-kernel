@@ -898,19 +898,29 @@ void start_kernel(void)
 	char *command_line;
 	char *after_dashes;
 
-ll_printstr("start kernel\n");
+ll_printk("%s: start\n", __func__);
 
 	set_task_stack_end_magic(&init_task);
+
+ll_printk("%s: after set_task_stack_end_magic\n", __func__);
+
 	smp_setup_processor_id();
+
+ll_printk("%s: after smp_setup_processor_id\n", __func__);
+
 	debug_objects_early_init();
 	init_vmlinux_build_id();
 
+ll_printk("%s: after init_vmlinux_build_id\n", __func__);
+
 	cgroup_init_early();
+
+ll_printk("%s: after cgroup_init_early\n", __func__);
 
 	local_irq_disable();
 	early_boot_irqs_disabled = true;
 
-ll_printk("%s: 5\n", __func__);
+ll_printk("%s: after local_irq_disable\n", __func__);
 
 	/*
 	 * Interrupts are still disabled. Do necessary setups, then
@@ -918,24 +928,37 @@ ll_printk("%s: 5\n", __func__);
 	 */
 	boot_cpu_init();
 
-ll_printk("%s: 6\n", __func__);
+ll_printk("%s: after boot_cpu_init\n", __func__);
 
 	page_address_init();
 
-ll_printk("%s: 7\n", __func__);
+ll_printk("%s: after page_address_init\n", __func__);
 
 	pr_notice("%s", linux_banner);
 
-ll_printk("%s: 8: %s\n", __func__, linux_banner);
+ll_printk("%s: after pr_notice: linux_banner=%s", __func__, linux_banner);
 
 	early_security_init();
+
+ll_printk("%s: after early_security_init\n", __func__);
+
 	setup_arch(&command_line);
+
+ll_printk("%s: after setup_arch: cmdline=%s\n", __func__, command_line);
+
 	/* Static keys and static calls are needed by LSMs */
 	jump_label_init();
 	static_call_init();
 	early_security_init();
+
 	setup_boot_config();
+
+ll_printk("%s: after setup_boot_config\n", __func__);
+
 	setup_command_line(command_line);
+
+ll_printk("%s: after setup_command_line: cmdline=%s\n", __func__, command_line);
+
 	setup_nr_cpu_ids();
 	setup_per_cpu_areas();
 	smp_prepare_boot_cpu();	/* arch-specific boot-cpu hooks */
@@ -959,6 +982,8 @@ ll_printk("%s: 8: %s\n", __func__, linux_banner);
 
 	/* Architectural and non-timekeeping rng init, before allocator init */
 	random_init_early(command_line);
+
+ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 
 	/*
 	 * These use large bootmem allocations and must precede
@@ -1119,6 +1144,7 @@ ll_printk("%s: 8: %s\n", __func__, linux_banner);
 #if !__has_attribute(__no_stack_protector__)
 	prevent_tail_call_optimization();
 #endif
+ll_printk("%s: after prevent_tail_call_optimization\n", __func__);
 }
 
 /* Call all constructor functions linked into the kernel. */
