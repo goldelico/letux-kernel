@@ -1856,11 +1856,14 @@ void cpu_probe(void)
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int cpu = smp_processor_id();
 
+ll_printk("%s: start\n", __func__);
+
 	/*
 	 * Set a default elf platform, cpu probe may later
 	 * overwrite it with a more precise value
 	 */
 	set_elf_platform(cpu, "mips");
+ll_printk("%s: after set_elf_platform\n", __func__);
 
 	c->processor_id = PRID_IMP_UNKNOWN;
 	c->fpu_id	= FPIR_IMP_NONE;
@@ -1871,6 +1874,7 @@ void cpu_probe(void)
 	c->fpu_msk31	= FPU_CSR_RSVD | FPU_CSR_ABS2008 | FPU_CSR_NAN2008;
 
 	c->processor_id = read_c0_prid();
+ll_printk("%s: after read_c0_prid id = %08x\n", __func__, c->processor_id);
 	switch (c->processor_id & PRID_COMP_MASK) {
 	case PRID_COMP_LEGACY:
 		cpu_probe_legacy(c, cpu);
@@ -1908,6 +1912,7 @@ void cpu_probe(void)
 		break;
 	}
 
+ll_printk("%s: after switch: cpuname=%s cputype=%d\n", __func__, __cpu_name[cpu], c->cputype);
 	BUG_ON(!__cpu_name[cpu]);
 	BUG_ON(c->cputype == CPU_UNKNOWN);
 
