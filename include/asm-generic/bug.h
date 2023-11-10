@@ -61,6 +61,7 @@ struct bug_entry {
  */
 #ifndef HAVE_ARCH_BUG
 #define BUG() do { \
+ll_printk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
 	printk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
 	barrier_before_unreachable(); \
 	panic("BUG!"); \
