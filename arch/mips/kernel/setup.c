@@ -769,31 +769,49 @@ static void __init setup_rng_seed(void)
 
 void __init setup_arch(char **cmdline_p)
 {
+ll_printk("%s: start\n", __func__);
+
 	cpu_probe();
+ll_printk("%s: after cpu_probe\n", __func__);
 	mips_cm_probe();
+ll_printk("%s: after mips_cm_probe\n", __func__);
 	prom_init();
+ll_printk("%s: after prom_init\n", __func__);
 
 	setup_early_fdc_console();
+ll_printk("%s: after setup_early_fdc_console\n", __func__);
 #ifdef CONFIG_EARLY_PRINTK
 	setup_early_printk();
+ll_printk("%s: after setup_early_printk\n", __func__);
 #endif
 	cpu_report();
+ll_printk("%s: after cpu_report\n", __func__);
 	if (IS_ENABLED(CONFIG_CPU_R4X00_BUGS64))
 		check_bugs64_early();
+ll_printk("%s: after check_bugs64_early\n", __func__);
 
 	arch_mem_init(cmdline_p);
+ll_printk("%s: after arch_mem_init\n", __func__);
 	dmi_setup();
+ll_printk("%s: after dmi_setup\n", __func__);
 
 	resource_init();
+ll_printk("%s: after resource_init\n", __func__);
 	plat_smp_setup();
+ll_printk("%s: after plat_smp_setup\n", __func__);
 	prefill_possible_map();
+ll_printk("%s: after prefill_possible_map\n", __func__);
 
 	cpu_cache_init();
+ll_printk("%s: after cpu_cache_init\n", __func__);
 	paging_init();
+ll_printk("%s: after paging_init\n", __func__);
 
 	memblock_dump_all();
+ll_printk("%s: after memblock_dump_all\n", __func__);
 
 	setup_rng_seed();
+ll_printk("%s: after setup_rng_seed\n", __func__);
 }
 
 unsigned long kernelsp[NR_CPUS];
