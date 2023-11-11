@@ -47,6 +47,7 @@ static unsigned long calibrate_delay_direct(void)
 
 	if (read_current_timer(&pre_start) < 0 )
 		return 0;
+ll_printk("%s: after read_current_timer\n", __func__);
 
 	/*
 	 * A simple loop like
@@ -189,6 +190,8 @@ static unsigned long calibrate_delay_converge(void)
 	/* First stage - slowly accelerate to find initial bounds */
 	unsigned long lpj, lpj_base, ticks, loopadd, loopadd_base, chop_limit;
 	int trials = 0, band = 0, trial_in_band = 0;
+
+ll_printk("%s: start\n", __func__);
 
 	lpj = (1<<12);
 
