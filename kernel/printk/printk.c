@@ -1026,6 +1026,7 @@ static unsigned long __initdata new_log_buf_len;
 /* we practice scaling the ring buffer by powers of 2 */
 static void __init log_buf_len_update(u64 size)
 {
+ll_printk("%s: start\n", __func__);
 	if (size > (u64)LOG_BUF_LEN_MAX) {
 		size = (u64)LOG_BUF_LEN_MAX;
 		pr_err("log_buf over 2G is not supported.\n");
@@ -1035,6 +1036,7 @@ static void __init log_buf_len_update(u64 size)
 		size = roundup_pow_of_two(size);
 	if (size > log_buf_len)
 		new_log_buf_len = (unsigned long)size;
+ll_printk("%s: new_log_buf_len = %lu\n", __func__, new_log_buf_len);
 }
 
 /* save requested log_buf_len since it's too early to process it */
@@ -1059,15 +1061,19 @@ early_param("log_buf_len", log_buf_len_setup);
 static void __init log_buf_add_cpu(void)
 {
 	unsigned int cpu_extra;
+ll_printk("%s: start\n", __func__);
 
 	/*
 	 * archs should set up cpu_possible_bits properly with
 	 * set_cpu_possible() after setup_arch() but just in
 	 * case lets ensure this is valid.
 	 */
-	if (num_possible_cpus() == 1)
-		return;
 
+	if (num_possible_cpus() == 1)
+{
+ll_printk("%s: num_possible_cpus() == 1\n", __func__);
+		return;
+}
 	cpu_extra = (num_possible_cpus() - 1) * __LOG_CPU_MAX_BUF_LEN;
 
 	/* by default this will only continue through for large > 64 CPUs */
@@ -1133,6 +1139,8 @@ void __init setup_log_buf(int early)
 	unsigned int free;
 	u64 seq;
 
+ll_printk("%s: start early=%d\n", __func__, early);
+
 	/*
 	 * Some archs call setup_log_buf() multiple times - first is very
 	 * early, e.g. from setup_arch(), and second - when percpu_areas
@@ -1140,24 +1148,35 @@ void __init setup_log_buf(int early)
 	 */
 	if (!early)
 		set_percpu_data_ready();
+ll_printk("%s: after set_percpu_data_ready\n", __func__);
 
 	if (log_buf != __log_buf)
+{
+ll_printk("%s: log_buf %px != __log_buf %px\n", __func__, log_buf, __log_buf);
 		return;
-
+}
 	if (!early && !new_log_buf_len)
+{
 		log_buf_add_cpu();
+ll_printk("%s: after log_buf_add_cpu new_log_buf_len = %lu\n", __func__, new_log_buf_len);
+}
 
 	if (!new_log_buf_len)
+{
+ll_printk("%s: new_log_buf_len = %lu !!!\n", __func__, new_log_buf_len);
 		return;
-
+}
 	new_descs_count = new_log_buf_len >> PRB_AVGBITS;
 	if (new_descs_count == 0) {
+ll_printk("%s: new_log_buf_len: %lu too small\n", __func__, new_log_buf_len);
 		pr_err("new_log_buf_len: %lu too small\n", new_log_buf_len);
 		return;
 	}
 
 	new_log_buf = memblock_alloc(new_log_buf_len, LOG_ALIGN);
+ll_printk("%s: after new_log_buf = memblock_alloc\n", __func__);
 	if (unlikely(!new_log_buf)) {
+ll_printk("%s: log_buf_len: %lu text bytes not available\n", __func__, new_log_buf_len);
 		pr_err("log_buf_len: %lu text bytes not available\n",
 		       new_log_buf_len);
 		return;
@@ -1165,6 +1184,7 @@ void __init setup_log_buf(int early)
 
 	new_descs_size = new_descs_count * sizeof(struct prb_desc);
 	new_descs = memblock_alloc(new_descs_size, LOG_ALIGN);
+ll_printk("%s: after new_descs = memblock_alloc\n", __func__);
 	if (unlikely(!new_descs)) {
 		pr_err("log_buf_len: %zu desc bytes not available\n",
 		       new_descs_size);
@@ -1173,6 +1193,7 @@ void __init setup_log_buf(int early)
 
 	new_infos_size = new_descs_count * sizeof(struct printk_info);
 	new_infos = memblock_alloc(new_infos_size, LOG_ALIGN);
+ll_printk("%s: after new_size = memblock_alloc\n", __func__);
 	if (unlikely(!new_infos)) {
 		pr_err("log_buf_len: %zu info bytes not available\n",
 		       new_infos_size);
@@ -1180,13 +1201,16 @@ void __init setup_log_buf(int early)
 	}
 
 	prb_rec_init_rd(&r, &info, &setup_text_buf[0], sizeof(setup_text_buf));
+ll_printk("%s: after prb_rec_init_rd\n", __func__);
 
 	prb_init(&printk_rb_dynamic,
 		 new_log_buf, ilog2(new_log_buf_len),
 		 new_descs, ilog2(new_descs_count),
 		 new_infos);
+ll_printk("%s: after prb_init\n", __func__);
 
 	local_irq_save(flags);
+ll_printk("%s: after local_irq_save\n", __func__);
 
 	log_buf_len = new_log_buf_len;
 	log_buf = new_log_buf;
@@ -1195,15 +1219,18 @@ void __init setup_log_buf(int early)
 	free = __LOG_BUF_LEN;
 	prb_for_each_record(0, &printk_rb_static, seq, &r) {
 		text_size = add_to_rb(&printk_rb_dynamic, &r);
+ll_printk("%s: after add_to_rb\n", __func__);
 		if (text_size > free)
 			free = 0;
 		else
 			free -= text_size;
 	}
 
+ll_printk("%s: after prb_for_each_record\n", __func__);
 	prb = &printk_rb_dynamic;
 
 	local_irq_restore(flags);
+ll_printk("%s: after local_irq_restore\n", __func__);
 
 	/*
 	 * Copy any remaining messages that might have appeared from
@@ -1212,26 +1239,33 @@ void __init setup_log_buf(int early)
 	 */
 	prb_for_each_record(seq, &printk_rb_static, seq, &r) {
 		text_size = add_to_rb(&printk_rb_dynamic, &r);
+ll_printk("%s: after add_to_rb\n", __func__);
 		if (text_size > free)
 			free = 0;
 		else
 			free -= text_size;
 	}
+ll_printk("%s: after prb_for_each_record\n", __func__);
 
 	if (seq != prb_next_seq(&printk_rb_static)) {
+ll_printk("%s: after prb_next_seq\n", __func__);
 		pr_err("dropped %llu messages\n",
 		       prb_next_seq(&printk_rb_static) - seq);
 	}
 
 	pr_info("log_buf_len: %u bytes\n", log_buf_len);
+ll_printk("%s: after pr_info\n", __func__);
 	pr_info("early log buf free: %u(%u%%)\n",
 		free, (free * 100) / __LOG_BUF_LEN);
+ll_printk("%s: done\n", __func__);
 	return;
 
 err_free_descs:
 	memblock_free(new_descs, new_descs_size);
+ll_printk("%s: after err_free_descs\n", __func__);
 err_free_log_buf:
 	memblock_free(new_log_buf, new_log_buf_len);
+ll_printk("%s: after err_free_log_buf\n", __func__);
 }
 
 static bool __read_mostly ignore_loglevel;
