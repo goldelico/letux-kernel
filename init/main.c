@@ -699,29 +699,42 @@ static noinline void __ref __noreturn rest_init(void)
 	struct task_struct *tsk;
 	int pid;
 
+ll_printk("%s: start\n", __func__);
+
 	rcu_scheduler_starting();
+ll_printk("%s: after rcu_scheduler_starting\n", __func__);
 	/*
 	 * We need to spawn init first so that it obtains pid 1, however
 	 * the init task will end up wanting to create kthreads, which, if
 	 * we schedule it before we create kthreadd, will OOPS.
 	 */
 	pid = user_mode_thread(kernel_init, NULL, CLONE_FS);
+ll_printk("%s: after user_mode_thread pid = %d\n", __func__, pid);
 	/*
 	 * Pin init on the boot CPU. Task migration is not properly working
 	 * until sched_init_smp() has been run. It will set the allowed
 	 * CPUs for init to the non isolated CPUs.
 	 */
 	rcu_read_lock();
+ll_printk("%s: after rcu_read_lock\n", __func__);
 	tsk = find_task_by_pid_ns(pid, &init_pid_ns);
+ll_printk("%s: after find_task_by_pid_ns\n", __func__);
 	tsk->flags |= PF_NO_SETAFFINITY;
 	set_cpus_allowed_ptr(tsk, cpumask_of(smp_processor_id()));
+ll_printk("%s: after set_cpus_allowed_ptr\n", __func__);
 	rcu_read_unlock();
+ll_printk("%s: after rcu_read_unlock\n", __func__);
 
 	numa_default_policy();
+ll_printk("%s: after numa_default_policy\n", __func__);
 	pid = kernel_thread(kthreadd, NULL, NULL, CLONE_FS | CLONE_FILES);
+ll_printk("%s: after kernel_thread pid = %d\n", __func__, pid);
 	rcu_read_lock();
+ll_printk("%s: after rcu_read_lock\n", __func__);
 	kthreadd_task = find_task_by_pid_ns(pid, &init_pid_ns);
+ll_printk("%s: after find_task_by_pid_ns\n", __func__);
 	rcu_read_unlock();
+ll_printk("%s: after rcu_read_unlock\n", __func__);
 
 	/*
 	 * Enable might_sleep() and smp_processor_id() checks.
@@ -733,14 +746,17 @@ static noinline void __ref __noreturn rest_init(void)
 	system_state = SYSTEM_SCHEDULING;
 
 	complete(&kthreadd_done);
+ll_printk("%s: after complete\n", __func__);
 
 	/*
 	 * The boot idle thread must execute schedule()
 	 * at least once to get things moving:
 	 */
 	schedule_preempt_disabled();
+ll_printk("%s: after schedule_preempt_disabled\n", __func__);
 	/* Call into cpu_idle with preempt disabled */
 	cpu_startup_entry(CPUHP_ONLINE);
+ll_printk("%s: done after cpu_startup_entry\n", __func__);
 }
 
 /* Check for early params. */
@@ -990,15 +1006,23 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	 * initalization of page allocator
 	 */
 	setup_log_buf(0);
+ll_printk("%s: after setup_log_buf\n", __func__);
 	vfs_caches_init_early();
+ll_printk("%s: after vfs_caches_init_early\n", __func__);
 	sort_main_extable();
+ll_printk("%s: after sort_main_extable\n", __func__);
 	trap_init();
+ll_printk("%s: after trap_init\n", __func__);
 	mm_core_init();
+ll_printk("%s: after mm_core_init\n", __func__);
 	poking_init();
+ll_printk("%s: after poking_init\n", __func__);
 	ftrace_init();
+ll_printk("%s: after ftrace_init\n", __func__);
 
 	/* trace_printk can be enabled here */
 	early_trace_init();
+ll_printk("%s: after early_trace_init\n", __func__);
 
 	/*
 	 * Set up the scheduler prior starting any interrupts (such as the
@@ -1006,18 +1030,23 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	 * time - but meanwhile we still have a functioning scheduler.
 	 */
 	sched_init();
+ll_printk("%s: after sched_init\n", __func__);
 
 	if (WARN(!irqs_disabled(),
 		 "Interrupts were enabled *very* early, fixing it\n"))
 		local_irq_disable();
+ll_printk("%s: after local_irq_disable\n", __func__);
 	radix_tree_init();
+ll_printk("%s: after radix_tree_init\n", __func__);
 	maple_tree_init();
+ll_printk("%s: after maple_tree_init\n", __func__);
 
 	/*
 	 * Set up housekeeping before setting up workqueues to allow the unbound
 	 * workqueue to take non-housekeeping into account.
 	 */
 	housekeeping_init();
+ll_printk("%s: after housekeeping_init\n", __func__);
 
 	/*
 	 * Allow workqueue creation and work item queueing/cancelling
@@ -1025,28 +1054,45 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	 * workqueue_init().
 	 */
 	workqueue_init_early();
+ll_printk("%s: after workqueue_init_early\n", __func__);
 
 	rcu_init();
+ll_printk("%s: after rcu_init\n", __func__);
+
 	kvfree_rcu_init();
+ll_printk("%s: after kvfree_rcu_init\n", __func__);
 
 	/* Trace events are available after this */
 	trace_init();
+ll_printk("%s: after trace_init\n", __func__);
 
 	if (initcall_debug)
 		initcall_debug_enable();
+ll_printk("%s: after initcall_debug_enable\n", __func__);
 
 	context_tracking_init();
+ll_printk("%s: after context_tracking_init\n", __func__);
 	/* init some links before init_ISA_irqs() */
 	early_irq_init();
+ll_printk("%s: after early_irq_init\n", __func__);
 	init_IRQ();
+ll_printk("%s: after init_IRQ\n", __func__);
 	tick_init();
+ll_printk("%s: after tick_init\n", __func__);
 	rcu_init_nohz();
+ll_printk("%s: after rcu_init_nohz\n", __func__);
 	init_timers();
+ll_printk("%s: after init_timers\n", __func__);
 	srcu_init();
+ll_printk("%s: after srcu_init\n", __func__);
 	hrtimers_init();
+ll_printk("%s: after hrtimers_init\n", __func__);
 	softirq_init();
+ll_printk("%s: after softirq_init\n", __func__);
 	timekeeping_init();
+ll_printk("%s: after timekeeping_init\n", __func__);
 	time_init();
+ll_printk("%s: after time_init\n", __func__);
 
 	/* This must be after timekeeping is initialized */
 	random_init();
@@ -1064,6 +1110,7 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	local_irq_enable();
 
 	kmem_cache_init_late();
+ll_printk("%s: after kmem_cache_init_late\n", __func__);
 
 	/*
 	 * HACK ALERT! This is early. We're enabling the console before
@@ -1071,6 +1118,7 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	 * this. But we do want output early, in case something goes wrong.
 	 */
 	console_init();
+ll_printk("%s: after console_init\n", __func__);
 	if (panic_later)
 		panic("Too many boot %s vars at `%s'", panic_later,
 		      panic_param);
@@ -1094,12 +1142,18 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	}
 #endif
 	setup_per_cpu_pageset();
+ll_printk("%s: after setup_per_cpu_pageset\n", __func__);
 	numa_policy_init();
+ll_printk("%s: after numa_policy_init\n", __func__);
 	acpi_early_init();
+ll_printk("%s: after acpi_early_init\n", __func__);
 	if (late_time_init)
 		late_time_init();
+ll_printk("%s: after late_time_init\n", __func__);
 	sched_clock_init();
+ll_printk("%s: after sched_clock_init\n", __func__);
 	calibrate_delay();
+ll_printk("%s: after calibrate_delay\n", __func__);
 
 	arch_cpu_finalize_init();
 
@@ -1110,6 +1164,7 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 		efi_enter_virtual_mode();
 #endif
 	thread_stack_cache_init();
+ll_printk("%s: after thread_stack_cache_init\n", __func__);
 	cred_init();
 	fork_init();
 	proc_caches_init();
@@ -1129,13 +1184,20 @@ ll_printk("%s: after random_init_early: cmdline=%s\n", __func__, command_line);
 	cgroup_init();
 	taskstats_init_early();
 	delayacct_init();
+ll_printk("%s: after delayacct_init\n", __func__);
 
 	acpi_subsystem_init();
+ll_printk("%s: after acpi_subsystem_init\n", __func__);
 	arch_post_acpi_subsys_init();
+ll_printk("%s: after arch_post_acpi_subsys_init\n", __func__);
 	kcsan_init();
+ll_printk("%s: after kcsan_init\n", __func__);
 
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
+ll_printk("%s: after rest_init\n", __func__);
+	arch_call_rest_init();
+ll_printk("%s: after arch_call_rest_init\n", __func__);
 
 	/*
 	 * Avoid stack canaries in callers of boot_init_stack_canary for gcc-10
