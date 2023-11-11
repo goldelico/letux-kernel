@@ -1089,7 +1089,10 @@ ll_printk("%s: num_possible_cpus() == 1\n", __func__);
 	log_buf_len_update(cpu_extra + __LOG_BUF_LEN);
 }
 #else /* !CONFIG_SMP */
-static inline void log_buf_add_cpu(void) {}
+static inline void log_buf_add_cpu(void) {
+// x1600 HACK to get a new_log_buf_len != 0
+new_log_buf_len = 50000;
+}
 #endif /* CONFIG_SMP */
 
 static void __init set_percpu_data_ready(void)
