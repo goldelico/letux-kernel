@@ -564,7 +564,8 @@ static inline unsigned int decode_config4(struct cpuinfo_mips *c)
 	config4 = read_c0_config4();
 
 	if (cpu_has_tlb) {
-		if (((config4 & MIPS_CONF4_IE) >> 29) == 2)
+		if (((config4 & MIPS_CONF4_IE) >> 29) == 2 ||
+				((config4 & MIPS_CONF4_IE) >> 29) == 3)
 			c->options |= MIPS_CPU_TLBINV;
 
 		/*
@@ -1743,33 +1744,41 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu) 
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+ll_printk("%s: start cpu = %08x\n", __func__, cpu);
 	decode_configs(c);
+ll_printk("%s: after decode_configs\n", __func__);
 
 	/*
 	 * XBurst misses a config2 register, so config3 decode was skipped in
 	 * decode_configs().
 	 */
 	decode_config3(c);
+ll_printk("%s: after decode_config3\n", __func__);
 
 	/* XBurst does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
 	BUG_ON(__builtin_constant_p(cpu_has_counter) && cpu_has_counter);
-
-	/* XBurst has virtually tagged icache */
-	c->icache.flags |= MIPS_CACHE_VTAG;
+ll_printk("%s: after BUG_ON\n", __func__);
 
 	switch (c->processor_id & PRID_IMP_MASK) {
+
+	/* XBurst®1 with ISA */
+	case PRID_IMP_XBURST:
+		c->cputype = CPU_XBURST;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst";
+		break;
 
 	/* XBurst®1 with MXU1.0/MXU1.1 SIMD ISA */
 	case PRID_IMP_XBURST_REV1:
 
 		/*
-		 * The XBurst core by default attempts to avoid branch target
+		 * The XBurst®1 core by default attempts to avoid branch target
 		 * buffer lookups by detecting & special casing loops. This
 		 * feature will cause BogoMIPS and lpj calculate in error.
 		 * Set cp0 config7 bit 4 to disable this feature.
 		 */
-		set_c0_config7(MIPS_CONF7_BTB_LOOP_EN);
+		set_c0_config7(XBURST_CONF7_BTB_LOOP_EN);
 
 		switch (c->processor_id & PRID_COMP_MASK) {
 
@@ -1798,7 +1807,7 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 		 * getting stuck.
 		 */
 		case PRID_COMP_INGENIC_D1:
-			write_c0_page_ctrl(XBURST_PAGECTRL_HPTLB_DIS);
+			write_c0_ingenic_pagectl(XBURST_PAGECTL_HPTLB_DIS);
 			break;
 
 		default:
@@ -1816,8 +1825,15 @@ static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 
 	/* XBurst®2 with MXU2.1 SIMD ISA */
 	case PRID_IMP_XBURST2:
-		c->cputype = CPU_XBURST;
+		c->cputype = CPU_XBURST2;
 		__cpu_name[cpu] = "Ingenic XBurst II";
+		break;
+
+	/* XBurst®2 with MXU3.0 SIMD ISA */
+	case PRID_IMP_XBURST2_R2:
+		c->cputype = CPU_XBURST2;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
+		__cpu_name[cpu] = "Ingenic XBurst II R2";
 		break;
 
 	default:
