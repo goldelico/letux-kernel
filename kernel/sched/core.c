@@ -6913,9 +6913,13 @@ asmlinkage __visible void __sched schedule_user(void)
  */
 void __sched schedule_preempt_disabled(void)
 {
+ll_printk("%s: after start\n", __func__);
 	sched_preempt_enable_no_resched();
+ll_printk("%s: after sched_preempt_enable_no_resched\n", __func__);
 	schedule();
+ll_printk("%s: after schedule\n", __func__);
 	preempt_disable();
+ll_printk("%s: done after preempt_disable\n", __func__);
 }
 
 #ifdef CONFIG_PREEMPT_RT
