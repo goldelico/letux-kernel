@@ -759,7 +759,11 @@ static inline void prefill_possible_map(void) {}
 
 static void __init setup_rng_seed(void)
 {
-	char *rng_seed_hex = fw_getenv("rngseed");
+ll_printk("%s: start\n", __func__);
+
+// x1600 HACK
+	char *rng_seed_hex = NULL;
+//	char *rng_seed_hex = fw_getenv("rngseed");
 	u8 rng_seed[512];
 	size_t len;
 
