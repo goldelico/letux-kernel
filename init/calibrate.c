@@ -67,6 +67,9 @@ static unsigned long calibrate_delay_direct(void)
 	 * check whether any asynchronous event happened or not
 	 */
 
+// x1600 HACK
+return 0;
+
 	for (i = 0; i < MAX_DIRECT_CALIBRATION_RETRIES; i++) {
 		pre_start = 0;
 		read_current_timer(&start);
@@ -191,6 +194,9 @@ static unsigned long calibrate_delay_converge(void)
 	int trials = 0, band = 0, trial_in_band = 0;
 
 	lpj = (1<<12);
+
+// x1600 HACK:
+return lpj;
 
 	/* wait for "start of" clock tick */
 	ticks = jiffies;
