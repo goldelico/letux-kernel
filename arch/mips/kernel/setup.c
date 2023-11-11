@@ -767,16 +767,25 @@ ll_printk("%s: start\n", __func__);
 	u8 rng_seed[512];
 	size_t len;
 
+ll_printk("%s: after fw_getenv\n", __func__);
+
 	if (!rng_seed_hex)
 		return;
+
+ll_printk("%s: 1\n", __func__);
 
 	len = min(sizeof(rng_seed), strlen(rng_seed_hex) / 2);
 	if (hex2bin(rng_seed, rng_seed_hex, len))
 		return;
 
+ll_printk("%s: after hex2bin\n", __func__);
+
 	add_bootloader_randomness(rng_seed, len);
+ll_printk("%s: after add_bootloader_randomness\n", __func__);
 	memzero_explicit(rng_seed, len);
+ll_printk("%s: after memzero_explicit\n", __func__);
 	memzero_explicit(rng_seed_hex, len * 2);
+ll_printk("%s: after done\n", __func__);
 }
 
 void __init setup_arch(char **cmdline_p)
