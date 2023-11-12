@@ -898,24 +898,14 @@ void start_kernel(void)
 	char *command_line;
 	char *after_dashes;
 
-ll_printk("%s: 0\n", __func__);
+ll_printstr("start kernel\n");
 
 	set_task_stack_end_magic(&init_task);
-
-ll_printk("%s: 1\n", __func__);
-
 	smp_setup_processor_id();
-
-ll_printk("%s: 2\n", __func__);
-
 	debug_objects_early_init();
 	init_vmlinux_build_id();
 
-ll_printk("%s: 3\n", __func__);
-
 	cgroup_init_early();
-
-ll_printk("%s: 4\n", __func__);
 
 	local_irq_disable();
 	early_boot_irqs_disabled = true;
