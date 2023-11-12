@@ -158,6 +158,11 @@ int vprintk(const char *fmt, va_list args);
 asmlinkage __printf(1, 2) __cold
 int _printk(const char *fmt, ...);
 
+asmlinkage void ll_printstr(char *str);
+
+asmlinkage __printf(1, 2) __cold
+int ll_printk(const char *fmt, ...);
+
 /*
  * Special printk facility for scheduler/timekeeping use only, _DO_NOT_USE_ !
  */

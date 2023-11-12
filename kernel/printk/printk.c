@@ -2466,6 +2466,51 @@ int vprintk_default(const char *fmt, va_list args)
 }
 EXPORT_SYMBOL_GPL(vprintk_default);
 
+asmlinkage __visible void ll_printstr(char *str)
+{ // send to console UART
+#define KSEG0	0x80000000
+#define KSEG1	0xa0000000
+#define UART	(KSEG1 + 0x10032000)
+#define UTHR	0x00
+#define ULSR	0x14
+#define TDRQ	BIT(5)
+
+	while(*str) {
+		int i;
+//		while(!(*(u32 *) (UART + ULSR) & TDRQ)); // wait for ULSR.TDRQ
+		*(u32 *)(UART + UTHR) = *str++;	// send character to FIFO
+		for(i=0; i<100*1000; i++)
+			str[-1]=str[-1]*str[-1]-5;	// simply wait for UART drain - compiler should not be able to optimize this loop away
+	}
+}
+EXPORT_SYMBOL(ll_printstr);
+
+static int ll_vprintk(const char *fmt, va_list args)
+{
+	u16 text_len;
+	static char text[256];
+
+	text_len = vscnprintf(text, sizeof(text)-1, fmt, args);
+	text[text_len] = 0;
+
+	ll_printstr(text);
+
+	return 0;
+}
+
+asmlinkage __visible int ll_printk(const char *fmt, ...)
+{
+	va_list args;
+	int r;
+
+	va_start(args, fmt);
+	r = ll_vprintk(fmt, args);
+	va_end(args);
+
+	return r;
+}
+EXPORT_SYMBOL(ll_printk);
+
 asmlinkage __visible int _printk(const char *fmt, ...)
 {
 	va_list args;
