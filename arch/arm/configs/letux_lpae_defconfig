@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.259 Kernel Configuration
+# Linux/arm 5.4.260 Kernel Configuration
 #
 
 #
@@ -1737,7 +1737,6 @@ CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
 CONFIG_BLK_DEV_CRYPTOLOOP=m
 # CONFIG_BLK_DEV_DRBD is not set
 # CONFIG_BLK_DEV_NBD is not set
-# CONFIG_BLK_DEV_SX8 is not set
 CONFIG_BLK_DEV_RAM=y
 CONFIG_BLK_DEV_RAM_COUNT=16
 CONFIG_BLK_DEV_RAM_SIZE=16384
