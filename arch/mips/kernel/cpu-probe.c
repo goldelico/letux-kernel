@@ -1744,21 +1744,17 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu) 
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
-ll_printk("%s: start cpu = %08x\n", __func__, cpu);
 	decode_configs(c);
-ll_printk("%s: after decode_configs\n", __func__);
 
 	/*
 	 * XBurst misses a config2 register, so config3 decode was skipped in
 	 * decode_configs().
 	 */
 	decode_config3(c);
-ll_printk("%s: after decode_config3\n", __func__);
 
 	/* XBurst does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
 	BUG_ON(__builtin_constant_p(cpu_has_counter) && cpu_has_counter);
-ll_printk("%s: after BUG_ON\n", __func__);
 
 	switch (c->processor_id & PRID_IMP_MASK) {
 
