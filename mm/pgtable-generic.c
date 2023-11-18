@@ -380,4 +380,3 @@ again:
 	pte_unmap_unlock(pte, ptl);
 	goto again;
 }
-EXPORT_SYMBOL(__pte_offset_map_lock);
