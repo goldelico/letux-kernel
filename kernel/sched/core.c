@@ -6851,14 +6851,21 @@ asmlinkage __visible void __sched schedule(void)
 {
 	struct task_struct *tsk = current;
 
+ll_printk("%s: start: task = %px pid=%d cmd=%s\n", __func__, tsk, tsk->pid, tsk->comm);
+
 #ifdef CONFIG_RT_MUTEXES
 	lockdep_assert(!tsk->sched_rt_mutex);
 #endif
 
-	if (!task_is_running(tsk))
+	if (!task_is_running(tsk)) {
+ll_printk("%s: before sched_submit_work\n", __func__);
 		sched_submit_work(tsk);
+ll_printk("%s: after sched_submit_work\n", __func__);
+}
 	__schedule_loop(SM_NONE);
+ll_printk("%s: after __schedule_loop\n", __func__);
 	sched_update_worker(tsk);
+ll_printk("%s: after sched_update_worker\n", __func__);
 }
 EXPORT_SYMBOL(schedule);
 
