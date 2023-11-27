@@ -1,5 +1,5 @@
 #
-# Linux/arm 4.14.329 Kernel Configuration
+# Linux/arm 4.14.330 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
