@@ -606,7 +606,7 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
-	printk("%s: driver %s\n", __func__, drv->name);
+	ll_printk("%s: driver %s\n", __func__, drv->name);
 #undef pr_debug
 #undef dev_dbg
 #define pr_debug pr_info
@@ -748,7 +748,7 @@ static int really_probe_debug(struct device *dev, const struct device_driver *dr
 	 * CONFIG_DYNAMIC_DEBUG and we want a simple 'initcall_debug' on the
 	 * kernel commandline to print this all the time at the debug level.
 	 */
-	printk(KERN_DEBUG "probe of %s returned %d after %lld usecs\n",
+	ll_printk(KERN_DEBUG "probe of %s returned %d after %lld usecs\n",
 		 dev_name(dev), ret, ktime_us_delta(rettime, calltime));
 	return ret;
 }
@@ -786,7 +786,7 @@ static int __driver_probe_device(const struct device_driver *drv, struct device 
 {
 	int ret = 0;
 
-printk("%s\n", __func__);
+ll_printk("%s\n", __func__);
 
 	if (dev->p->dead || !device_is_registered(dev))
 		return -ENODEV;
@@ -1134,7 +1134,7 @@ int device_driver_attach(const struct device_driver *drv, struct device *dev)
 {
 	int ret;
 
-printk("%s: drv= %s, dev= %s\n", __func__, drv->name, dev->init_name);
+ll_printk("%s: drv= %s, dev= %s\n", __func__, drv->name, dev->init_name);
 
 	__device_driver_lock(dev, dev->parent);
 	ret = __driver_probe_device(drv, dev);
@@ -1182,15 +1182,15 @@ static int __driver_attach(struct device *dev, void *data)
 	 * is an error.
 	 */
 
-//printk("%s: %s %s\n", __func__, dev->init_name, ((struct device_driver *)data)->name);
+//ll_printk("%s: %s %s\n", __func__, dev->init_name, ((struct device_driver *)data)->name);
 
 	ret = driver_match_device(drv, dev);
 	if (ret == 0) {
-//printk("%s: no match\n", __func__);
+//ll_printk("%s: no match\n", __func__);
 		/* no match */
 		return 0;
 	} else if (ret == -EPROBE_DEFER) {
-//printk("%s: request probe deferral\n", __func__);
+//ll_printk("%s: request probe deferral\n", __func__);
 		dev_dbg(dev, "Device match requests probe deferral\n");
 		dev->can_match = true;
 		driver_deferred_probe_add(dev);
@@ -1208,10 +1208,10 @@ static int __driver_attach(struct device *dev, void *data)
 		return 0;
 	} /* ret > 0 means positive match */
 
-//printk("%s: match\n", __func__);
+//ll_printk("%s: match\n", __func__);
 
 	if (driver_allows_async_probing(drv)) {
-printk("%s: driver_allows_async_probing\n", __func__);
+ll_printk("%s: driver_allows_async_probing\n", __func__);
 		/*
 		 * Instead of probing the device synchronously we will
 		 * probe it asynchronously to allow for more parallelism.
@@ -1233,7 +1233,7 @@ printk("%s: driver_allows_async_probing\n", __func__);
 	}
 
 	__device_driver_lock(dev, dev->parent);
-printk("%s: -> driver_probe_device\n", __func__);
+ll_printk("%s: -> driver_probe_device\n", __func__);
 	driver_probe_device(drv, dev);
 	__device_driver_unlock(dev, dev->parent);
 
