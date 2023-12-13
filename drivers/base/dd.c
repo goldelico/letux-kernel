@@ -32,6 +32,15 @@
 #include "base.h"
 #include "power/power.h"
 
+#undef pr_debug
+#undef pr_warn
+#undef pr_err
+#define pr_debug ll_printk
+#define pr_warn ll_printk
+#define pr_err ll_printk
+#undef dev_dbg
+#define dev_dbg dev_info
+
 /*
  * Deferred Probe infrastructure.
  *
@@ -606,11 +615,7 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
-	ll_printk("%s: driver %s\n", __func__, drv->name);
-#undef pr_debug
-#undef dev_dbg
-#define pr_debug pr_info
-#define dev_dbg dev_info
+	ll_printk("%s: driver: %s\n", __func__, drv->name);
 
 	if (defer_all_probes) {
 		/*
@@ -618,23 +623,29 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 		 * device_block_probing() which, in turn, will call
 		 * wait_for_device_probe() right after that to avoid any races.
 		 */
+ll_printk("%s: Driver %s force probe deferral\n", __func__, drv->name);
 		dev_dbg(dev, "Driver %s force probe deferral\n", drv->name);
 		return -EPROBE_DEFER;
 	}
 
 	link_ret = device_links_check_suppliers(dev);
 	if (link_ret == -EPROBE_DEFER)
+{
+ll_printk("%s: link_ret = %d\n", __func__, link_ret);
 		return link_ret;
+}
 
 	dev_dbg(dev, "bus: '%s': %s: probing driver %s with device\n",
 		drv->bus->name, __func__, drv->name);
 	if (!list_empty(&dev->devres_head)) {
+ll_printk("%s: Resources present before probing\n", __func__);
 		dev_crit(dev, "Resources present before probing\n");
 		ret = -EBUSY;
 		goto done;
 	}
 
 re_probe:
+ll_printk("%s: re_probe\n", __func__);
 	// FIXME - this cast should not be needed "soon"
 	dev->driver = (struct device_driver *)drv;
 
@@ -651,7 +662,10 @@ re_probe:
 
 	ret = driver_sysfs_add(dev);
 	if (ret) {
-		dev_err(dev, "%s: driver_sysfs_add failed\n", __func__);
+ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
+		       __func__, dev_name(dev));
+		pr_err("%s: driver_sysfs_add(%s) failed\n",
+		       __func__, dev_name(dev));
 		goto sysfs_failed;
 	}
 
@@ -706,6 +720,7 @@ re_probe:
 		goto re_probe;
 	}
 
+ll_printk("%s: pinctrl_init_done\n", __func__);
 	pinctrl_init_done(dev);
 
 	if (dev->pm_domain && dev->pm_domain->sync)
@@ -717,18 +732,24 @@ re_probe:
 	goto done;
 
 dev_sysfs_state_synced_failed:
+ll_printk("%s: dev_sysfs_state_synced_failed\n", __func__);
 dev_groups_failed:
+ll_printk("%s: dev_groups_failed\n", __func__);
 	device_remove(dev);
 probe_failed:
+ll_printk("%s: probe_failed\n", __func__);
 	driver_sysfs_remove(dev);
 sysfs_failed:
+ll_printk("%s: psysfs_failed\n", __func__);
 	bus_notify(dev, BUS_NOTIFY_DRIVER_NOT_BOUND);
 	if (dev->bus && dev->bus->dma_cleanup)
 		dev->bus->dma_cleanup(dev);
 pinctrl_bind_failed:
+ll_printk("%s: pinctrl_bind_failed\n", __func__);
 	device_links_no_driver(dev);
 	device_unbind_cleanup(dev);
 done:
+ll_printk("%s: ret = %d\n", __func__, ret);
 	return ret;
 }
 
