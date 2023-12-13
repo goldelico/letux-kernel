@@ -4433,15 +4433,21 @@ static int __init ingenic_gpio_probe(struct ingenic_pinctrl *jzpc,
 	unsigned int bank;
 	int err;
 
+ll_printk("%s: 0\n", __func__);
+
 	err = fwnode_property_read_u32(fwnode, "reg", &bank);
 	if (err) {
+ll_printk("%s: Cannot read \"reg\" property: %i\n", __func__, err);
 		dev_err(dev, "Cannot read \"reg\" property: %i\n", err);
 		return err;
 	}
 
 	jzgc = devm_kzalloc(dev, sizeof(*jzgc), GFP_KERNEL);
 	if (!jzgc)
+{
+ll_printk("%s: ENOMEM\n", __func__);
 		return -ENOMEM;
+}
 
 	jzpc->gc = &jzgc->gc;
 
@@ -4450,7 +4456,10 @@ static int __init ingenic_gpio_probe(struct ingenic_pinctrl *jzpc,
 
 	jzgc->gc.label = devm_kasprintf(dev, GFP_KERNEL, "GPIO%c", 'A' + bank);
 	if (!jzgc->gc.label)
+{
+ll_printk("%s: ENOMEM 2\n", __func__);
 		return -ENOMEM;
+}
 
 	/* DO NOT EXPAND THIS: FOR BACKWARD GPIO NUMBERSPACE COMPATIBIBILITY
 	 * ONLY: WORK TO TRANSITION CONSUMERS TO USE THE GPIO DESCRIPTOR API IN
@@ -4473,9 +4482,15 @@ static int __init ingenic_gpio_probe(struct ingenic_pinctrl *jzpc,
 
 	err = fwnode_irq_get(fwnode, 0);
 	if (err < 0)
+{
+ll_printk("%s: fwnode_irq_get err=%d\n", __func__, err);
 		return err;
+}
 	if (!err)
+{
+ll_printk("%s: fwnode_irq_get err=%d\n", __func__, err);
 		return -EINVAL;
+}
 	jzgc->irq = err;
 
 	girq = &jzgc->gc.irq;
@@ -4485,7 +4500,10 @@ static int __init ingenic_gpio_probe(struct ingenic_pinctrl *jzpc,
 	girq->parents = devm_kcalloc(dev, 1, sizeof(*girq->parents),
 				     GFP_KERNEL);
 	if (!girq->parents)
+{
+ll_printk("%s: ENOMEM 3\n", __func__);
 		return -ENOMEM;
+}
 
 	girq->parents[0] = jzgc->irq;
 	girq->default_type = IRQ_TYPE_NONE;
@@ -4493,8 +4511,10 @@ static int __init ingenic_gpio_probe(struct ingenic_pinctrl *jzpc,
 
 	err = devm_gpiochip_add_data(dev, &jzgc->gc, jzgc);
 	if (err)
+{
+ll_printk("%s: devm_gpiochip_add_data err=%d\n", __func__, err);
 		return err;
-
+}
 	return 0;
 }
 
@@ -4510,19 +4530,28 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 	unsigned int i;
 	int err;
 
+ll_printk("%s: 0\n", __func__);
+
 	chip_info = device_get_match_data(dev);
 	if (!chip_info) {
+ll_printk("%s: Unsupported SoC\n", __func__);
 		dev_err(dev, "Unsupported SoC\n");
 		return -EINVAL;
 	}
 
 	jzpc = devm_kzalloc(dev, sizeof(*jzpc), GFP_KERNEL);
 	if (!jzpc)
+{
+ll_printk("%s: ENOMEM\n", __func__);
 		return -ENOMEM;
+}
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
+{
+ll_printk("%s: devm_platform_ioremap_resource error\n", __func__);
 		return PTR_ERR(base);
+}
 
 	regmap_config = ingenic_pinctrl_regmap_config;
 	if (chip_info->access_table) {
@@ -4534,6 +4563,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 
 	jzpc->map = devm_regmap_init_mmio(dev, base, &regmap_config);
 	if (IS_ERR(jzpc->map)) {
+ll_printk("%s: Failed to create regmap\n", __func__);
 		dev_err(dev, "Failed to create regmap\n");
 		return PTR_ERR(jzpc->map);
 	}
@@ -4543,7 +4573,10 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 
 	pctl_desc = devm_kzalloc(&pdev->dev, sizeof(*pctl_desc), GFP_KERNEL);
 	if (!pctl_desc)
+{
+ll_printk("%s: ENOMEM 2\n", __func__);
 		return -ENOMEM;
+}
 
 	/* fill in pinctrl_desc structure */
 	pctl_desc->name = dev_name(dev);
@@ -4555,7 +4588,10 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 	pctl_desc->pins = jzpc->pdesc = devm_kcalloc(&pdev->dev,
 			pctl_desc->npins, sizeof(*jzpc->pdesc), GFP_KERNEL);
 	if (!jzpc->pdesc)
+{
+ll_printk("%s: ENOMEM 3\n", __func__);
 		return -ENOMEM;
+}
 
 	for (i = 0; i < pctl_desc->npins; i++) {
 		jzpc->pdesc[i].number = i;
@@ -4566,6 +4602,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 
 	jzpc->pctl = devm_pinctrl_register(dev, pctl_desc, jzpc);
 	if (IS_ERR(jzpc->pctl)) {
+ll_printk("%s: Failed to register pinctrl\n", __func__);
 		dev_err(dev, "Failed to register pinctrl\n");
 		return PTR_ERR(jzpc->pctl);
 	}
@@ -4577,6 +4614,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 		err = pinctrl_generic_add_group(jzpc->pctl, grp->name, grp->pins, grp->npins,
 						group->data);
 		if (err < 0) {
+ll_printk("%s: Failed to register group %s\n", __func__, grp->name);
 			dev_err(dev, "Failed to register group %s\n", grp->name);
 			return err;
 		}
@@ -4589,6 +4627,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 				func->group_names, func->num_group_names,
 				func->data);
 		if (err < 0) {
+ll_printk("%s: Failed to register function %s\n", __func__, func->name);
 			dev_err(dev, "Failed to register function %s\n",
 					func->name);
 			return err;
@@ -4601,6 +4640,7 @@ static int __init ingenic_pinctrl_probe(struct platform_device *pdev)
 		if (of_match_node(ingenic_gpio_of_matches, to_of_node(fwnode))) {
 			err = ingenic_gpio_probe(jzpc, fwnode);
 			if (err) {
+ll_printk("%s: Failed to ingenic_gpio_probe\n", __func__);
 				fwnode_handle_put(fwnode);
 				return err;
 			}
