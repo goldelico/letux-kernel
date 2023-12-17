@@ -511,8 +511,8 @@ void __init ingenic_clk_sleep_init(void __iomem *reg_base,
 }
 
 #else
-static void ingenic_clk_sleep_init(void __iomem *reg_base,
-		unsigned long *rdump,
-		unsigned long nr_rdump) {}
+void ingenic_clk_sleep_init(void __iomem *reg_base,
+		struct ingenic_clk_reg_sleep  *reg_sleep,
+		unsigned long nr_reg_sleep) {}
 #endif
 
