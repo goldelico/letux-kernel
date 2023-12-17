@@ -22,12 +22,18 @@ int pinctrl_bind_pins(struct device *dev)
 {
 	int ret;
 
+ll_printk("%s: 0\n", __func__);
+
 	if (dev->of_node_reused)
 		return 0;
+
+ll_printk("%s: 1\n", __func__);
 
 	dev->pins = devm_kzalloc(dev, sizeof(*(dev->pins)), GFP_KERNEL);
 	if (!dev->pins)
 		return -ENOMEM;
+
+ll_printk("%s: 2\n", __func__);
 
 	dev->pins->p = devm_pinctrl_get(dev);
 	if (IS_ERR(dev->pins->p)) {
@@ -35,6 +41,8 @@ int pinctrl_bind_pins(struct device *dev)
 		ret = PTR_ERR(dev->pins->p);
 		goto cleanup_alloc;
 	}
+
+ll_printk("%s: 3\n", __func__);
 
 	dev->pins->default_state = pinctrl_lookup_state(dev->pins->p,
 					PINCTRL_STATE_DEFAULT);
@@ -44,22 +52,31 @@ int pinctrl_bind_pins(struct device *dev)
 		goto cleanup_get;
 	}
 
+ll_printk("%s: 4\n", __func__);
+
+
 	dev->pins->init_state = pinctrl_lookup_state(dev->pins->p,
 					PINCTRL_STATE_INIT);
 	if (IS_ERR(dev->pins->init_state)) {
 		/* Not supplying this state is perfectly legal */
+ll_printk("%s: 5\n", __func__);
 		dev_dbg(dev, "no init pinctrl state\n");
 
 		ret = pinctrl_select_state(dev->pins->p,
 					   dev->pins->default_state);
 	} else {
+ll_printk("%s: 6\n", __func__);
 		ret = pinctrl_select_state(dev->pins->p, dev->pins->init_state);
 	}
+
+ll_printk("%s: 7\n", __func__);
 
 	if (ret) {
 		dev_dbg(dev, "failed to activate initial pinctrl state\n");
 		goto cleanup_get;
 	}
+
+ll_printk("%s: 8\n", __func__);
 
 #ifdef CONFIG_PM
 	/*
@@ -69,6 +86,9 @@ int pinctrl_bind_pins(struct device *dev)
 	 */
 	dev->pins->sleep_state = pinctrl_lookup_state(dev->pins->p,
 					PINCTRL_STATE_SLEEP);
+
+ll_printk("%s: 9\n", __func__);
+
 	if (IS_ERR(dev->pins->sleep_state))
 		/* Not supplying this state is perfectly legal */
 		dev_dbg(dev, "no sleep pinctrl state\n");
@@ -80,6 +100,8 @@ int pinctrl_bind_pins(struct device *dev)
 		dev_dbg(dev, "no idle pinctrl state\n");
 #endif
 
+ll_printk("%s: 10\n", __func__);
+
 	return 0;
 
 	/*
@@ -88,8 +110,10 @@ int pinctrl_bind_pins(struct device *dev)
 	 * no point in keeping it around.
 	 */
 cleanup_get:
+ll_printk("%s: 11\n", __func__);
 	devm_pinctrl_put(dev->pins->p);
 cleanup_alloc:
+ll_printk("%s: 12\n", __func__);
 	devm_kfree(dev, dev->pins);
 	dev->pins = NULL;
 
@@ -101,5 +125,6 @@ cleanup_alloc:
 		return ret;
 	/* We ignore errors like -ENOENT meaning no pinctrl state */
 
+ll_printk("%s: 13\n", __func__);
 	return 0;
 }
