@@ -33,9 +33,11 @@
 #include "power/power.h"
 
 #undef pr_debug
+#undef pr_info
 #undef pr_warn
 #undef pr_err
 #define pr_debug ll_printk
+#define pr_info ll_printk
 #define pr_warn ll_printk
 #define pr_err ll_printk
 #undef dev_dbg
@@ -657,12 +659,14 @@ ll_printk("%s: pinctrl_bind_pins done\n", __func__);
 #endif
 
 	if (dev->bus->dma_configure) {
+ll_printk("%s: dma_configure\n", __func__);
 		ret = dev->bus->dma_configure(dev);
 		if (ret)
 			goto pinctrl_bind_failed;
 	}
 
 	ret = driver_sysfs_add(dev);
+ll_printk("%s: driver_sysfs_add done\n", __func__);
 	if (ret) {
 ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
 		       __func__, dev_name(dev));
@@ -672,12 +676,14 @@ ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
 	}
 
 	if (dev->pm_domain && dev->pm_domain->activate) {
+ll_printk("%s: pm_domain->activate done\n", __func__);
 		ret = dev->pm_domain->activate(dev);
 		if (ret)
 			goto probe_failed;
 	}
 
 	ret = call_driver_probe(dev, drv);
+ll_printk("%s: call_driver_probe done\n", __func__);
 	if (ret) {
 		/*
 		 * If fw_devlink_best_effort is active (denoted by -EAGAIN), the
@@ -697,6 +703,7 @@ ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
 	}
 
 	ret = device_add_groups(dev, drv->dev_groups);
+ll_printk("%s: device_add_groups done\n", __func__);
 	if (ret) {
 		dev_err(dev, "device_add_groups() failed\n");
 		goto dev_groups_failed;
@@ -704,6 +711,7 @@ ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
 
 	if (dev_has_sync_state(dev)) {
 		ret = device_create_file(dev, &dev_attr_state_synced);
+ll_printk("%s: device_create_file done\n", __func__);
 		if (ret) {
 			dev_err(dev, "state_synced sysfs add failed\n");
 			goto dev_sysfs_state_synced_failed;
@@ -713,22 +721,26 @@ ll_printk("%s: %s: driver_sysfs_add(%s) failed\n", __func__,
 	if (test_remove) {
 		test_remove = false;
 
+ll_printk("%s: test_remove\n", __func__);
 		device_remove(dev);
 		driver_sysfs_remove(dev);
 		if (dev->bus && dev->bus->dma_cleanup)
 			dev->bus->dma_cleanup(dev);
 		device_unbind_cleanup(dev);
 
+ll_printk("%s: test_remove done\n", __func__);
 		goto re_probe;
 	}
 
 ll_printk("%s: pinctrl_init_done\n", __func__);
 	pinctrl_init_done(dev);
+ll_printk("%s: pinctrl_init_done done\n", __func__);
 
 	if (dev->pm_domain && dev->pm_domain->sync)
 		dev->pm_domain->sync(dev);
 
 	driver_bound(dev);
+ll_printk("%s: driver_bound done \n", __func__);
 	pr_debug("bus: '%s': %s: bound device %s to driver %s\n",
 		 drv->bus->name, __func__, dev_name(dev), drv->name);
 	goto done;
