@@ -648,10 +648,13 @@ re_probe:
 ll_printk("%s: re_probe\n", __func__);
 	dev->driver = drv;
 
+#if 0	// this hangs in pinctrl_select_state() for binding uarts
 	/* If using pinctrl, bind pins now before probing */
 	ret = pinctrl_bind_pins(dev);
+ll_printk("%s: pinctrl_bind_pins done\n", __func__);
 	if (ret)
 		goto pinctrl_bind_failed;
+#endif
 
 	if (dev->bus->dma_configure) {
 		ret = dev->bus->dma_configure(dev);
