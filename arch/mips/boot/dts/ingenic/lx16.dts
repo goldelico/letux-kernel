@@ -157,7 +157,6 @@
 	};
 };
 
-#if 0
 &uart0 {
 	status = "disable";
 	/* dma-mode; */
@@ -171,7 +170,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pb>;
 };
-#endif
 
 &uart2 {
 	status = "okay";
@@ -179,13 +177,11 @@
 	pinctrl-0 = <&uart2_pb>;
 };
 
-#if 0
 &uart3 {
 	status = "disable";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pb>;
 };
-#endif
 
 &cpufreq {
 	status = "okay";
