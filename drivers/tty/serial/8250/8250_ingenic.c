@@ -240,28 +240,34 @@ static int ingenic_uart_probe(struct platform_device *pdev)
 	struct resource *regs;
 	int irq, err, line;
 
-ll_printk("%s: 0 \n", __func__);
+ll_printk("%s: 0\n", __func__);
 
 	cdata = of_device_get_match_data(&pdev->dev);
 	if (!cdata) {
 		dev_err(&pdev->dev, "Error: No device match found\n");
+ll_printk("%s: 1\n", __func__);
 		return -ENODEV;
 	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
+{
+ll_printk("%s: 2\n", __func__);
 		return irq;
-
+}
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs) {
 		dev_err(&pdev->dev, "no registers defined\n");
+ll_printk("%s: 3\n", __func__);
 		return -EINVAL;
 	}
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
+{
+ll_printk("%s: 4\n", __func__);
 		return -ENOMEM;
-
+}
 	spin_lock_init(&uart.port.lock);
 	uart.port.type = PORT_16550A;
 	uart.port.flags = UPF_SKIP_TEST | UPF_IOREMAP | UPF_FIXED_TYPE;
@@ -284,27 +290,35 @@ ll_printk("%s: 0 \n", __func__);
 	uart.port.membase = devm_ioremap(&pdev->dev, regs->start,
 					 resource_size(regs));
 	if (!uart.port.membase)
+{
+ll_printk("%s: 5\n", __func__);
 		return -ENOMEM;
-
+}
 	data->clk_module = devm_clk_get(&pdev->dev, "module");
 	if (IS_ERR(data->clk_module))
+{
+ll_printk("%s: 6\n", __func__);
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->clk_module),
 				     "unable to get module clock\n");
-
+}
 	data->clk_baud = devm_clk_get(&pdev->dev, "baud");
 	if (IS_ERR(data->clk_baud))
+{
+ll_printk("%s: 7\n", __func__);
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->clk_baud),
 				     "unable to get baud clock\n");
-
+}
 	err = clk_prepare_enable(data->clk_module);
 	if (err) {
 		dev_err(&pdev->dev, "could not enable module clock: %d\n", err);
+ll_printk("%s: 8\n", __func__);
 		goto out;
 	}
 
 	err = clk_prepare_enable(data->clk_baud);
 	if (err) {
 		dev_err(&pdev->dev, "could not enable baud clock: %d\n", err);
+ll_printk("%s: 9\n", __func__);
 		goto out_disable_moduleclk;
 	}
 	uart.port.uartclk = clk_get_rate(data->clk_baud);
@@ -312,10 +326,12 @@ ll_printk("%s: 0 \n", __func__);
 	data->line = serial8250_register_8250_port(&uart);
 	if (data->line < 0) {
 		err = data->line;
+ll_printk("%s: 10\n", __func__);
 		goto out_disable_baudclk;
 	}
 
 	platform_set_drvdata(pdev, data);
+ll_printk("%s: 11\n", __func__);
 	return 0;
 
 out_disable_baudclk:
@@ -323,6 +339,7 @@ out_disable_baudclk:
 out_disable_moduleclk:
 	clk_disable_unprepare(data->clk_module);
 out:
+ll_printk("%s: 12 err=%d\n", __func__, err);
 	return err;
 }
 
