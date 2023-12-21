@@ -195,7 +195,7 @@ ingenic_pll_calc(const struct ingenic_cgu_clk_info *clk_info,
 	unsigned int m, n, od, od1 = 1;
 
 	if (pll_info->calc_m_n_od)
-		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od);
+		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od, NULL);
 	else
 		ingenic_pll_calc_m_n_od(pll_info, rate, parent_rate, &m, &n, &od, &od1);
 
@@ -219,7 +219,7 @@ static int ingenic_pll_determine_rate(struct clk_hw *hw,
 	const struct ingenic_cgu_clk_info *clk_info = to_clk_info(ingenic_clk);
 
 	req->rate = ingenic_pll_calc(clk_info, req->rate, req->best_parent_rate,
-				     NULL, NULL, NULL);
+				     NULL, NULL, NULL, NULL);
 
 	return 0;
 }
