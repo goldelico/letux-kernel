@@ -297,14 +297,14 @@ ll_printk("%s: 5\n", __func__);
 	data->clk_module = devm_clk_get(&pdev->dev, "module");
 	if (IS_ERR(data->clk_module))
 {
-ll_printk("%s: 6\n", __func__);
+ll_printk("%s: 6 \"module\" clock\n", __func__);
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->clk_module),
 				     "unable to get module clock\n");
 }
 	data->clk_baud = devm_clk_get(&pdev->dev, "baud");
 	if (IS_ERR(data->clk_baud))
 {
-ll_printk("%s: 7\n", __func__);
+ll_printk("%s: 7 \"baud\" \n", __func__);
 		return dev_err_probe(&pdev->dev, PTR_ERR(data->clk_baud),
 				     "unable to get baud clock\n");
 }
