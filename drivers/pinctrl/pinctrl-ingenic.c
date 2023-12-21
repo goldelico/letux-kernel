@@ -3989,25 +3989,31 @@ static int ingenic_pinmux_set_pin_fn(struct ingenic_pinctrl *jzpc,
 	unsigned int idx = pin % PINS_PER_GPIO_CHIP;
 	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 
+ll_printk("%s: set pin P%c%u to function %u\n", __func__,
+			'A' + offt, idx, func);
 	dev_dbg(jzpc->dev, "set pin P%c%u to function %u\n",
 			'A' + offt, idx, func);
 
 	if (is_soc_or_above(jzpc, ID_X1000)) {
+ll_printk("%s: 1\n", __func__);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
 		ingenic_shadow_config_pin(jzpc, pin, GPIO_MSK, false);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, func & 0x2);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT0, func & 0x1);
 		ingenic_shadow_config_pin_load(jzpc, pin);
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
+ll_printk("%s: 2\n", __func__);
 		ingenic_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
 		ingenic_config_pin(jzpc, pin, GPIO_MSK, false);
 		ingenic_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, func & 0x2);
 		ingenic_config_pin(jzpc, pin, JZ4770_GPIO_PAT0, func & 0x1);
 	} else if (is_soc_or_above(jzpc, ID_JZ4740)) {
+ll_printk("%s: 3\n", __func__);
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_FUNC, true);
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_TRIG, func & 0x2);
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_SELECT, func & 0x1);
 	} else {
+ll_printk("%s: 4\n", __func__);
 		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPIER, false);
 		jz4730_config_pin_function(jzpc, pin, JZ4730_GPIO_GPAUR, JZ4730_GPIO_GPALR, func);
 	}
@@ -4025,26 +4031,40 @@ static int ingenic_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	uintptr_t mode;
 	u8 *pin_modes;
 
+ll_printk("%s: 0\n", __func__);
+
 	func = pinmux_generic_get_function(pctldev, selector);
 	if (!func)
 		return -EINVAL;
+
+ll_printk("%s: 1 func=%px\n", __func__, func);
 
 	grp = pinctrl_generic_get_group(pctldev, group);
 	if (!grp)
 		return -EINVAL;
 
+ll_printk("%s: 2 grp=%px\n", __func__, grp);
+
+ll_printk("%s: enable function %s group %s\n", __func__,
+		func->name, grp->grp.name);
 	dev_dbg(pctldev->dev, "enable function %s group %s\n",
 		func->name, grp->grp.name);
 
 	mode = (uintptr_t)grp->data;
 	if (mode <= 3) {
+ll_printk("%s: 3 grp->grp.npins=%d\n", __func__, grp->grp.npins);
+
 		for (i = 0; i < grp->grp.npins; i++)
 			ingenic_pinmux_set_pin_fn(jzpc, grp->grp.pins[i], mode);
 	} else {
 		pin_modes = grp->data;
 
+ll_printk("%s: 4 grp->grp.npins=%d pin_modes=%px\n", __func__, grp->grp.npins, pin_modes);
 		for (i = 0; i < grp->grp.npins; i++)
+{
+ll_printk("%s: 5 i=%d grp->grp.pins=%px pin_modes=%px\n", __func__, i, grp->grp.pins, pin_modes);
 			ingenic_pinmux_set_pin_fn(jzpc, grp->grp.pins[i], pin_modes[i]);
+}
 	}
 
 	return 0;
