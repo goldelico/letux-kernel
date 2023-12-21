@@ -414,24 +414,37 @@ int pinmux_enable_setting(const struct pinctrl_setting *setting)
 	int i;
 	struct pin_desc *desc;
 
+ll_printk("%s: 0\n", __func__);
+
 	if (pctlops->get_group_pins)
 		ret = pctlops->get_group_pins(pctldev, setting->data.mux.group,
 					      &pins, &num_pins);
 
+ll_printk("%s: 1\n", __func__);
+
 	if (ret) {
 		const char *gname;
+
+ll_printk("%s: 2\n", __func__);
 
 		/* errors only affect debug data, so just warn */
 		gname = pctlops->get_group_name(pctldev,
 						setting->data.mux.group);
+
+ll_printk("%s: could not get pins for group %s\n", __func__, gname);
+
 		dev_warn(pctldev->dev,
 			 "could not get pins for group %s\n",
 			 gname);
 		num_pins = 0;
 	}
 
+ll_printk("%s: 3\n", __func__);
+
 	/* Try to allocate all pins in this group, one by one */
 	for (i = 0; i < num_pins; i++) {
+
+ll_printk("%s: 4 i=%d\n", __func__, i);
 		ret = pin_request(pctldev, pins[i], setting->dev_name, NULL);
 		if (ret) {
 			const char *gname;
@@ -441,6 +454,11 @@ int pinmux_enable_setting(const struct pinctrl_setting *setting)
 			pname = desc ? desc->name : "non-existing";
 			gname = pctlops->get_group_name(pctldev,
 						setting->data.mux.group);
+ll_printk("%s: could not request pin %d (%s) from group %s "
+				" on device %s\n", __func__,
+				pins[i], pname, gname,
+				pinctrl_dev_get_name(pctldev));
+
 			dev_err(pctldev->dev,
 				"could not request pin %d (%s) from group %s "
 				" on device %s\n",
@@ -452,8 +470,11 @@ int pinmux_enable_setting(const struct pinctrl_setting *setting)
 
 	/* Now that we have acquired the pins, encode the mux setting */
 	for (i = 0; i < num_pins; i++) {
+ll_printk("%s: 5 i=%d\n", __func__, i);
 		desc = pin_desc_get(pctldev, pins[i]);
 		if (desc == NULL) {
+ll_printk("%s: could not get pin desc for pin %d\n", __func__,
+				 pins[i]);
 			dev_warn(pctldev->dev,
 				 "could not get pin desc for pin %d\n",
 				 pins[i]);
@@ -462,25 +483,34 @@ int pinmux_enable_setting(const struct pinctrl_setting *setting)
 		desc->mux_setting = &(setting->data.mux);
 	}
 
+ll_printk("%s: 6 ops->set_mux=%pS\n", __func__, ops->set_mux);
 	ret = ops->set_mux(pctldev, setting->data.mux.func,
 			   setting->data.mux.group);
 
 	if (ret)
 		goto err_set_mux;
 
+ll_printk("%s: 7\n", __func__);
 	return 0;
 
 err_set_mux:
+ll_printk("%s: err_set_mux ret=%d\n", __func__, ret);
 	for (i = 0; i < num_pins; i++) {
+ll_printk("%s: 8 i=%d\n", __func__, i);
 		desc = pin_desc_get(pctldev, pins[i]);
 		if (desc)
 			desc->mux_setting = NULL;
 	}
 err_pin_request:
+ll_printk("%s: err_pin_request ret=%d\n", __func__, ret);
 	/* On error release all taken pins */
 	while (--i >= 0)
+{
+ll_printk("%s: 9 i=%d\n", __func__, i);
 		pin_free(pctldev, pins[i], NULL);
+}
 
+ll_printk("%s: ret=%d\n", __func__, ret);
 	return ret;
 }
 
