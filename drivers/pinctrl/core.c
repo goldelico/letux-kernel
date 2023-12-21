@@ -1260,6 +1260,8 @@ static int pinctrl_commit_state(struct pinctrl *p, struct pinctrl_state *state)
 	struct pinctrl_state *old_state = READ_ONCE(p->state);
 	int ret;
 
+ll_printk("%s: 0\n", __func__);
+
 	if (old_state) {
 		/*
 		 * For each pinmux setting in the old state, forget SW's record
@@ -1267,19 +1269,28 @@ static int pinctrl_commit_state(struct pinctrl *p, struct pinctrl_state *state)
 		 * still owned by the new state will be re-acquired by the call
 		 * to pinmux_enable_setting() in the loop below.
 		 */
+ll_printk("%s: 1\n", __func__);
 		list_for_each_entry(setting, &old_state->settings, node) {
+ll_printk("%s: 2\n", __func__);
+
 			if (setting->type != PIN_MAP_TYPE_MUX_GROUP)
 				continue;
+ll_printk("%s: 3\n", __func__);
 			pinmux_disable_setting(setting);
 		}
 	}
+
+ll_printk("%s: 4\n", __func__);
 
 	p->state = NULL;
 
 	/* Apply all the settings for the new state - pinmux first */
 	list_for_each_entry(setting, &state->settings, node) {
+ll_printk("%s: 5 type=%d\n", __func__, setting->type);
+
 		switch (setting->type) {
 		case PIN_MAP_TYPE_MUX_GROUP:
+ll_printk("%s: 6\n", __func__);
 			ret = pinmux_enable_setting(setting);
 			break;
 		case PIN_MAP_TYPE_CONFIGS_PIN:
@@ -1293,20 +1304,25 @@ static int pinctrl_commit_state(struct pinctrl *p, struct pinctrl_state *state)
 
 		if (ret < 0)
 			goto unapply_new_state;
+ll_printk("%s: 7\n", __func__);
 
 		/* Do not link hogs (circular dependency) */
 		if (p != setting->pctldev->p)
 			pinctrl_link_add(setting->pctldev, p->dev);
 	}
 
+ll_printk("%s: 8\n", __func__);
+
 	/* Apply all the settings for the new state - pinconf after */
 	list_for_each_entry(setting, &state->settings, node) {
+ll_printk("%s: 9 type=%d\n", __func__, setting->type);
 		switch (setting->type) {
 		case PIN_MAP_TYPE_MUX_GROUP:
 			ret = 0;
 			break;
 		case PIN_MAP_TYPE_CONFIGS_PIN:
 		case PIN_MAP_TYPE_CONFIGS_GROUP:
+ll_printk("%s: 10\n", __func__);
 			ret = pinconf_apply_setting(setting);
 			break;
 		default:
@@ -1317,6 +1333,7 @@ static int pinctrl_commit_state(struct pinctrl *p, struct pinctrl_state *state)
 		if (ret < 0) {
 			goto unapply_new_state;
 		}
+ll_printk("%s: 11\n", __func__);
 
 		/* Do not link hogs (circular dependency) */
 		if (p != setting->pctldev->p)
@@ -1324,13 +1341,16 @@ static int pinctrl_commit_state(struct pinctrl *p, struct pinctrl_state *state)
 	}
 
 	p->state = state;
+ll_printk("%s: 12\n", __func__);
 
 	return 0;
 
 unapply_new_state:
+ll_printk("%s: Error applying setting, reverse things back\n", __func__);
 	dev_err(p->dev, "Error applying setting, reverse things back\n");
 
 	list_for_each_entry(setting2, &state->settings, node) {
+ll_printk("%s: 13\n", __func__);
 		if (&setting2->node == &setting->node)
 			break;
 		/*
@@ -1342,11 +1362,14 @@ unapply_new_state:
 		 */
 		if (setting2->type == PIN_MAP_TYPE_MUX_GROUP)
 			pinmux_disable_setting(setting2);
+ll_printk("%s: 14\n", __func__);
 	}
 
 	/* There's no infinite recursive loop here because p->state is NULL */
 	if (old_state)
 		pinctrl_select_state(p, old_state);
+
+ll_printk("%s: 15\n", __func__);
 
 	return ret;
 }
@@ -1360,6 +1383,8 @@ int pinctrl_select_state(struct pinctrl *p, struct pinctrl_state *state)
 {
 	if (p->state == state)
 		return 0;
+
+ll_printk("%s:\n", __func__);
 
 	return pinctrl_commit_state(p, state);
 }
