@@ -21,6 +21,11 @@
 #include <linux/spinlock.h>
 #include <linux/time.h>
 
+#undef pr_err
+#define pr_err ll_printk
+#undef pr_info
+#define pr_info ll_printk
+
 #include "cgu.h"
 
 #define MHZ (1000 * 1000)
@@ -688,6 +693,8 @@ static int ingenic_register_clock(struct ingenic_cgu *cgu, unsigned idx)
 	unsigned caps, i, num_possible;
 	int err = -EINVAL;
 
+ll_printk("%s\n", __func__);
+
 	BUILD_BUG_ON(ARRAY_SIZE(clk_info->parents) > ARRAY_SIZE(parent_names));
 
 	if (clk_info->type == CGU_CLK_EXT) {
@@ -856,21 +863,30 @@ int ingenic_cgu_register_clocks(struct ingenic_cgu *cgu)
 	unsigned i;
 	int err;
 
+ll_printk("%s\n", __func__);
+
 	cgu->clocks.clks = kcalloc(cgu->clocks.clk_num, sizeof(struct clk *),
 				   GFP_KERNEL);
 	if (!cgu->clocks.clks) {
+ll_printk("%s 1\n", __func__);
 		err = -ENOMEM;
 		goto err_out;
 	}
 
 	for (i = 0; i < cgu->clocks.clk_num; i++) {
+ll_printk("%s 2: i=%d\n", __func__, i);
+
 		err = ingenic_register_clock(cgu, i);
+ll_printk("%s 3: err=%d\n", __func__, err);
+
 		if (err)
 			goto err_out_unregister;
 	}
 
+ll_printk("%s 4\n", __func__);
 	err = of_clk_add_provider(cgu->np, of_clk_src_onecell_get,
 				  &cgu->clocks);
+ll_printk("%s 5: err=%d\n", __func__, err);
 	if (err)
 		goto err_out_unregister;
 
