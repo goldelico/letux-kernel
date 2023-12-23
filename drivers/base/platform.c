@@ -1382,6 +1382,8 @@ static int platform_probe(struct device *_dev)
 	struct platform_device *dev = to_platform_device(_dev);
 	int ret;
 
+ll_printk("%s\n", __func__);
+
 	/*
 	 * A driver registered using platform_driver_probe() cannot be bound
 	 * again later because the probe function usually lives in __init code
@@ -1390,18 +1392,25 @@ static int platform_probe(struct device *_dev)
 	 * clocks and PM domains for these to match the traditional behaviour.
 	 */
 	if (unlikely(drv->probe == platform_probe_fail))
+{
+ll_printk("%s 1\n", __func__);
 		return -ENXIO;
+}
 
 	ret = of_clk_set_defaults(_dev->of_node, false);
+ll_printk("%s 2 ret=%d\n", __func__, ret);
 	if (ret < 0)
 		return ret;
 
 	ret = dev_pm_domain_attach(_dev, true);
+ll_printk("%s 3 ret=%d\n", __func__, ret);
 	if (ret)
 		goto out;
 
 	if (drv->probe) {
+ll_printk("%s 3b drv->probe=%pS\n", __func__, drv->probe);
 		ret = drv->probe(dev);
+ll_printk("%s 4 ret=%d\n", __func__, ret);
 		if (ret)
 			dev_pm_domain_detach(_dev, true);
 	}
@@ -1410,7 +1419,9 @@ out:
 	if (drv->prevent_deferred_probe && ret == -EPROBE_DEFER) {
 		dev_warn(_dev, "probe deferral not supported\n");
 		ret = -ENXIO;
+ll_printk("%s 5 ret=%d\n", __func__, ret);
 	}
+ll_printk("%s 6 ret=%d\n", __func__, ret);
 
 	return ret;
 }
