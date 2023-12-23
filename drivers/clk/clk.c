@@ -24,6 +24,15 @@
 
 #include "clk.h"
 
+#undef pr_err
+#define pr_err ll_printk
+#undef pr_warn
+#define pr_warn ll_printk
+#undef pr_info
+#define pr_info ll_printk
+#undef pr_debug
+#define pr_debug ll_printk
+
 static DEFINE_SPINLOCK(enable_lock);
 static DEFINE_MUTEX(prepare_lock);
 
@@ -3786,6 +3795,8 @@ static int __clk_core_init(struct clk_core *core)
 
 	clk_prepare_lock();
 
+ll_printk("%s\n", __func__);
+
 	/*
 	 * Set hw->core after grabbing the prepare_lock to synchronize with
 	 * callers of clk_core_fill_parent_index() where we treat hw->core
@@ -3795,6 +3806,7 @@ static int __clk_core_init(struct clk_core *core)
 	core->hw->core = core;
 
 	ret = clk_pm_runtime_get(core);
+ll_printk("%s 1 ret=%d\n", __func__, ret);
 	if (ret)
 		goto unlock;
 
@@ -3860,7 +3872,9 @@ static int __clk_core_init(struct clk_core *core)
 	 * the clock
 	 */
 	if (core->ops->init) {
+ll_printk("%s 2\n", __func__);
 		ret = core->ops->init(core->hw);
+ll_printk("%s 3 ret=%d\n", __func__, ret);
 		if (ret)
 			goto out;
 	}
@@ -3973,6 +3987,8 @@ unlock:
 
 	if (!ret)
 		clk_debug_register(core);
+
+ll_printk("%s 5 ret=%d\n", __func__, ret);
 
 	return ret;
 }
@@ -4099,6 +4115,8 @@ static int clk_cpy_name(const char **dst_p, const char *src, bool must_exist)
 {
 	const char *dst;
 
+ll_printk("%s: src=%s must_exist=%d\n", __func__, src, must_exist);
+
 	if (!src) {
 		if (must_exist)
 			return -EINVAL;
@@ -4122,6 +4140,8 @@ static int clk_core_populate_parent_map(struct clk_core *core,
 	int i, ret = 0;
 	struct clk_parent_map *parents, *parent;
 
+ll_printk("%s\n", __func__);
+
 	if (!num_parents)
 		return 0;
 
@@ -4134,17 +4154,27 @@ static int clk_core_populate_parent_map(struct clk_core *core,
 	if (!parents)
 		return -ENOMEM;
 
+ll_printk("%s 1\n", __func__);
 	/* Copy everything over because it might be __initdata */
 	for (i = 0, parent = parents; i < num_parents; i++, parent++) {
+ll_printk("%s 2 i=%d num_parents=%d parent=%d\n", __func__, i, num_parents, parent);
+
 		parent->index = -1;
 		if (parent_names) {
+ll_printk("%s 3\n", __func__);
+
 			/* throw a WARN if any entries are NULL */
+if(!parent_names[i])
+	ll_printk("%s: invalid NULL in %s's .parent_names\n",
+		__func__, core->name);
 			WARN(!parent_names[i],
 				"%s: invalid NULL in %s's .parent_names\n",
 				__func__, core->name);
 			ret = clk_cpy_name(&parent->name, parent_names[i],
 					   true);
 		} else if (parent_data) {
+ll_printk("%s 4\n", __func__);
+
 			parent->hw = parent_data[i].hw;
 			parent->index = parent_data[i].index;
 			ret = clk_cpy_name(&parent->fw_name,
@@ -4154,8 +4184,11 @@ static int clk_core_populate_parent_map(struct clk_core *core,
 						   parent_data[i].name,
 						   false);
 		} else if (parent_hws) {
+ll_printk("%s 5\n", __func__);
 			parent->hw = parent_hws[i];
 		} else {
+ll_printk("%s 6\n", __func__);
+
 			ret = -EINVAL;
 			WARN(1, "Must specify parents if num_parents > 0\n");
 		}
@@ -4166,10 +4199,12 @@ static int clk_core_populate_parent_map(struct clk_core *core,
 				kfree_const(parents[i].fw_name);
 			} while (--i >= 0);
 			kfree(parents);
+ll_printk("%s 7 ret=%d\n", __func__, ret);
 
 			return ret;
 		}
 	}
+ll_printk("%s 8\n", __func__);
 
 	return 0;
 }
@@ -4203,19 +4238,25 @@ __clk_register(struct device *dev, struct device_node *np, struct clk_hw *hw)
 	 */
 	hw->init = NULL;
 
+ll_printk("%s\n", __func__);
+
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core) {
+ll_printk("%s 1\n", __func__);
 		ret = -ENOMEM;
 		goto fail_out;
 	}
 
 	core->name = kstrdup_const(init->name, GFP_KERNEL);
 	if (!core->name) {
+ll_printk("%s 2\n", __func__);
 		ret = -ENOMEM;
 		goto fail_name;
 	}
 
 	if (WARN_ON(!init->ops)) {
+ll_printk("%s 3\n", __func__);
+
 		ret = -EINVAL;
 		goto fail_ops;
 	}
@@ -4235,7 +4276,10 @@ __clk_register(struct device *dev, struct device_node *np, struct clk_hw *hw)
 
 	ret = clk_core_populate_parent_map(core, init);
 	if (ret)
+{
+ll_printk("%s 4\n", __func__);
 		goto fail_parents;
+}
 
 	INIT_HLIST_HEAD(&core->clks);
 
@@ -4245,6 +4289,7 @@ __clk_register(struct device *dev, struct device_node *np, struct clk_hw *hw)
 	 */
 	hw->clk = alloc_clk(core, NULL, NULL);
 	if (IS_ERR(hw->clk)) {
+ll_printk("%s 5\n", __func__);
 		ret = PTR_ERR(hw->clk);
 		goto fail_create_clk;
 	}
@@ -4252,8 +4297,12 @@ __clk_register(struct device *dev, struct device_node *np, struct clk_hw *hw)
 	clk_core_link_consumer(core, hw->clk);
 
 	ret = __clk_core_init(core);
+ll_printk("%s 5b ret=%d\n", __func__, ret);
 	if (!ret)
+{
+ll_printk("%s 6\n", __func__);
 		return hw->clk;
+}
 
 	clk_prepare_lock();
 	clk_core_unlink_consumer(hw->clk);
@@ -4261,6 +4310,8 @@ __clk_register(struct device *dev, struct device_node *np, struct clk_hw *hw)
 
 	free_clk(hw->clk);
 	hw->clk = NULL;
+
+ll_printk("%s 7\n", __func__);
 
 fail_create_clk:
 	clk_core_free_parent_map(core);
@@ -4270,6 +4321,7 @@ fail_ops:
 fail_name:
 	kfree(core);
 fail_out:
+ll_printk("%s 10\n", __func__);
 	return ERR_PTR(ret);
 }
 
