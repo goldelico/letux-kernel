@@ -30,6 +30,8 @@ static int simple_pm_bus_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct simple_pm_bus *bus;
 
+ll_printk("%s\n", __func__);
+
 	/*
 	 * Allow user to use driver_override to bind this driver to a
 	 * transparent bus device which has a different compatible string
@@ -39,7 +41,13 @@ static int simple_pm_bus_probe(struct platform_device *pdev)
 	if (pdev->driver_override)
 		return 0;
 
+ll_printk("%s 1\n", __func__);
+
 	match = of_match_device(dev->driver->of_match_table, dev);
+
+ll_printk("%s 2 match=%px\n", __func__, match);
+if(match) ll_printk("%s name=%s type=%s compatible=%s\n", __func__, match->name, match->type, match->compatible);
+
 	/*
 	 * These are transparent bus devices (not simple-pm-bus matches) that
 	 * have their child nodes populated automatically.  So, don't need to
@@ -48,20 +56,30 @@ static int simple_pm_bus_probe(struct platform_device *pdev)
 	 * a device that has a more specific driver.
 	 */
 	if (match && match->data) {
+ll_printk("%s 3\n", __func__);
 		if (of_property_match_string(np, "compatible", match->compatible) == 0)
 			return 0;
 		else
+{
+ll_printk("%s 4\n", __func__);
 			return -ENODEV;
+}
 	}
 
+ll_printk("%s 5\n", __func__);
 	bus = devm_kzalloc(&pdev->dev, sizeof(*bus), GFP_KERNEL);
 	if (!bus)
 		return -ENOMEM;
+ll_printk("%s 6\n", __func__);
 
 	bus->num_clks = devm_clk_bulk_get_all(&pdev->dev, &bus->clks);
 	if (bus->num_clks < 0)
+{
+ll_printk("%s 7\n", __func__);
 		return dev_err_probe(&pdev->dev, bus->num_clks, "failed to get clocks\n");
+}
 
+ll_printk("%s 8\n", __func__);
 	dev_set_drvdata(&pdev->dev, bus);
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
@@ -70,6 +88,7 @@ static int simple_pm_bus_probe(struct platform_device *pdev)
 
 	if (np)
 		of_platform_populate(np, NULL, lookup, &pdev->dev);
+ll_printk("%s 9\n", __func__);
 
 	return 0;
 }
