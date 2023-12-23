@@ -391,6 +391,10 @@ static void __init x1600_cgu_init(struct device_node *np)
 {
 	int retval;
 
+ll_printk("%s\n", __func__);
+#undef pr_err
+#define pr_err ll_printk
+
 	cgu = ingenic_cgu_new(x1600_cgu_clocks,
 			      ARRAY_SIZE(x1600_cgu_clocks), np);
 	if (!cgu) {
