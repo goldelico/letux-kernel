@@ -585,10 +585,15 @@ static int call_driver_probe(struct device *dev, struct device_driver *drv)
 	int ret = 0;
 
 	if (dev->bus->probe)
+{
+ll_printk("%s: dev->bus->probe=%pS\n", __func__, dev->bus->probe);
 		ret = dev->bus->probe(dev);
+}
 	else if (drv->probe)
+{
+ll_printk("%s: drv->probe=%pS\n", __func__, drv->probe);
 		ret = drv->probe(dev);
-
+}
 	switch (ret) {
 	case 0:
 		break;
