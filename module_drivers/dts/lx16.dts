@@ -19,12 +19,21 @@
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges =<>;
+		ranges;
 
-		reserved_memory: reserved_mem@0x2000000{
-		      compatible = "shared-dma-pool";
-		      reg = <0x02000000 0x2000000>;
+		/* global autoconfigured region for contiguous allocations */
+		cma: linux,cma {
+			compatible = "shared-dma-pool";
+			size = <0x200000>; /* 2MB */
+			reusable;
+			linux,cma-default;
 		};
+
+		cim_reserved: reserved_mem@0x2000000{
+			compatible = "shared-dma-pool";
+			reg = <0x02000000 0x2000000>;
+		};
+
 	};
 
 };
@@ -231,7 +240,7 @@
 
 &cim {
 	status = "disable";
-	memory-region=<&reserved_memory>;
+	memory-region=<&cim_reserved>;
 };
 
 &i2c0 {
