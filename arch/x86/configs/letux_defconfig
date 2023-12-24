@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.6.7 Kernel Configuration
+# Linux/x86 6.6.8 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -7889,8 +7889,6 @@ CONFIG_DEBUG_LIST=y
 # CONFIG_DEBUG_NOTIFIERS is not set
 # CONFIG_DEBUG_MAPLE_TREE is not set
 # end of Debug kernel data structures
-
-# CONFIG_DEBUG_CREDENTIALS is not set
 
 #
 # RCU Debugging
