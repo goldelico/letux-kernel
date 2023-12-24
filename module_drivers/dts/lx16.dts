@@ -156,6 +156,11 @@
 //		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
+
+	epd_keys: epd-keys {
+		ingenic,pinmux = <&gpb 26 26>, <&gpb 28 28>, <&gpc 2 2>, <&gpc 26 26>;
+		bias-pull-up;
+	};
 };
 
 &uart0 {
@@ -371,17 +376,23 @@
 	ingenic,has_dma_support = <0>;
 	ingenic,spi-src-clk = <1>;	/*0.ext; 1.ssi*/
 
-
 	/* lcd panel */
 	lcd: waveshare-epaper-hat@0 {
 		compatible = "gooddisplay,generic_epaper";
 		reg = <0>;
-		spi-speed-hz = <1000000>;
 		spi-max-frequency = <6000000>;
 		/* the waveshare is a RasPi Hat */
 		dc-gpios = <&gpb 3 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
 		busy-gpios = <&gpb 23 GPIO_ACTIVE_HIGH>;
+		spi-speed-hz = <1000000>;
+		// partial-update;
+		// mirror-x;
+		// mirror-y;
+		// many more...
+		colors = <0>;
+		dimensions-px = <264 176 >;
+		dimensions-mm = <60 40>;
 	};
 
 	/* Add SPI interface device */
@@ -395,7 +406,8 @@
 #if 1	// use bitbang driver
 &spi0 {
 	compatible = "spi-gpio";
-	pinctrl-names = "disabled";
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
 	gpio-sck = <&gpa 31 GPIO_ACTIVE_HIGH>;
 	gpio-miso = <&gpa 29 GPIO_ACTIVE_HIGH>;
 	gpio-mosi = <&gpa 30 GPIO_ACTIVE_HIGH>;
@@ -474,6 +486,9 @@
 	};
 
 	gpio_keys: gpio_keys {
+		pinctrl-names = "default";
+		pinctrl-0 = <&epd_keys>;
+
 		compatible = "gpio-keys";
 
 		wakeup {
@@ -495,37 +510,29 @@
 			linux,code = <KEY_BACK>;
 			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
 		};
-	};
 
-	spi_lcd: spi_lcd {
-		status = "disable";
-		compatible = "spi-gpio";
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
-//		pinctrl-names = "default";
-//		pinctrl-0 = <&spi_gpio_pins>;
+		k1 {
+			label = "key1";
+			linux,code = <KEY_1>;
+			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
+		};
 
-#ifdef FIXME
-		/* the waveshare is a RasPi Hat - find the right GPIOs */
-		gpio-sck = <&gpio1 12 GPIO_ACTIVE_HIGH>;
-		gpio-miso = <&gpio1 18 GPIO_ACTIVE_HIGH>;
-		gpio-mosi = <&gpio1 20 GPIO_ACTIVE_HIGH>;
-		cs-gpios = <&gpio1 19 GPIO_ACTIVE_LOW>;
-#endif
-		num-chipselects = <1>;
+		k2 {
+			label = "key2";
+			linux,code = <KEY_2>;
+			gpios = <&gpb 22 GPIO_ACTIVE_LOW>;
+		};
 
-		/* lcd panel */
-		lcd: waveshare-epaper-hat@0 {
-			compatible = "gooddisplay,generic_epape";
-			reg = <0>;
-			spi-speed-hz = <1000000>;
-			spi-max-frequency = <6000000>;
-#ifdef FIXME
-			/* the waveshare is a RasPi Hat - find the right GPIOs */
-			dc-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
-			reset-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
-			busy-gpios = <&gpio 24 GPIO_ACTIVE_LOW>;
-#endif
+		k3 {
+			label = "key3";
+			linux,code = <KEY_3>;
+			gpios = <&gpc 26 GPIO_ACTIVE_LOW>;
+		};
+
+		k4 {
+			label = "key4";
+			linux,code = <KEY_4>;
+			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
 		};
 	};
 
