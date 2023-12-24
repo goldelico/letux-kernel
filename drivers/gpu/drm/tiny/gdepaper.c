@@ -1442,10 +1442,9 @@ MODULE_DEVICE_TABLE(spi, gdepaper_spi_id);
 
 static int gdepaper_probe(struct spi_device *spi)
 {
-#if OLD
+#if 0	// OLD
 	struct device *dev = &spi->dev;
 	struct device_node *np = dev->of_node;
-	const struct of_device_id *of_id;
 	struct drm_device *drm;
 	struct drm_display_mode *mode;
 	struct gdepaper *epap;
@@ -1453,29 +1452,77 @@ static int gdepaper_probe(struct spi_device *spi)
 	int ret;
 	size_t bufsize;
 
+#endif
+	struct mipi_dbi *dbi;
+	struct device *dev = &spi->dev;
+	struct device_node *np = dev->of_node;
+//	const struct spi_device_id *id = spi_get_device_id(spi);
+	const struct of_device_id *of_id;
+	struct mipi_dbi_dev *dbidev;
+	struct drm_device *drm;
+	struct gdepaper *epap;
+	u32 rotation = 0;
+	int ret;
+
+	struct drm_display_mode *mode;
+	const struct gdepaper_type_descriptor *type_desc;
+	size_t bufsize;
+
+printk("%s\n", __func__);
+
 	of_id = of_match_node(gdepaper_of_match, np);
 	if (WARN_ON(of_id == NULL)) {
 		dev_warn(dev, "dt node didn't match, aborting probe\n");
 		return -EINVAL;
 	}
+
+	epap = devm_drm_dev_alloc(dev, &gdepaper_driver,
+				    struct gdepaper, drm);
+	if (IS_ERR(dbidev))
+		return PTR_ERR(dbidev);
+
+	dbidev = &epap->dbidev;
+	dbi = &dbidev->dbi;
+	drm = &dbidev->drm;
+
+#if 0
+	dbi->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(dbi->reset)) {
+		DRM_DEV_ERROR(dev, "Failed to get gpio 'reset'\n");
+		return PTR_ERR(dbi->reset);
+	}
+#endif
+#if 0
+// what is rs?
+	rs = devm_gpiod_get(dev, "rs", GPIOD_OUT_LOW);
+	if (IS_ERR(rs)) {
+		DRM_DEV_ERROR(dev, "Failed to get gpio 'rs'\n");
+		return PTR_ERR(rs);
+	}
+#endif
+#if 0
+	ret = mipi_dbi_spi_init(spi, dbi, rs);
+	if (ret)
+		return ret;
+#endif
+
+	epap->spi_speed_hz = 2000000;
+
 	type_desc = of_id->data;
 
-	dev_dbg(dev, "Probing gdepaper module\n");
-	epap = kzalloc(sizeof(*epap), GFP_KERNEL);
-	if (!epap)
-		return -ENOMEM;
 	epap->enabled = false;
 	mutex_init(&epap->cmdlock);
 	epap->tx_buf = NULL;
 	epap->spi = spi;
 
 	drm = &epap->drm;
+#if 0
 	ret = devm_drm_dev_init(dev, drm, &gdepaper_driver);
 	if (ret) {
 		dev_warn(dev, "failed to init drm dev\n");
 		goto err_free;
 	}
-
+#endif
 	drm_mode_config_init(drm);
 
 	epap->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
@@ -1499,55 +1546,8 @@ static int gdepaper_probe(struct spi_device *spi)
 		goto err_free;
 	}
 
-#endif
-	struct mipi_dbi *dbi;
-	struct device *dev = &spi->dev;
-	struct device_node *np = dev->of_node;
-	struct mipi_dbi_dev *dbidev;
-	struct drm_device *drm;
-	struct gdepaper *epap;
-	u32 rotation = 0;
-	int ret;
-
-	struct drm_display_mode *mode;
-	const struct gdepaper_type_descriptor *type_desc;
-	size_t bufsize;
-
-printk("%s\n", __func__);
-
-	epap = devm_drm_dev_alloc(dev, &gdepaper_driver,
-				    struct gdepaper, drm);
-	if (IS_ERR(dbidev))
-		return PTR_ERR(dbidev);
-
-	dbidev = &epap->dbidev;
-	dbi = &dbidev->dbi;
-	drm = &dbidev->drm;
-
-	dbi->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR(dbi->reset)) {
-		DRM_DEV_ERROR(dev, "Failed to get gpio 'reset'\n");
-		return PTR_ERR(dbi->reset);
-	}
-
-#if 0
-// what is rs?
-	rs = devm_gpiod_get(dev, "rs", GPIOD_OUT_LOW);
-	if (IS_ERR(rs)) {
-		DRM_DEV_ERROR(dev, "Failed to get gpio 'rs'\n");
-		return PTR_ERR(rs);
-	}
-#endif
-
 	device_property_read_u32(dev, "rotation", &rotation);
 
-#if 0
-	ret = mipi_dbi_spi_init(spi, dbi, rs);
-	if (ret)
-		return ret;
-#endif
-
-	epap->spi_speed_hz = 2000000;
 	epap->pll_div = 1;
 	epap->framerate_mHz = 81850;
 	epap->rfp.vg_lv = GDEP_PWR_VGHL_16V;
