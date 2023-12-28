@@ -358,8 +358,7 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 #if 1	// use polling
 	INIT_DELAYED_WORK(&slot->work, retrode3_cd_work);
 	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(50)));	// start first check
+			msecs_to_jiffies(50));	// start first check
 
 #else	// use interrupt (untested)
 	ret = devm_request_threaded_irq(dev, gpiod_to_irq(slot->cd),
@@ -422,8 +421,7 @@ static void retrode3_cd_work(struct work_struct *work)
 	retrode3_update_cd(slot);
 
 	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(50)));	// start next check
+			msecs_to_jiffies(50));	// start next check
 }
 
 #if FIXME
