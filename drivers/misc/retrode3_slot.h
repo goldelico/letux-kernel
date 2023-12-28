@@ -36,7 +36,7 @@
 struct retrode3_controller {
 	struct input_dev *input;
 	u32 data_offset;	// 0 or 8
-	int last_state;
+	u64 last_state;
 	int state_valid;
 };
 
