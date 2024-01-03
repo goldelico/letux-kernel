@@ -69,6 +69,8 @@ static int x1600_otg_phy_enable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
 
+ll_printk("%s\n", __func__);
+
 	writel(readl(reg_opcr) | OPCR_SPENDN0, reg_opcr);
 
 	return 0;
@@ -77,6 +79,8 @@ static int x1600_otg_phy_enable(struct clk_hw *hw)
 static void x1600_otg_phy_disable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
+
+ll_printk("%s\n", __func__);
 
 	writel(readl(reg_opcr) & ~OPCR_SPENDN0, reg_opcr);
 }

@@ -70,12 +70,15 @@ ingenic_cgu_gate_set(struct ingenic_cgu *cgu,
 {
 	u32 clkgr = readl(cgu->base + info->reg);
 
+u32 c=clkgr;
+
 	if (val ^ info->clear_to_gate)
 		clkgr |= BIT(info->bit);
 	else
 		clkgr &= ~BIT(info->bit);
 
 	writel(clkgr, cgu->base + info->reg);
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + info->reg, c, clkgr);
 }
 
 /*
@@ -263,6 +266,8 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	spin_lock_irqsave(&cgu->lock, flags);
 	ctl = readl(cgu->base + pll_info->reg);
 
+u32 c=ctl;
+
 	ctl &= ~(GENMASK(pll_info->m_bits - 1, 0) << pll_info->m_shift);
 	ctl |= (m - pll_info->m_offset) << pll_info->m_shift;
 
@@ -273,6 +278,8 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 		ctl &= ~(GENMASK(pll_info->od_bits - 1, 0) << pll_info->od_shift);
 		ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
 	}
+
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
 
 	writel(ctl, cgu->base + pll_info->reg);
 
@@ -304,17 +311,21 @@ static int ingenic_pll_enable(struct clk_hw *hw)
 	spin_lock_irqsave(&cgu->lock, flags);
 	if (pll_info->bypass_bit >= 0) {
 		ctl = readl(cgu->base + pll_info->bypass_reg);
-
+u32 c=ctl;
 		ctl &= ~BIT(pll_info->bypass_bit);
+
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->bypass_reg, c, ctl);
 
 		writel(ctl, cgu->base + pll_info->bypass_reg);
 	}
 
 	ctl = readl(cgu->base + pll_info->reg);
+u32 c=ctl;
 
 	ctl |= BIT(pll_info->enable_bit);
 
 	writel(ctl, cgu->base + pll_info->reg);
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
 
 	ret = ingenic_pll_check_stable(cgu, pll_info);
 	spin_unlock_irqrestore(&cgu->lock, flags);
@@ -336,9 +347,11 @@ static void ingenic_pll_disable(struct clk_hw *hw)
 
 	spin_lock_irqsave(&cgu->lock, flags);
 	ctl = readl(cgu->base + pll_info->reg);
+u32 c=ctl;
 
 	ctl &= ~BIT(pll_info->enable_bit);
 
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
 	writel(ctl, cgu->base + pll_info->reg);
 	spin_unlock_irqrestore(&cgu->lock, flags);
 }
@@ -435,9 +448,11 @@ static int ingenic_clk_set_parent(struct clk_hw *hw, u8 idx)
 
 		/* write the register */
 		reg = readl(cgu->base + clk_info->mux.reg);
+u32 c=reg;
 		reg &= ~mask;
 		reg |= hw_idx << clk_info->mux.shift;
 		writel(reg, cgu->base + clk_info->mux.reg);
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + clk_info->mux.reg, c, reg);
 
 		spin_unlock_irqrestore(&cgu->lock, flags);
 		return 0;
@@ -590,7 +605,7 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 		spin_lock_irqsave(&cgu->lock, flags);
 		reg = readl(cgu->base + clk_info->div.reg);
-
+u32 c=reg;
 		/* update the divide */
 		mask = GENMASK(clk_info->div.bits - 1, 0);
 		reg &= ~(mask << clk_info->div.shift);
@@ -606,6 +621,7 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 		/* update the hardware */
 		writel(reg, cgu->base + clk_info->div.reg);
+ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + clk_info->div.reg, c, reg);
 
 		/* wait for the change to take effect */
 		if (clk_info->div.busy_bit != -1)
