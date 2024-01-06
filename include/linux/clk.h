@@ -1069,6 +1069,8 @@ static inline int clk_prepare_enable(struct clk *clk)
 {
 	int ret;
 
+const char *__clk_get_name(const struct clk *clk);
+ll_printk("%s: %s\n", __func__, __clk_get_name(clk));
 	ret = clk_prepare(clk);
 	if (ret)
 		return ret;

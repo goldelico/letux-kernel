@@ -1084,6 +1084,7 @@ int clk_prepare(struct clk *clk)
 {
 	if (!clk)
 		return 0;
+ll_printk("%s: %s\n", __func__, __clk_get_name(clk));
 
 	return clk_core_prepare_lock(clk->core);
 }
@@ -1306,6 +1307,7 @@ int clk_enable(struct clk *clk)
 {
 	if (!clk)
 		return 0;
+ll_printk("%s: %s\n", __func__, __clk_get_name(clk));
 
 	return clk_core_enable_lock(clk->core);
 }

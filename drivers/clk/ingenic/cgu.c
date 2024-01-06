@@ -78,7 +78,7 @@ u32 c=clkgr;
 		clkgr &= ~BIT(info->bit);
 
 	writel(clkgr, cgu->base + info->reg);
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + info->reg, c, clkgr);
+ll_printk("clk: %s: %s %px %08x->%08x\n", __func__, cgu->clock_info->name, cgu->base + info->reg, c, clkgr);
 }
 
 /*
@@ -279,7 +279,7 @@ u32 c=ctl;
 		ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
 	}
 
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
+ll_printk("clk: %s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
 
 	writel(ctl, cgu->base + pll_info->reg);
 
@@ -314,7 +314,7 @@ static int ingenic_pll_enable(struct clk_hw *hw)
 u32 c=ctl;
 		ctl &= ~BIT(pll_info->bypass_bit);
 
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->bypass_reg, c, ctl);
+ll_printk("clk: %s 1: %s %px %08x->%08x\n", __func__, clk_hw_get_name(hw), cgu->base + pll_info->bypass_reg, c, ctl);
 
 		writel(ctl, cgu->base + pll_info->bypass_reg);
 	}
@@ -325,7 +325,7 @@ u32 c=ctl;
 	ctl |= BIT(pll_info->enable_bit);
 
 	writel(ctl, cgu->base + pll_info->reg);
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
+ll_printk("clk: %s 2: %s %px %08x->%08x\n", __func__, clk_hw_get_name(hw), cgu->base + pll_info->reg, c, ctl);
 
 	ret = ingenic_pll_check_stable(cgu, pll_info);
 	spin_unlock_irqrestore(&cgu->lock, flags);
@@ -351,7 +351,7 @@ u32 c=ctl;
 
 	ctl &= ~BIT(pll_info->enable_bit);
 
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
+ll_printk("clk: %s: %px %08x->%08x\n", __func__, cgu->base + pll_info->reg, c, ctl);
 	writel(ctl, cgu->base + pll_info->reg);
 	spin_unlock_irqrestore(&cgu->lock, flags);
 }
@@ -452,7 +452,7 @@ u32 c=reg;
 		reg &= ~mask;
 		reg |= hw_idx << clk_info->mux.shift;
 		writel(reg, cgu->base + clk_info->mux.reg);
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + clk_info->mux.reg, c, reg);
+ll_printk("clk: %s: %px %08x->%08x\n", __func__, cgu->base + clk_info->mux.reg, c, reg);
 
 		spin_unlock_irqrestore(&cgu->lock, flags);
 		return 0;
@@ -621,7 +621,7 @@ u32 c=reg;
 
 		/* update the hardware */
 		writel(reg, cgu->base + clk_info->div.reg);
-ll_printk("%s: %px %08x->%08x\n", __func__, cgu->base + clk_info->div.reg, c, reg);
+ll_printk("clk: %s: %px %08x->%08x\n", __func__, cgu->base + clk_info->div.reg, c, reg);
 
 		/* wait for the change to take effect */
 		if (clk_info->div.busy_bit != -1)
