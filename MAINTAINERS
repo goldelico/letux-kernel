@@ -10353,6 +10353,7 @@ S:	Supported
 F:	Documentation/devicetree/bindings/gpu/img,powervr.yaml
 T:	git git://anongit.freedesktop.org/drm/drm-misc
 F:	Documentation/devicetree/bindings/gpu/img,powervr-rogue.yaml
+F:	Documentation/devicetree/bindings/gpu/img,powervr-sgx.yaml
 F:	Documentation/gpu/imagination/
 F:	drivers/gpu/drm/imagination/
 F:	include/uapi/drm/pvr_drm.h
