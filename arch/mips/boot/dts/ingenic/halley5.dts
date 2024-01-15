@@ -82,7 +82,7 @@
 };
 
 &msc0 {
-	status = "disable";
+	status = "okay";
 
 	bus-width = <8>;
 	max-frequency = <100000000>;
@@ -96,7 +96,7 @@
 };
 
 &msc1 {
-	status = "disable";
+	status = "okay";
 
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -221,7 +221,7 @@
 	};
 };
 
-&spi0 {
+&ssi0 {
 	status = "disable";
 
 	pinctrl-names = "default";
