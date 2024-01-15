@@ -159,6 +159,7 @@ static int sdhci_ingenic_probe(struct platform_device *pdev)
 	if (IS_ERR(host->ioaddr))
 		return PTR_ERR(host->ioaddr);
 
+	platform_set_drvdata(pdev, host);
 	host->hw_name = "ingenic-sdhci";
 	host->ops = &sdhci_ingenic_ops;
 	host->quirks = 0;
