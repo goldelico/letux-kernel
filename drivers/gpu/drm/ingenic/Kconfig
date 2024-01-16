@@ -5,10 +5,6 @@ config DRM_INGENIC
 	depends on CMA
 	depends on OF
 	depends on COMMON_CLK
-	select DRM_BRIDGE
-	select DRM_PANEL_BRIDGE
-	select DRM_KMS_HELPER
-	select DRM_GEM_DMA_HELPER
 	select VT_HW_CONSOLE_BINDING if FRAMEBUFFER_CONSOLE
 	help
 	  Choose this option for DRM support for the Ingenic SoCs.
@@ -16,6 +12,26 @@ config DRM_INGENIC
 	  If M is selected the module will be called ingenic-drm.
 
 if DRM_INGENIC
+
+config DRM_INGENIC_JZ_LCDC
+	tristate "DRM Support for Ingenic JZ series LCD controller"
+	select DRM_BRIDGE
+	select DRM_PANEL_BRIDGE
+	select DRM_KMS_HELPER
+	select DRM_GEM_DMA_HELPER
+	help
+	  Choose this option for DRM support for the LCD controller of Ingenic JZ series SoCs.
+
+	  If M is selected the module will be called ingenic-drm.
+
+config DRM_INGENIC_X1000_SLCDC
+	tristate "DRM Support for Ingenic X1000 series SLCD controller"
+	select DRM_KMS_HELPER
+	select DRM_GEM_DMA_HELPER
+	help
+	  Choose this option for DRM support for the SLCD controller of Ingenic X1000 series SoCs.
+
+	  If M is selected the module will be called ingenic-slcd-drm.
 
 config DRM_INGENIC_IPU
 	bool "IPU support for Ingenic SoCs"
