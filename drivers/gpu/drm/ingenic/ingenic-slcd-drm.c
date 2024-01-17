@@ -342,9 +342,9 @@ static const struct drm_driver ingenic_slcdc_driver_data = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	.name			= "ingenic-slcd-drm",
 	.desc			= "DRM module for Ingenic X1000 SLCD controller",
-	.date			= "20230219",
+	.date			= "20240117",
 	.major			= 1,
-	.minor			= 0,
+	.minor			= 1,
 	.patchlevel		= 0,
 	.fops			= &ingenic_slcdc_fops,
 	DRM_GEM_DMA_DRIVER_OPS,
@@ -798,6 +798,7 @@ static void ingenic_slcdc_execute_panel_sequence(struct ingenic_slcd_drm *priv, 
 			}
 		}
 	}
+
 }
 
 static void ingenic_slcdc_reset_panel(struct ingenic_slcd_drm *priv)
@@ -922,18 +923,6 @@ static const struct attribute_group ingenic_slcdc_device_attr_group = {
 	.attrs = ingenic_slcdc_device_attrs,
 };
 
-static const uint32_t ingenic_slcdc_default_formats[] = {
-	DRM_FORMAT_XRGB8888,
-	DRM_FORMAT_ARGB8888,
-	DRM_FORMAT_RGB565,
-	DRM_FORMAT_BGR565,
-	//DRM_FORMAT_XRGB1555,
-	//DRM_FORMAT_ARGB1555,
-	DRM_FORMAT_RGB888,
-	DRM_FORMAT_XRGB2101010,
-	DRM_FORMAT_ARGB2101010,
-};
-
 static const uint64_t ingenic_slcdc_format_modifiers[] = {
 	DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
@@ -988,7 +977,6 @@ static void ingenic_slcdc_set_rotation(struct ingenic_slcd_drm *priv,
 
 	ingenic_slcdc_execute_panel_sequence(priv, seq);
 	ingenic_slcdc_update_panel_window(priv, r);
-
 }
 
 static int ingenic_slcdc_connector_helper_get_modes(struct drm_connector *connector)
@@ -1085,13 +1073,13 @@ ingenic_slcdc_simple_display_pipe_enable(struct drm_simple_display_pipe *pipe,
 	if (!drm_dev_enter(dev, &idx))
 		return;
 
-	rotation = ingenic_slcdc_rotation_from_mode(priv, mode);
-	if (rotation != -1 && rotation != rt_data->rotation) {
-		ingenic_slcdc_set_rotation(priv, rotation);
-		rt_data->rotation = rotation;
-	}
+	ingenic_slcdc_dma_pause(priv);
 
+	rotation = ingenic_slcdc_rotation_from_mode(priv, mode);
+	ingenic_slcdc_set_rotation(priv, rotation);
+	rt_data->rotation = rotation;
 	ingenic_slcdc_execute_panel_sequence(priv, priv->disp.enable_sequence);
+
 	dst = drm_fb_dma_get_gem_addr(fb, plane_state, 0);
 	ingenic_slcdc_update_hwdesc_fb_phys(priv, dst);
 	ingenic_slcdc_set_dma_mode(priv);
@@ -1153,20 +1141,20 @@ ingenic_slcdc_simple_display_pipe_update(struct drm_simple_display_pipe *pipe,
 
 	if (drm_atomic_crtc_needs_modeset(crtc_state)) {
 		rotation = ingenic_slcdc_rotation_from_mode(priv, &crtc_state->mode);
-		if (rotation != -1 && rotation != rt_data->rotation) {
-			ingenic_slcdc_dma_pause(priv);
-			ingenic_slcdc_set_rotation(priv, rotation);
-			ingenic_slcdc_set_dma_mode(priv);
-			if (priv->rt_data.vsync_enabled)
-				ingenic_slcdc_dma_cont(priv);
-			rt_data->rotation = rotation;
-		}
+
+		ingenic_slcdc_dma_pause(priv);
+		ingenic_slcdc_execute_panel_sequence(priv, priv->disp.disable_sequence);
+		ingenic_slcdc_set_rotation(priv, rotation);
+		ingenic_slcdc_execute_panel_sequence(priv, priv->disp.enable_sequence);
+		ingenic_slcdc_set_dma_mode(priv);
+		ingenic_slcdc_dma_cont(priv);
+		rt_data->rotation = rotation;
+		dev_info(priv->dev, "modeset done\n");
 	}
 
-	if (!priv->rt_data.vsync_enabled)
-		ingenic_slcdc_dma_once(priv);
-
 	drm_dev_exit(idx);
+
+	dev_info(priv->dev, "display updated, fb addr: 0x%08x\n", dst);
 }
 
 static int
@@ -1178,8 +1166,6 @@ ingenic_slcdc_simple_display_pipe_enable_vblank(struct drm_simple_display_pipe *
 			   JZ_LCD_CTRL_EOF_IRQ, JZ_LCD_CTRL_EOF_IRQ);
 
 	priv->rt_data.vsync_enabled = true;
-
-	ingenic_slcdc_dma_cont(priv);
 
 	return 0;
 }
@@ -1223,14 +1209,6 @@ static const uint32_t *ingenic_slcdc_device_formats(struct ingenic_slcd_drm *pri
 	/* native format goes first */
 	priv->formats[0] = priv->format->format;
 	priv->nformats = 1;
-
-	/* default formats go second */
-	for (i = 0; i < ARRAY_SIZE(ingenic_slcdc_default_formats); ++i) {
-		if (ingenic_slcdc_default_formats[i] == priv->format->format)
-			continue; /* native format already went first */
-		priv->formats[priv->nformats] = ingenic_slcdc_default_formats[i];
-		priv->nformats++;
-	}
 
 	/*
 	 * TODO: The simpledrm driver converts framebuffers to the native
