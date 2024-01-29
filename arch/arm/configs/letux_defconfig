@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.4.267 Kernel Configuration
+# Linux/arm 5.4.268 Kernel Configuration
 #
 
 #
@@ -1436,7 +1436,6 @@ CONFIG_WIRELESS=y
 CONFIG_WIRELESS_EXT=y
 CONFIG_WEXT_CORE=y
 CONFIG_WEXT_PROC=y
-CONFIG_WEXT_SPY=y
 CONFIG_WEXT_PRIV=y
 CONFIG_CFG80211=m
 # CONFIG_NL80211_TESTMODE is not set
