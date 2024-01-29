@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.208 Kernel Configuration
+# Linux/mips 5.10.209 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -1799,7 +1799,6 @@ CONFIG_SPI_GPIO=y
 # CONFIG_SPI_MXIC is not set
 # CONFIG_SPI_XCOMM is not set
 # CONFIG_SPI_XILINX is not set
-# CONFIG_SPI_ZYNQMP_GQSPI is not set
 # CONFIG_SPI_AMD is not set
 
 #

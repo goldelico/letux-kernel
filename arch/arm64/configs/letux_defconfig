@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.10.208 Kernel Configuration
+# Linux/arm64 5.10.209 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5272,8 +5272,6 @@ CONFIG_MMC_CQHCI=y
 # CONFIG_MMC_TOSHIBA_PCI is not set
 # CONFIG_MMC_MTK is not set
 CONFIG_MMC_SDHCI_XENON=y
-# CONFIG_MMC_SDHCI_OMAP is not set
-# CONFIG_MMC_SDHCI_AM654 is not set
 # CONFIG_MMC_TXS02612 is not set
 # CONFIG_MEMSTICK is not set
 CONFIG_NEW_LEDS=y
