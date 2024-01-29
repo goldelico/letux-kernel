@@ -90,9 +90,6 @@ void modpost_log(enum loglevel loglevel, const char *fmt, ...)
 		error_occurred = true;
 }
 
-void __attribute__((alias("modpost_log")))
-modpost_log_noret(enum loglevel loglevel, const char *fmt, ...);
-
 static inline bool strends(const char *str, const char *postfix)
 {
 	if (strlen(str) < strlen(postfix))
@@ -1611,7 +1608,7 @@ static void mod_set_crcs(struct module *mod)
 	buf = read_text_file(objlist);
 	p = buf;
 
-	while ((obj = strsep(&p, "\n")) && obj[0])
+	while ((obj = get_line(&p)) && obj[0])
 		extract_crcs_for_object(obj, mod);
 
 	free(buf);
