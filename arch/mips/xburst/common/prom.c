@@ -34,7 +34,7 @@ void __init prom_init(void)
 		_fw_fdt_addr = phys_to_virt(fw_arg2);
 	else if ((int)fw_arg0 == -2)	/*UHI*/
 		_fw_fdt_addr = (void *)fw_arg1;
-	else if (__dtb_start != __dtb_end)
+	else if ((void *) __dtb_start != (void *) __dtb_end)
 		_fw_fdt_addr = __dtb_start;
 	else
 		panic("no dtb found!\n");
