@@ -116,7 +116,7 @@ static struct bcache_ops mips_sc_ops = {
 //	return 1;
 //}
 
-static inline int __init mips_sc_probe(void)
+static inline int mips_sc_probe(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config1, config2;

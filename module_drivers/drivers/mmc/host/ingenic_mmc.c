@@ -1454,7 +1454,7 @@ static void ingenic_mmc_init_gpio(struct ingenic_mmc_pin *pin, char *gpioname, i
 	}
 }
 
-static int __init ingenic_mmc_gpio_init(struct ingenic_mmc_host *host)
+static int ingenic_mmc_gpio_init(struct ingenic_mmc_host *host)
 {
 	struct card_gpio *card_gpio = host->pdata->gpio;
 	int ret = 0, dir;

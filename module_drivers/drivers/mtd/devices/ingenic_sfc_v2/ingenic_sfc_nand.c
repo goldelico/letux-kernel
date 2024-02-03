@@ -637,7 +637,7 @@ exit:
 	return ret;
 }
 
-static int32_t __init ingenic_sfc_nand_try_id(struct sfc_flash *flash)
+static int32_t ingenic_sfc_nand_try_id(struct sfc_flash *flash)
 {
 	struct ingenic_sfcnand_flashinfo *nand_info = flash->flash_info;
 	struct ingenic_sfcnand_device *nand_device;
@@ -714,7 +714,7 @@ found_param:
 	return 0;
 }
 
-static int32_t __init nand_partition_param_copy(struct sfc_flash *flash, struct ingenic_sfcnand_burner_param *burn_param) {
+static int32_t nand_partition_param_copy(struct sfc_flash *flash, struct ingenic_sfcnand_burner_param *burn_param) {
 	struct ingenic_sfcnand_flashinfo *nand_info = flash->flash_info;
 	int i = 0, count = 5, ret;
 	size_t retlen = 0;
