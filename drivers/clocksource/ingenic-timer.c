@@ -130,6 +130,9 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 		regmap_write(tcu->map, TCU_REG_TDFRc(timer->channel), next);
 		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
+		// NOTE: X1600 only!
+		regmap_update_bits(tcu->map, TCU_REG_TCSRc(timer->channel),
+			TCU_X1600_TCSR_EVENT_BITS, TCU_X1600_TCSR_CLK_POS_EN);
 	} else {
 		writel(next, tcu->base + TCU_JZ4730_REG_TCNTc(timer->channel));
 		updateb(tcu->base + TCU_JZ4730_REG_TER, BIT(timer->channel), BIT(timer->channel));
