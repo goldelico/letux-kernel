@@ -298,6 +298,7 @@
 			       <100000000>;
 };
 
+#if 0
 &uart0 {
 	status = "okay";
 	pinctrl-names = "default";
@@ -321,6 +322,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pb>;
 };
+#endif
 
 &cpufreq {
 	status = "okay";
