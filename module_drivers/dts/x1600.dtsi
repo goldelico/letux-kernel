@@ -163,7 +163,7 @@
 #ifndef CONFIG_DISABLE_GPIOA_IRQ_CONTROLLER
 				interrupt-controller;
 #endif
-				#interrupt-cells = <3>;
+				#interrupt-cells = <2>;
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
@@ -182,7 +182,7 @@
 #ifndef CONFIG_DISABLE_GPIOB_IRQ_CONTROLLER
 				interrupt-controller;
 #endif
-				#interrupt-cells = <3>;
+				#interrupt-cells = <2>;
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
@@ -201,7 +201,7 @@
 #ifndef CONFIG_DISABLE_GPIOC_IRQ_CONTROLLER
 				interrupt-controller;
 #endif
-				#interrupt-cells = <3>;
+				#interrupt-cells = <2>;
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
@@ -220,7 +220,7 @@
 #ifndef CONFIG_DISABLE_GPIOD_IRQ_CONTROLLER
 				interrupt-controller;
 #endif
-				#interrupt-cells = <3>;
+				#interrupt-cells = <2>;
 				ingenic,pull-bitmap = <0xffffffff>;
 			};
 
