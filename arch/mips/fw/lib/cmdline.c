@@ -53,7 +53,6 @@ char *fw_getenv(char *envname)
 {
 	char *result = NULL;
 
-	return NULL; // PAUL!
 	if (_fw_envp != NULL && fw_envp(0) != NULL) {
 		/*
 		 * Return a pointer to the given environment variable.
