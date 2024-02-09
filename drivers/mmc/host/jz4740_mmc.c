@@ -441,16 +441,79 @@ static void jz4740_mmc_clock_disable(struct jz4740_mmc_host *host)
 	} while (status & JZ_MMC_STATUS_CLK_EN && --timeout);
 }
 
+#define PRINTMSC(VAR) printk("%20s: %px = %08lx\n", #VAR, (host->base + VAR), (long unsigned) readl(host->base + VAR));
+// jz4780/x1600 only
+
+#define JZ_REG_MMC_DMADA		0x4c
+#define JZ_REG_MMC_DMALEN		0x50
+#define JZ_REG_MMC_DMACMD		0x54
+#define JZ_REG_MMC_CTRL2		0x58
+#define JZ_REG_MMC_RTCNT		0x5c
+
 static void jz4740_mmc_reset(struct jz4740_mmc_host *host)
 {
 	uint32_t status;
 	unsigned int timeout = 1000;
 
+printk("%s before\n", __func__);
+PRINTMSC(JZ_REG_MMC_STRPCL);
+PRINTMSC(JZ_REG_MMC_STATUS);
+PRINTMSC(JZ_REG_MMC_CLKRT);
+PRINTMSC(JZ_REG_MMC_CMDAT);
+PRINTMSC(JZ_REG_MMC_RESTO);
+PRINTMSC(JZ_REG_MMC_RDTO);
+PRINTMSC(JZ_REG_MMC_BLKLEN);
+PRINTMSC(JZ_REG_MMC_NOB);
+PRINTMSC(JZ_REG_MMC_SNOB);
+PRINTMSC(JZ_REG_MMC_IMASK);
+PRINTMSC(JZ_REG_MMC_IREG);
+PRINTMSC(JZ_REG_MMC_ARG);
+PRINTMSC(JZ_REG_MMC_RESP_FIFO);
+PRINTMSC(JZ_REG_MMC_RXFIFO);
+PRINTMSC(JZ_REG_MMC_TXFIFO);
+PRINTMSC(JZ_REG_MMC_LPM);
+PRINTMSC(JZ_REG_MMC_DMAC);
+
+PRINTMSC(JZ_REG_MMC_DMADA);
+PRINTMSC(JZ_REG_MMC_DMALEN);
+PRINTMSC(JZ_REG_MMC_DMACMD);
+PRINTMSC(JZ_REG_MMC_CTRL2);
+PRINTMSC(JZ_REG_MMC_RTCNT);
+
 	writew(JZ_MMC_STRPCL_RESET, host->base + JZ_REG_MMC_STRPCL);
-	udelay(10);
 	do {
+		udelay(10);
 		status = readl(host->base + JZ_REG_MMC_STATUS);
 	} while (status & JZ_MMC_STATUS_IS_RESETTING && --timeout);
+if(!timeout)
+	printk("MSC reset did timeout!!!\n");
+
+printk("%s after (timeout = %d)\n", __func__, timeout);
+
+PRINTMSC(JZ_REG_MMC_STRPCL);
+PRINTMSC(JZ_REG_MMC_STATUS);
+PRINTMSC(JZ_REG_MMC_CLKRT);
+PRINTMSC(JZ_REG_MMC_CMDAT);
+PRINTMSC(JZ_REG_MMC_RESTO);
+PRINTMSC(JZ_REG_MMC_RDTO);
+PRINTMSC(JZ_REG_MMC_BLKLEN);
+PRINTMSC(JZ_REG_MMC_NOB);
+PRINTMSC(JZ_REG_MMC_SNOB);
+PRINTMSC(JZ_REG_MMC_IMASK);
+PRINTMSC(JZ_REG_MMC_IREG);
+PRINTMSC(JZ_REG_MMC_ARG);
+PRINTMSC(JZ_REG_MMC_RESP_FIFO);
+PRINTMSC(JZ_REG_MMC_RXFIFO);
+PRINTMSC(JZ_REG_MMC_TXFIFO);
+PRINTMSC(JZ_REG_MMC_LPM);
+PRINTMSC(JZ_REG_MMC_DMAC);
+
+PRINTMSC(JZ_REG_MMC_DMADA);
+PRINTMSC(JZ_REG_MMC_DMALEN);
+PRINTMSC(JZ_REG_MMC_DMACMD);
+PRINTMSC(JZ_REG_MMC_CTRL2);
+PRINTMSC(JZ_REG_MMC_RTCNT);
+
 }
 
 static void jz4740_mmc_request_done(struct jz4740_mmc_host *host)
@@ -890,32 +953,98 @@ static int jz4740_mmc_set_clock_rate(struct jz4740_mmc_host *host, int rate)
 	int div = 0;
 	int real_rate;
 
+printk("%s: registers before\n", __func__);
+
+PRINTMSC(JZ_REG_MMC_STRPCL);
+PRINTMSC(JZ_REG_MMC_STATUS);
+PRINTMSC(JZ_REG_MMC_CLKRT);
+PRINTMSC(JZ_REG_MMC_CMDAT);
+PRINTMSC(JZ_REG_MMC_RESTO);
+PRINTMSC(JZ_REG_MMC_RDTO);
+PRINTMSC(JZ_REG_MMC_BLKLEN);
+PRINTMSC(JZ_REG_MMC_NOB);
+PRINTMSC(JZ_REG_MMC_SNOB);
+PRINTMSC(JZ_REG_MMC_IMASK);
+PRINTMSC(JZ_REG_MMC_IREG);
+PRINTMSC(JZ_REG_MMC_ARG);
+PRINTMSC(JZ_REG_MMC_RESP_FIFO);
+PRINTMSC(JZ_REG_MMC_RXFIFO);
+PRINTMSC(JZ_REG_MMC_TXFIFO);
+PRINTMSC(JZ_REG_MMC_LPM);
+PRINTMSC(JZ_REG_MMC_DMAC);
+
+PRINTMSC(JZ_REG_MMC_DMADA);
+PRINTMSC(JZ_REG_MMC_DMALEN);
+PRINTMSC(JZ_REG_MMC_DMACMD);
+PRINTMSC(JZ_REG_MMC_CTRL2);
+PRINTMSC(JZ_REG_MMC_RTCNT);
+
 	jz4740_mmc_clock_disable(host);
+
+printk("%s: clk_set_rate(%d)\n", __func__, host->mmc->f_max);
+
 	clk_set_rate(host->clk, host->mmc->f_max);
 
 	real_rate = clk_get_rate(host->clk);
+
+printk("%s: real_rate=%d\n", __func__, real_rate);
 
 	while (real_rate > rate && div < 7) {
 		++div;
 		real_rate >>= 1;
 	}
 
+printk("%s: writew(%08x, JZ_REG_MMC_CLKRT)\n", __func__, div);
+
 	writew(div, host->base + JZ_REG_MMC_CLKRT);
 
 	if (real_rate > 25000000) {
+printk("%s: real_rate > 25000000\n", __func__);
 		if (host->version >= JZ_MMC_JZ4780) {
+printk("%s: >= JZ_MMC_JZ4780\n", __func__);
+printk("%s: writew(%08lx, JZ_REG_MMC_LPM)\n", __func__, JZ_MMC_LPM_DRV_RISING_QTR_PHASE_DLY |
+				   JZ_MMC_LPM_SMP_RISING_QTR_OR_HALF_PHASE_DLY |
+				   JZ_MMC_LPM_LOW_POWER_MODE_EN);
 			writel(JZ_MMC_LPM_DRV_RISING_QTR_PHASE_DLY |
 				   JZ_MMC_LPM_SMP_RISING_QTR_OR_HALF_PHASE_DLY |
 				   JZ_MMC_LPM_LOW_POWER_MODE_EN,
 				   host->base + JZ_REG_MMC_LPM);
 		} else if (host->version >= JZ_MMC_JZ4760) {
+printk("%s: >= JZ_MMC_JZ4760\n", __func__);
 			writel(JZ_MMC_LPM_DRV_RISING |
 				   JZ_MMC_LPM_LOW_POWER_MODE_EN,
 				   host->base + JZ_REG_MMC_LPM);
 		} else if (host->version >= JZ_MMC_JZ4725B)
+printk("%s: >= JZ_MMC_JZ4725B\n", __func__);
 			writel(JZ_MMC_LPM_LOW_POWER_MODE_EN,
 				   host->base + JZ_REG_MMC_LPM);
 	}
+
+printk("%s: registers after\n", __func__);
+
+PRINTMSC(JZ_REG_MMC_STRPCL);
+PRINTMSC(JZ_REG_MMC_STATUS);
+PRINTMSC(JZ_REG_MMC_CLKRT);
+PRINTMSC(JZ_REG_MMC_CMDAT);
+PRINTMSC(JZ_REG_MMC_RESTO);
+PRINTMSC(JZ_REG_MMC_RDTO);
+PRINTMSC(JZ_REG_MMC_BLKLEN);
+PRINTMSC(JZ_REG_MMC_NOB);
+PRINTMSC(JZ_REG_MMC_SNOB);
+PRINTMSC(JZ_REG_MMC_IMASK);
+PRINTMSC(JZ_REG_MMC_IREG);
+PRINTMSC(JZ_REG_MMC_ARG);
+PRINTMSC(JZ_REG_MMC_RESP_FIFO);
+PRINTMSC(JZ_REG_MMC_RXFIFO);
+PRINTMSC(JZ_REG_MMC_TXFIFO);
+PRINTMSC(JZ_REG_MMC_LPM);
+PRINTMSC(JZ_REG_MMC_DMAC);
+
+PRINTMSC(JZ_REG_MMC_DMADA);
+PRINTMSC(JZ_REG_MMC_DMALEN);
+PRINTMSC(JZ_REG_MMC_DMACMD);
+PRINTMSC(JZ_REG_MMC_CTRL2);
+PRINTMSC(JZ_REG_MMC_RTCNT);
 
 	return real_rate;
 }
@@ -941,11 +1070,14 @@ static void jz4740_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	struct jz4740_mmc_host *host = mmc_priv(mmc);
 	int ret;
 
+printk("%s\n", __func__);
+
 	if (ios->clock)
 		jz4740_mmc_set_clock_rate(host, ios->clock);
 
 	switch (ios->power_mode) {
 	case MMC_POWER_UP:
+printk("%s: MMC_POWER_UP\n", __func__);
 		jz4740_mmc_reset(host);
 		if (!IS_ERR(mmc->supply.vmmc))
 			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, ios->vdd);
@@ -953,6 +1085,7 @@ static void jz4740_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		clk_prepare_enable(host->clk);
 		break;
 	case MMC_POWER_ON:
+printk("%s: MMC_POWER_ON\n", __func__);
 		if (!IS_ERR(mmc->supply.vqmmc) && !host->vqmmc_enabled) {
 			ret = regulator_enable(mmc->supply.vqmmc);
 			if (ret)
@@ -962,6 +1095,7 @@ static void jz4740_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		break;
 	case MMC_POWER_OFF:
+printk("%s: MMC_POWER_OFF\n", __func__);
 		if (!IS_ERR(mmc->supply.vmmc))
 			mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, 0);
 		if (!IS_ERR(mmc->supply.vqmmc) && host->vqmmc_enabled) {
@@ -1041,6 +1175,8 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	int ret;
 	struct mmc_host *mmc;
 	struct jz4740_mmc_host *host;
+
+printk("%s\n", __func__);
 
 	mmc = mmc_alloc_host(sizeof(struct jz4740_mmc_host), &pdev->dev);
 	if (!mmc) {
