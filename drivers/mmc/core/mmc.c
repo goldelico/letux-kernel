@@ -2307,6 +2307,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	int err;
 	u32 ocr, rocr;
 
+printk("%s\n", __func__);
 	WARN_ON(!host->claimed);
 
 	/* Set correct bus mode for MMC before attempting attach */
@@ -2315,7 +2316,10 @@ int mmc_attach_mmc(struct mmc_host *host)
 
 	err = mmc_send_op_cond(host, 0, &ocr);
 	if (err)
+{
+printk("%s 1\n", __func__);
 		return err;
+}
 
 	mmc_attach_bus(host, &mmc_ops);
 	if (host->ocr_avail_mmc)
@@ -2326,6 +2330,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	 */
 	if (mmc_host_is_spi(host)) {
 		err = mmc_spi_read_ocr(host, 1, &ocr);
+printk("%s 2\n", __func__);
 		if (err)
 			goto err;
 	}
@@ -2337,6 +2342,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	 */
 	if (!rocr) {
 		err = -EINVAL;
+printk("%s 3\n", __func__);
 		goto err;
 	}
 
@@ -2345,12 +2351,20 @@ int mmc_attach_mmc(struct mmc_host *host)
 	 */
 	err = mmc_init_card(host, rocr, NULL);
 	if (err)
+{
+printk("%s 4\n", __func__);
+
 		goto err;
+}
 
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);
 	if (err)
+{
+printk("%s 5\n", __func__);
+
 		goto remove_card;
+}
 
 	mmc_claim_host(host);
 	return 0;

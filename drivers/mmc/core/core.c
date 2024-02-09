@@ -1120,6 +1120,9 @@ u32 mmc_select_voltage(struct mmc_host *host, u32 ocr)
 	 * Sanity check the voltages that the card claims to
 	 * support.
 	 */
+
+printk("%s: ocr=%08x\n", __func__, ocr);
+
 	if (ocr & 0x7F) {
 		dev_warn(mmc_dev(host),
 		"card claims to support voltages below defined range\n");
