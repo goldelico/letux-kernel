@@ -7,6 +7,7 @@
  *  Copyright (C) 2005-2008 Pierre Ossman, All Rights Reserved.
  *  MMCv4 support Copyright (C) 2006 Philip Langdale, All Rights Reserved.
  */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -46,6 +47,9 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 #include "sdio_ops.h"
+
+#undef pr_debug
+#define pr_debug pr_info
 
 /* The max erase timeout, used when host->max_busy_timeout isn't specified */
 #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
@@ -2057,6 +2061,20 @@ int mmc_sw_reset(struct mmc_card *card)
 }
 EXPORT_SYMBOL(mmc_sw_reset);
 
+static void printmsc(void)
+{
+	// ioremap
+	// print msc registers
+	// print relevant clock registers
+	// print relevant pinctrl registers
+}
+
+#define PR_MSCREGS(NUMBER) \
+{ \
+printk("%s: %d\n", __func__, NUMBER); \
+printmsc(); \
+}
+
 static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 {
 	host->f_init = freq;
@@ -2064,13 +2082,19 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	pr_debug("%s: %s: trying to init card at %u Hz\n",
 		mmc_hostname(host), __func__, host->f_init);
 
+PR_MSCREGS(1);
+
 	mmc_power_up(host, host->ocr_avail);
+
+PR_MSCREGS(2);
 
 	/*
 	 * Some eMMCs (with VCCQ always on) may not be reset after power up, so
 	 * do a hardware reset if possible.
 	 */
 	mmc_hw_reset_for_init(host);
+
+PR_MSCREGS(3);
 
 	/*
 	 * sdio_reset sends CMD52 to reset card.  Since we do not know
