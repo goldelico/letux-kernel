@@ -46,6 +46,15 @@
 #define JZ_REG_MMC_LPM		0x40
 #define JZ_REG_MMC_DMAC		0x44
 
+#define PRINTMSC(VAR) printk("%20s: %px = %08lx\n", #VAR, (host->base + VAR), (long unsigned) readl(host->base + VAR));
+// jz4780/x1600 only
+
+#define JZ_REG_MMC_DMADA		0x4c
+#define JZ_REG_MMC_DMALEN		0x50
+#define JZ_REG_MMC_DMACMD		0x54
+#define JZ_REG_MMC_CTRL2		0x58
+#define JZ_REG_MMC_RTCNT		0x5c
+
 #define JZ_MMC_STRPCL_EXIT_MULTIPLE BIT(7)
 #define JZ_MMC_STRPCL_EXIT_TRANSFER BIT(6)
 #define JZ_MMC_STRPCL_START_READWAIT BIT(5)
@@ -186,9 +195,36 @@ struct jz4740_mmc_host {
 #define JZ4740_MMC_FIFO_HALF_SIZE 8
 };
 
+static void PRHEX(char *name, phys_addr_t start, size_t len)
+{
+	size_t off;
+	void __iomem *map = ioremap(start, len);
+
+	printk("%s:\n", name);
+
+	for(off=0; off < len; off += 4)
+		printk("%px: %08x\n", (void *) start + off, readl(map + off));
+
+	iounmap(map);
+}
+
+static void PREGS(void)
+{
+	PRHEX("CGU", 0x10000000, 0xe8);
+	PRHEX("MSC0", 0x13450000, 0x60);
+	PRHEX("MSC1", 0x13460000, 0x60);
+//	PRHEX("PA", 0x10010000, 0x8c);
+//	PRHEX("PB", 0x10010100, 0x8c);
+	PRHEX("PC", 0x10010200, 0x8c);
+	PRHEX("PD", 0x10010300, 0x8c);
+//	PRHEX("PZ", 0x10010700, 0x8c);
+}
+
 static void jz4740_mmc_write_irq_mask(struct jz4740_mmc_host *host,
 				      uint32_t val)
 {
+printk("%s: %8x\n", __func__, val);
+
 	if (host->version >= JZ_MMC_JZ4725B)
 		return writel(val, host->base + JZ_REG_MMC_IMASK);
 	else
@@ -198,6 +234,8 @@ static void jz4740_mmc_write_irq_mask(struct jz4740_mmc_host *host,
 static void jz4740_mmc_write_irq_reg(struct jz4740_mmc_host *host,
 				     uint32_t val)
 {
+printk("%s: %8x\n", __func__, val);
+
 	if (host->version >= JZ_MMC_JZ4780)
 		writel(val, host->base + JZ_REG_MMC_IREG);
 	else
@@ -206,6 +244,7 @@ static void jz4740_mmc_write_irq_reg(struct jz4740_mmc_host *host,
 
 static uint32_t jz4740_mmc_read_irq_reg(struct jz4740_mmc_host *host)
 {
+printk("%s:\n", __func__);
 	if (host->version >= JZ_MMC_JZ4780)
 		return readl(host->base + JZ_REG_MMC_IREG);
 	else
@@ -424,6 +463,8 @@ static void jz4740_mmc_clock_enable(struct jz4740_mmc_host *host,
 {
 	uint16_t val = JZ_MMC_STRPCL_CLOCK_START;
 
+printk("%s\n", __func__);
+
 	if (start_transfer)
 		val |= JZ_MMC_STRPCL_START_OP;
 
@@ -435,6 +476,9 @@ static void jz4740_mmc_clock_disable(struct jz4740_mmc_host *host)
 	uint32_t status;
 	unsigned int timeout = 1000;
 
+printk("%s before\n", __func__);
+PRINTMSC(JZ_REG_MMC_STATUS);
+
 	writew(JZ_MMC_STRPCL_CLOCK_STOP, host->base + JZ_REG_MMC_STRPCL);
 #if 0
 	read_poll_timeout(readl, status, !(status & JZ_MMC_STATUS_CLK_EN),
@@ -444,16 +488,11 @@ static void jz4740_mmc_clock_disable(struct jz4740_mmc_host *host)
 	do {
 		status = readl(host->base + JZ_REG_MMC_STATUS);
 	} while (status & JZ_MMC_STATUS_CLK_EN && --timeout);
+#endif
+printk("%s after\n", __func__);
+PRINTMSC(JZ_REG_MMC_STATUS);
+
 }
-
-#define PRINTMSC(VAR) printk("%20s: %px = %08lx\n", #VAR, (host->base + VAR), (long unsigned) readl(host->base + VAR));
-// jz4780/x1600 only
-
-#define JZ_REG_MMC_DMADA		0x4c
-#define JZ_REG_MMC_DMALEN		0x50
-#define JZ_REG_MMC_DMACMD		0x54
-#define JZ_REG_MMC_CTRL2		0x58
-#define JZ_REG_MMC_RTCNT		0x5c
 
 static void jz4740_mmc_reset(struct jz4740_mmc_host *host)
 {
@@ -525,6 +564,10 @@ PRINTMSC(JZ_REG_MMC_DMACMD);
 PRINTMSC(JZ_REG_MMC_CTRL2);
 PRINTMSC(JZ_REG_MMC_RTCNT);
 
+printk("%s read again\n", __func__);
+
+PRINTMSC(JZ_REG_MMC_STATUS);
+
 }
 
 static void jz4740_mmc_request_done(struct jz4740_mmc_host *host)
@@ -573,6 +616,7 @@ static void jz4740_mmc_transfer_check_state(struct jz4740_mmc_host *host,
 	int status;
 
 	status = readl(host->base + JZ_REG_MMC_STATUS);
+printk("%s: %8x\n", __func__, status);
 	if (status & JZ_MMC_STATUS_WRITE_ERROR_MASK) {
 		if (status & (JZ_MMC_STATUS_TIMEOUT_WRITE)) {
 			host->req->cmd->error = -ETIMEDOUT;
@@ -809,12 +853,16 @@ static void jz4740_mmc_send_command(struct jz4740_mmc_host *host,
 				cmdat |= JZ_MMC_CMDAT_DMA_EN;
 			}
 		} else if (host->version >= JZ_MMC_JZ4780) {
+printk("%s: 1\n", __func__);
 			writel(0, host->base + JZ_REG_MMC_DMAC);
 		}
 
+printk("%s: 2\n", __func__);
 		writew(cmd->data->blksz, host->base + JZ_REG_MMC_BLKLEN);
 		writew(cmd->data->blocks, host->base + JZ_REG_MMC_NOB);
 	}
+
+printk("%s: 3\n", __func__);
 
 	writeb(cmd->opcode, host->base + JZ_REG_MMC_CMD);
 	writel(cmd->arg, host->base + JZ_REG_MMC_ARG);
@@ -1199,6 +1247,7 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	struct jz4740_mmc_host *host;
 
 printk("%s\n", __func__);
+PREGS();
 
 	mmc = mmc_alloc_host(sizeof(struct jz4740_mmc_host), &pdev->dev);
 	if (!mmc) {
@@ -1302,6 +1351,8 @@ printk("%s\n", __func__);
 		 host->use_dma ? "DMA" : "PIO",
 		 (mmc->caps & MMC_CAP_8_BIT_DATA) ? 8 :
 		 ((mmc->caps & MMC_CAP_4_BIT_DATA) ? 4 : 1));
+
+printk("%s probe done\n", __func__);
 
 	return 0;
 
