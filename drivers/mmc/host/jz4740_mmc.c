@@ -436,6 +436,11 @@ static void jz4740_mmc_clock_disable(struct jz4740_mmc_host *host)
 	unsigned int timeout = 1000;
 
 	writew(JZ_MMC_STRPCL_CLOCK_STOP, host->base + JZ_REG_MMC_STRPCL);
+#if 0
+	read_poll_timeout(readl, status, !(status & JZ_MMC_STATUS_CLK_EN),
+			  10, 1000, false,
+			  host->base + JZ_REG_MMC_STRPCL);
+#else
 	do {
 		status = readl(host->base + JZ_REG_MMC_STATUS);
 	} while (status & JZ_MMC_STATUS_CLK_EN && --timeout);
@@ -481,12 +486,18 @@ PRINTMSC(JZ_REG_MMC_CTRL2);
 PRINTMSC(JZ_REG_MMC_RTCNT);
 
 	writew(JZ_MMC_STRPCL_RESET, host->base + JZ_REG_MMC_STRPCL);
+#if 0
+	read_poll_timeout(readl, status, !(status & JZ_MMC_STATUS_IS_RESETTING),
+			  10, 1000, true,
+			  host->base + JZ_REG_MMC_STRPCL);
+#else
 	do {
 		udelay(10);
 		status = readl(host->base + JZ_REG_MMC_STATUS);
 	} while (status & JZ_MMC_STATUS_IS_RESETTING && --timeout);
 if(!timeout)
 	printk("MSC reset did timeout!!!\n");
+#endif
 
 printk("%s after (timeout = %d)\n", __func__, timeout);
 
@@ -536,6 +547,11 @@ static unsigned int jz4740_mmc_poll_irq(struct jz4740_mmc_host *host,
 	unsigned int timeout = 0x800;
 	uint32_t status;
 
+#if 0
+	read_poll_timeout(jz4740_mmc_read_irq_reg, status, (status & irq),
+			  10, 1000, true,
+			  host);
+#endif
 	do {
 		status = jz4740_mmc_read_irq_reg(host);
 	} while (!(status & irq) && --timeout);
@@ -685,12 +701,18 @@ static bool jz4740_mmc_read_data(struct jz4740_mmc_host *host,
 
 	/* For whatever reason there is sometime one word more in the fifo then
 	 * requested */
+#if 0
+	readl_poll_timeout(host->base + JZ_REG_MMC_STATUS, status,
+			   (status & JZ_MMC_STATUS_DATA_FIFO_EMPTY),
+			   10, 1000);
+#else
 	timeout = 1000;
 	status = readl(host->base + JZ_REG_MMC_STATUS);
 	while (!(status & JZ_MMC_STATUS_DATA_FIFO_EMPTY) && --timeout) {
 		d = readl(fifo_addr);
 		status = readl(host->base + JZ_REG_MMC_STATUS);
 	}
+#endif
 
 	return false;
 
