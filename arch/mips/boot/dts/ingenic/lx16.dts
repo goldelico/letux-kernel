@@ -268,7 +268,7 @@
 };
 
 &mmc1 {
-	status = "disabled";
+	status = "okay";
 
 	bus-width = <4>;
 	max-frequency = <5000000>;
