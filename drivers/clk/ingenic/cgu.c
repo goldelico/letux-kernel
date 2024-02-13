@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
+ * Copyright (c) 2023, 2024 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/bitops.h>
@@ -76,6 +77,42 @@ ingenic_cgu_gate_set(struct ingenic_cgu *cgu,
  * PLL operations
  */
 
+static unsigned
+ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
+			   const s8 *od_encoding)
+{
+	unsigned od, od_enc = 0;
+
+	if (od_bits > 0) {
+		od_enc = ctl >> od_shift;
+		od_enc &= GENMASK(od_bits - 1, 0);
+	}
+
+	/*
+	 * Use the encoding table if indicated. Otherwise, use the value
+	 * directly, interpreting an encoded value of zero as a divider
+	 * value of one.
+	 */
+	if (od_encoding)
+	{
+		for (od = 0; od < od_max; od++)
+			if (od_encoding[od] == od_enc)
+				break;
+		od++;
+	}
+	else
+		od = od_enc ? od_enc : 1;
+
+	/* if od_max = 0, od_bits should be 0 and od is fixed to 1. */
+	if (od_max == 0)
+		BUG_ON(od_bits != 0);
+	else
+		BUG_ON(od == od_max);
+
+	return od;
+}
+
+>>>>>>> 4a452a8a5be70 (clk: ingenic: CGU: Fixed PLL configuration.)
 static unsigned long
 ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -134,14 +171,30 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	unsigned int m, n, od = 1;
 
 	/*
-	 * The frequency after the input divider must be between 10 and 50 MHz.
+	 * The frequency after the input divider must be within the range
+	 * defined in the programming manual as FREF:
+	 *
+	 * JZ4740: 1 MHz - 15 MHz
+	 * JZ4780: 183 kHz - 1.5 GHz
+	 * X1000:  10 MHz - 50 MHz
+	 * X1600:  1 MHz - 800 MHz
+	 *
 	 * The highest divider yields the best resolution.
 	 */
 	n = parent_rate / (10 * MHZ);
 	n = min_t(unsigned int, n, 1 << pll_info->n_bits);
 	n = max_t(unsigned int, n, pll_info->n_offset);
 
-	m = (rate / MHZ) * od * n / (parent_rate / MHZ);
+	/*
+	 * The frequency after the VCO stage (parent * m / n) must be in the
+	 * range defined in the programming manual as FVCO:
+	 *
+	 * JZ4740: 100 MHz - 500 MHz
+	 * JZ4780: 300 MHz - 1.5 GHz
+	 * X1000:  300 MHz - 600 MHz (low-band), 500 MHz - 1 GHz (high-band)
+	 * X1600:  600 MHz - 2.4 GHz
+	 */
+	m = (rate / MHZ) * od * od1 * n / (parent_rate / MHZ);
 	m = min_t(unsigned int, m, 1 << pll_info->m_bits);
 	m = max_t(unsigned int, m, pll_info->m_offset);
 
@@ -227,7 +280,18 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 	if (pll_info->od_bits > 0) {
 		ctl &= ~(GENMASK(pll_info->od_bits - 1, 0) << pll_info->od_shift);
-		ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		else
+			ctl |= (od ? od : 1) << pll_info->od_shift;
+	}
+
+	if (pll_info->od1_bits > 0) {
+		ctl &= ~(GENMASK(pll_info->od1_bits - 1, 0) << pll_info->od1_shift);
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od1 - 1] << pll_info->od1_shift;
+		else
+			ctl |= (od1 ? od1 : 1) << pll_info->od1_shift;
 	}
 
 	writel(ctl, cgu->base + pll_info->reg);
