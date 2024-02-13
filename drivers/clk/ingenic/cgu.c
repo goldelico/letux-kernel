@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
- * Copyright (c) 2023 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (c) 2023, 2024 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/bitops.h>
@@ -98,6 +98,7 @@ ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
 		for (od = 0; od < od_max; od++)
 			if (od_encoding[od] == od_enc)
 				break;
+		od++;
 	}
 	else
 		od = od_enc ? od_enc : 1;
@@ -107,7 +108,6 @@ ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
 		BUG_ON(od_bits != 0);
 	else
 		BUG_ON(od == od_max);
-	od++;
 
 	return od;
 }
@@ -161,10 +161,14 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	unsigned int m, n, od = 1, od1 = 1;
 
 	/*
-	 * The frequency after the input divider must be between 10 and 50 MHz.
-	 * (A source is needed for this observation. The JZ4740 programming
-	 * manual indicates a 1 to 15 MHz range. The JZ4780 manual indicates a
-	 * 183 kHz to 1.5 GHz range.)
+	 * The frequency after the input divider must be within the range
+	 * defined in the programming manual as FREF:
+	 *
+	 * JZ4740: 1 MHz - 15 MHz
+	 * JZ4780: 183 kHz - 1.5 GHz
+	 * X1000:  10 MHz - 50 MHz
+	 * X1600:  1 MHz - 800 MHz
+	 *
 	 * The highest divider yields the best resolution.
 	 */
 	n = parent_rate / (10 * MHZ);
@@ -172,8 +176,13 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	n = max_t(unsigned int, n, pll_info->n_offset);
 
 	/*
-	 * The frequency after the VCO stage (parent * m / n) must be between
-	 * 100 and 500 MHz for the JZ4740, 300 MHz and 1.5 GHz for the JZ4780.
+	 * The frequency after the VCO stage (parent * m / n) must be in the
+	 * range defined in the programming manual as FVCO:
+	 *
+	 * JZ4740: 100 MHz - 500 MHz
+	 * JZ4780: 300 MHz - 1.5 GHz
+	 * X1000:  300 MHz - 600 MHz (low-band), 500 MHz - 1 GHz (high-band)
+	 * X1600:  600 MHz - 2.4 GHz
 	 */
 	m = (rate / MHZ) * od * od1 * n / (parent_rate / MHZ);
 	m = min_t(unsigned int, m, 1 << pll_info->m_bits);
@@ -239,7 +248,6 @@ static int
 ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 		     unsigned long parent_rate)
 {
-	/* PAUL: Need od1. */
 	struct ingenic_clk *ingenic_clk = to_ingenic_clk(hw);
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	const struct ingenic_cgu_clk_info *clk_info = to_clk_info(ingenic_clk);
@@ -266,7 +274,18 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 	if (pll_info->od_bits > 0) {
 		ctl &= ~(GENMASK(pll_info->od_bits - 1, 0) << pll_info->od_shift);
-		ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		else
+			ctl |= (od ? od : 1) << pll_info->od_shift;
+	}
+
+	if (pll_info->od1_bits > 0) {
+		ctl &= ~(GENMASK(pll_info->od1_bits - 1, 0) << pll_info->od1_shift);
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od1 - 1] << pll_info->od1_shift;
+		else
+			ctl |= (od1 ? od1 : 1) << pll_info->od1_shift;
 	}
 
 	writel(ctl, cgu->base + pll_info->reg);
