@@ -1,0 +1,38 @@
+1600 Issues
+===========
+
+Most things are missing drivers or bad DTS
+
+1. UART needs to be disabled in DTS
+3. OST ticks only once
+4. gpio-keys report only once
+5. /proc/interrupts shows only one interrupt per press-release cycle for gpio-keys
+6&7. reboot not working (but poweroff)
+8. spi
+9. usb/otg + phy
+10. shadow gpio registers do not work (this invisible to user-space)
+11. watchdog
+12. pwm
+13. aic / i2s
+14. i2c
+15. sadc
+16. dtrng
+17. can
+18. cdbus
+19. aes
+20. hash
+21. mac
+22. sfc
+23. mcu (what is this?
+24. efuse
+25. cim
+26. dpu
+
+Fixed
+=====
+
+2. TCU: "Set X1600-specific clock event flag." should be only x1600
+6. no power-controller (should likely be part of the RTC driver)
+7. no RTC driver
+
+
