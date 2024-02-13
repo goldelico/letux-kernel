@@ -5,13 +5,14 @@
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
  * Copyright (c) 2020 周琰杰 (Zhou Yanjie) <zhouyanjie@wanyeetech.com>
- * Copyright (c) 2023 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (c) 2023, 2024 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/rational.h>
 #include <linux/of.h>
 
 #include <dt-bindings/clock/ingenic,x1600-cgu.h>
@@ -94,6 +95,50 @@ static const struct clk_ops x1600_otg_phy_ops = {
 	.is_enabled	= x1600_otg_phy_is_enabled,
 };
 
+static void
+x1600_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
+		      unsigned long rate, unsigned long parent_rate,
+		      unsigned int *pm, unsigned int *pn, unsigned int *pod,
+		      unsigned int *pod1)
+{
+	const unsigned int od_max = pll_info->od_max - 1;
+	const unsigned int od1_max = pll_info->od1_max - 1;
+	const unsigned int m_max = GENMASK(pll_info->m_bits - 1, 0);
+	const unsigned int n_max = GENMASK(pll_info->n_bits - 1, 0);
+	unsigned long m, n;
+	unsigned int od = 1, od1 = 1;
+	const unsigned long fvco_min = 600000000, fvco_max = 2400000000;
+	unsigned long fvco;
+
+	/*
+	 * Combined output divider range:
+	 *
+	 * ceil(fvco_min / rate) - fvco_max / rate
+	 */
+	unsigned od_combined_min = (fvco_min + rate) / rate;
+	unsigned od_combined_max = fvco_max / rate;
+	unsigned od_combined;
+
+	for (od_combined = od_combined_min; od_combined <= od_combined_max; od_combined++)
+	{
+		od = int_sqrt(od_combined);
+		od1 = od_combined / od;
+
+		/* od == floor(sqrt(od_combined)); od1 >= od */
+		if ((od * od1 == od_combined) && (od <= od_max) && (od1 <= od1_max))
+		{
+			fvco = rate * od_combined;
+			rational_best_approximation(fvco, parent_rate, m_max, n_max, &m, &n);
+			break;
+		}
+	}
+
+	*pm = m;
+	*pn = n;
+	*pod = od;
+	*pod1 = od1;
+}
+
 static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 
 	/* External clocks */
@@ -122,6 +167,8 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 	.od_encoding = 0, \
 	.stable_bit = 2, \
 	.enable_bit = 0, \
+	.bypass_bit = -1, \
+	.calc_m_n_od = x1600_pll_calc_m_n_od, \
 }
 
 	[X1600_CLK_APLL] = {
