@@ -32,6 +32,7 @@ static DEFINE_PER_CPU(call_single_data_t, ingenic_cevt_csd);
 struct ingenic_soc_info {
 	unsigned int num_channels;
 	bool jz4740_regs;
+	bool x1600_regs;
 	int counter_width;
 	u32 max_count;
 };
@@ -130,9 +131,9 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 		regmap_write(tcu->map, TCU_REG_TDFRc(timer->channel), next);
 		regmap_write(tcu->map, TCU_REG_TCNTc(timer->channel), 0);
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(timer->channel));
-		// NOTE: X1600 only!
-		regmap_update_bits(tcu->map, TCU_REG_TCSRc(timer->channel),
-			TCU_X1600_TCSR_EVENT_BITS, TCU_X1600_TCSR_CLK_POS_EN);
+		if (tcu->soc_info->x1600_regs)
+			regmap_update_bits(tcu->map, TCU_REG_TCSRc(timer->channel),
+				TCU_X1600_TCSR_EVENT_BITS, TCU_X1600_TCSR_CLK_POS_EN);
 	} else {
 		writel(next, tcu->base + TCU_JZ4730_REG_TCNTc(timer->channel));
 		updateb(tcu->base + TCU_JZ4730_REG_TER, BIT(timer->channel), BIT(timer->channel));
@@ -353,6 +354,14 @@ static const struct ingenic_soc_info jz4730_soc_info = {
 	.max_count = CLOCKSOURCE_MASK(26),
 };
 
+static const struct ingenic_soc_info x1600_soc_info = {
+	.num_channels = 8,
+	.jz4740_regs = true,
+	.x1600_regs = false,
+	.counter_width = 16,
+	.max_count = CLOCKSOURCE_MASK(16),
+};
+
 static const struct of_device_id ingenic_tcu_of_match[] = {
 	{ .compatible = "ingenic,jz4730-tcu", .data = &jz4730_soc_info, },
 	{ .compatible = "ingenic,jz4740-tcu", .data = &jz4740_soc_info, },
@@ -360,7 +369,7 @@ static const struct of_device_id ingenic_tcu_of_match[] = {
 	{ .compatible = "ingenic,jz4760-tcu", .data = &jz4740_soc_info, },
 	{ .compatible = "ingenic,jz4770-tcu", .data = &jz4740_soc_info, },
 	{ .compatible = "ingenic,x1000-tcu", .data = &jz4740_soc_info, },
-	{ .compatible = "ingenic,x1600-tcu", .data = &jz4740_soc_info, },
+	{ .compatible = "ingenic,x1600-tcu", .data = &x1600_soc_info, },
 	{ /* sentinel */ }
 };
 
