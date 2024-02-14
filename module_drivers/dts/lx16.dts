@@ -21,9 +21,17 @@
 		#size-cells = <1>;
 		ranges =<>;
 
-		reserved_memory: reserved_mem@0x2000000{
-		      compatible = "shared-dma-pool";
-		      reg = <0x02000000 0x2000000>;
+		reserved_memory: reserved_mem@0x2000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x02000000 0x2000000>;
+		};
+
+		/* global autoconfigured region for contiguous allocations */
+		cma: linux,cma {
+			compatible = "shared-dma-pool";
+			size = <0x2000>; /* 2MB */
+			reusable;
+			linux,cma-default;
 		};
 	};
 
@@ -440,10 +448,20 @@
 		led-0 {
 			linux,default-trigger = "heartbeat";
 #ifdef PWM_LED
-			pwms = <&pwm 2 100000>;
+			pwms = <&pwm 0 100000>;
 			max-brightness = <255>;
 #else
 			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
+#endif
+		};
+
+		led-1 {
+			linux,default-trigger = "heartbeat";
+#ifdef PWM_LED
+			pwms = <&pwm 1 100000>;
+			max-brightness = <255>;
+#else
+			gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
 #endif
 		};
 	};
