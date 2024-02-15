@@ -619,9 +619,14 @@ int mipi_dbi_dev_init_with_formats(struct mipi_dbi_dev *dbidev,
 	if (ret)
 		return ret;
 
+printk("%s: bufsize=%d\n", __func__, tx_buf_size);
+
 	dbidev->tx_buf = devm_kmalloc(drm->dev, tx_buf_size, GFP_KERNEL);
 	if (!dbidev->tx_buf)
+{
+printk("%s: devm_kmalloc failed\n", __func__);
 		return -ENOMEM;
+}
 
 	drm_mode_copy(&dbidev->mode, mode);
 	ret = mipi_dbi_rotate_mode(&dbidev->mode, rotation);
@@ -681,6 +686,8 @@ int mipi_dbi_dev_init(struct mipi_dbi_dev *dbidev,
 		      const struct drm_display_mode *mode, unsigned int rotation)
 {
 	size_t bufsize = mode->vdisplay * mode->hdisplay * sizeof(u16);
+
+printk("%s: vdisp=%d hdisp=%d\n", __func__, mode->vdisplay, mode->hdisplay);
 
 	dbidev->drm.mode_config.preferred_depth = 16;
 
