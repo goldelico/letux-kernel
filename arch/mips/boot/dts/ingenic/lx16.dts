@@ -257,17 +257,7 @@
 
 	broken-cd;
 
-	voltage-ranges = <1800 3300>;
-
-#if 0
-	ingenic,sdio_clk = <1>;
-
-	/* special property */
-	ingenic,wp-gpios = <0>;
-	ingenic,cd-gpios = <0>;
-	ingenic,rst-gpios = <0>;
-	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
-#endif
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
 &mmc1 {
@@ -283,17 +273,7 @@
 
 	broken-cd;
 
-	voltage-ranges = <1800 3300>;
-
-#if 0
-	ingenic,sdio_clk = <1>;
-
-	/* special property */
-	ingenic,wp-gpios = <0>;
-	ingenic,cd-gpios = <0>;
-	ingenic,rst-gpios = <0>;
-	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
-#endif
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
 &mac0 {
