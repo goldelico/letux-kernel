@@ -260,6 +260,36 @@
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
+/ {
+	wlan_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+//		pinctrl-0 = <&wlan_pins>;
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+//		gpio = <&gb 10 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+
+	bt_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+//		pinctrl-0 = <&wlan_pins>;
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+//		gpio = <&gb 10 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+};
+
 &mmc1 {
 	status = "okay";
 	pinctrl-names ="default";
@@ -269,11 +299,38 @@
 	max-frequency = <50000000>;
 
 	pinctrl-names ="default";
-	pinctrl-0 = <&msc1_4bit>;
+	pinctrl-0 = <&msc1_4bit>;	// FIXME: add interrupt input?
 
 	broken-cd;
 
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+
+	vmmc-supply = <&wlan_en>;
+
+	wlan: wlan@0 {
+		compatible = "qcom,qca9377-wlan";	// FIXME
+		reg = <0>;
+//		interrupt-parent = <&gpio5>;
+//		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+//		ref-clock-frequency = <26000000>;
+	};
+};
+
+&uart0 {
+	status = "disable";
+	/* dma-mode; */
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb>;	// FIXME: add rfkill
+
+	bluetooth: bluetooth {
+		compatible = "qcom,qca9377-bt";
+		speed = <3000000>;	// ???
+		flow;
+		vdd-supply = <&bt_en>;
+	};
 };
 
 &mac0 {
