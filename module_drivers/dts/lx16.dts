@@ -456,7 +456,7 @@
 		};
 
 		led-1 {
-			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "mmc0";
 #ifdef PWM_LED
 			pwms = <&pwm 1 100000>;
 			max-brightness = <255>;
