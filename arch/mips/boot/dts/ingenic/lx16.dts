@@ -308,8 +308,9 @@
 
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 
-	vmmc-supply = <&wlan_en>;
+//	vmmc-supply = <&wlan_en>;
 
+#if 0
 	wlan: wlan@0 {
 		compatible = "qcom,qca9377-wlan";	// FIXME
 		reg = <1>;
@@ -317,19 +318,22 @@
 //		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
 //		ref-clock-frequency = <26000000>;
 	};
+#endif
 };
 
 &uart0 {
+#if 0
 	status = "disable";
-	/* dma-mode; */
+#endif
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pb>;	// FIXME: add rfkill
+	pinctrl-0 = <&uart0_pb>;
+	// FIXME: add rfkill
 
 	bluetooth: bluetooth {
 		compatible = "qcom,qca9377-bt";
-		speed = <3000000>;	// ???
-		flow;
-		vdd-supply = <&bt_en>;
+		speed = <2000000>;
+	//	enable-gpios = <&gb 10 GPIO_ACTIVE_HIGH>;	// use instead of bt_en!
+	//	vdd-supply = <&bt_en>;
 	};
 };
 
