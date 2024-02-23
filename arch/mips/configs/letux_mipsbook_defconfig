@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.209 Kernel Configuration
+# Linux/mips 5.10.210 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -2256,7 +2256,6 @@ CONFIG_MFD_CORE=m
 # CONFIG_ABX500_CORE is not set
 # CONFIG_MFD_STMPE is not set
 CONFIG_MFD_SYSCON=y
-# CONFIG_MFD_TI_AM335X_TSCADC is not set
 # CONFIG_MFD_LP3943 is not set
 # CONFIG_MFD_LP8788 is not set
 # CONFIG_MFD_TI_LMU is not set

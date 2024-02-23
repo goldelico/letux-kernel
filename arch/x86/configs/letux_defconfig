@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.209 Kernel Configuration
+# Linux/x86 5.10.210 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -4838,7 +4838,6 @@ CONFIG_MFD_VIPERBOARD=y
 # CONFIG_MFD_SKY81452 is not set
 # CONFIG_ABX500_CORE is not set
 # CONFIG_MFD_SYSCON is not set
-# CONFIG_MFD_TI_AM335X_TSCADC is not set
 # CONFIG_MFD_LP3943 is not set
 # CONFIG_MFD_LP8788 is not set
 # CONFIG_MFD_TI_LMU is not set
