@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.15.148 Kernel Configuration
+# Linux/arm64 5.15.149 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3545,7 +3545,6 @@ CONFIG_MFD_SEC_CORE=y
 # CONFIG_MFD_STMPE is not set
 CONFIG_MFD_SUN6I_PRCM=y
 CONFIG_MFD_SYSCON=y
-# CONFIG_MFD_TI_AM335X_TSCADC is not set
 # CONFIG_MFD_LP3943 is not set
 # CONFIG_MFD_LP8788 is not set
 # CONFIG_MFD_TI_LMU is not set
