@@ -436,7 +436,7 @@
 #if LX16_W == 1
 	wlan: wlan@0 {
 		compatible = "qcom,qca9377-wlan";	// FIXME
-		reg = <1>;
+		reg = <0>;
 //		interrupt-parent = <&gpio5>;
 //		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
 //		ref-clock-frequency = <26000000>;
