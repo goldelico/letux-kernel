@@ -691,6 +691,18 @@
 
 &mmc4 { /* enable second (µ)SD slot (SDIO capable) */
 	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	wlan: wlan@0 {
+		compatible = "qcom,qca9377-wlan";	// FIXME
+		reg = <0>;
+//		interrupt-parent = <&gpio5>;
+//		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+//		ref-clock-frequency = <26000000>;
+	};
+
 };
 
 &smps10_out1_reg {
