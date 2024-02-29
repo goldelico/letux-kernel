@@ -31,7 +31,7 @@
 &pinctrl {
 	uart0_pb: uart0-pb {
 		function = "uart0";
-		groups = "uart0-data", "uart0-hwflow";
+		groups = "uart0-data" /*, "uart0-hwflow" */;
 		bias-pull-up;
 	};
 
@@ -321,21 +321,18 @@
 #endif
 };
 
+#if 1
 &uart0 {
-#if 0
-	status = "disable";
-#endif
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pb>;
-	// FIXME: add rfkill
+	// FIXME: add rfkill (if not by driver)
 
 	bluetooth: bluetooth {
 		compatible = "qcom,qca9377-bt";
-		speed = <2000000>;
+		max-speed = <2000000>;
 	//	enable-gpios = <&gb 10 GPIO_ACTIVE_HIGH>;	// use instead of bt_en!
 	//	vdd-supply = <&bt_en>;
 	};
 };
+#endif
 
 &mac0 {
 	pinctrl-names = "default", "reset";
