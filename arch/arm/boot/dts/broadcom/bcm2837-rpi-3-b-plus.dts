@@ -186,6 +186,19 @@
 	status = "okay";
 };
 
+#if 1
+&uart1 {
+
+	bluetooth: bluetooth {
+		compatible = "qcom,qca9377-bt";
+		max-speed = <2000000>;
+	//	enable-gpios = <&gb 10 GPIO_ACTIVE_HIGH>;	// use instead of bt_en!
+	//	vdd-supply = <&bt_en>;
+	};
+};
+#endif
+
+
 &wifi_pwrseq {
 	reset-gpios = <&expgpio 1 GPIO_ACTIVE_LOW>;
 };
