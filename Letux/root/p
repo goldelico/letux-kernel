@@ -1,5 +1,21 @@
-# simple "play" auf PandaES
-# vorher sollte evtl. einmal ./twl gelaufen sein damit die Mixer eingestellt sind
+# simple "play" auf PandaES/Pyra
+
+while [ "$1" ]
+do
+	case "$1" in
+		[0-9]* )
+			DEV="$1"
+			shift
+			;;
+		* )
+			break
+			;;
+	esac
+done
+
+./twl -nohf -D "$DEV" $@ testmp3.mp3
+exit
+
 
 for C in PandaBoardES omap5uevm Pyra L15
 do
@@ -9,8 +25,28 @@ done
 
 DEV=11
 
-[ "$1" == "-s" ] && { STRACE=strace ; shift ; }
-[ "$1" ] && DEV="$1"	# 2 is doing something
+while [ "$1" ]
+do
+	case "$1" in
+		-s )
+			STRACE=strace
+			;;
+		-hf )
+			HANDSFREE=on
+			;;
+		-lp )
+			LPMODE=on
+			;;
+		-* )
+			echo unknown option $1
+			exit 1
+			;;
+		* )
+			DEV="$1"	# subdevice e.g. 2, 5, 11
+			;;
+	esac
+	shift
+done
 
 if [ ! "$CARD" ]
 then
@@ -18,6 +54,7 @@ then
 	exit 1
 fi
 
+# AESS specific
 amixer -c $CARD cset name='Headset Left Playback' 1
 amixer -c $CARD cset name='Headset Right Playback' 1
 amixer -c $CARD cset name='Headset Playback Volume' 12
@@ -26,14 +63,44 @@ amixer -c $CARD cset name='Sidetone Mixer Playback' 1
 amixer -c $CARD cset name='SDT DL Volume' 120
 amixer -c $CARD cset name='DL1 Mixer Multimedia' 1
 amixer -c $CARD cset name='DL1 Media Playback Volume' 110
-amixer -c $CARD sset 'Analog Left',0 'Aux/FM Left'
-amixer -c $CARD sset 'Analog Right',0 'Aux/FM Right'
-amixer -c $CARD sset 'Aux FM',0 7
-amixer -c $CARD sset 'AUDUL Media',0 149
-amixer -c $CARD sset 'Capture',0 4
-amixer -c $CARD sset 'MUX_UL00,0' AMic0
-amixer -c $CARD sset 'MUX_UL01,0' AMic1
-amixer -c $CARD sset 'AMIC UL',0 120
+amixer -c $CARD set 'AUDUL Media',0 149
+amixer -c $CARD set 'MUX_UL00,0' AMic0
+amixer -c $CARD set 'MUX_UL01,0' AMic1
+amixer -c $CARD set 'AMIC UL',0 120
+
+# twl6040
+amixer -c $CARD set "Aux FM" 0%
+amixer -c $CARD set "Capture" 100%
+amixer -c $CARD set "Capture Preamplifier" 100%
+amixer -c $CARD set "AUXL" "off"
+amixer -c $CARD set "AUXR" "off"
+amixer -c $CARD set "Analog Left" "Main Mic"
+amixer -c $CARD set "Analog Right" "Headset Mic"
+
+amixer -c $CARD set "Headset" 100%
+amixer -c $CARD set "Earphone" 100%
+amixer -c $CARD set "Handsfree" 100%
+
+amixer -c $CARD set "Vibra Left Playback" "Input FF"
+amixer -c $CARD set "Vibra Right Playback" "Input FF"
+
+if [ "$HANDSFREE" ] # handsfree on/off
+then
+	amixer -c $CARD set "Handsfree Left Playback" "HF DAC"
+	amixer -c $CARD set "Handsfree Right Playback" "HF DAC"
+else
+	amixer -c $CARD set "Handsfree Left Playback" "Off"
+	amixer -c $CARD set "Handsfree Right Playback" "Off"
+fi
+
+if [ "$LPMODE" ] # low power mode
+then
+	amixer -c $CARD -q set "Headset Power Mode" "Low-Power" || exit
+	amixer -c $CARD -q set "PLL Selection" "Low-Power" || exit
+else
+	amixer -c $CARD -q set "Headset Power Mode" "High-Performance" || exit
+	amixer -c $CARD -q set "PLL Selection" "High-Performance" || exit
+fi
 
 if [ "$STRACE" ]
 then
