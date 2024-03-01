@@ -260,6 +260,7 @@
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
+#if 0
 / {
 	wlan_en: wlan_en_regulator {
 		compatible = "regulator-fixed";
@@ -274,21 +275,8 @@
 		startup-delay-us = <70000>;
 		enable-active-high;
 	};
-
-	bt_en: wlan_en_regulator {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default";
-//		pinctrl-0 = <&wlan_pins>;
-		regulator-name = "wlan-en-regulator";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-
-//		gpio = <&gb 10 GPIO_ACTIVE_HIGH>;
-
-		startup-delay-us = <70000>;
-		enable-active-high;
-	};
 };
+#endif
 
 &mmc1 {
 	status = "okay";
@@ -323,12 +311,16 @@
 
 #if 1
 &uart0 {
-	// FIXME: add rfkill (if not by driver)
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pb>;
+	uart-has-rtscts;
 
 	bluetooth: bluetooth {
 		compatible = "qcom,qca9377-bt";
+		enable-gpios = <&gpb 12 GPIO_ACTIVE_HIGH>;	// not really connected...
 		max-speed = <2000000>;
-	//	enable-gpios = <&gb 10 GPIO_ACTIVE_HIGH>;	// use instead of bt_en!
+	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
 	};
 };
