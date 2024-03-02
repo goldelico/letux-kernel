@@ -369,7 +369,7 @@ static int send_hci_ibs_cmd(u8 cmd, struct hci_uart *hu)
 	struct sk_buff *skb = NULL;
 	struct qca_data *qca = hu->priv;
 
-	BT_DBG("hu %p send hci ibs cmd 0x%x", hu, cmd);
+	printk("%s: hu %p send hci ibs cmd 0x%x\n", __func__, hu, cmd);
 
 	skb = bt_skb_alloc(1, GFP_ATOMIC);
 	if (!skb) {
@@ -578,6 +578,7 @@ static int qca_open(struct hci_uart *hu)
 	struct qca_serdev *qcadev;
 	struct qca_data *qca;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca_open", hu);
 
 	if (!hci_uart_has_flow_control(hu))
@@ -706,6 +707,7 @@ static int qca_flush(struct hci_uart *hu)
 {
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca flush", hu);
 
 	skb_queue_purge(&qca->tx_wait_q);
@@ -719,6 +721,7 @@ static int qca_close(struct hci_uart *hu)
 {
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca close", hu);
 
 	serial_clock_vote(HCI_IBS_VOTE_STATS_UPDATE, hu);
@@ -1338,6 +1341,8 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 	struct sk_buff *skb;
 	u8 cmd[] = { 0x01, 0x48, 0xFC, 0x01, 0x00 };
 
+printk("%s\n", __func__);
+
 	if (baudrate > QCA_BAUDRATE_3200000)
 		return -EINVAL;
 
@@ -1398,6 +1403,8 @@ static int qca_send_power_pulse(struct hci_uart *hu, bool on)
 	int ret;
 	int timeout = msecs_to_jiffies(CMD_TRANS_TIMEOUT_MS);
 	u8 cmd = on ? QCA_WCN3990_POWERON_PULSE : QCA_WCN3990_POWEROFF_PULSE;
+
+printk("%s\n", __func__);
 
 	/* These power pulses are single byte command which are sent
 	 * at required baudrate to wcn3990. On wcn3990, we have an external
@@ -1481,6 +1488,8 @@ static int qca_set_speed(struct hci_uart *hu, enum qca_speed_type speed_type)
 	unsigned int speed, qca_baudrate;
 	struct qca_data *qca = hu->priv;
 	int ret = 0;
+
+printk("%s\n", __func__);
 
 	if (speed_type == QCA_INIT_SPEED) {
 		speed = qca_get_speed(hu, QCA_INIT_SPEED);
@@ -1611,6 +1620,8 @@ static void qca_hw_error(struct hci_dev *hdev, u8 code)
 	struct hci_uart *hu = hci_get_drvdata(hdev);
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
+
 	set_bit(QCA_SSR_TRIGGERED, &qca->flags);
 	set_bit(QCA_HW_ERROR_EVENT, &qca->flags);
 	bt_dev_info(hdev, "mem_dump_status: %d", qca->memdump_state);
@@ -1660,6 +1671,8 @@ static void qca_reset(struct hci_dev *hdev)
 	struct hci_uart *hu = hci_get_drvdata(hdev);
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
+
 	set_bit(QCA_SSR_TRIGGERED, &qca->flags);
 	if (qca->memdump_state == QCA_MEMDUMP_IDLE) {
 		set_bit(QCA_MEMDUMP_COLLECTION, &qca->flags);
@@ -1691,6 +1704,7 @@ static bool qca_wakeup(struct hci_dev *hdev)
 	struct hci_uart *hu = hci_get_drvdata(hdev);
 	bool wakeup;
 
+printk("%s\n", __func__);
 	if (!hu->serdev)
 		return true;
 
@@ -1880,6 +1894,8 @@ static int qca_setup(struct hci_uart *hu)
 	struct qca_btsoc_version ver;
 	struct qca_serdev *qcadev;
 	const char *soc_name;
+
+printk("%s\n", __func__);
 
 	ret = qca_check_speeds(hu);
 	if (ret)
@@ -2337,6 +2353,8 @@ static int qca_serdev_probe(struct serdev_device *serdev)
 	int err;
 	bool power_ctrl_enabled = true;
 
+printk("%s\n", __func__);
+
 	qcadev = devm_kzalloc(&serdev->dev, sizeof(*qcadev), GFP_KERNEL);
 	if (!qcadev)
 		return -ENOMEM;
@@ -2495,6 +2513,8 @@ static int qca_serdev_probe(struct serdev_device *serdev)
 		if (!(data->capabilities & QCA_CAP_VALID_LE_STATES))
 			set_bit(HCI_QUIRK_BROKEN_LE_STATES, &hdev->quirks);
 	}
+
+printk("%s done\n", __func__);
 
 	return 0;
 }
