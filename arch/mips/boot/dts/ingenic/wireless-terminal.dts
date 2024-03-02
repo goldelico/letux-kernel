@@ -16,6 +16,8 @@
 	};
 
 	chosen {
+		// bootargs = "console=null mem=8M@0x0 loglevel=7 ingenic_pm_clk=0 devtmpfs.mount=1 lo_prealloc=4 clk_ignore_unused no_hash_pointers";
+		bootargs = "console=ttyS2,115200n8 mem=8M@0x0 loglevel=7 ingenic_pm_clk=0 devtmpfs.mount=1 lo_prealloc=4 clk_ignore_unused no_hash_pointers";
 		stdout-path = "serial2:115200n8";
 	};
 
@@ -50,9 +52,9 @@
 &ssi {
 	status = "okay";
 
-	// MPLL = 552MHz
+	// MPLL = 600MHz
 	assigned-clocks = <&cgu X1000_CLK_SSIPLL>;
-	assigned-clock-rates = <276000000>;
+	assigned-clock-rates = <200000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_spi0>;
@@ -64,8 +66,8 @@
 		reg = <0>;
 		compatible = "lyontek,ly68l6400";
 
-		spi-max-frequency = <69000000>;
-		lyontek,rx-max-frequency = <34500000>;
+		spi-max-frequency = <50000000>;
+		lyontek,rx-max-frequency = <25000000>;
 		// 85 degrees C rating
 		lyontek,op-sleep-ratio = <30>;
 		// 105 degrees C rating, but the plastic shell will melt?

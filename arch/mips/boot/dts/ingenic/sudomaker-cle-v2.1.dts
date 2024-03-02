@@ -10,8 +10,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "sudomaker,cle-v2", "ingenic,x1000e";
-	model = "SudoMaker Clé Deux";
+	compatible = "sudomaker,cle-v2.1", "ingenic,x1000e";
+	model = "SudoMaker Clé Deux Rev.B";
 
 	aliases {
 		serial2 = &uart2;
@@ -43,7 +43,7 @@
 		regulator-supplies = "vcc";
 		vcc-supply = <&vreg_13v>;
 		regulator-boot-on;
-		comment = "13V boost switch (OLED and ADC)";
+		comment = "13V Boost Switch (OLED and ADC)";
 	};
 
 	vreg_adc_vref: regulator-adc-vref {
@@ -82,7 +82,7 @@
 		regulator-name = "vreg_34v";
 		regulator-supplies = "vcc";
 		vcc-supply = <&vreg_34v>;
-		comment = "34V boost switch";
+		comment = "34V Boost Switch";
 	};
 
 	vreg_clicker: regulator-clicker {
@@ -101,7 +101,7 @@
 		regulator-name = "vreg_clicker";
 		regulator-supplies = "vcc";
 		vcc-supply = <&vreg_clicker>;
-		comment = "Clicker switch";
+		comment = "Clicker Switch";
 	};
 
 	gpio_keys {
@@ -199,7 +199,7 @@
 
 		bluetooth {
 				compatible = "brcm,bcm43438-bt";
-				max-speed = <921600>;
+				max-speed = <1500000>;
 				brcm,bt-pcm-int-params = [01 02 00 01 01];
 				shutdown-gpios = <&gpc 18 GPIO_ACTIVE_HIGH>;
 				device-wakeup-gpios = <&gpc 19 GPIO_ACTIVE_HIGH>;
@@ -301,8 +301,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_sfc>;
 
-	flash: spinor@0 {
-		compatible = "jedec,spi-nor";
+	flash: spinand@0 {
+		compatible = "spi-nand";
 		spi-max-frequency = <133000000>;
 		reg = <0>;
 
@@ -315,15 +315,15 @@
 			#size-cells = <1>;
 
 			uboot@0 {
-				reg = <0x0 0x40000>;
+				reg = <0x0 0x100000>;
 			};
 
-			kernel@40000 {
-				reg = <0x40000 0x300000>;
+			kernel@100000 {
+				reg = <0x100000 0x600000>;
 			};
 
-			rootfs@840000 {
-				reg = <0x340000 0x10000000>;
+			ubi0@700000 {
+				reg = <0x700000 0xFB00000>;
 			};
 		};
 	};

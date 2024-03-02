@@ -144,7 +144,7 @@
 	};
 
 	rtc: rtc@10003000 {
-		compatible = "ingenic,x1000-rtc";
+		compatible = "ingenic,jz4780-rtc";
 		reg = <0x10003000 0x4c>;
 
 		interrupt-parent = <&intc>;
@@ -315,6 +315,22 @@
 
 		clocks = <&cgu X1000_CLK_I2S>, <&cgu X1000_CLK_AIC>;
 		clock-names = "i2s", "aic";
+
+		interrupt-parent = <&intc>;
+		interrupts = <1>;
+
+		dmas = <&pdma X1000_DMA_I2S0_RX>, <&pdma X1000_DMA_I2S0_TX>;
+		dma-names = "rx", "tx";
+
+		status = "disabled";
+	};
+
+	audio: audio@10020000 {
+		compatible = "ingenic,x1501-audio";
+		reg = <0x10020000 0xac>;
+
+		clocks = <&cgu X1000_CLK_I2S>, <&cgu X1000_CLK_AIC>, <&cgu X1000_CLK_EXCLK>;
+		clock-names = "i2s", "aic", "ext";
 
 		interrupt-parent = <&intc>;
 		interrupts = <1>;

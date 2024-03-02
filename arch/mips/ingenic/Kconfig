@@ -72,16 +72,24 @@ config X1501_LOSHARK_L1_V2_2L
 	bool "SudoMaker LoShark L1 V2.2 Lite"
 	select MACH_X1000
 
+config X1501_LOSHARK_L1_V3
+	bool "SudoMaker LoShark L1 V3"
+	select MACH_X1000
+
 config X1000_INGENIC_JDI_V1
 	bool "Ingenic JDI v1"
 	select MACH_X1000
 
 config X1000_SUDOMAKER_CLE
-	bool "SudoMaker Clé"
+	bool "SudoMaker Cle"
 	select MACH_X1000
 
 config X1000_SUDOMAKER_CLE_V2
-	bool "SudoMaker Clé Deux"
+	bool "SudoMaker Cle Deux"
+	select MACH_X1000
+
+config X1000_SUDOMAKER_CLE_V2_1
+	bool "SudoMaker Cle Deux Rev.B"
 	select MACH_X1000
 
 config X1501_SUDOMAKER_CANBOX
