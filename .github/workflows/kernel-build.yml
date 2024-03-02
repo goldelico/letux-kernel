@@ -32,9 +32,9 @@ jobs:
             arch: mipsel
             defconfig: loshark_l1_v2.2_lite_defconfig
             image_name: uImage
-          - name: ci20
+          - name: loshark_l1_v3
             arch: mipsel
-            defconfig: ci20_defconfig
+            defconfig: loshark_l1_v3_defconfig
             image_name: uImage
 
     steps:
@@ -49,7 +49,8 @@ jobs:
     - name: Download binary files
       run: |
         cd /tmp
-        wget https://github.com/SudoMaker/LoShark/raw/master/software/initramfs-loshark-l1-v2.2.cpio
+        wget -T10 https://github.com/SudoMaker/LoShark/raw/master/software/initramfs-loshark-l1-v2.2.cpio
+        wget -T10 https://github.com/SudoMaker/LoShark/raw/master/software/initramfs-loshark-l1-v3.cpio
       timeout-minutes: 5
 
     - uses: actions/checkout@v3
