@@ -38,7 +38,7 @@
 
 	uart1_pb: uart1-pb {
 		function = "uart1";
-		groups = "uart1-data";
+		groups = "uart1-data", "uart1-hwflow";
 		bias-pull-up;
 	};
 
@@ -159,28 +159,11 @@
 };
 
 &uart0 {
-	status = "disable";
+	status = "okay";
 	/* dma-mode; */
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pb>;
 };
-
-#if 1
-&uart0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pb>;
-	uart-has-rtscts;
-
-	bluetooth: bluetooth {
-		compatible = "qcom,qca9377-bt";
-		enable-gpios = <&gpb 12 GPIO_ACTIVE_HIGH>;	// not really connected...
-		max-speed = <2000000>;
-	//	clocks = <&wifi32k>;
-	//	vdd-supply = <&bt_en>;
-	};
-};
-#endif
 
 &uart1 {
 	status = "disable";
@@ -200,6 +183,23 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pb>;
 };
+
+#if 1
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+	uart-has-rtscts;
+
+	bluetooth: bluetooth {
+		compatible = "qcom,qca9377-bt";
+		enable-gpios = <&gpb 12 GPIO_ACTIVE_HIGH>;	// not really connected...
+		max-speed = <2000000>;
+	//	clocks = <&wifi32k>;
+	//	vdd-supply = <&bt_en>;
+	};
+};
+#endif
 
 &cpufreq {
 	status = "okay";
