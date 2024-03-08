@@ -53,9 +53,9 @@
 		bias-pull-up;
 	};
 
-	spi0_pb: spi0-pb {
+	spi0_pa: spi0-pa {
 		function = "ssi";
-		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
+		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a" /*, "ssi-ce0-a", "ssi-ce1-b" */;
 		bias-disable;
 	};
 
@@ -364,21 +364,7 @@
 
 };
 
-&spi0 {
-	status = "disabled";
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi0_pb>;
-	spi-max-frequency = <54000000>;
-	num-cs = <2>;
-	cs-gpios = <&gpa 28 GPIO_ACTIVE_HIGH>, <0>;
-
-	ingenic,chnl = <0>;
-	ingenic,allow_cs_same = <1>;
-	ingenic,bus_num = <0>;
-	ingenic,has_dma_support = <0>;
-	ingenic,spi-src-clk = <1>;	/*0.ext; 1.ssi*/
-};
-
+#if 1	// debug using bitbang gpio
 / {
 	spi_gpio: bitbang {
 		status = "disabled";
@@ -394,6 +380,14 @@
 };
 
 &spi_gpio {
+
+#else
+
+&spi0 {
+
+#endif
+	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
+
 	status = "okay";
 
 	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>, <&gpb 2 GPIO_ACTIVE_LOW>;
