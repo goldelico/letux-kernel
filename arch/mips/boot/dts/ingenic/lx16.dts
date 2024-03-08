@@ -220,7 +220,7 @@
 
 	spi0_pa: spi0-pa {
 		function = "ssi";
-		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
+		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a" /*, "ssi-ce0-a", "ssi-ce1-b" */;
 		bias-disable;
 	};
 
