@@ -3,10 +3,10 @@ x1600 Issues
 
 Most things are missing drivers or bad DTS
 
-1. UART needs to be disabled in DTS
+1. UARTs need to be all enabled in DTS
 6&7. reboot not working (but poweroff)
-8. spi
-9. usb/otg + phy
+8. spi - prepared but broken
+9. usb/otg + phy - prepared but broken
 11. watchdog
 12. pwm
 13. aic / i2s
@@ -19,7 +19,7 @@ Most things are missing drivers or bad DTS
 20. hash
 21. mac
 22. sfc
-23. mcu (what is this?
+23. mcu (what is this?)
 24. efuse
 25. cim
 26. dpu
@@ -27,7 +27,7 @@ Most things are missing drivers or bad DTS
 Fixed
 =====
 
-2. TCU: "Set X1600-specific clock event flag." should be only x1600
+2. TCU: "Set X1600-specific clock event flag." should be only for x1600
 3. OST ticks only once
 4. gpio-keys report only once
 5. /proc/interrupts shows only one interrupt per press-release cycle for gpio-keys
