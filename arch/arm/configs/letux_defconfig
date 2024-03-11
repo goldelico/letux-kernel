@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.1.80 Kernel Configuration
+# Linux/arm 6.1.81 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2363,9 +2363,6 @@ CONFIG_NET_VENDOR_INTEL=y
 # CONFIG_ICE is not set
 # CONFIG_FM10K is not set
 # CONFIG_IGC is not set
-CONFIG_NET_VENDOR_WANGXUN=y
-# CONFIG_NGBE is not set
-# CONFIG_TXGBE is not set
 # CONFIG_JME is not set
 CONFIG_NET_VENDOR_ADI=y
 # CONFIG_ADIN1110 is not set
@@ -2478,6 +2475,9 @@ CONFIG_NET_VENDOR_VERTEXCOM=y
 CONFIG_NET_VENDOR_VIA=y
 # CONFIG_VIA_RHINE is not set
 # CONFIG_VIA_VELOCITY is not set
+CONFIG_NET_VENDOR_WANGXUN=y
+# CONFIG_NGBE is not set
+# CONFIG_TXGBE is not set
 CONFIG_NET_VENDOR_WIZNET=y
 # CONFIG_WIZNET_W5100 is not set
 # CONFIG_WIZNET_W5300 is not set
