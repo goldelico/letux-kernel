@@ -1,11 +1,11 @@
 /dts-v1/;
 
-#include <dt-bindings/input/input.h>
-#include "x1600.dtsi"
-#include <dt-bindings/interrupt-controller/irq.h>
 #include <generated/autoconf.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/ingenic-pinctrl.h>
-
+#include "x1600.dtsi"
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
@@ -447,6 +447,8 @@
 
 		led-0 {
 			linux,default-trigger = "heartbeat";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
 #ifdef PWM_LED
 			pwms = <&pwm 0 100000>;
 			max-brightness = <255>;
@@ -457,6 +459,8 @@
 
 		led-1 {
 			linux,default-trigger = "mmc0";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
 #ifdef PWM_LED
 			pwms = <&pwm 1 100000>;
 			max-brightness = <255>;
