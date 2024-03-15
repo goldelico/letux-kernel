@@ -7,6 +7,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 #define PWM_LED 0
+#define SPI_BITBANG 1	// debug using bitbang gpio
+#define DISPLAY 1	// 0 = LCD, 1 = EPD
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
@@ -157,6 +159,13 @@
 //		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
+
+#if DISPLAY == 1
+	epd_keys: epd-keys {
+		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
+		bias-pull-up;
+	};
+#endif
 };
 
 &uart0 {
@@ -366,7 +375,7 @@
 
 };
 
-#if 1	// debug using bitbang gpio
+#if SPI_BITBANG
 / {
 	spi_gpio: bitbang {
 		status = "disabled";
@@ -386,11 +395,40 @@
 #else
 
 &spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pa>;
 
 #endif
-	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
-
 	status = "okay";
+
+#if DISPLAY == 1
+
+	/* https://www.waveshare.com/wiki/2.7inch_e-Paper_HAT_Manual#Resources */
+
+	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>;
+	num-chipselects = <1>;
+
+	lcd: waveshare-epaper-hat@0 {
+		compatible = "gooddisplay,generic_epaper";
+		reg = <0>;
+		spi-max-frequency = <32000000>;
+
+		dc-gpios = <&gpb 3 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+		busy-gpios = <&gpb 23 GPIO_ACTIVE_HIGH>;
+
+//		spi-speed-hz = <1000000>;
+		// partial-update;
+		// mirror-x;
+		// mirror-y;
+		// many more...
+		colors = <0>;
+		dimensions-px = <264 176>;
+		dimensions-mm = <60 40>;
+	};
+
+#else
+	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
 
 	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>, <&gpb 2 GPIO_ACTIVE_LOW>;
 	num-chipselects = <2>;
@@ -445,6 +483,7 @@
 
 		wakeup-source;
 	};
+#endif
 };
 
 &spi_slv0 {
@@ -523,6 +562,35 @@
 
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
+
+#if DISPLAY == 1
+		pinctrl-names = "default";
+		pinctrl-0 = <&epd_keys>;
+
+		k1 {
+			label = "key1";
+			linux,code = <KEY_1>;
+			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k2 {
+			label = "key2";
+			linux,code = <KEY_2>;
+			gpios = <&gpb 22 GPIO_ACTIVE_LOW>;
+		};
+
+		k3 {
+			label = "key3";
+			linux,code = <KEY_3>;
+			gpios = <&gpc 26 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k4 {
+			label = "key4";
+			linux,code = <KEY_4>;
+			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
+		};
+#endif
 
 		wakeup {
 			label = "WAKEUP";
