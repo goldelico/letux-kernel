@@ -24,13 +24,16 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
-#include <drm/drm_fb_cma_helper.h>
-#include <drm/drm_fb_helper.h>
+#include <drm/drm_fb_dma_helper.h>
+#include <drm/drm_fbdev_generic.h>
 #include <drm/drm_format_helper.h>
 #include <drm/drm_fourcc.h>
-#include <drm/drm_gem_cma_helper.h>
+#include <drm/drm_framebuffer.h>
+#include <drm/drm_gem.h>
+#include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_mipi_dbi.h>
+#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_rect.h>
 #include <drm/drm_vblank.h>
@@ -251,7 +254,7 @@ static const struct drm_connector_funcs tinydrm_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-struct drm_connector *
+static struct drm_connector *
 tinydrm_connector_create(struct drm_device *drm,
 			 const struct drm_display_mode *mode,
 			 int connector_type)
@@ -305,7 +308,7 @@ static int tinydrm_rotate_mode(struct drm_display_mode *mode,
  * Returns:
  * The bytes per pixel value for the specified plane.
  */
-int drm_format_plane_cpp(uint32_t format, int plane)
+static int drm_format_plane_cpp(uint32_t format, int plane)
 {
 	const struct drm_format_info *info;
 
@@ -735,20 +738,15 @@ static int gdepaper_txbuf_pack(u8 *dst,
 				struct drm_rect *clip,
 				enum gdepaper_col_ch col)
 {
-	struct drm_gem_cma_object *cma_obj = drm_fb_cma_get_gem_obj(fb, 0);
-	struct dma_buf_attachment *import_attach = cma_obj->base.import_attach;
-	struct drm_format_name_buf format_name;
+	struct drm_gem_dma_object *dma_obj = drm_fb_dma_get_gem_obj(fb, 0);
 	int ret = 0;
-	void *vaddr = cma_obj->vaddr;
+	void *vaddr = dma_obj->vaddr;
 	size_t len = (clip->x2 - clip->x1);
 	unsigned int y, lines = clip->y2 - clip->y1;
 
-	if (import_attach) {
-		ret = dma_buf_begin_cpu_access(import_attach->dmabuf,
-					       DMA_FROM_DEVICE);
-		if (ret)
-			return ret;
-	}
+	ret = drm_gem_fb_begin_cpu_access(fb, DMA_FROM_DEVICE);
+	if (ret)
+		return ret;
 
 	vaddr += clip->y1 * fb->pitches[0] +
 		clip->x1 * drm_format_plane_cpp(fb->format->format, 0);
@@ -771,18 +769,12 @@ static int gdepaper_txbuf_pack(u8 *dst,
 		break;
 
 	default:
-		dev_err_once(fb->dev->dev, "Format is not supported: %s\n",
-			     drm_get_format_name(fb->format->format,
-						 &format_name));
+		dev_err_once(fb->dev->dev, "Format is not supported: %p4cc\n",
+			     &fb->format->format);
 		return -EINVAL;
 	}
 
-	if (import_attach) {
-		ret = dma_buf_end_cpu_access(import_attach->dmabuf,
-					     DMA_FROM_DEVICE);
-		if (ret)
-			return ret;
-	}
+	drm_gem_fb_end_cpu_access(fb, DMA_FROM_DEVICE);
 
 	return len*lines/8;
 }
@@ -820,7 +812,7 @@ static int gdepaper_partial_cmd(struct gdepaper *epap, struct drm_rect *rect,
 	return gdepaper_spi_transfer_cstoggle(epap, buf, len);
 }
 
-int gdepaper_config_refresh(struct gdepaper *epap)
+static int gdepaper_config_refresh(struct gdepaper *epap)
 {
 	struct device *dev = epap->drm.dev;
 	int ret = 0;
@@ -1304,15 +1296,20 @@ static struct drm_display_mode *gdepaper_of_read_mode(
 }
 
 static const struct drm_simple_display_pipe_funcs gdepaper_pipe_funcs = {
-	.enable		= gdepaper_pipe_enable,
-	.disable	= gdepaper_pipe_disable,
-	.update		= gdepaper_pipe_update,
-	.prepare_fb	= drm_gem_fb_simple_display_pipe_prepare_fb,
+	.enable = gdepaper_pipe_enable,
+	.disable = gdepaper_pipe_disable,
+	.update	= gdepaper_pipe_update,
+	.mode_valid = mipi_dbi_pipe_mode_valid,
+	.begin_fb_access = mipi_dbi_pipe_begin_fb_access,
+	.end_fb_access = mipi_dbi_pipe_end_fb_access,
+	.reset_plane = mipi_dbi_pipe_reset_plane,
+	.duplicate_plane_state = mipi_dbi_pipe_duplicate_plane_state,
+	.destroy_plane_state = mipi_dbi_pipe_destroy_plane_state
 };
 
-DEFINE_DRM_GEM_CMA_FOPS(gdepaper_fops);
+DEFINE_DRM_GEM_DMA_FOPS(gdepaper_fops);
 
-int gdepaper_force_full_refresh_ioctl(struct drm_device *drm_dev, void *data,
+static int gdepaper_force_full_refresh_ioctl(struct drm_device *drm_dev, void *data,
 		struct drm_file *file)
 {
 	struct gdepaper *epap = drm_to_gdepaper(drm_dev);
@@ -1335,7 +1332,7 @@ out:
 	return ret;
 }
 
-int gdepaper_get_refresh_params_ioctl(struct drm_device *drm_dev, void *data,
+static int gdepaper_get_refresh_params_ioctl(struct drm_device *drm_dev, void *data,
 		struct drm_file *file)
 {
 	struct gdepaper *epap = drm_to_gdepaper(drm_dev);
@@ -1343,7 +1340,7 @@ int gdepaper_get_refresh_params_ioctl(struct drm_device *drm_dev, void *data,
 	return copy_to_user(data, &epap->rfp, sizeof(epap->rfp));
 }
 
-int gdepaper_set_refresh_params_ioctl(struct drm_device *drm_dev, void *data,
+static int gdepaper_set_refresh_params_ioctl(struct drm_device *drm_dev, void *data,
 		struct drm_file *file)
 {
 	struct gdepaper *epap = drm_to_gdepaper(drm_dev);
@@ -1371,7 +1368,7 @@ err_out:
 	return ret;
 }
 
-int gdepaper_set_partial_update_en_ioctl(struct drm_device *drm_dev,
+static int gdepaper_set_partial_update_en_ioctl(struct drm_device *drm_dev,
 		void *data, struct drm_file *file)
 {
 	struct gdepaper *epap = drm_to_gdepaper(drm_dev);
@@ -1410,7 +1407,7 @@ static struct drm_driver gdepaper_driver = {
 				  DRIVER_ATOMIC,
 	.fops			= &gdepaper_fops,
 	.release		= gdepaper_release,
-	DRM_GEM_CMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE(drm_gem_cma_dumb_create),
+	DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE(drm_gem_dma_dumb_create),
 	.name			= "gdepaper",
 	.desc			= "Good Display ePaper panel",
 	.date			= "20190715",
@@ -1624,7 +1621,7 @@ printk("%s\n", __func__);
 	/* (from mipi-dbi.c:)
 	 * Even though it's not the SPI device that does DMA (the master does),
 	 * the dma mask is necessary for the dma_alloc_wc() in
-	 * drm_gem_cma_create(). The dma_addr returned will be a physical
+	 * drm_gem_dma_create(). The dma_addr returned will be a physical
 	 * address which might be different from the bus address, but this is
 	 * not a problem since the address will not be used.
 	 * The virtual address is used in the transfer and the SPI core
@@ -1685,15 +1682,13 @@ err_free:
 	return ret;
 }
 
-static int gdepaper_remove(struct spi_device *spi)
+static void gdepaper_remove(struct spi_device *spi)
 {
 	struct drm_device *drm = spi_get_drvdata(spi);
 
 	dev_dbg(drm->dev, "Removing gdepaper module\n");
 	drm_dev_unplug(drm);
 	drm_atomic_helper_shutdown(drm);
-
-	return 0;
 }
 
 static void gdepaper_shutdown(struct spi_device *spi)
