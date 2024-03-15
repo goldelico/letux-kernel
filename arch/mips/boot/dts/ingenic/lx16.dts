@@ -135,6 +135,8 @@
 #define PC26_PWM5_TCU6		&gpc 26
 
 #define PWM_LED 0
+#define SPI_BITBANG 1	// debug using bitbang gpio
+#define DISPLAY 1	// 0 = LCD, 1 = EPD
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
@@ -328,6 +330,13 @@
 //		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
+
+#if DISPLAY == 1
+	epd_keys: epd-keys {
+		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
+		bias-pull-up;
+	};
+#endif
 };
 
 &cgu {
@@ -685,6 +694,35 @@
 
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
+
+#if DISPLAY == 1
+		pinctrl-names = "default";
+		pinctrl-0 = <&epd_keys>;
+
+		k1 {
+			label = "key1";
+			linux,code = <KEY_1>;
+			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k2 {
+			label = "key2";
+			linux,code = <KEY_2>;
+			gpios = <&gpb 22 GPIO_ACTIVE_LOW>;
+		};
+
+		k3 {
+			label = "key3";
+			linux,code = <KEY_3>;
+			gpios = <&gpc 26 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k4 {
+			label = "key4";
+			linux,code = <KEY_4>;
+			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
+		};
+#endif
 
 		wakeup {
 			label = "WAKEUP";
