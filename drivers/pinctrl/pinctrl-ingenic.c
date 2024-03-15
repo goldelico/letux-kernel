@@ -55,6 +55,8 @@
 #define JZ4760_GPIO_FLAG	0x50
 #define JZ4760_GPIO_PEN		0x70
 
+#define X1600_GPIO_PU		0x80
+
 #define X1830_GPIO_PEL			0x110
 #define X1830_GPIO_PEH			0x120
 
@@ -2905,7 +2907,9 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 	bool pull;
 
-	if (jzpc->info->version >= ID_JZ4770)
+	if (jzpc->info->version == ID_X1600)
+		pull = ingenic_get_pin_config(jzpc, pin, X1600_GPIO_PU);
+	else if (jzpc->info->version >= ID_JZ4770)
 		pull = !ingenic_get_pin_config(jzpc, pin, JZ4760_GPIO_PEN);
 	else if (jzpc->info->version == ID_JZ4730)
 		pull = ingenic_get_pin_config(jzpc, pin, JZ4730_GPIO_GPPUR);
@@ -2957,6 +2961,8 @@ static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 					REG_SET(X1830_GPIO_PEH), bias << idxh);
 		}
 
+	} else if (jzpc->info->version == ID_X1600) {
+		ingenic_config_pin(jzpc, pin, X1600_GPIO_PU, bias);
 	} else if (jzpc->info->version >= ID_JZ4770) {
 		ingenic_config_pin(jzpc, pin, JZ4760_GPIO_PEN, !bias);
 	} else if (jzpc->info->version == ID_JZ4730) {
