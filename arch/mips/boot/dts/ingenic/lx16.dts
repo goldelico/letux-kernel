@@ -6,6 +6,8 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+#define PWM_LED 0
+
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
 
@@ -457,7 +459,7 @@
 };
 
 &pwm {
-#ifdef PWM_LED	// intereferes with gpc 0 led
+#if PWM_LED	// intereferes with gpc 0 led
 	status = "okay";
 #else
 	status = "disabled";
@@ -492,7 +494,7 @@
 
 / {
 	leds: leds {
-#ifdef PWM_LED
+#if PWM_LED
 		compatible = "pwm-leds";
 #else
 		compatible = "gpio-leds";
@@ -500,7 +502,7 @@
 
 		led-0 {
 			linux,default-trigger = "heartbeat";
-#ifdef PWM_LED
+#if PWM_LED
 			pwms = <&pwm 2 100000>;
 			max-brightness = <255>;
 #else
@@ -510,7 +512,7 @@
 
 		led-1 {
 			linux,default-trigger = "mmc0";
-#ifdef PWM_LED
+#if PWM_LED
 			pwms = <&pwm 3 100000>;
 			max-brightness = <255>;
 #else
