@@ -134,6 +134,8 @@
 #define PC25_PWM4_TCU6		&gpc 25
 #define PC26_PWM5_TCU6		&gpc 26
 
+#define PWM_LED 0
+
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
 
