@@ -6,9 +6,9 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-#define PWM_LED 0
-#define SPI_BITBANG 1	// debug using bitbang gpio
-#define DISPLAY 1	// 0 = LCD, 1 = EPD
+#define PWM_LED		0
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+#define DISPLAY		0	// 0 = LCD, 1 = EPD, 2 = tbd.
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
@@ -436,6 +436,8 @@
         lcd: display@0 {
 		compatible = "waveshare,rpi-lcd-35", "ilitek,ili9486";
 		reg = <0>;	/* CS0 */
+
+	status = "disabled";
 
 //		pinctrl-names = "default";
 //		pinctrl-0 = <&lcd_pins>;
