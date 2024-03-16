@@ -1517,7 +1517,7 @@ printk("%s\n", __func__);
 	ret = devm_drm_dev_init(dev, drm, &gdepaper_driver);
 	if (ret) {
 		dev_warn(dev, "failed to init drm dev\n");
-		goto err_free;
+		return ret;
 	}
 #endif
 	drm_mode_config_init(drm);
@@ -1525,22 +1525,19 @@ printk("%s\n", __func__);
 	epap->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(epap->reset)) {
 		dev_err(dev, "Failed to get reset GPIO\n");
-		ret = PTR_ERR(epap->reset);
-		goto err_free;
+		return PTR_ERR(epap->reset);
 	}
 
 	epap->busy = devm_gpiod_get(dev, "busy", GPIOD_IN);
 	if (IS_ERR(epap->busy)) {
 		dev_err(dev, "Failed to get busy GPIO\n");
-		ret = PTR_ERR(epap->busy);
-		goto err_free;
+		return PTR_ERR(epap->busy);
 	}
 
 	epap->dc = devm_gpiod_get(dev, "dc", GPIOD_OUT_LOW);
 	if (IS_ERR(epap->dc)) {
 		dev_err(dev, "Failed to get dc GPIO\n");
-		ret = PTR_ERR(epap->dc);
-		goto err_free;
+		return PTR_ERR(epap->dc);
 	}
 
 	device_property_read_u32(dev, "rotation", &rotation);
@@ -1565,7 +1562,7 @@ printk("%s\n", __func__);
 	ret = gdepaper_of_read_luts(epap, np, dev);
 	if (ret) {
 		dev_warn(dev, "can't read LUTs from dt\n");
-		goto err_free;
+		return ret;
 	}
 
 	of_property_read_u32(np, "controller-resolution",
@@ -1579,18 +1576,16 @@ printk("%s\n", __func__);
 
 		} else {
 			dev_err(dev, "colors must be set in dt\n");
-			ret = -EINVAL;
-			goto err_free;
+			return -EINVAL;
 		}
 	} else if (ret) {
 		dev_err(dev, "Invalid dt colors property\n");
-		goto err_free;
+		return ret;
 	}
 	if (epap->display_colors < 0 ||
 			epap->display_colors >= GDEPAPER_COL_END) {
 		dev_err(dev, "invalid colors value\n");
-		ret = -EINVAL;
-		goto err_free;
+		return -EINVAL;
 	}
 	epap->mirror_x = of_property_read_bool(np, "mirror-x");
 	epap->mirror_y = of_property_read_bool(np, "mirror-y");
@@ -1632,24 +1627,21 @@ printk("%s\n", __func__);
 		ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(32));
 		if (ret) {
 			dev_warn(dev, "Failed to set dma mask %d\n", ret);
-			goto err_free;
+			return ret;
 		}
 	}
 
 	mode = gdepaper_of_read_mode(type_desc, np, dev);
 	if (IS_ERR(mode)) {
 		dev_warn(dev, "Failed to read mode: %ld\n", PTR_ERR(mode));
-		ret = PTR_ERR(mode);
-		goto err_free;
+		return PTR_ERR(mode);
 	}
 
 	/* 8 pixels per byte, bit-packed */
 	bufsize = (mode->vdisplay * mode->hdisplay + 7)/8;
 	epap->tx_buf = devm_kmalloc(drm->dev, bufsize, GFP_KERNEL);
-	if (!epap->tx_buf) {
-		ret = -ENOMEM;
-		goto err_free;
-	}
+	if (!epap->tx_buf)
+		return -ENOMEM;
 
 	/* TODO rotation support? */
 	ret = tinydrm_display_pipe_init(drm, &epap->pipe, &gdepaper_pipe_funcs,
@@ -1658,7 +1650,7 @@ printk("%s\n", __func__);
 					ARRAY_SIZE(gdepaper_formats), mode, 0);
 	if (ret) {
 		dev_warn(dev, "Failed to initialize display pipe: %d\n", ret);
-		goto err_free;
+		return ret;
 	}
 
 	drm->mode_config.funcs = &gdepaper_dbi_mode_config_funcs;
@@ -1669,17 +1661,14 @@ printk("%s\n", __func__);
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_warn(dev, "Failed to register drm device: %d\n", ret);
-		goto err_free;
+		return ret;
 	}
 
 	spi_set_drvdata(spi, drm);
 	drm_fbdev_generic_setup(drm, 0);
 
-	dev_dbg(dev, "Probed gdepaper module\n");
+	dev_info(dev, "Probed gdepaper module\n");
 	return 0;
-err_free:
-//	kfree(epap);
-	return ret;
 }
 
 static void gdepaper_remove(struct spi_device *spi)
@@ -1702,7 +1691,6 @@ static void gdepaper_shutdown(struct spi_device *spi)
 static struct spi_driver gdepaper_spi_driver = {
 	.driver = {
 		.name = "gdepaper",
-		.owner = THIS_MODULE,
 		.of_match_table = gdepaper_of_match,
 	},
 	.id_table = gdepaper_spi_id,
