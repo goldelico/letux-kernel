@@ -134,10 +134,6 @@
 #define PC25_PWM4_TCU6		&gpc 25
 #define PC26_PWM5_TCU6		&gpc 26
 
-#define PWM_LED 0
-#define SPI_BITBANG 1	// debug using bitbang gpio
-#define DISPLAY 1	// 0 = LCD, 1 = EPD
-
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
 
@@ -224,7 +220,7 @@
 
 	spi0_pa: spi0-pa {
 		function = "ssi";
-		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a" /*, "ssi-ce0-a", "ssi-ce1-b" */;
+		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
 		bias-disable;
 	};
 
@@ -331,7 +327,7 @@
 		bias-disable;
 	};
 
-#if DISPLAY == 1
+#if DISPLAY == 2
 	epd_keys: epd-keys {
 		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
 		bias-pull-up;
@@ -695,7 +691,7 @@
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 
-#if DISPLAY == 1
+#if DISPLAY == 2
 		pinctrl-names = "default";
 		pinctrl-0 = <&epd_keys>;
 
