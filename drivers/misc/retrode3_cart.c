@@ -347,8 +347,10 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	if (ret)
 		return ret;
 
-//	set_slot_power(slot, 5000);	// switch to 5V if possible
-	set_slot_power(slot, 3300);	// switch to 3.3V if possible
+	if(!IS_ERR_OR_NULL(slot->power)) {
+//		set_slot_power(slot, 5000);	// switch to 5V if possible
+		set_slot_power(slot, 3300);	// switch to 3.3V if possible
+	}
 
 	slot->bus->prev_addr = EOF - 1;	// needed to bring all address gpios in a defined state
 //	set_address(slot->bus, EOF-1);	// bring all address gpios in a defined state

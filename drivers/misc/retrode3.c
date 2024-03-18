@@ -162,23 +162,25 @@ static inline void write_word(struct retrode3_bus *bus, u16 data, int mode)
 
 /* cart select */
 
-static void set_slot_power(struct retrode3_slot *slot, int mV)
+static int set_slot_power(struct retrode3_slot *slot, int mV)
 {
 // printk("%s: %d %px\n", __func__, mV, slot->power);
 
 	if (IS_ERR_OR_NULL(slot->power))
-		return;
+		return -ENODEV;
 
 	switch(mV) {
 		case 5000:
-			gpiod_direction_output(slot->power, false);	// switch to output and pull down
+			gpiod_direction_output(slot->power, false);	// switch to output and strongly pull down
 			break;
 		case 3300:
 			gpiod_direction_input(slot->power);	// floating
 			break;
 		default:
 printk("%s: unknown voltage %d\n", __func__, mV);
+			return -EINVAL;
 	}
+	return 0;
 }
 
 static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
@@ -393,12 +395,49 @@ static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
 
+// sould use sysfs_emit()
 	return sprintf(buf, "%s\n", gpiod_get_value(slot->cd)?"active":"empty");
 }
 static DEVICE_ATTR_RO(sense);
 
+static ssize_t vcc_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+
+	if(IS_ERR_OR_NULL(slot->power))
+		return sprintf(buf, "fixed\n");	// can't control
+
+	// input = floating = 3.3V, output = 5V
+// sould use sysfs_emit()
+	return sprintf(buf, "%s\n", gpiod_get_direction(slot->power)?"3.3V":"5V");
+}
+
+static ssize_t vcc_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+
+	if(IS_ERR_OR_NULL(slot->power))
+		return -ENODEV;	// can't control
+
+	if (sysfs_streq(buf, "3.3V"))
+		set_slot_power(slot, 3300);
+	else if (sysfs_streq(buf, "5V"))
+		set_slot_power(slot, 5000);
+	else if (sysfs_streq(buf, "off"))
+		set_slot_power(slot, 0);
+	else
+		return -EINVAL;
+
+	return count;
+}
+static DEVICE_ATTR_RW(vcc);
+
 static struct attribute *retrode3_attrs[] = {
 	&dev_attr_sense.attr,
+	&dev_attr_vcc.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(retrode3);
