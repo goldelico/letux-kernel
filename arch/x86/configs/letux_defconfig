@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.7.9 Kernel Configuration
+# Linux/x86 6.7.10 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -498,6 +498,7 @@ CONFIG_SPECULATION_MITIGATIONS=y
 CONFIG_PAGE_TABLE_ISOLATION=y
 # CONFIG_RETPOLINE is not set
 # CONFIG_GDS_FORCE_MITIGATION is not set
+CONFIG_MITIGATION_RFDS=y
 
 #
 # Power management and ACPI options
