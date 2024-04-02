@@ -6,9 +6,56 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+#define LX16_REV	2	// 1 = v0.1, 2 = v0.2
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
-#define DISPLAY		1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
+/* attached application */
+#define APPLICATION	1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
+
+// map IO numbers on the RasPi connector
+#define TXD	IO14
+#define RXD	IO15
+#define CE0	IO8
+#define CE1	IO7
+#define	MOSI	IO11
+#define MISO	IO9
+#define SCLK	IO11
+#define	IO14	&gpb 8
+#define	IO15	&gpb 7
+#define	IO23	&gpb 24
+#define	IO24	&gpb 23
+#define	IO8	&gpa 28
+#define	IO16	&gpc 25
+#define	IO12	&gpb 9
+#define	IO20	&gpb 21
+#define	IO21	&gpb 25
+#define	SDA	&gpb 31
+#define	SCL	&gpb 30
+#define	IO4	&gpc 24
+#define	IO17	&gpb 10
+#define	IO10	&gpa 30
+#define	IO9	&gpa 29
+#define	IO11	&gpa 31
+#define	IDSD	&gpb 20
+#define	IDSC	&gpb 19
+#define	IO5	&gpc 2
+#define	IO6	&gpb 22
+#define	IO13	&gpc 26
+#define	IO18	&gpb 28
+#define	IO26	&gpb 26
+
+#if LX16_REV == 1
+#define	IO7	&gpb 2
+#define	IO27	&gpb 4
+#define	IO22	&gpb 5
+#define	IO25	&gpb 3
+#endif
+#if LX16_REV == 2
+#define	IO7	&gpb 16
+#define	IO27	&gpb 14
+#define	IO22	&gpb 15
+#define	IO25	&gpb 13
+#endif
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
@@ -160,7 +207,7 @@
 		bias-disable;
 	};
 
-#if DISPLAY == 2
+#if APPLICATION == 2
 	epd_keys: epd-keys {
 		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
 		bias-pull-up;
@@ -378,110 +425,29 @@
 #if SPI_BITBANG
 / {
 	spi_gpio: bitbang {
+#define SPI spi_gpio
 		status = "disabled";
 		compatible = "spi-gpio";
-		sck-gpios = <&gpa 31 GPIO_ACTIVE_HIGH>;
-		miso-gpios = <&gpa 29 GPIO_ACTIVE_HIGH>;
-		mosi-gpios = <&gpa 30 GPIO_ACTIVE_HIGH>;
-		cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>;
+		sck-gpios = <SCLK GPIO_ACTIVE_HIGH>;
+		miso-gpios = <MISO GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <MOSI GPIO_ACTIVE_HIGH>;
+		cs-gpios = <CE0 GPIO_ACTIVE_LOW>;
 		num-chipselects = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
 };
 
-&spi_gpio {
-
 #else
 
 &spi0 {
+#define SPI spi0
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi0_pa>;
-
-#endif
 	status = "okay";
-
-#if DISPLAY == 1
-	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
-
-	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>, <&gpb 2 GPIO_ACTIVE_LOW>;
-	num-chipselects = <2>;
-	num-cs = <0>;	// do not use internal CS
-
-        lcd: display@0 {
-		compatible = "waveshare,rpi-lcd-35", "ilitek,ili9486";
-		reg = <0>;	/* CS0 */
-
-	status = "disabled";
-
-		spi-max-frequency = <32000000>;
-
-		dc-gpios = <&gpb 23 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpb 3 GPIO_ACTIVE_HIGH>;
-
-		rotation = <180>;
-	};
-
-	touch@1 {
-		compatible = "ti,tsc2046";
-		reg = <1>;	/* CS1 */
-
-		spi-max-frequency = <1000000>;
-
-		interrupt-parent = <&gpb>;
-		interrupts = <10 IRQ_TYPE_NONE>;	/* pb10 */
-		pendown-gpio = <&gpb 10 GPIO_ACTIVE_LOW>;
-
-		touchscreen-min-x = <0>;
-		touchscreen-min-y = <0>;
-		touchscreen-size-x = <800>;
-		touchscreen-size-y = <480>;
-		touchscreen-max-pressure = <1000>;
-		touchscreen-fuzz-x = <16>;
-		touchscreen-fuzz-y = <16>;
-		touchscreen-fuzz-pressure = <10>;
-		touchscreen-inverted-x;
-		// touchscreen-inverted-y;
-
-		ti,x-min = /bits/ 16 <160>;
-		ti,x-max = /bits/ 16 <3900>;
-		ti,y-min = /bits/ 16 <220>;
-		ti,y-max = /bits/ 16 <3750>;
-		ti,x-plate-ohms = /bits/ 16 <40>;
-		ti,pressure-max = /bits/ 16 <255>;
-
-		wakeup-source;
-	};
-#endif
-#if DISPLAY == 2
-
-	/* https://www.waveshare.com/wiki/2.7inch_e-Paper_HAT_Manual#Resources */
-
-	cs-gpios = <&gpa 28 GPIO_ACTIVE_LOW>;
-	num-chipselects = <1>;
-	num-cs = <1>;
-
-	lcd: waveshare-epaper-hat@0 {
-		compatible = "gooddisplay,generic_epaper";
-		reg = <0>;
-		spi-max-frequency = <32000000>;
-
-		dc-gpios = <&gpb 3 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
-		busy-gpios = <&gpb 23 GPIO_ACTIVE_HIGH>;
-
-//		spi-speed-hz = <1000000>;
-		// partial-update;
-		// mirror-x;
-		// mirror-y;
-		// many more...
-		colors = <0>;
-		dimensions-px = <264 176>;
-		dimensions-mm = <60 40>;
-	};
-
-#endif
 };
+
+#endif
 
 &spi_slv0 {
 	status = "disable";
@@ -559,35 +525,6 @@
 
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
-
-#if DISPLAY == 2
-		pinctrl-names = "default";
-		pinctrl-0 = <&epd_keys>;
-
-		k1 {
-			label = "key1";
-			linux,code = <KEY_1>;
-			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
-		};
-
-		k2 {
-			label = "key2";
-			linux,code = <KEY_2>;
-			gpios = <&gpb 22 GPIO_ACTIVE_LOW>;
-		};
-
-		k3 {
-			label = "key3";
-			linux,code = <KEY_3>;
-			gpios = <&gpc 26 GPIO_ACTIVE_LOW>;	// has no pullup!
-		};
-
-		k4 {
-			label = "key4";
-			linux,code = <KEY_4>;
-			gpios = <&gpb 28 GPIO_ACTIVE_LOW>;
-		};
-#endif
 
 		wakeup {
 			label = "WAKEUP";
@@ -686,4 +623,120 @@
 	ingenic,gpio-sleep-low		= <>;
 	ingenic,gpio-sleep-high		= <>;
 };
+#endif
+
+/* Application connected to RasPi compatible Header */
+
+#if APPLICATION == 1
+&SPI {
+	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
+
+	cs-gpios = <CE0 GPIO_ACTIVE_LOW>, <CE1 GPIO_ACTIVE_LOW>;
+	num-chipselects = <2>;
+	num-cs = <0>;	// do not use internal CS
+
+        lcd: display@0 {
+		compatible = "waveshare,rpi-lcd-35", "ilitek,ili9486";
+		reg = <0>;	/* CS0 */
+
+		spi-max-frequency = <32000000>;
+
+		dc-gpios = <IO24 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <IO25 GPIO_ACTIVE_HIGH>;
+
+		rotation = <180>;
+	};
+
+	touch@1 {
+		compatible = "ti,tsc2046";
+		reg = <1>;	/* CS1 */
+
+		spi-max-frequency = <1000000>;
+
+		interrupt-parent = <&gpb>;
+		interrupts = <10 IRQ_TYPE_NONE>;	/* pb10 */
+		pendown-gpio = <IO17 GPIO_ACTIVE_LOW>;
+
+		touchscreen-min-x = <0>;
+		touchscreen-min-y = <0>;
+		touchscreen-size-x = <800>;
+		touchscreen-size-y = <480>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <16>;
+		touchscreen-fuzz-y = <16>;
+		touchscreen-fuzz-pressure = <10>;
+		touchscreen-inverted-x;
+		// touchscreen-inverted-y;
+
+		ti,x-min = /bits/ 16 <160>;
+		ti,x-max = /bits/ 16 <3900>;
+		ti,y-min = /bits/ 16 <220>;
+		ti,y-max = /bits/ 16 <3750>;
+		ti,x-plate-ohms = /bits/ 16 <40>;
+		ti,pressure-max = /bits/ 16 <255>;
+
+		wakeup-source;
+	};
+};
+
+#endif
+
+#if APPLICATION == 2
+
+&SPI {
+	/* https://www.waveshare.com/wiki/2.7inch_e-Paper_HAT_Manual#Resources */
+
+	cs-gpios = <CE0 GPIO_ACTIVE_LOW>;
+	num-chipselects = <1>;
+	num-cs = <1>;
+
+	lcd: waveshare-epaper-hat@0 {
+		compatible = "gooddisplay,generic_epaper";
+		reg = <0>;
+		spi-max-frequency = <32000000>;
+
+		dc-gpios = <IO25 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <IO17 GPIO_ACTIVE_HIGH>;
+		busy-gpios = <IO24 GPIO_ACTIVE_HIGH>;
+
+//		spi-speed-hz = <1000000>;
+		// partial-update;
+		// mirror-x;
+		// mirror-y;
+		// many more...
+		colors = <0>;
+		dimensions-px = <264 176>;
+		dimensions-mm = <60 40>;
+	};
+};
+
+&gpio_keys {
+		pinctrl-names = "default";
+		pinctrl-0 = <&epd_keys>;
+
+		k1 {
+			label = "key1";
+			linux,code = <KEY_1>;
+			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k2 {
+			label = "key2";
+			linux,code = <KEY_2>;
+			gpios = <IO6 GPIO_ACTIVE_LOW>;
+		};
+
+		k3 {
+			label = "key3";
+			linux,code = <KEY_3>;
+			gpios = <IO13 GPIO_ACTIVE_LOW>;	// has no pullup!
+		};
+
+		k4 {
+			label = "key4";
+			linux,code = <KEY_4>;
+			gpios = <IO18 GPIO_ACTIVE_LOW>;
+		};
+};
+
 #endif
