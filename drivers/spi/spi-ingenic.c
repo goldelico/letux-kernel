@@ -317,6 +317,9 @@ static int spi_ingenic_prepare_hardware(struct spi_controller *ctlr)
 	if (ret)
 		return ret;
 
+// Hack to write SSICDR - should have been done by clk_prepare_enable(priv->clk)
+*((volatile uint32_t *) 0xb000005c) &= ~(1U << 27);
+
 	regmap_write(priv->map, REG_SSICR0, REG_SSICR0_EACLRUN);
 	regmap_write(priv->map, REG_SSICR1, 0);
 	regmap_write(priv->map, REG_SSISR, 0);
