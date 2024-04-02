@@ -73,22 +73,15 @@ static int spi_ingenic_wait(struct ingenic_spi *priv,
 			    bool condition)
 {
 	unsigned int val;
-	int ret;
 
-printk("%s: long=%08lx condition=%d\n", __func__, mask, condition);
-
-	ret = regmap_read_poll_timeout(priv->map, REG_SSISR, val,
+	return regmap_read_poll_timeout(priv->map, REG_SSISR, val,
 					!!(val & mask) == condition,
-					100, 10000000);
-if(ret) printk("%s: ret=%d\n", __func__, ret);
-	return ret;
+					100, 10000);
 }
 
 static void spi_ingenic_set_cs(struct spi_device *spi, bool disable)
 {
 	struct ingenic_spi *priv = spi_controller_get_devdata(spi->controller);
-
-printk("%s: disabled=%d\n", __func__, disable);
 
 	if (disable) {
 		regmap_clear_bits(priv->map, REG_SSICR1, REG_SSICR1_UNFIN);
@@ -115,7 +108,6 @@ static void spi_ingenic_prepare_transfer(struct ingenic_spi *priv,
 	cdiv = clk_hz / (speed_hz * 2);
 	cdiv = clamp(cdiv, 1u, 0x100u) - 1;
 
-printk("%s: clk_hz=%lu cdiv=%u speed_hz=%u bits_per_word=%u\n", __func__, clk_hz, cdiv, speed_hz, bits_per_word);
 	regmap_write(priv->map, REG_SSIGR, cdiv);
 
 	regmap_field_write(priv->flen_field, bits_per_word - 2);
@@ -140,8 +132,6 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t cookie;
 	int ret;
-
-printk("%s: \n", __func__);
 
 	if (bits > 16) {
 		cfg.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
@@ -187,8 +177,6 @@ static int spi_ingenic_dma_tx(struct spi_controller *ctlr,
 {
 	struct dma_async_tx_descriptor *rx_desc, *tx_desc;
 
-printk("%s: \n", __func__);
-
 	rx_desc = spi_ingenic_prepare_dma(ctlr, ctlr->dma_rx,
 					  &xfer->rx_sg, DMA_DEV_TO_MEM, bits);
 	if (IS_ERR(rx_desc))
@@ -218,8 +206,7 @@ static int spi_ingenic_tx##x(struct ingenic_spi *priv,				\
 	u##x *rx_buf = xfer->rx_buf;						\
 	unsigned int i, val;							\
 	int err;								\
-printk("%s: count=%du prefill=%u\n", __func__, count, prefill); \
-									\
+										\
 	/* Fill up the TX fifo */						\
 	for (i = 0; i < prefill; i++) {						\
 		val = tx_buf ? tx_buf[i] : 0;					\
@@ -227,8 +214,6 @@ printk("%s: count=%du prefill=%u\n", __func__, count, prefill); \
 		regmap_write(priv->map, REG_SSIDR, val);			\
 	}									\
 										\
-printk("%s: written\n", __func__); \
-									\
 	for (i = 0; i < count; i++) {						\
 		err = spi_ingenic_wait(priv, REG_SSISR_RFE, false);		\
 		if (err)							\
@@ -259,8 +244,6 @@ static int spi_ingenic_transfer_one(struct spi_controller *ctlr,
 	struct ingenic_spi *priv = spi_controller_get_devdata(ctlr);
 	unsigned int bits = xfer->bits_per_word ?: spi->bits_per_word;
 
-printk("%s: can_dma=%d\n", __func__, can_dma);
-
 	spi_ingenic_prepare_transfer(priv, spi, xfer);
 
 	if (spi_xfer_is_dma_mapped(ctlr, spi, xfer))
@@ -284,8 +267,6 @@ static int spi_ingenic_prepare_message(struct spi_controller *ctlr,
 	unsigned int ssicr0_mask = REG_SSICR0_LOOP | REG_SSICR0_FSEL;
 	unsigned int ssicr1_mask = REG_SSICR1_PHA | REG_SSICR1_POL | cs;
 	unsigned int ssicr0 = 0, ssicr1 = 0;
-
-printk("%s: \n", __func__);
 
 	if (priv->soc_info->has_trendian) {
 		ssicr0_mask |= REG_SSICR0_RENDIAN_LSB | REG_SSICR0_TENDIAN_LSB;
@@ -322,8 +303,6 @@ static int spi_ingenic_prepare_hardware(struct spi_controller *ctlr)
 	struct ingenic_spi *priv = spi_controller_get_devdata(ctlr);
 	int ret;
 
-printk("%s: \n", __func__);
-
 	ret = clk_prepare_enable(priv->clk);
 	if (ret)
 		return ret;
@@ -340,8 +319,6 @@ static int spi_ingenic_unprepare_hardware(struct spi_controller *ctlr)
 {
 	struct ingenic_spi *priv = spi_controller_get_devdata(ctlr);
 
-printk("%s: \n", __func__);
-
 	regmap_clear_bits(priv->map, REG_SSICR0, REG_SSICR0_SSIE);
 
 	clk_disable_unprepare(priv->clk);
@@ -355,10 +332,6 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 {
 	struct dma_slave_caps caps;
 	int ret;
-
-printk("%s: \n", __func__);
-
-return false;
 
 	ret = dma_get_slave_caps(ctlr->dma_tx, &caps);
 	if (ret) {
@@ -374,8 +347,6 @@ static int spi_ingenic_request_dma(struct spi_controller *ctlr,
 				   struct device *dev)
 {
 	struct dma_chan *chan;
-
-printk("%s: \n", __func__);
 
 	chan = dma_request_chan(dev, "tx");
 	if (IS_ERR(chan))
@@ -395,8 +366,6 @@ printk("%s: \n", __func__);
 static void spi_ingenic_release_dma(void *data)
 {
 	struct spi_controller *ctlr = data;
-
-printk("%s: \n", __func__);
 
 	if (ctlr->dma_tx)
 		dma_release_channel(ctlr->dma_tx);
@@ -419,8 +388,6 @@ static int spi_ingenic_probe(struct platform_device *pdev)
 	struct ingenic_spi *priv;
 	void __iomem *base;
 	int num_cs, ret;
-
-printk("%s: \n", __func__);
 
 	pdata = of_device_get_match_data(dev);
 	if (!pdata) {
