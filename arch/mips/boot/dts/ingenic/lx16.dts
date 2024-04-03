@@ -326,13 +326,6 @@
 //		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
-
-#if APPLICATION == 2
-	epd_keys: epd-keys {
-		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
-		bias-pull-up;
-	};
-#endif
 };
 
 &cgu {
@@ -741,6 +734,14 @@
 /* Application connected to RasPi compatible Header */
 
 #if APPLICATION == 1
+
+&pinctrl {
+	touch_pb: touch-pb {
+		pins = "PB10";	// IO17 = PB10 pull up
+		bias-pull-up;
+	};
+};
+
 &SPI {
 	/* https://www.waveshare.com/wiki/3.5inch_RPi_LCD_(A)#Interface_Definition */
 
@@ -752,7 +753,7 @@
 		compatible = "waveshare,rpi-lcd-35", "ilitek,ili9486";
 		reg = <0>;	/* CS0 */
 
-		spi-max-frequency = <32000000>;
+		spi-max-frequency = <54000000>;
 
 		dc-gpios = <IO24 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <IO25 GPIO_ACTIVE_HIGH>;
@@ -761,13 +762,16 @@
 	};
 
 	touch@1 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&touch_pb>;
+
 		compatible = "ti,tsc2046";
 		reg = <1>;	/* CS1 */
 
 		spi-max-frequency = <1000000>;
 
 		interrupt-parent = <&gpb>;
-		interrupts = <10 IRQ_TYPE_NONE>;	/* pb10 */
+		interrupts = <9 IRQ_TYPE_NONE>;	/* IO17 = pb10 */
 		pendown-gpio = <IO17 GPIO_ACTIVE_LOW>;
 
 		touchscreen-min-x = <0>;
@@ -795,6 +799,13 @@
 #endif
 
 #if APPLICATION == 2
+
+&pinctrl {
+	epd_keys: epd-keys {
+		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
+		bias-pull-up;
+	};
+};
 
 &SPI {
 	/* https://www.waveshare.com/wiki/2.7inch_e-Paper_HAT_Manual#Resources */
