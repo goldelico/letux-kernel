@@ -1,5 +1,8 @@
 # all pins connected to the RasPi header
 
+# add some mapping table from IO pin to GPIO
+# so that they appear in sequence
+
 GPIOS="63 62 88 42 36 37 30 29 31 52 66 54 90 60 58"
 GPIOS="$GPIOS 40 39 59 56 55 35 28 34 51 89 41 53 57"
 
@@ -9,6 +12,10 @@ do
 	echo $GPIO >/sys/class/gpio/export
 	echo out >/sys/class/gpio/gpio$GPIO/direction
 done
+
+# or handle them like a shift register?
+# add next one every 0.5 sec
+# toggle 0 or 1 after last one
 
 while true
 do
@@ -23,7 +30,8 @@ do
 	for GPIO in $GPIOS
 	do
 		[ -w /sys/class/gpio/gpio$GPIO/value ] && echo 1 >/sys/class/gpio/gpio$GPIO/value
-		sleep 0.1
+		sleep 0.5
 		[ -w /sys/class/gpio/gpio$GPIO/value ] && echo 0 >/sys/class/gpio/gpio$GPIO/value
+		sleep 0.5
 	done
 done
