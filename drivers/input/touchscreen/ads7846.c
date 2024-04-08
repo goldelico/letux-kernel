@@ -924,7 +924,6 @@ static void ads7846_report_state(struct ads7846 *ts)
 static irqreturn_t ads7846_hard_irq(int irq, void *handle)
 {
 	struct ads7846 *ts = handle;
-//printk("%s\n", __func__);
 	return get_pendown_state(ts) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
 
@@ -933,7 +932,6 @@ static irqreturn_t ads7846_irq(int irq, void *handle)
 {
 	struct ads7846 *ts = handle;
 
-printk("%s\n", __func__);
 	/* Start with a small delay before checking pendown state */
 	msleep(TS_POLL_DELAY);
 
