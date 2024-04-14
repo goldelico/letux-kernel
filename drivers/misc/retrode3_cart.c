@@ -105,23 +105,21 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			u8 byte;
 
 			if (slot->bus_width == 16)
-				err = set_address(slot->bus, (*ppos)^1);	// A0 determines lower/upper byte - use byteswap
+				err = set_address(slot->bus, (*ppos)^1);	// A0 determines lower/upper byte - may have to use byteswap
 			else
-				err = set_address(slot->bus, *ppos*2);	// shift A0->A1 etc. and read D0..D7 only
+				err = set_address(slot->bus, *ppos);
 			if(err < 0)
 				goto failed;
 
-			err = read_byte(slot->bus);
+			byte = err = read_byte(slot->bus);
 			if(err < 0)
 				goto failed;
 
 #ifndef CONFIG_RETRODE3_BUFFER
 			sz = 1;	// handle byte read
-			byte = err;
 
 			remaining = copy_to_user(buf, (char *) &byte, sz);
 #else
-			byte = err;
 
 			if (fill == sizeof(buffer)) { // flush buffer
 				remaining = copy_to_user(buf+read, buffer, fill);
@@ -330,11 +328,11 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	dev->of_node = child;
 
 	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-	gpiod_set_value(slot->ce, false);	// turn inactive
+	gpiod_set_value(slot->ce, 0);	// turn inactive
 	slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
 	slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
 	if (!IS_ERR_OR_NULL(slot->led))
-		gpiod_set_value(slot->led, false);	// turn inactive
+		gpiod_set_value(slot->led, 0);	// turn inactive
 	slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
 	of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 	of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
@@ -351,10 +349,6 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 //		set_slot_power(slot, 5000);	// switch to 5V if possible
 		set_slot_power(slot, 3300);	// switch to 3.3V if possible
 	}
-
-	slot->bus->prev_addr = EOF - 1;	// needed to bring all address gpios in a defined state
-//	set_address(slot->bus, EOF-1);	// bring all address gpios in a defined state
-	set_address(slot->bus, 0);
 
 	slot->cd_state = -1;	// enforce a state update event for initial state
 #if 1	// use polling
@@ -403,6 +397,8 @@ static void retrode3_update_cd(struct retrode3_slot *slot)
 			buf[len - 1] = 0;	// strip off \n
 		envp[1] = kasprintf(GFP_KERNEL, "SENSE=%s", buf);
 		envp[2] = NULL;
+// printk("%s: %s %s\n", __func__, envp[0], envp[1]);
+		// check with: udevadm monitor --environment
 		kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 	}
 }
