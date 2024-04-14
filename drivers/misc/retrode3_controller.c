@@ -21,36 +21,38 @@
  * game controller driver
  */
 
+#define POLL_RATE	msecs_to_jiffies(20)	/* in ms */
+
 static void retrode3_polling_work(struct work_struct *work)
 {
 	struct retrode3_slot *slot = container_of(work, struct retrode3_slot, work.work);
 	int i;
-	u32 word;	// left and right controllers and two mux states combined
+	int word;	// left and right controllers and two mux states combined
 
 	select_slot(slot->bus, slot);
 
-	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// clear A22 (select MUX)
-	word = read_word(slot->bus);	// 16 bits (D0..D15) for both channels
+	set_address(slot->bus, slot->bus->current_addr & ~BIT(22));	// clear A22 (select MUX)
+	word = read_word(slot->bus);	// full 16 bits (D0..D15) for both channels
 	if(word < 0) { // invalid read
 		select_slot(slot->bus, NULL);
 		return;
 	}
-	set_address(slot->bus, slot->bus->prev_addr | BIT(22));	// set A22 (select MUX)
+	set_address(slot->bus, slot->bus->current_addr | BIT(22));	// set A22 (select MUX)
 	word |= read_word(slot->bus) << 16;	// no error handling
 	select_slot(slot->bus, NULL);
 
 // printk("%s: word %08x\n", __func__, word);
 
-#define GENESIS_CD1 BIT(0)		// pin 2 / D0 (select = 0) - connect detect (0 if connected)
-#define GENESIS_R BIT(0+16)		// pin 2 / D0 (select = 1)
-#define GENESIS_CD2 BIT(1)		// pin 3 / D1 (select = 0) - connect detect (0 if connected)
-#define GENESIS_L BIT(1+16)		// pin 3 / D1 (select = 1)
-#define GENESIS_D BIT(2)		// pin 4 / D2 (independent of select)
-#define GENESIS_U BIT(3)		// pin 5 / D3 (independent of select)
-#define GENESIS_A BIT(4)		// pin 9 / D4 (select = 0)
-#define GENESIS_B BIT(4+16)		// pin 9 / D4 (select = 1)
-#define GENESIS_S BIT(5)		// pin 6 / D5 (select = 0)
-#define GENESIS_C BIT(5+16)		// pin 6 / D5 (select = 1)
+#define GENESIS_CD1	BIT(0)		// pin 2 / D0 (select = 0) - connect detect (0 if connected)
+#define GENESIS_R	BIT(0+16)	// pin 2 / D0 (select = 1)
+#define GENESIS_CD2	BIT(1)		// pin 3 / D1 (select = 0) - connect detect (0 if connected)
+#define GENESIS_L	BIT(1+16)	// pin 3 / D1 (select = 1)
+#define GENESIS_D	BIT(2)		// pin 4 / D2 (independent of select)
+#define GENESIS_U	BIT(3)		// pin 5 / D3 (independent of select)
+#define GENESIS_A	BIT(4)		// pin 9 / D4 (select = 0)
+#define GENESIS_B	BIT(4+16)	// pin 9 / D4 (select = 1)
+#define GENESIS_S	BIT(5)		// pin 6 / D5 (select = 0)
+#define GENESIS_C	BIT(5+16)	// pin 6 / D5 (select = 1)
 
 	for (i=0; i < 2; i++) {
 		struct retrode3_controller *c = &slot->controllers[i];
@@ -59,30 +61,30 @@ static void retrode3_polling_work(struct work_struct *work)
 		if (c->state_valid) { // skip first analysis after boot
 			u32 changes = state ^ c->last_state;
 
-// if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
-			if (changes & GENESIS_CD1) {
-printk("%s: controller %s\n", __func__, (state & GENESIS_CD1)?"disconnected":"connected");
-				// controller has been (un)plugged
-				// send uevent
-				// create / remove /dev/input device?
+if (changes) printk("%s: controller %d changes %08x state %08x\n", __func__, i, changes, state);
+
+			if (changes & GENESIS_CD1) { // controller has been (un)plugged
+				char *envp[4];
+
+				envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
+				envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
+				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & GENESIS_CD1)?"disconnected":"connected");
+				envp[3] = NULL;
+printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
+				// check with: udevadm monitor --environment
+				kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 			}
-// FIXME: define a macro that takes the GENESIS_* and the KEY_* as arguments
-			if (changes & GENESIS_U)
-				input_report_key(c->input, KEY_U, !(state & GENESIS_U));
-			if (changes & GENESIS_D)
-				input_report_key(c->input, KEY_D, !(state & GENESIS_D));
-			if (changes & GENESIS_L)
-				input_report_key(c->input, KEY_L, !(state & GENESIS_L));
-			if (changes & GENESIS_R)
-				input_report_key(c->input, KEY_R, !(state & GENESIS_R));
-			if (changes & GENESIS_A)
-				input_report_key(c->input, KEY_A, !(state & GENESIS_A));
-			if (changes & GENESIS_B)
-				input_report_key(c->input, KEY_B, !(state & GENESIS_B));
-			if (changes & GENESIS_C)
-				input_report_key(c->input, KEY_C, !(state & GENESIS_C));
-			if (changes & GENESIS_S)
-				input_report_key(c->input, KEY_ENTER, !(state & GENESIS_S));
+
+#define GENESIS_KEY(MASK, KEY) if (changes & (MASK)) input_report_key(c->input, (KEY), !(state & (MASK)));
+
+			GENESIS_KEY(GENESIS_U, KEY_U);
+			GENESIS_KEY(GENESIS_D, KEY_D);
+			GENESIS_KEY(GENESIS_L, KEY_L);
+			GENESIS_KEY(GENESIS_R, KEY_R);
+			GENESIS_KEY(GENESIS_A, KEY_A);
+			GENESIS_KEY(GENESIS_B, KEY_B);
+			GENESIS_KEY(GENESIS_C, KEY_C);
+			GENESIS_KEY(GENESIS_S, KEY_ENTER);
 
 			input_sync(c->input);
 		}
@@ -91,9 +93,7 @@ printk("%s: controller %s\n", __func__, (state & GENESIS_CD1)?"disconnected":"co
 		c->state_valid = true;
 	}
 
-	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(20)));	// start next check
+	schedule_delayed_work(&slot->work, POLL_RATE);	// start next check
 }
 
 int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*child)
@@ -113,7 +113,7 @@ int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*chi
 		return ret;
 
 	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-	gpiod_set_value(slot->ce, false);	// turn inactive
+	gpiod_set_value(slot->ce, 0);	// turn inactive
 
 	id = 0;
 	while ((controller = of_get_next_child(child, controller))) {
@@ -152,10 +152,10 @@ int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*chi
 		id++;
 	}
 
+#if 0
 	INIT_DELAYED_WORK(&slot->work, retrode3_polling_work);
-	schedule_delayed_work(&slot->work,
-		round_jiffies_relative(
-			msecs_to_jiffies(50)));	// start polling
+	schedule_delayed_work(&slot->work, POLL_RATE);	// start polling
+#endif
 
 	return 0;
 }
