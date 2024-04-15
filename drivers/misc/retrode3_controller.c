@@ -71,13 +71,13 @@ static void retrode3_polling_work(struct work_struct *work)
 		if (c->state_valid) { // skip first analysis after boot
 			u64 changes = state ^ c->last_state;
 
-if (changes) printk("%s: controller %d changes %llx state %llx\n", __func__, i, changes, state);
-			if (changes & BIT_ULL(7)) { // controller has been (un)plugged
+if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
+			if (changes & BIT_ULL(56)) { // controller has been (un)plugged
 				char *envp[4];
 
 				envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
 				envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
-				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (changes & BIT_ULL(7))?"disconnected":"connected");
+				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & BIT_ULL(56))?"disconnected":"connected");
 				envp[3] = NULL;
 printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
 				// check with: udevadm monitor --environment
