@@ -104,14 +104,20 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 		} else {
 			u8 byte;
 
-			if (slot->bus_width == 16)
-				err = set_address(slot->bus, (*ppos)^1);	// A0 determines lower/upper byte - may have to use byteswap
-			else
-				err = set_address(slot->bus, *ppos);
-			if(err < 0)
-				goto failed;
-
-			byte = err = read_byte(slot->bus);
+			if (slot->bus_width == 16) {
+				err = set_address(slot->bus, *ppos);	// A0 determines lower/upper byte
+				// FIXME: should we read a word and take either half based on A0?
+				// we can get rid of read_byte()
+				// but it is slower!
+				byte = err = read_byte(slot->bus);
+			}
+			else { // 8 bit bus
+				err = set_address(slot->bus, *ppos);	// includes setting physical A0
+				// FIXME: should we read a word and take D0..D7 only?
+				// we can get rid of read_half()
+				// but it is slower!
+				byte = err = read_half(slot->bus, 1);	// D0..D7
+			}
 			if(err < 0)
 				goto failed;
 
