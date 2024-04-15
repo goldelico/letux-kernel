@@ -27,8 +27,8 @@
 
 static inline void retrode3_set_select(struct retrode3_slot *slot, int state)
 {
-	set_address(slot->bus, state ? (slot->bus->prev_addr | BIT(22)) : (slot->bus->prev_addr & ~BIT(22)));	// set/clear A22 (select MUX)
-// printk("slot addr = %08x\n", slot->bus->prev_addr);
+	set_address(slot->bus, state ? (slot->bus->current_addr | BIT(22)) : (slot->bus->current_addr & ~BIT(22)));	// set/clear A22 (select MUX)
+// printk("slot addr = %08x\n", slot->bus->current_addr);
 }
 
 static void retrode3_polling_work(struct work_struct *work)
@@ -71,13 +71,13 @@ static void retrode3_polling_work(struct work_struct *work)
 		if (c->state_valid) { // skip first analysis after boot
 			u64 changes = state ^ c->last_state;
 
-// if (changes) printk("%s: controller %d changes %llx state %llx\n", __func__, i, changes, state);
-			if (changes & GENESIS_CD1) { // controller has been (un)plugged
+if (changes) printk("%s: controller %d changes %llx state %llx\n", __func__, i, changes, state);
+			if (changes & BIT_ULL(7)) { // controller has been (un)plugged
 				char *envp[4];
 
 				envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
 				envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
-				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & GENESIS_CD1)?"disconnected":"connected");
+				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (changes & BIT_ULL(7))?"disconnected":"connected");
 				envp[3] = NULL;
 printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
 				// check with: udevadm monitor --environment
