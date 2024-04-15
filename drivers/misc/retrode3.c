@@ -69,7 +69,7 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 	if (addr >= EOF)
 		return -EINVAL;
 
-printk("%s: %08x\n", __func__, addr);
+// printk("%s: %08x\n", __func__, addr);
 
 	for (a = 0; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->current_addr) & (1 << a))	{ // address bit has really changed
@@ -88,7 +88,7 @@ static inline int read_half(struct retrode3_bus *bus, int a0)
 { /* read data from data lines */
 	int d;
 	u8 data;
-printk("%s: a0=%d\n", __func__, a0);
+// printk("%s: a0=%d\n", __func__, a0);
 
 	set_bus_bit(bus->oe, 0);	// this is the pin level although we have defined "active low" in the DTS
 
@@ -97,7 +97,7 @@ printk("%s: a0=%d\n", __func__, a0);
 	if(a0)
 		for (d = 0; d < bus->datas->ndescs-8; d++) {
 			int bit = get_bus_bit(bus->datas->desc[d]);
-printk("%s: bit %d=%d\n", __func__, d, bit);
+// printk("%s: bit %d=%d\n", __func__, d, bit);
 			if (bit < 0)
 				return bit;
 			data |= bit << d;
@@ -105,14 +105,14 @@ printk("%s: bit %d=%d\n", __func__, d, bit);
 	else
 		for (d = 8; d < bus->datas->ndescs; d++) {
 			int bit = get_bus_bit(bus->datas->desc[d]);
-printk("%s: bit %d=%d\n", __func__, d, bit);
+// printk("%s: bit %d=%d\n", __func__, d, bit);
 			if (bit < 0)
 				return bit;
 			data |= bit << (d-8);
 		}
 
 	set_bus_bit(bus->oe, 1);
-printk("%s: data=%02x\n", __func__, data);
+// printk("%s: data=%02x\n", __func__, data);
 
 	return data;
 }
@@ -144,7 +144,7 @@ static inline int read_word(struct retrode3_bus *bus)
 	}
 
 	set_bus_bit(bus->oe, 1);
-printk("%s: data=%02x\n", __func__, data);
+// printk("%s: data=%02x\n", __func__, data);
 
 	return data;
 }
