@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.6.25 Kernel Configuration
+# Linux/x86 6.6.27 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -497,6 +497,9 @@ CONFIG_PAGE_TABLE_ISOLATION=y
 # CONFIG_RETPOLINE is not set
 # CONFIG_GDS_FORCE_MITIGATION is not set
 CONFIG_MITIGATION_RFDS=y
+CONFIG_SPECTRE_BHI_ON=y
+# CONFIG_SPECTRE_BHI_OFF is not set
+# CONFIG_SPECTRE_BHI_AUTO is not set
 
 #
 # Power management and ACPI options
