@@ -96,14 +96,19 @@ static int dwc2_drd_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
 	    (role == USB_ROLE_HOST && hsotg->dr_mode == USB_DR_MODE_PERIPHERAL))
 		return -EINVAL;
 
-#if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
-	IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)
-	/* Skip session if core is in test mode */
-	if (role == USB_ROLE_NONE && hsotg->test_mode) {
-		dev_dbg(hsotg->dev, "Core is in test mode\n");
-		return -EBUSY;
+	/*
+	 * In case of USB_DR_MODE_PERIPHERAL, clock is disabled at the end of
+	 * the probe and enabled on udc_start.
+	 * If role-switch set is called before the udc_start, we need to enable
+	 * the clock to read/write GOTGCTL and GUSBCFG registers to override
+	 * mode and sessions. It is the case if cable is plugged at boot.
+	 */
+	if (!hsotg->ll_hw_enabled && hsotg->clk) {
+		int ret = clk_prepare_enable(hsotg->clk);
+
+		if (ret)
+			return ret;
 	}
-#endif
 
 	/*
 	 * In case of USB_DR_MODE_PERIPHERAL, clock is disabled at the end of
