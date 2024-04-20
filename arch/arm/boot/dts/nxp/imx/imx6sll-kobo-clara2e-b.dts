@@ -28,6 +28,12 @@
 	};
 };
 
+&epdc {
+	V3P3-supply = <&V3P3_reg>;
+	VCOM-supply = <&vcom_reg>;
+	DISPLAY-supply = <&vposneg_reg>;
+};
+
 &i2c2 {
 	jd9930: pmic@18 {
 		compatible = "fitipower,jd9930", "fitipower,fp9931";
