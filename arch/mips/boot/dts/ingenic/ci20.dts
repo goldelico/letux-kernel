@@ -9,7 +9,7 @@
 #include <dt-bindings/regulator/active-semi,8865-regulator.h>
 
 #define CI20_REV	2	// 1 = v1.0, 2 = v1.0
-#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+#define SPI_BITBANG	1	// 1 = debug using bitbang gpio
 /* attached application */
 #define APPLICATION	1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
 
@@ -906,7 +906,7 @@
 &pinctrl {
 	touch_pb: touch-pb {
 #if FIXME
-		pins = "PB10";	// IO17 = PB10 pull up
+		pins = "PD26";	// IO17 = PD26 pull up
 #endif
 		bias-pull-up;
 	};
@@ -941,10 +941,8 @@
 
 		spi-max-frequency = <1000000>;
 
-#if FIXME
-		interrupt-parent = <&gpb>;
-		interrupts = <10 IRQ_TYPE_NONE>;	/* IO17 = pb10 */
-#endif
+		interrupt-parent = <&gpd>;
+		interrupts = <26 IRQ_TYPE_NONE>;	/* IO17 = gpd 26 */
 		pendown-gpio = <IO17 GPIO_ACTIVE_LOW>;
 
 		touchscreen-min-x = <0>;
