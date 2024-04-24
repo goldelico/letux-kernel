@@ -842,7 +842,7 @@
 		k1 {
 			label = "key1";
 			linux,code = <KEY_1>;
-			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
+			gpios = <IO5 GPIO_ACTIVE_LOW>;	// has no pullup!
 		};
 
 		k2 {
