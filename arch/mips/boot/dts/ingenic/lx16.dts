@@ -17,45 +17,46 @@
 #define RXD	IO15
 #define CE0	IO8
 #define CE1	IO7
-#define	MOSI	IO10
+#define MOSI	IO10
 #define MISO	IO9
 #define SCLK	IO11
-#define	SDA	&gpb 31
-#define	SCL	&gpb 30
-#define	IDSD	&gpb 20
-#define	IDSC	&gpb 19
+#define SDA	&gpb 31
+#define SCL	&gpb 30
+#define IDSD	&gpb 20
+#define IDSC	&gpb 19
 
-#define	IO4	&gpc 24
-#define	IO5	&gpc 2
-#define	IO6	&gpb 22
-#define	IO8	&gpa 28
-#define	IO9	&gpa 29
-#define	IO10	&gpa 30
-#define	IO11	&gpa 31
-#define	IO12	&gpb 9
-#define	IO13	&gpc 26
-#define	IO14	&gpb 8
-#define	IO15	&gpb 7
-#define	IO16	&gpc 25
-#define	IO17	&gpb 10
-#define	IO18	&gpb 28
-#define	IO20	&gpb 21
-#define	IO21	&gpb 25
-#define	IO23	&gpb 24
-#define	IO24	&gpb 23
-#define	IO26	&gpb 26
+#define IO4	&gpc 24
+#define IO5	&gpc 2
+#define IO6	&gpb 22
+#define IO8	&gpa 28
+#define IO9	&gpa 29
+#define IO10	&gpa 30
+#define IO11	&gpa 31
+#define IO12	&gpb 9
+#define IO13	&gpc 26
+#define IO14	&gpb 8
+#define IO15	&gpb 7
+#define IO16	&gpc 25
+#define IO17	&gpb 10
+#define IO18	&gpb 27
+#define IO19	&gpb 28
+#define IO20	&gpb 21
+#define IO21	&gpb 25
+#define IO23	&gpb 24
+#define IO24	&gpb 23
+#define IO26	&gpb 26
 
 #if LX16_REV == 1
-#define	IO7	&gpb 2
-#define	IO22	&gpb 5
-#define	IO25	&gpb 3
-#define	IO27	&gpb 4
+#define IO7	&gpb 2
+#define IO22	&gpb 5
+#define IO25	&gpb 3
+#define IO27	&gpb 4
 #endif
 #if LX16_REV == 2
-#define	IO7	&gpb 16
-#define	IO22	&gpb 15
-#define	IO25	&gpb 13
-#define	IO27	&gpb 14
+#define IO7	&gpb 16
+#define IO22	&gpb 15
+#define IO25	&gpb 13
+#define IO27	&gpb 14
 #endif
 
 / {
@@ -733,7 +734,7 @@
 		k1 {
 			label = "key1";
 			linux,code = <KEY_1>;
-			gpios = <&gpc 2 GPIO_ACTIVE_LOW>;	// has no pullup!
+			gpios = <IO5 GPIO_ACTIVE_LOW>;	// has no pullup!
 		};
 
 		k2 {
