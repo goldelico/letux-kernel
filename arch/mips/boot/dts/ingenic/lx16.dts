@@ -37,7 +37,7 @@
 
 	uart1_pb: uart1-pb {
 		function = "uart1";
-		groups = "uart1-data";
+		groups = "uart1-data", "uart1-hwflow";
 		bias-pull-up;
 	};
 
@@ -270,7 +270,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 
-//		gpio = <&gb 10 GPIO_ACTIVE_HIGH>;
+//		gpio = <&gb 12 GPIO_ACTIVE_HIGH>;
 
 		startup-delay-us = <70000>;
 		enable-active-high;
@@ -310,16 +310,16 @@
 };
 
 #if 1
-&uart0 {
+&uart1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pb>;
-	uart-has-rtscts;
+	pinctrl-0 = <&uart1_pb>;
+//	uart-has-rtscts;
 
 	bluetooth: bluetooth {
 		compatible = "qcom,qca9377-bt";
-		enable-gpios = <&gpb 12 GPIO_ACTIVE_HIGH>;	// not really connected...
-		max-speed = <2000000>;
+		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
+		max-speed = <200000>;
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
 	};
