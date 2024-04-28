@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.15.156 Kernel Configuration
+# Linux/arm 5.15.157 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1049,6 +1049,7 @@ CONFIG_NFT_HASH=m
 # CONFIG_NFT_TPROXY is not set
 # CONFIG_NFT_SYNPROXY is not set
 # CONFIG_NF_FLOW_TABLE is not set
+CONFIG_NF_FLOW_TABLE_PROCFS=y
 CONFIG_NETFILTER_XTABLES=m
 
 #

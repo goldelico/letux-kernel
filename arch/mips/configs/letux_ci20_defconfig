@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.156 Kernel Configuration
+# Linux/mips 5.15.157 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -709,6 +709,7 @@ CONFIG_NETFILTER_INGRESS=y
 # CONFIG_NF_CONNTRACK is not set
 # CONFIG_NF_LOG_SYSLOG is not set
 # CONFIG_NF_TABLES is not set
+CONFIG_NF_FLOW_TABLE_PROCFS=y
 # CONFIG_NETFILTER_XTABLES is not set
 # end of Core Netfilter Configuration
 
