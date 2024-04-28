@@ -7,7 +7,6 @@
 
 #include <linux/clk.h>
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
@@ -158,6 +157,7 @@ static int omap3pandora_playback_hw_params(struct snd_pcm_substream *substream,
 			twl4030_rtd = tmp_rtd;
 			break;
 		}
+
 	if (!twl4030_rtd) {
 		dev_err(dev, "cannot find TWL4030 runtime data to set APLL rate\n");
 		return -EINVAL;
