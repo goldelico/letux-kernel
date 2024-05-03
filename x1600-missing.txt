@@ -1,12 +1,9 @@
 x1600 Issues
 ============
 
-Most things are missing drivers or bad DTS
-
 1. UARTs need to be all enabled in DTS
 6&7. reboot not working (but poweroff)
-8. spi - prepared but broken
-9. usb/otg + phy - prepared but broken
+8. spi - if DMA is disabled
 11. watchdog
 12. pwm
 13. aic / i2s
@@ -24,15 +21,19 @@ Most things are missing drivers or bad DTS
 25. cim
 26. dpu
 
-Fixed
-=====
+Most things are missing drivers or bad DTS
 
-2. TCU: "Set X1600-specific clock event flag." should be only for x1600
-3. OST ticks only once
-4. gpio-keys report only once
-5. /proc/interrupts shows only one interrupt per press-release cycle for gpio-keys
-6. no power-controller (should likely be part of the RTC driver)
-7. no RTC driver
-10. shadow gpio registers do not work (this invisible to user-space)
+Fixed/Notes
+===========
+
+2. TCU: "Set X1600-specific clock event flag." - FIXME: should be activated only for x1600
+3. OST now ticks
+4. gpio-keys now working
+5. /proc/interrupts now shows two interrupts per press-release cycle for gpio-keys
+6. power-controller added and working
+7. RTC driver available
+8. SPI is working - FIXME: if DMA is disabled
+9. usb/otg + phy now working
+10. shadow gpio registers now  working
 
 
