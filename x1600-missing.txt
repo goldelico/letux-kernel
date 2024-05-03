@@ -2,7 +2,7 @@ x1600 Issues
 ============
 
 1. UARTs need to be all enabled in DTS
-6&7. reboot not working (but poweroff)
+3. OST/console log timestamps broken (again)
 8. spi - if DMA is disabled
 11. watchdog
 12. pwm
@@ -20,6 +20,7 @@ x1600 Issues
 24. efuse
 25. cim
 26. dpu
+27. spi_dev
 
 Most things are missing drivers or bad DTS
 
@@ -27,13 +28,14 @@ Fixed/Notes
 ===========
 
 2. TCU: "Set X1600-specific clock event flag." - FIXME: should be activated only for x1600
-3. OST now ticks
+3. OST now ticks - broken again
 4. gpio-keys now working
 5. /proc/interrupts now shows two interrupts per press-release cycle for gpio-keys
 6. power-controller added and working
 7. RTC driver available
+6&7. reboot now working (but poweroff)
 8. SPI is working - FIXME: if DMA is disabled
 9. usb/otg + phy now working
-10. shadow gpio registers now  working
+10. shadow gpio registers now working
 
 
