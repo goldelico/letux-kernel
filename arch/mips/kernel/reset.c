@@ -87,6 +87,7 @@ static void machine_hang(void)
 
 void machine_restart(char *command)
 {
+printk("%s: %pS\n", __func__, _machine_restart);
 	if (_machine_restart)
 		_machine_restart(command);
 
@@ -94,10 +95,14 @@ void machine_restart(char *command)
 	preempt_disable();
 	smp_send_stop();
 #endif
+printk("%s: 1\n", __func__);
 	do_kernel_restart(command);
 	mdelay(1000);
+printk("%s: 2\n", __func__);
 	pr_emerg("Reboot failed -- System halted\n");
+printk("%s: 3\n", __func__);
 	machine_hang();
+printk("%s: 4\n", __func__);
 }
 
 void machine_halt(void)

@@ -200,6 +200,8 @@ static ATOMIC_NOTIFIER_HEAD(restart_handler_list);
  */
 int register_restart_handler(struct notifier_block *nb)
 {
+printk("%s: %pS\n", __func__, nb->notifier_call);
+dump_stack();
 	return atomic_notifier_chain_register(&restart_handler_list, nb);
 }
 EXPORT_SYMBOL(register_restart_handler);
@@ -232,6 +234,7 @@ EXPORT_SYMBOL(unregister_restart_handler);
  */
 void do_kernel_restart(char *cmd)
 {
+printk("%s\n", __func__);
 	atomic_notifier_call_chain(&restart_handler_list, reboot_mode, cmd);
 }
 
@@ -283,6 +286,7 @@ void kernel_restart(char *cmd)
 	else
 		pr_emerg("Restarting system with command '%s'\n", cmd);
 	kmsg_dump(KMSG_DUMP_SHUTDOWN);
+printk("%s: %s\n", __func__, cmd);
 	machine_restart(cmd);
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
