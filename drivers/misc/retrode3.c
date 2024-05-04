@@ -413,7 +413,7 @@ static int __init retrode3_module_init(void)
 		return ret;
 	}
 
-	retrode3_class = class_create(THIS_MODULE, "retrode3");
+	retrode3_class = class_create("retrode3");
 	if (IS_ERR(retrode3_class)) {
 		ret = PTR_ERR(retrode3_class);
 		pr_err("failed to create class: %d\n", ret);
