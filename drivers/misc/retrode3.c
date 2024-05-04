@@ -57,7 +57,7 @@ struct retrode3_slot {
 	struct cdev cdev;	// the /dev/slot
 	int id;
 	struct retrode3_bus *bus;	// backpointer to bus
-	struct gpio_desc *cs;	// slot select
+	struct gpio_desc *ce;	// slot enable
 	struct gpio_desc *cd;	// slot detect
 	u32 addr_width;
 	u32 bus_width;
@@ -214,7 +214,7 @@ static void select(struct retrode3_bus *bus, struct retrode3_slot *slot)
 	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		if (!bus->slots[i])
 			continue;
-		gpiod_set_value(bus->slots[i]->cs, (bus->slots[i] == slot) ? true:false);
+		gpiod_set_value(bus->slots[i]->ce, (bus->slots[i] == slot) ? true:false);
 	}
 
 	if (!slot && mutex_is_locked(&bus->select_lock))
@@ -532,7 +532,7 @@ static int retrode3_probe(struct platform_device *pdev)
 			dev_set_drvdata(dev, slot);
 			dev_set_name(dev, "slot%d", id);
 			dev->of_node = child;
-			slot->cs = devm_gpiod_get(dev, "cs", GPIOD_OUT_LOW);
+			slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_LOW);
 			slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
 			of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 			of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
