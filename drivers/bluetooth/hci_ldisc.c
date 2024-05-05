@@ -37,6 +37,11 @@
 
 #define VERSION "2.3"
 
+#undef BT_DBG
+#define BT_DBG(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
+#undef BT_ERR
+#define BT_ERR(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
+
 static const struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
 
 int hci_uart_register_proto(const struct hci_uart_proto *p)
@@ -121,6 +126,8 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 	 * acquired. If, however, at some point in the future the write lock
 	 * is also acquired in other situations, then this must be revisited.
 	 */
+
+printk("%s\n", __func__);
 	if (!percpu_down_read_trylock(&hu->proto_lock))
 		return 0;
 
@@ -131,12 +138,14 @@ int hci_uart_tx_wakeup(struct hci_uart *hu)
 	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state))
 		goto no_schedule;
 
-	BT_DBG("");
+	BT_DBG("schedule");
 
 	schedule_work(&hu->write_work);
 
 no_schedule:
 	percpu_up_read(&hu->proto_lock);
+
+	BT_DBG("done");
 
 	return 0;
 }
