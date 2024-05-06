@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.157 Kernel Configuration
+# Linux/mips 5.15.158 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -420,6 +420,7 @@ CONFIG_MIPS_EXTERNAL_TIMER=y
 
 # CONFIG_VIRTUALIZATION is not set
 CONFIG_MIPS_LD_CAN_LINK_VDSO=y
+CONFIG_CPU_MITIGATIONS=y
 
 #
 # General architecture-dependent options
