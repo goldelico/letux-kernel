@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.215 Kernel Configuration
+# Linux/mips 5.10.216 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -435,6 +435,7 @@ CONFIG_MIPS_JZ4780_CPUIDLE=y
 CONFIG_HAVE_KVM=y
 # CONFIG_VIRTUALIZATION is not set
 CONFIG_MIPS_LD_CAN_LINK_VDSO=y
+CONFIG_CPU_MITIGATIONS=y
 
 #
 # General architecture-dependent options

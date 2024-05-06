@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.215 Kernel Configuration
+# Linux/x86 5.10.216 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 4.9.2"
 CONFIG_CC_IS_GCC=y
@@ -471,7 +471,7 @@ CONFIG_HOTPLUG_CPU=y
 CONFIG_MODIFY_LDT_SYSCALL=y
 # end of Processor type and features
 
-CONFIG_SPECULATION_MITIGATIONS=y
+CONFIG_CPU_MITIGATIONS=y
 CONFIG_PAGE_TABLE_ISOLATION=y
 # CONFIG_RETPOLINE is not set
 # CONFIG_GDS_FORCE_MITIGATION is not set
@@ -730,6 +730,7 @@ CONFIG_KVM_AMD=m
 CONFIG_AS_AVX512=y
 CONFIG_AS_SHA1_NI=y
 CONFIG_AS_SHA256_NI=y
+CONFIG_ARCH_CONFIGURES_CPU_MITIGATIONS=y
 
 #
 # General architecture-dependent options
