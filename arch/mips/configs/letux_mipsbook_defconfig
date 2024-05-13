@@ -3,10 +3,10 @@
 #
 
 #
-# Compiler: mipsel-linux-gnu-gcc (GCC) 4.9.2
+# Compiler: mipsel-linux-gnu-gcc (GCC) 4.9.1
 #
 CONFIG_CC_IS_GCC=y
-CONFIG_GCC_VERSION=40902
+CONFIG_GCC_VERSION=40901
 CONFIG_CLANG_VERSION=0
 CONFIG_CC_HAS_ASM_GOTO=y
 CONFIG_IRQ_WORK=y
