@@ -298,6 +298,9 @@ printk("%s: %d vs. %d\n", __func__, tcu->soc_info->max_count, 0xffff);
 
 		/* Enable channel */
 		regmap_write(tcu->map, TCU_REG_TESR, BIT(channel));
+		if (tcu->soc_info->x1600_regs)
+			regmap_update_bits(tcu->map, TCU_REG_TCSRc(channel),
+				TCU_X1600_TCSR_EVENT_BITS, TCU_X1600_TCSR_CLK_POS_EN);
 	} else {
 		/* Reset all bits except parent clock mask and enable underflow interrupt */
 		updatew(tcu->base + TCU_JZ4730_REG_TCSRc(channel),
@@ -357,7 +360,7 @@ static const struct ingenic_soc_info jz4730_soc_info = {
 static const struct ingenic_soc_info x1600_soc_info = {
 	.num_channels = 8,
 	.jz4740_regs = true,
-	.x1600_regs = false,
+	.x1600_regs = true,
 	.counter_width = 16,
 	.max_count = CLOCKSOURCE_MASK(16),
 };
