@@ -2,12 +2,9 @@ x1600 Issues
 ============
 
 1. UARTs need to be all enabled in DTS
-3. OST/console log timestamps broken (again)
 8. spi - if DMA is disabled
-11. watchdog
 12. pwm
 13. aic / i2s
-14. i2c
 15. sadc
 16. dtrng
 17. can
@@ -16,7 +13,7 @@ x1600 Issues
 20. hash
 21. mac
 22. sfc
-23. mcu (what is this?)
+23. mcu (the XBurst0 core provided by the DMA controller)
 24. efuse
 25. cim
 26. dpu
@@ -28,14 +25,14 @@ Fixed/Notes
 ===========
 
 2. TCU: "Set X1600-specific clock event flag." - FIXME: should be activated only for x1600
-3. OST now ticks - broken again
+3. OST/TCU/console log timestamps working
 4. gpio-keys now working
 5. /proc/interrupts now shows two interrupts per press-release cycle for gpio-keys
 6. power-controller added and working
 7. RTC driver available
-6&7. reboot now working (but poweroff)
+6&7. reboot not working (but poweroff)
 8. SPI is working - FIXME: if DMA is disabled
 9. usb/otg + phy now working
-10. shadow gpio registers now working
-
-
+10. shadow gpio registers now  working
+11. watchdog
+14. i2c - tested without DMA which is not supported in the current driver
