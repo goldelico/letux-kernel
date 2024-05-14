@@ -5,7 +5,6 @@ x1600 Issues
 8. spi - if DMA is disabled
 12. pwm
 13. aic / i2s
-14. i2c
 15. sadc
 16. dtrng
 17. can
@@ -35,3 +34,4 @@ Fixed/Notes
 9. usb/otg + phy now working
 10. shadow gpio registers now  working
 11. watchdog
+14. i2c - tested without DMA which is not supported in the current driver
