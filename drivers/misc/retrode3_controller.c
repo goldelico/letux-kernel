@@ -67,24 +67,24 @@ static void retrode3_polling_work(struct work_struct *work)
 	for (i=0; i < 2; i++) {
 		struct retrode3_controller *c = &slot->controllers[i];
 		u64 state = word[i];
-
-		if (c->state_valid) { // skip first analysis after boot
-			u64 changes = state ^ c->last_state;
+		u64 changes = state ^ c->last_state;
 
 // if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
-			if (changes & BIT_ULL(56)) { // controller has been (un)plugged
-				char *envp[4];
+		if (changes & BIT_ULL(56)) { // controller has been (un)plugged
+			char *envp[4];
 
-				envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
-				envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
-				envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & BIT_ULL(56))?"disconnected":"connected");
-				envp[3] = NULL;
+			envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
+			envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
+			envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & BIT_ULL(56))?"disconnected":"connected");
+			envp[3] = NULL;
 // printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
-				// check with: udevadm monitor --environment
-				kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
-			}
+			// check with: udevadm monitor --environment
+			kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
+		}
 
+		if (c->state_valid) { // skip first analysis after boot
 #define SEND_CHANGE(BIT, KEY) if (changes & BIT_ULL(BIT)) input_report_key(c->input, KEY, !(state & BIT_ULL(BIT)));
+			/* NOTE: in fast key press actions more than a single key status may have changed */
 			SEND_CHANGE(59, KEY_U);
 			SEND_CHANGE(58, KEY_D);
 			SEND_CHANGE(48, KEY_R);
@@ -94,9 +94,9 @@ static void retrode3_polling_work(struct work_struct *work)
 			SEND_CHANGE(53, KEY_C);
 			SEND_CHANGE(61, KEY_S);
 			if(state & BIT_ULL(8)) { // 6 button
-				SEND_CHANGE(18, KEY_X);
-				SEND_CHANGE(19, KEY_Y);
-				SEND_CHANGE(20, KEY_Z);
+				SEND_CHANGE(17, KEY_X);
+				SEND_CHANGE(18, KEY_Y);
+				SEND_CHANGE(19, KEY_Z);
 				SEND_CHANGE(16, KEY_M);
 			}
 			input_sync(c->input);
