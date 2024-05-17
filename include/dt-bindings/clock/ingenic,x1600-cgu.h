@@ -12,14 +12,6 @@
 #ifndef __DT_BINDINGS_CLOCK_X1600_CGU_H__
 #define __DT_BINDINGS_CLOCK_X1600_CGU_H__
 
-/*
- * beware of unwritten rules:
- * - list must start with 0
- * - list must not have "holes"
- * - all clock parents must have lower number than a clock itself so that
- *   parents are initialized before
- */
-
 #define X1600_CLK_EXCLK			0
 #define X1600_CLK_RTCLK			1
 #define X1600_CLK_12M			2
@@ -60,6 +52,5 @@
 #define X1600_CLK_AES			37
 #define X1600_CLK_I2S0_RX		38
 #define X1600_CLK_I2S0_TX		39
-
 
 #endif /* __DT_BINDINGS_CLOCK_X1600_CGU_H__ */
