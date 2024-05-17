@@ -41,7 +41,7 @@
 #define CGU_REG_LPCDR		0x64
 #define CGU_REG_MSC0CDR		0x68
 #define CGU_REG_PWMCDR		0x6c
-#define CGU_REG_I2SCDR1		0x70
+#define CGU_REG_I2S0CDR1	0x70
 #define CGU_REG_SFCCDR		0x74
 #define CGU_REG_CIMCDR		0x78
 #define CGU_REG_I2S1CDR		0x7c
@@ -231,16 +231,20 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		"i2s0", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
 		.parents = { X1600_CLK_SCLKA, X1600_CLK_EPLL, -1, -1 },
 		.mux = { CGU_REG_I2S0CDR, 30, 1 },
-		.mndiv = { CGU_REG_I2S0CDR, 20, 1, 9, 0, 1, 20, -1, -1, -1 },
-		.gate = { CGU_REG_I2S0CDR, 29 },
+		.div = { CGU_REG_I2S0CDR, 20, 1, 9, -1, -1, -1 },
+		.mdiv = { CGU_REG_I2S0CDR, 0, 1, 20 },
+		.nddiv = { CGU_REG_I2S0CDR1, 31, 30 },
+		.gate = { CGU_REG_I2S0CDR, 29, true },
 	},
 
 	[X1600_CLK_I2S1] = {
 		"i2s1", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
 		.parents = { X1600_CLK_SCLKA, X1600_CLK_EPLL, -1, -1 },
 		.mux = { CGU_REG_I2S1CDR, 30, 1 },
-		.mndiv = { CGU_REG_I2S1CDR, 20, 1, 9, 0, 1, 20, -1, -1, -1 },
-		.gate = { CGU_REG_I2S1CDR, 29 },
+		.div = { CGU_REG_I2S1CDR, 20, 1, 9, -1, -1, -1 },
+		.mdiv = { CGU_REG_I2S1CDR, 0, 1, 20 },
+		.nddiv = { CGU_REG_I2S1CDR1, 31, 30 },
+		.gate = { CGU_REG_I2S1CDR, 29, true },
 	},
 
 	[X1600_CLK_LCDPIXCLK] = {
@@ -347,6 +351,18 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		"aic", CGU_CLK_GATE,
 		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR0, 11 },
+	},
+
+	[X1600_CLK_I2S0_RX] = {
+		"i2s0_rx", CGU_CLK_GATE,
+		.parents = { X1600_CLK_I2S0, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 8 },
+	},
+
+	[X1600_CLK_I2S0_TX] = {
+		"i2s0_tx", CGU_CLK_GATE,
+		.parents = { X1600_CLK_I2S1, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 9 },
 	},
 
 	[X1600_CLK_SADC] = {
