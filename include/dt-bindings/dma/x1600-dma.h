@@ -41,6 +41,6 @@
 #define X1600_DMA_SADC_RX	0x38
 #define X1600_DMA_AIC_LOOP	0x3d
 #define X1600_DMA_AIC_TX	0x3e
-#define X1600_DMA_AIC_RX	0x3e
+#define X1600_DMA_AIC_RX	0x3f
 
 #endif /* __DT_BINDINGS_DMA_X1600_DMA_H__ */
