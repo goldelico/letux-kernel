@@ -385,24 +385,23 @@
 		};
 
 		aic: aic@10079000 {
-			compatible = "ingenic,x1600-aic";
+			compatible = "ingenic,x1600-i2s";
 			reg = <0x10079000 0x100>;
+
+			#sound-dai-cells = <0>;
+
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_AUDIO>;
+
+			clocks = <&cgu X1600_CLK_AIC>,
+				 <&cgu X1600_CLK_I2S0_RX>,
+				 <&cgu X1600_CLK_I2S0_TX>;
+			clock-names = "aic", "rx", "tx";
+
 			dmas = <&dma X1600_DMA_AIC_TX 0xffffffff>,
-				   <&dma X1600_DMA_AIC_RX 0xffffffff>;
+			       <&dma X1600_DMA_AIC_RX 0xffffffff>;
 			dma-names = "tx", "rx";
 
-			i2s: i2s {
-				compatible = "ingenic,x1600-i2s";
-				status = "ok";
-			};
-			i2s_tloop: i2s_tloop {
-				compatible = "ingenic,i2s-tloop";
-				dmas = <&dma X1600_DMA_AIC_LOOP 0xffffffff>;
-				dma-names = "rx";
-				status = "ok";
-			};
 		};
 	};
 
