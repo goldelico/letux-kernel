@@ -66,19 +66,6 @@
 #define JZ_AIC_CTRL_OUTPUT_SAMPLE_SIZE_OFFSET 19
 #define JZ_AIC_CTRL_INPUT_SAMPLE_SIZE_OFFSET  16
 
-#define JZ_AIC_I2S_FMT_DISABLE_BIT_CLK BIT(12)
-#define JZ_AIC_I2S_FMT_DISABLE_BIT_ICLK BIT(13)
-#define JZ_AIC_I2S_FMT_ENABLE_SYS_CLK BIT(4)
-#define JZ_AIC_I2S_FMT_MSB BIT(0)
-
-#define JZ_AIC_I2S_STATUS_BUSY BIT(2)
-
-#define JZ_AIC_CLK_DIV_MASK 0xf
-#define I2SDIV_DV_SHIFT 0
-#define I2SDIV_DV_MASK (0xf << I2SDIV_DV_SHIFT)
-#define I2SDIV_IDV_SHIFT 8
-#define I2SDIV_IDV_MASK (0xf << I2SDIV_IDV_SHIFT)
-
 enum jz47xx_i2s_version {
 	JZ_I2S_JZ4730,
 	JZ_I2S_JZ4740,
@@ -97,6 +84,9 @@ struct i2s_soc_info {
 	struct reg_field field_i2sdiv_playback;
 
 	bool shared_fifo_flush;
+	bool internal_codec;
+	bool enable_sysclk;
+	bool separate_rx_tx_clocks;
 };
 
 struct jz4740_i2s {
@@ -109,6 +99,8 @@ struct jz4740_i2s {
 
 	struct clk *clk_aic;
 	struct clk *clk_i2s;
+	struct clk *clk_i2s_rx;
+	struct clk *clk_i2s_tx;
 
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
@@ -146,9 +138,27 @@ static int jz4740_i2s_startup(struct snd_pcm_substream *substream,
 	if (i2s->soc_info->shared_fifo_flush)
 		regmap_set_bits(i2s->regmap, JZ_REG_AIC_CTRL, JZ_AIC_CTRL_TFLUSH);
 
-	ret = clk_prepare_enable(i2s->clk_i2s);
-	if (ret)
-		return ret;
+	/* Handle separate playback and capture clocks. */
+
+	if (i2s->soc_info->separate_rx_tx_clocks)
+	{
+		ret = clk_prepare_enable(i2s->clk_i2s_rx);
+		if (ret)
+			return ret;
+
+		ret = clk_prepare_enable(i2s->clk_i2s_tx);
+		if (ret)
+		{
+			clk_disable_unprepare(i2s->clk_i2s_rx);
+			return ret;
+		}
+	}
+	else
+	{
+		ret = clk_prepare_enable(i2s->clk_i2s);
+		if (ret)
+			return ret;
+	}
 
 	regmap_set_bits(i2s->regmap, JZ_REG_AIC_CONF, JZ_AIC_CONF_ENABLE);
 	return 0;
@@ -164,7 +174,15 @@ static void jz4740_i2s_shutdown(struct snd_pcm_substream *substream,
 
 	regmap_clear_bits(i2s->regmap, JZ_REG_AIC_CONF, JZ_AIC_CONF_ENABLE);
 
-	clk_disable_unprepare(i2s->clk_i2s);
+	/* Handle separate playback and capture clocks. */
+
+	if (i2s->soc_info->separate_rx_tx_clocks)
+	{
+		clk_disable_unprepare(i2s->clk_i2s_rx);
+		clk_disable_unprepare(i2s->clk_i2s_tx);
+	}
+	else
+		clk_disable_unprepare(i2s->clk_i2s);
 }
 
 static int jz4740_i2s_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -206,7 +224,8 @@ static int jz4740_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
 	case SND_SOC_DAIFMT_BP_FP:
 		conf |= JZ_AIC_CONF_BIT_CLK_MASTER | JZ_AIC_CONF_SYNC_CLK_MASTER;
-		format |= JZ_AIC_I2S_FMT_ENABLE_SYS_CLK;
+		if (i2s->soc_info->enable_sysclk)
+			format |= JZ_AIC_I2S_FMT_ENABLE_SYS_CLK;
 		break;
 	case SND_SOC_DAIFMT_BC_FP:
 		conf |= JZ_AIC_CONF_SYNC_CLK_MASTER;
@@ -277,6 +296,7 @@ static int jz4740_i2s_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
 	struct jz4740_i2s *i2s = snd_soc_dai_get_drvdata(dai);
+	struct clk *clk;
 	struct regmap_field *div_field;
 	unsigned long i2sdiv_max;
 	unsigned int sample_size;
@@ -324,13 +344,25 @@ static int jz4740_i2s_hw_params(struct snd_pcm_substream *substream,
 				     i2s->soc_info->field_i2sdiv_capture.lsb);
 	}
 
+	/* Handle separate playback and capture clocks. */
+
+	if (i2s->soc_info->separate_rx_tx_clocks)
+	{
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			clk = i2s->clk_i2s_tx;
+		else
+			clk = i2s->clk_i2s_rx;
+	}
+	else
+		clk = i2s->clk_i2s;
+
 	/*
 	 * Only calculate I2SDIV if we're supplying the bit or frame clock.
 	 * If the codec is supplying both clocks then the divider output is
 	 * unused, and we don't want it to limit the allowed sample rates.
 	 */
 	if (conf & (JZ_AIC_CONF_BIT_CLK_MASTER | JZ_AIC_CONF_SYNC_CLK_MASTER)) {
-		div = jz4740_i2s_get_i2sdiv(clk_get_rate(i2s->clk_i2s),
+		div = jz4740_i2s_get_i2sdiv(clk_get_rate(clk),
 					    params_rate(params), i2sdiv_max);
 		if (div < 0)
 			return div;
@@ -386,6 +418,9 @@ static struct snd_soc_dai_driver jz4740_i2s_dai = {
 static const struct i2s_soc_info jz4730_i2s_soc_info = {
 	.dai			= &jz4740_i2s_dai,
 	.version		= JZ_I2S_JZ4730,
+	.internal_codec		= false,
+	.enable_sysclk		= false,
+	.separate_rx_tx_clocks	= false,
 };
 
 static const struct i2s_soc_info jz4740_i2s_soc_info = {
@@ -396,6 +431,9 @@ static const struct i2s_soc_info jz4740_i2s_soc_info = {
 	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 3),
 	.shared_fifo_flush	= true,
 	.version		= JZ_I2S_JZ4740,
+	.internal_codec		= true,
+	.enable_sysclk		= true,
+	.separate_rx_tx_clocks	= false,
 };
 
 static const struct i2s_soc_info jz4760_i2s_soc_info = {
@@ -405,6 +443,9 @@ static const struct i2s_soc_info jz4760_i2s_soc_info = {
 	.field_i2sdiv_capture	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 3),
 	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 3),
 	.version		= JZ_I2S_JZ4760,
+	.internal_codec		= true,
+	.enable_sysclk		= true,
+	.separate_rx_tx_clocks	= false,
 };
 
 static const struct i2s_soc_info x1000_i2s_soc_info = {
@@ -413,6 +454,9 @@ static const struct i2s_soc_info x1000_i2s_soc_info = {
 	.field_tx_fifo_thresh	= REG_FIELD(JZ_REG_AIC_CONF, 16, 20),
 	.field_i2sdiv_capture	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 8),
 	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 8),
+	.internal_codec		= true,
+	.enable_sysclk		= true,
+	.separate_rx_tx_clocks	= false,
 };
 
 static struct snd_soc_dai_driver jz4770_i2s_dai = {
@@ -438,6 +482,9 @@ static const struct i2s_soc_info jz4770_i2s_soc_info = {
 	.field_i2sdiv_capture	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 8, 11),
 	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 3),
 	.version		= JZ_I2S_JZ4770,
+	.internal_codec		= true,
+	.enable_sysclk		= true,
+	.separate_rx_tx_clocks	= false,
 };
 
 static const struct i2s_soc_info jz4780_i2s_soc_info = {
@@ -447,6 +494,20 @@ static const struct i2s_soc_info jz4780_i2s_soc_info = {
 	.field_i2sdiv_capture	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 8, 11),
 	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 3),
 	.version		= JZ_I2S_JZ4780,
+	.internal_codec		= true,
+	.enable_sysclk		= true,
+	.separate_rx_tx_clocks	= false,
+};
+
+static const struct i2s_soc_info x1600_i2s_soc_info = {
+	.dai			= &jz4770_i2s_dai,
+	.field_rx_fifo_thresh	= REG_FIELD(JZ_REG_AIC_CONF, 24, 27),
+	.field_tx_fifo_thresh	= REG_FIELD(JZ_REG_AIC_CONF, 16, 20),
+	.field_i2sdiv_capture	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 16, 24),
+	.field_i2sdiv_playback	= REG_FIELD(JZ_REG_AIC_CLK_DIV, 0, 8),
+	.internal_codec		= false,
+	.enable_sysclk		= false,
+	.separate_rx_tx_clocks	= true,
 };
 
 static int jz4740_i2s_suspend(struct snd_soc_component *component)
@@ -455,7 +516,16 @@ static int jz4740_i2s_suspend(struct snd_soc_component *component)
 
 	if (snd_soc_component_active(component)) {
 		regmap_clear_bits(i2s->regmap, JZ_REG_AIC_CONF, JZ_AIC_CONF_ENABLE);
-		clk_disable_unprepare(i2s->clk_i2s);
+
+		/* Handle separate playback and capture clocks. */
+
+		if (i2s->soc_info->separate_rx_tx_clocks)
+		{
+			clk_disable_unprepare(i2s->clk_i2s_rx);
+			clk_disable_unprepare(i2s->clk_i2s_tx);
+		}
+		else
+			clk_disable_unprepare(i2s->clk_i2s);
 	}
 
 	clk_disable_unprepare(i2s->clk_aic);
@@ -473,7 +543,22 @@ static int jz4740_i2s_resume(struct snd_soc_component *component)
 		return ret;
 
 	if (snd_soc_component_active(component)) {
-		ret = clk_prepare_enable(i2s->clk_i2s);
+
+		/* Handle separate playback and capture clocks. */
+
+		if (i2s->soc_info->separate_rx_tx_clocks)
+		{
+			ret = clk_prepare_enable(i2s->clk_i2s_rx);
+			if (!ret)
+			{
+				ret = clk_prepare_enable(i2s->clk_i2s_tx);
+				if (ret)
+					clk_disable_unprepare(i2s->clk_i2s_rx);
+			}
+		}
+		else
+			ret = clk_prepare_enable(i2s->clk_i2s);
+
 		if (ret) {
 			clk_disable_unprepare(i2s->clk_aic);
 			return ret;
@@ -488,6 +573,7 @@ static int jz4740_i2s_resume(struct snd_soc_component *component)
 static int jz4740_i2s_probe(struct snd_soc_component *component)
 {
 	struct jz4740_i2s *i2s = snd_soc_component_get_drvdata(component);
+	u32 config;
 	int ret;
 
 	ret = clk_prepare_enable(i2s->clk_aic);
@@ -496,10 +582,12 @@ static int jz4740_i2s_probe(struct snd_soc_component *component)
 
 	regmap_write(i2s->regmap, JZ_REG_AIC_CONF, JZ_AIC_CONF_RESET);
 
-	regmap_write(i2s->regmap, JZ_REG_AIC_CONF,
-		     JZ_AIC_CONF_OVERFLOW_PLAY_LAST |
-		     JZ_AIC_CONF_I2S | JZ_AIC_CONF_INTERNAL_CODEC);
+	config = JZ_AIC_CONF_OVERFLOW_PLAY_LAST | JZ_AIC_CONF_I2S;
 
+	if (i2s->soc_info->internal_codec)
+		config |= JZ_AIC_CONF_INTERNAL_CODEC;
+
+	regmap_write(i2s->regmap, JZ_REG_AIC_CONF, config);
 	regmap_field_write(i2s->field_rx_fifo_thresh, 7);
 	regmap_field_write(i2s->field_tx_fifo_thresh, 8);
 
@@ -529,6 +617,7 @@ static const struct of_device_id jz4740_of_matches[] = {
 	{ .compatible = "ingenic,jz4770-i2s", .data = &jz4770_i2s_soc_info },
 	{ .compatible = "ingenic,jz4780-i2s", .data = &jz4780_i2s_soc_info },
 	{ .compatible = "ingenic,x1000-i2s", .data = &x1000_i2s_soc_info },
+	{ .compatible = "ingenic,x1600-i2s", .data = &x1600_i2s_soc_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, jz4740_of_matches);
@@ -594,13 +683,28 @@ static int jz4740_i2s_dev_probe(struct platform_device *pdev)
 	i2s->capture_dma_data.maxburst = 16;
 	i2s->capture_dma_data.addr = mem->start + JZ_REG_AIC_FIFO;
 
+	/* Obtain clocks, handling separate playback and capture clocks. */
+
 	i2s->clk_aic = devm_clk_get(dev, "aic");
 	if (IS_ERR(i2s->clk_aic))
 		return PTR_ERR(i2s->clk_aic);
 
-	i2s->clk_i2s = devm_clk_get(dev, "i2s");
-	if (IS_ERR(i2s->clk_i2s))
-		return PTR_ERR(i2s->clk_i2s);
+	if (i2s->soc_info->separate_rx_tx_clocks)
+	{
+		i2s->clk_i2s_rx = devm_clk_get(dev, "rx");
+		if (IS_ERR(i2s->clk_i2s_rx))
+			return PTR_ERR(i2s->clk_i2s_rx);
+
+		i2s->clk_i2s_tx = devm_clk_get(dev, "tx");
+		if (IS_ERR(i2s->clk_i2s_tx))
+			return PTR_ERR(i2s->clk_i2s_tx);
+	}
+	else
+	{
+		i2s->clk_i2s = devm_clk_get(dev, "i2s");
+		if (IS_ERR(i2s->clk_i2s))
+			return PTR_ERR(i2s->clk_i2s);
+	}
 
 	i2s->regmap = devm_regmap_init_mmio(&pdev->dev, regs,
 					    &jz4740_i2s_regmap_config);
