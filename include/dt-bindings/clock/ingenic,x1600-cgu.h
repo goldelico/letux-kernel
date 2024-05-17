@@ -57,6 +57,8 @@
 #define X1600_CLK_UART3			35
 #define X1600_CLK_PDMA			36
 #define X1600_CLK_AES			37
+#define X1600_CLK_I2S0_RX		38
+#define X1600_CLK_I2S0_TX		39
 
 /*
 #define X1600_CLK_LCD			15
