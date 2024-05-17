@@ -568,7 +568,7 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	unsigned long rate, flags;
 	unsigned int hw_div, div;
-	u32 reg, mask;
+	u32 reg, mask, d_reg;
 	int ret = 0;
 
 	if (clk_info->type & CGU_CLK_DIV) {
@@ -591,6 +591,30 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 		reg &= ~(mask << clk_info->div.shift);
 		reg |= hw_div << clk_info->div.shift;
 
+		/*
+		 * NOTE: Special treatment for the I2S dividers in the X1600.
+		 * Set the multiplier to 1, imposing an N >= M*2 constraint,
+		 * also setting D to "automatic" calculation. This permits the
+		 * treatment of these dividers as normal dividers, although
+		 * they are configured more similarly to PLLs.
+		 */
+		if (clk_info->mdiv.reg) {
+			if (div < 2) {
+				spin_unlock_irqrestore(&cgu->lock, flags);
+				return -EINVAL;
+			}
+
+			mask = GENMASK(clk_info->mdiv.bits - 1, 0);
+			reg &= ~(mask << clk_info->mdiv.shift);
+			reg |= 1 << clk_info->mdiv.shift;
+
+			if (clk_info->nddiv.reg) {
+				d_reg = readl(cgu->base + clk_info->nddiv.reg);
+				d_reg &= ~(1 << clk_info->nddiv.explicit_d_bit);
+				d_reg |= 1 << clk_info->nddiv.explicit_n_bit;
+			}
+		}
+
 		/* clear the stop bit */
 		if (clk_info->div.stop_bit != -1)
 			reg &= ~BIT(clk_info->div.stop_bit);
@@ -601,6 +625,9 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 		/* update the hardware */
 		writel(reg, cgu->base + clk_info->div.reg);
+
+		if (clk_info->nddiv.reg)
+			writel(d_reg, cgu->base + clk_info->nddiv.reg);
 
 		/* wait for the change to take effect */
 		if (clk_info->div.busy_bit != -1)
