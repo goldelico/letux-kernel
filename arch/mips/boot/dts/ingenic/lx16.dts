@@ -102,9 +102,9 @@
 		bias-disable;
 	};
 
-	aic_pb: fixme {
-		ingenic,pinmux = <&gpb 21 28>;
-//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+	aic_pb: aic {
+		function = "i2s";
+		groups = "i2c-clk-rx", "i2s-clk-tx", "i2s-data-rx", "i2s-data-tx", "i2s-sysclk";
 		bias-disable;
 	};
 
@@ -161,6 +161,20 @@
 //		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
 		bias-disable;
 	};
+};
+
+&cgu {
+	assigned-clocks = <&cgu X1600_CLK_EPLL>,
+			  <&cgu X1600_CLK_I2S0>,
+			  <&cgu X1600_CLK_I2S1>;
+
+	assigned-clock-parents = <&cgu X1600_CLK_EXCLK>,
+				 <&cgu X1600_CLK_EPLL>,
+				 <&cgu X1600_CLK_EPLL>;
+
+	assigned-clock-rates = <200000000>,
+			       <100000000>,
+			       <100000000>;
 };
 
 &uart0 {
@@ -480,24 +494,6 @@
 			linux,code = <KEY_BACK>;
 			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
 		};
-	};
-
-	dump_pcm_codec:dump_pcm_codec{
-		compatible = "ingenic,pcm-dump-codec";
-		status = "disable";
-	};
-
-	sound_halley6_ecdc {
-		status = "disable";
-		compatible = "ingenic,x1600-sound";
-		ingenic,model = "halley6";
-		ingenic,dai-link = "i2s-ecodec", "i2s-tloop";
-		ingenic,stream = "i2s-ecodec", "i2s-tloop";
-		ingenic,cpu-dai = <&i2s>, <&i2s_tloop>;
-		ingenic,platform = <&aic>, <&i2s_tloop>;
-		ingenic,codec = <&dump_pcm_codec>, <&dump_pcm_codec>;
-		ingenic,codec-dai = "pcm-dump", "pcm-dump";
-		ingenic,en3v3-gpios = <&gpb 30 GPIO_ACTIVE_HIGH>;
 	};
 
 #if 0
