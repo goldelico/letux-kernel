@@ -118,43 +118,33 @@ struct ingenic_cgu_div_info {
 };
 
 /**
- * struct ingenic_cgu_div_m_n_info - information about a divider
+ * struct ingenic_cgu_mdiv_info - information about a divider M parameter
  * @reg: offset of the divider control register within the CGU
- * @m_shift: number of bits to left shift the M divide value by (ie. the index
- *           of the lowest bit of the divide value within its control
- *           register)
- * @m_div: number to divide the M divider value by (i.e. if the
- *	   effective divider value is the value written to the register
- *	   multiplied by some constant)
- * @m_bits: the size of the M divide value in bits
- * @n_shift: number of bits to left shift the N divide value by (ie. the index
- *           of the lowest bit of the divide value within its control
- *           register)
- * @n_div: number to divide the N divider value by (i.e. if the
- *	   effective divider value is the value written to the register
- *	   multiplied by some constant)
- * @n_bits: the size of the N divide value in bits
- * @ce_bit: the index of the change enable bit within reg, or -1 if there
- *          isn't one
- * @busy_bit: the index of the busy bit within reg, or -1 if there isn't one
- * @stop_bit: the index of the stop bit within reg, or -1 if there isn't one
- * @bypass_mask: mask of parent clocks for which the divider does not apply
- * @div_table: optional table to map the value read from the register to the
- *             actual divider value
+ * @shift: number of bits to left shift the M divide value by (ie. the index
+ *         of the lowest bit of the divide value within its control
+ *         register)
+ * @div: number to divide the M divider value by (i.e. if the
+ *       effective divider value is the value written to the register
+ *       multiplied by some constant)
+ * @bits: the size of the M divide value in bits
  */
-struct ingenic_cgu_div_m_n_info {
+struct ingenic_cgu_mdiv_info {
 	unsigned reg;
-	u8 m_shift;
-	u8 m_div;
-	u8 m_bits;
-	u8 n_shift;
-	u8 n_div;
-	u8 n_bits;
-	s8 ce_bit;
-	s8 busy_bit;
-	s8 stop_bit;
-	u8 bypass_mask;
-	const u8 *div_table;
+	u8 shift;
+	u8 div;
+	u8 bits;
+};
+
+/**
+ * struct ingenic_cgu_nddiv_info - information about divider N and D parameters
+ * @reg: offset of the D divider control register within the CGU
+ * @explicit_n_bit: the bit providing the explicit N divider flag
+ * @explicit_d_bit: the bit providing the explicit D divider flag
+ */
+struct ingenic_cgu_nddiv_info {
+	unsigned reg;
+	u8 explicit_n_bit;
+	u8 explicit_d_bit;
 };
 
 /**
@@ -228,8 +218,9 @@ struct ingenic_cgu_clk_info {
 			struct ingenic_cgu_gate_info gate;
 			struct ingenic_cgu_mux_info mux;
 			struct ingenic_cgu_div_info div;
+			struct ingenic_cgu_mdiv_info mdiv;
+			struct ingenic_cgu_nddiv_info nddiv;
 			struct ingenic_cgu_fixdiv_info fixdiv;
-			struct ingenic_cgu_div_m_n_info mndiv;
 		};
 
 		struct ingenic_cgu_custom_info custom;
