@@ -926,8 +926,8 @@
 //		spi-max-frequency = <54000000>;
 		spi-max-frequency = <10000000>;
 
-		dc-gpios = <IO24 GPIO_ACTIVE_HIGH>;
-		reset-gpios = <IO25 GPIO_ACTIVE_HIGH>;
+		dc-gpios = <PIN18 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <PIN22 GPIO_ACTIVE_HIGH>;
 
 		rotation = <180>;
 	};
@@ -943,7 +943,7 @@
 
 		interrupt-parent = <&gpd>;
 		interrupts = <26 IRQ_TYPE_NONE>;	/* IO17 = gpd 26 */
-		pendown-gpio = <IO17 GPIO_ACTIVE_LOW>;
+		pendown-gpio = <PIN11 GPIO_ACTIVE_LOW>;
 
 		touchscreen-min-x = <0>;
 		touchscreen-min-y = <0>;
