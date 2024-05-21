@@ -12,52 +12,119 @@
 /* attached application */
 #define APPLICATION	1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
 
-/* map IO numbers of the RasPi connector to X1600 GPIOs */
-#define TXD	IO14
-#define RXD	IO15
-#define CE0	IO8
-#define CE1	IO7
-#define MOSI	IO10
-#define MISO	IO9
-#define SCLK	IO11
-#define SDA	&gpb 31
-#define SCL	&gpb 30
-#define IDSD	&gpb 20
-#define IDSC	&gpb 19
+// Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
+#define SDA	PIN3
+#define SCL	PIN5
+#define IO4	PIN7
+#define TXD	PIN8
+#define RXD	PIN10
+#define IO17	PIN11
+#define PCM_CLK	PIN12
+#define IO18	PIN12
+#define IO27	PIN13
+#define IO22	PIN15
+#define IO23	PIN16
+#define IO24	PIN18
+#define MOSI	PIN19
+#define IO10	PIN19
+#define MISO	PIN21
+#define IO9	PIN21
+#define IO25	PIN22
+#define SCLK	PIN23
+#define IO11	PIN23
+#define CE0	PIN24
+#define IO8	PIN24
+#define CE1	PIN26
+#define IO7	PIN26
+#define IDSD	PIN27
+#define IDSC	PIN28
+#define IO5	PIN29
+#define IO6	PIN31
+#define IO12	PIN32
+#define IO13	PIN33
+#define IO19	PIN35
+#define IO16	PIN36
+#define IO26	PIN37
+#define IO20	PIN38
+#define IO21	PIN40
 
-#define IO4	&gpc 24
-#define IO5	&gpc 2
-#define IO6	&gpb 22
-#define IO8	&gpa 28
-#define IO9	&gpa 29
-#define IO10	&gpa 30
-#define IO11	&gpa 31
-#define IO12	&gpb 9
-#define IO13	&gpc 26
-#define IO14	&gpb 8
-#define IO15	&gpb 7
-#define IO16	&gpc 25
-#define IO17	&gpb 10
-#define IO18	&gpb 27
-#define IO19	&gpb 28
-#define IO20	&gpb 21
-#define IO21	&gpb 25
-#define IO23	&gpb 24
-#define IO24	&gpb 23
-#define IO26	&gpb 26
-
+// Mapping of connector pins to LX16 signals
+#define PIN3	PB31_SDA0
+#define PIN5	PB30_SCL0
+#define PIN7	PC24_PWM3_TCU5
+#define PIN8	PB8_TXD0
+#define PIN10	PB7_RXD0
+#define PIN11	PB10_RTS0_PWM7_TCU7
+#define PIN12	PB27_TXBCLK_MDC
 #if LX16_REV == 1
-#define IO7	&gpb 2
-#define IO22	&gpb 5
-#define IO25	&gpb 3
-#define IO27	&gpb 4
+#define PIN13	PB4_TXD3_RTS1
+#define PIN15	PB5_TXD3_CTS1
+#elif LX16_REV == 2
+#define PIN13	PB14
+#define PIN15	PB15_SCK1
 #endif
-#if LX16_REV == 2
-#define IO7	&gpb 16
-#define IO22	&gpb 15
-#define IO25	&gpb 13
-#define IO27	&gpb 14
+#define PIN16	PB24_RXLRCK_RXDV
+#define PIN18	PB23_RXBCLK_REFCLK
+#define PIN19	PA30_MOSI0_TXD2
+#define PIN21	PA29_MISO0_SDA0
+#if LX16_REV == 1
+#define PIN22	PB3
+#elif LX16_REV == 2
+#define PIN22	PB13
 #endif
+#define PIN23	PA31_SCLK0_RXD2
+#define PIN24	PA28_CE0_SCL0
+#if LX16_REV == 1
+#define PIN26	PB2_CE1_TXD1
+#elif LX16_REV == 2
+#define PIN26	PB16_CE1_SDA1
+#endif
+#define PIN27	PB20_SDA1_RXD1_PWM6
+#define PIN28	PB19_SCL1_RXD0_PWM5
+#define PIN29	PC2_PWM2_TCU5
+#define PIN31	PB22_RXMCLK_PHYCLK
+#define PIN32	PC25_PWM4_TCU6
+#define PIN33	PC26_PWM5_TCU6
+#define PIN35	PB28_TXLRCLK_MDIO
+#define PIN36	PB9_CTS0_PWM6_TCU7
+#define PIN37	PB26_TXMCLK_TXEN
+#define PIN38	PB21_RXDAT_TXD0_PWM7
+#define PIN40	PB25_TXDAT_TXD1
+
+// Mapping of LX16 signals to x1600 gpios/pins
+
+#define PA28_CE0_SCL0		&gpa 28
+#define PA29_MISO0_SDA0		&gpa 29
+#define PA30_MOSI0_TXD2		&gpa 30
+#define PA31_SCLK0_RXD2		&gpa 31
+#define PB2_CE1_TXD1		&gpb 2	// rev 1 only
+#define PB3			&gpb 3	// rev 1 only
+#define PB4_TXD3_RTS1		&gpb 4	// rev 1 only
+#define PB5_TXD3_CTS1		&gpb 5	// rev 1 only
+#define PB7_RXD0		&gpb 7
+#define PB8_TXD0		&gpb 8
+#define PB9_CTS0_PWM6_TCU7	&gpb 9
+#define PB10_RTS0_PWM7_TCU7	&gpb 10
+#define PB13			&gpb 13	// rev2 only
+#define PB14			&gpb 14	// rev2 only
+#define PB15_SCK1		&gpb 15	// rev2 only
+#define PB16_CE1_SDA1		&gpb 16	// rev2 only
+#define PB19_SCL1_RXD0_PWM5	&gpb 19
+#define PB20_SDA1_RXD1_PWM6	&gpb 20
+#define PB21_RXDAT_TXD0_PWM7	&gpb 21
+#define PB22_RXMCLK_PHYCLK	&gpb 22
+#define PB23_RXBCLK_REFCLK	&gpb 23
+#define PB24_RXLRCK_RXDV	&gpb 24
+#define PB25_TXDAT_TXD1		&gpb 25
+#define PB26_TXMCLK_TXEN	&gpb 26
+#define PB27_TXBCLK_MDC		&gpb 27
+#define PB28_TXLRCLK_MDIO	&gpb 28
+#define PB30_SCL0		&gpb 30
+#define PB31_SDA0		&gpb 31
+#define PC2_PWM2_TCU5		&gpc 2
+#define PC24_PWM3_TCU5		&gpc 24
+#define PC25_PWM4_TCU6		&gpc 25
+#define PC26_PWM5_TCU6		&gpc 26
 
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
