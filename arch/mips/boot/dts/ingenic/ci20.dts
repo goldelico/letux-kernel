@@ -9,7 +9,7 @@
 #include <dt-bindings/regulator/active-semi,8865-regulator.h>
 
 #define CI20_REV	2	// 1 = v1.0, 2 = v1.0
-#define SPI_BITBANG	1	// 1 = debug using bitbang gpio
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
 /* attached application */
 #define APPLICATION	1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
 
@@ -905,9 +905,7 @@
 
 &pinctrl {
 	touch_pb: touch-pb {
-#if FIXME
-		pins = "PD26";	// IO17 = PD26 pull up
-#endif
+		pins = "PD26";	// IO17/PIN11 = &gpd 26 pen down interrupt needs pull up
 		bias-pull-up;
 	};
 };
@@ -942,7 +940,7 @@
 		spi-max-frequency = <1000000>;
 
 		interrupt-parent = <&gpd>;
-		interrupts = <26 IRQ_TYPE_NONE>;	/* IO17 = gpd 26 */
+		interrupts = <26 IRQ_TYPE_NONE>;	/* IO17/PIN11 = &gpd 26 */
 		pendown-gpio = <PIN11 GPIO_ACTIVE_LOW>;
 
 		touchscreen-min-x = <0>;
@@ -973,8 +971,8 @@
 
 &pinctrl {
 	epd_keys: epd-keys {
-FIXME:
-		pins = "PB22", "PB28" /* the following can only pull down! , "PC2", PC26" */;
+		/* only IO18 is avaliable on the CI20 */
+		pins = /* "n/a", "n/a", "n/a", */ "PE5";	// IO5, IO6, IO13, IO18
 		bias-pull-up;
 	};
 };
