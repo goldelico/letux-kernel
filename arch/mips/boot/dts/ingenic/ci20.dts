@@ -436,8 +436,8 @@
 		compatible = "omnivision,ov5640";
 		reg = <0x3c>;
 
-		core-supply = <&vcc_15>;
-		analog-supply = <&vcc_28>;
+		core-supply = <&cim_io_15>;
+		analog-supply = <&cim_io_28>;
 
 		gpio-enable = <&gpb 18 0>;
 		gpio-reset = <&gpb 26 0>;
@@ -576,6 +576,7 @@
 	dm9000@6 {
 		compatible = "davicom,dm9000";
 		davicom,no-eeprom;
+		local-mac-address = [00 00 de ad be ef];
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pins_nemc_cs6>;
