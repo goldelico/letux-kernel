@@ -924,7 +924,6 @@ static void ads7846_report_state(struct ads7846 *ts)
 static irqreturn_t ads7846_hard_irq(int irq, void *handle)
 {
 	struct ads7846 *ts = handle;
-
 	return get_pendown_state(ts) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
 
