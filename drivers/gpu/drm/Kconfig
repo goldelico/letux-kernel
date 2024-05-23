@@ -429,3 +429,5 @@ config DRM_LIB_RANDOM
 config DRM_PRIVACY_SCREEN
 	bool
 	default n
+
+source "drivers/gpu/drm/pvrsgx/1.7.862890/Kconfig"
