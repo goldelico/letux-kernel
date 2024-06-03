@@ -40,14 +40,13 @@
 #define JZ4730_PWM_DUT_DUTY		0x3ff	/* mask */
 
 struct jz4730_pwm_chip {
-	struct pwm_chip chip;
 	struct regmap *map;
 	struct clk *clk;
 };
 
 static inline struct jz4730_pwm_chip *to_jz4730(struct pwm_chip *chip)
 {
-	return container_of(chip, struct jz4730_pwm_chip, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 /* Update the register by loading, updating and storing the register value. */
@@ -212,12 +211,14 @@ static const struct pwm_ops jz4730_pwm_ops = {
 static int jz4730_pwm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct pwm_chip *chip;
 	struct jz4730_pwm_chip *jzpc;
 	void __iomem *base;
 
-	jzpc = devm_kzalloc(&pdev->dev, sizeof(*jzpc), GFP_KERNEL);
-	if (!jzpc)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(dev, NUM_PWM, sizeof(jzpc->clk));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	jzpc = to_jz4730(chip);
 
 	jzpc->clk = devm_clk_get(&pdev->dev, "ext");
 	if (IS_ERR(jzpc->clk))
@@ -237,22 +238,9 @@ static int jz4730_pwm_probe(struct platform_device *pdev)
 		return PTR_ERR(jzpc->map);
 	}
 
-	jzpc->chip.dev = &pdev->dev;
-	jzpc->chip.ops = &jz4730_pwm_ops;
-	jzpc->chip.npwm = NUM_PWM;
+	chip->ops = &jz4730_pwm_ops;
 
-	platform_set_drvdata(pdev, jzpc);
-
-	return pwmchip_add(&jzpc->chip);
-}
-
-static int jz4730_pwm_remove(struct platform_device *pdev)
-{
-	struct jz4730_pwm_chip *jzpc = platform_get_drvdata(pdev);
-
-	pwmchip_remove(&jzpc->chip);
-
-	return 0;
+	return devm_pwmchip_add(dev, chip);
 }
 
 static const struct of_device_id jz4730_pwm_dt_ids[] = {
@@ -267,7 +255,6 @@ static struct platform_driver jz4730_pwm_driver = {
 		.of_match_table = of_match_ptr(jz4730_pwm_dt_ids),
 	},
 	.probe = jz4730_pwm_probe,
-	.remove = jz4730_pwm_remove,
 };
 module_platform_driver(jz4730_pwm_driver);
 
