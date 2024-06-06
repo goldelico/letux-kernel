@@ -7,6 +7,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 #define LX16_REV	2	// 1 = v0.1, 2 = v0.2
+#define LX16_W		1	// variant with WLAN and Bluetooth
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
 /* attached application */
@@ -394,7 +395,7 @@
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
-#if 0
+#if LX16_W == 1
 / {
 	wlan_en: wlan_en_regulator {
 		compatible = "regulator-fixed";
@@ -432,7 +433,7 @@
 
 //	vmmc-supply = <&wlan_en>;
 
-#if 0
+#if LX16_W == 1
 	wlan: wlan@0 {
 		compatible = "qcom,qca9377-wlan";	// FIXME
 		reg = <0>;
@@ -443,22 +444,22 @@
 #endif
 };
 
-#if 0
 &uart1 {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pb>;
 //	uart-has-rtscts;
 
+#if LX16_W == 1
 	bluetooth: bluetooth {
 		compatible = "qcom,qca9377-bt";
 		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
 		max-speed = <200000>;
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
+#endif
 	};
 };
-#endif
 
 &mac0 {
 	pinctrl-names = "default", "reset";
