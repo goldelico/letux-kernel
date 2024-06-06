@@ -6,6 +6,126 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
+#define LX16_REV	2	// 1 = v0.1, 2 = v0.2
+#define PWM_LED		0	// 1 = use PWM on led0 and led1
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+/* attached application */
+#define APPLICATION	0	// 0 = none
+
+// Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
+#define SDA	PIN3
+#define SCL	PIN5
+#define IO4	PIN7
+#define TXD	PIN8
+#define RXD	PIN10
+#define IO17	PIN11
+#define PCM_CLK	PIN12
+#define IO18	PIN12
+#define IO27	PIN13
+#define IO22	PIN15
+#define IO23	PIN16
+#define IO24	PIN18
+#define MOSI	PIN19
+#define IO10	PIN19
+#define MISO	PIN21
+#define IO9	PIN21
+#define IO25	PIN22
+#define SCLK	PIN23
+#define IO11	PIN23
+#define CE0	PIN24
+#define IO8	PIN24
+#define CE1	PIN26
+#define IO7	PIN26
+#define IDSD	PIN27
+#define IDSC	PIN28
+#define IO5	PIN29
+#define IO6	PIN31
+#define IO12	PIN32
+#define IO13	PIN33
+#define IO19	PIN35
+#define IO16	PIN36
+#define IO26	PIN37
+#define IO20	PIN38
+#define IO21	PIN40
+
+// Mapping of connector pins to LX16 signals
+#define PIN3	PB31_SDA0
+#define PIN5	PB30_SCL0
+#define PIN7	PC24_PWM3_TCU5
+#define PIN8	PB8_TXD0
+#define PIN10	PB7_RXD0
+#define PIN11	PB10_RTS0_PWM7_TCU7
+#define PIN12	PB27_TXBCLK_MDC
+#if LX16_REV == 1
+#define PIN13	PB4_TXD3_RTS1
+#define PIN15	PB5_TXD3_CTS1
+#elif LX16_REV == 2
+#define PIN13	PB14
+#define PIN15	PB15_SCK1
+#endif
+#define PIN16	PB24_RXLRCK_RXDV
+#define PIN18	PB23_RXBCLK_REFCLK
+#define PIN19	PA30_MOSI0_TXD2
+#define PIN21	PA29_MISO0_SDA0
+#if LX16_REV == 1
+#define PIN22	PB3
+#elif LX16_REV == 2
+#define PIN22	PB13
+#endif
+#define PIN23	PA31_SCLK0_RXD2
+#define PIN24	PA28_CE0_SCL0
+#if LX16_REV == 1
+#define PIN26	PB2_CE1_TXD1
+#elif LX16_REV == 2
+#define PIN26	PB16_CE1_SDA1
+#endif
+#define PIN27	PB20_SDA1_RXD1_PWM6
+#define PIN28	PB19_SCL1_RXD0_PWM5
+#define PIN29	PC2_PWM2_TCU5
+#define PIN31	PB22_RXMCLK_PHYCLK
+#define PIN32	PC25_PWM4_TCU6
+#define PIN33	PC26_PWM5_TCU6
+#define PIN35	PB28_TXLRCLK_MDIO
+#define PIN36	PB9_CTS0_PWM6_TCU7
+#define PIN37	PB26_TXMCLK_TXEN
+#define PIN38	PB21_RXDAT_TXD0_PWM7
+#define PIN40	PB25_TXDAT_TXD1
+
+// Mapping of LX16 signals to x1600 gpios/pins
+
+#define PA28_CE0_SCL0		&gpa 28
+#define PA29_MISO0_SDA0		&gpa 29
+#define PA30_MOSI0_TXD2		&gpa 30
+#define PA31_SCLK0_RXD2		&gpa 31
+#define PB2_CE1_TXD1		&gpb 2	// rev 1 only
+#define PB3			&gpb 3	// rev 1 only
+#define PB4_TXD3_RTS1		&gpb 4	// rev 1 only
+#define PB5_TXD3_CTS1		&gpb 5	// rev 1 only
+#define PB7_RXD0		&gpb 7
+#define PB8_TXD0		&gpb 8
+#define PB9_CTS0_PWM6_TCU7	&gpb 9
+#define PB10_RTS0_PWM7_TCU7	&gpb 10
+#define PB13			&gpb 13	// rev2 only
+#define PB14			&gpb 14	// rev2 only
+#define PB15_SCK1		&gpb 15	// rev2 only
+#define PB16_CE1_SDA1		&gpb 16	// rev2 only
+#define PB19_SCL1_RXD0_PWM5	&gpb 19
+#define PB20_SDA1_RXD1_PWM6	&gpb 20
+#define PB21_RXDAT_TXD0_PWM7	&gpb 21
+#define PB22_RXMCLK_PHYCLK	&gpb 22
+#define PB23_RXBCLK_REFCLK	&gpb 23
+#define PB24_RXLRCK_RXDV	&gpb 24
+#define PB25_TXDAT_TXD1		&gpb 25
+#define PB26_TXMCLK_TXEN	&gpb 26
+#define PB27_TXBCLK_MDC		&gpb 27
+#define PB28_TXLRCLK_MDIO	&gpb 28
+#define PB30_SCL0		&gpb 30
+#define PB31_SDA0		&gpb 31
+#define PC2_PWM2_TCU5		&gpc 2
+#define PC24_PWM3_TCU5		&gpc 24
+#define PC25_PWM4_TCU6		&gpc 25
+#define PC26_PWM5_TCU6		&gpc 26
+
 / {
 	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
 
@@ -31,13 +151,13 @@
 &pinctrl {
 	uart0_pb: uart0-pb {
 		function = "uart0";
-		groups = "uart0-data", "uart0-hwflow";
+		groups = "uart0-data" /*, "uart0-hwflow" */;
 		bias-pull-up;
 	};
 
 	uart1_pb: uart1-pb {
 		function = "uart1";
-		groups = "uart1-data";
+		groups = "uart1-data", "uart1-hwflow";
 		bias-pull-up;
 	};
 
@@ -53,7 +173,7 @@
 		bias-pull-up;
 	};
 
-	spi0_pb: spi0-pb {
+	spi0_pa: spi0-pa {
 		function = "ssi";
 		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
 		bias-disable;
@@ -221,6 +341,14 @@
 	status = "okay";
 };
 
+&tcu {
+#if 0
+	status = "disable";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_tcu_trig_pa>;
+#endif
+};
+
 &can0 {
 	status = "disable";
 	pinctrl-names = "default";
@@ -263,18 +391,26 @@
 
 	broken-cd;
 
-	voltage-ranges = <1800 3300>;
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+};
 
 #if 0
-	ingenic,sdio_clk = <1>;
+/ {
+	wlan_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+//		pinctrl-0 = <&wlan_pins>;
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 
-	/* special property */
-	ingenic,wp-gpios = <0>;
-	ingenic,cd-gpios = <0>;
-	ingenic,rst-gpios = <0>;
-	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
-#endif
+//		gpio = <&gb 12 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
 };
+#endif
 
 &mmc1 {
 	status = "okay";
@@ -285,22 +421,44 @@
 	max-frequency = <50000000>;
 
 	pinctrl-names ="default";
-	pinctrl-0 = <&msc1_4bit>;
+	pinctrl-0 = <&msc1_4bit>;	// FIXME: add interrupt input?
 
 	broken-cd;
 
-	voltage-ranges = <1800 3300>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+
+//	vmmc-supply = <&wlan_en>;
 
 #if 0
-	ingenic,sdio_clk = <1>;
-
-	/* special property */
-	ingenic,wp-gpios = <0>;
-	ingenic,cd-gpios = <0>;
-	ingenic,rst-gpios = <0>;
-	ingenic,removal-dontcare; /*removal-dontcare, removal-nonremovable, removal-removable, removal-manual*/
+	wlan: wlan@0 {
+		compatible = "qcom,qca9377-wlan";	// FIXME
+		reg = <0>;
+//		interrupt-parent = <&gpio5>;
+//		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+//		ref-clock-frequency = <26000000>;
+	};
 #endif
 };
+
+#if 0
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+//	uart-has-rtscts;
+
+	bluetooth: bluetooth {
+		compatible = "qcom,qca9377-bt";
+		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
+		max-speed = <200000>;
+	//	clocks = <&wifi32k>;
+	//	vdd-supply = <&bt_en>;
+	};
+};
+#endif
 
 &mac0 {
 	pinctrl-names = "default", "reset";
@@ -376,27 +534,35 @@
 
 };
 
-&spi0 {
-	status = "disable";
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi0_pb>;
-	spi-max-frequency = <54000000>;
-	num-cs = <2>;
-	/* cs-gpios = <0>, <0>; */
-	/* cs-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>, <&gpb 16 GPIO_ACTIVE_HIGH>; */
-	ingenic,chnl = <0>;
-	ingenic,allow_cs_same = <1>;
-	ingenic,bus_num = <0>;
-	ingenic,has_dma_support = <0>;
-	ingenic,spi-src-clk = <1>;/*0.ext; 1.ssi*/
-
-	/* Add SPI interface device */
-	spidev: spidev@0 {
-		compatible = "rohm,dh2228fv";
-		reg = <0>;
-		spi-max-frequency = <10000000>;
+#if SPI_BITBANG
+/ {
+	spi_gpio: bitbang {
+#define SPI spi_gpio
+		compatible = "spi-gpio";
+		sck-gpios = <SCLK GPIO_ACTIVE_HIGH>;
+		miso-gpios = <MISO GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <MOSI GPIO_ACTIVE_HIGH>;
+		cs-gpios = <CE0 GPIO_ACTIVE_LOW>;
+		num-chipselects = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 	};
 };
+
+&spi0 {
+	status = "disabled";
+};
+
+#else
+
+&spi0 {
+#define SPI spi0
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pa>;
+	status = "okay";
+};
+
+#endif
 
 &spi_slv0 {
 	status = "disable";
@@ -410,7 +576,7 @@
 };
 
 &pwm {
-#ifdef PWM_LED	// intereferes with gpc 0 led
+#if PWM_LED	// intereferes with gpc 0 led
 	status = "okay";
 #else
 	status = "disabled";
@@ -445,7 +611,7 @@
 
 / {
 	leds: leds {
-#ifdef PWM_LED
+#if PWM_LED
 		compatible = "pwm-leds";
 #else
 		compatible = "gpio-leds";
@@ -453,7 +619,7 @@
 
 		led-0 {
 			linux,default-trigger = "heartbeat";
-#ifdef PWM_LED
+#if PWM_LED
 			pwms = <&pwm 2 100000>;
 			max-brightness = <255>;
 #else
@@ -463,7 +629,7 @@
 
 		led-1 {
 			linux,default-trigger = "mmc0";
-#ifdef PWM_LED
+#if PWM_LED
 			pwms = <&pwm 3 100000>;
 			max-brightness = <255>;
 #else
@@ -522,36 +688,5 @@
 #endif
 };
 
-#if 0
-&gpa {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <26>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-};
+/* Application connected to RasPi compatible Header - append here with #if APPLICATION == number */
 
-&gpb {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-};
-
-&gpc {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-};
-
-&gpd {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-};
-#endif
