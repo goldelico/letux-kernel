@@ -6,12 +6,8 @@
  *  drivers/gnss/core.c
  *  arch/arm/common/locomo.c
 
-to be solved
 - 8 bit vs. 16 bit bus width
 - add read/write for RAM
-- completion of slot4/gamecontrols driver
-- handle status LEDs
-- handle megadrive power
 
 Idee:
 	aufsplitten in BUS openpandora,retrode3 (wie i2c-core)
