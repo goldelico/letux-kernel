@@ -42,7 +42,7 @@ static void retrode3_polling_work(struct work_struct *work)
 
 	select_slot(slot->bus, slot);
 
-// if 3 button controller detected, we do not need 8 cycles
+// FIXME: if 3 button controller detected, we do not need 8 cycles
 	for (cycle = 0; cycle < 8; cycle++) {
 		retrode3_set_select(slot, cycle%2);
 		w = read_word(slot->bus);	// D0..D5 are Controller 1 and D8..D13 Controller 2
