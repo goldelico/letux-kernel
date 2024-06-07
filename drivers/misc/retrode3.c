@@ -302,7 +302,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 	    bus->we->ndescs != 2) {
 		dev_err(&pdev->dev, "Invalid number of gpios (addr=%d, data=%d, we=%d)\n",
 			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
-		return EINVAL;
+		return -EINVAL;
 	}
 #if 0
 {
@@ -329,17 +329,12 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 // printk("%s: slot %d\n", __func__, i);
 		if (i >= ARRAY_SIZE(bus->slots)) {
 			dev_err(&slot->dev, "too many slots\n");
-// FIXME: better error handling
-			// FIXME: dealloc previously added devices
-			kfree(bus);
 			return -EINVAL;
 		}
 
-		slot = kzalloc(sizeof(*slot), GFP_KERNEL);
-		if (!slot) {
-			kfree(bus);
+		slot = devm_kzalloc(&pdev->dev, sizeof(*slot), GFP_KERNEL);
+		if (!slot)
 			return -ENOMEM;
-		}
 
 		bus->slots[i++] = slot;
 		slot->bus = bus;
@@ -354,15 +349,12 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			ret = retrode3_probe_controller(slot, child);
 		else {
 			dev_err(&slot->dev, "unknown child type\n");
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
-		if (ret < 0) {
-			// FIXME: dealloc previously added devices
-			kfree(bus);
-			kfree(slot);
+		if (ret < 0)
 			return ret;
-		}
+
 		dev_dbg(&pdev->dev, "%s added\n", __func__);
 	}
 
