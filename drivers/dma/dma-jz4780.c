@@ -1163,6 +1163,15 @@ static const struct jz4780_dma_soc_data x1000_dma_soc_data = {
 	.descaddr = JZ_DMA_REG_DDA,
 };
 
+static const struct jz4780_dma_soc_data x1600_dma_soc_data = {
+	.nb_channels = 32,
+	.transfer_ord_max = 7,
+	.flags = JZ_SOC_DATA_PROGRAMMABLE_DMA,
+	.control = JZ_DMA_REG_DMAC,
+	.pending = JZ_DMA_REG_DIRQP,
+	.descaddr = JZ_DMA_REG_DDA,
+};
+
 static const struct jz4780_dma_soc_data x1830_dma_soc_data = {
 	.nb_channels = 32,
 	.transfer_ord_max = 7,
@@ -1186,6 +1195,7 @@ static const struct of_device_id jz4780_dma_dt_match[] = {
 	{ .compatible = "ingenic,jz4770-dma", .data = &jz4770_dma_soc_data },
 	{ .compatible = "ingenic,jz4780-dma", .data = &jz4780_dma_soc_data },
 	{ .compatible = "ingenic,x1000-dma", .data = &x1000_dma_soc_data },
+	{ .compatible = "ingenic,x1600-dma", .data = &x1600_dma_soc_data },
 	{ .compatible = "ingenic,x1830-dma", .data = &x1830_dma_soc_data },
 	{},
 };
