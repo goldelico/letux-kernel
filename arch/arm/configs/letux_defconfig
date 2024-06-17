@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.10.0-rc3 Kernel Configuration
+# Linux/arm 6.10.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3227,7 +3227,7 @@ CONFIG_SERIAL_OMAP=y
 CONFIG_SERIAL_OMAP_CONSOLE=y
 # CONFIG_SERIAL_SIFIVE is not set
 # CONFIG_SERIAL_SCCNXP is not set
-# CONFIG_SERIAL_SC16IS7XX_CORE is not set
+# CONFIG_SERIAL_SC16IS7XX is not set
 # CONFIG_SERIAL_ALTERA_JTAGUART is not set
 # CONFIG_SERIAL_ALTERA_UART is not set
 # CONFIG_SERIAL_XILINX_PS_UART is not set
