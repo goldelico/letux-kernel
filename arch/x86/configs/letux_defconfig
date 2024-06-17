@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.10.0-rc3 Kernel Configuration
+# Linux/x86 6.10.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2811,7 +2811,7 @@ CONFIG_SERIAL_CORE_CONSOLE=y
 CONFIG_SERIAL_JSM=y
 # CONFIG_SERIAL_LANTIQ is not set
 # CONFIG_SERIAL_SCCNXP is not set
-# CONFIG_SERIAL_SC16IS7XX_CORE is not set
+# CONFIG_SERIAL_SC16IS7XX is not set
 # CONFIG_SERIAL_TIMBERDALE is not set
 # CONFIG_SERIAL_ALTERA_JTAGUART is not set
 # CONFIG_SERIAL_ALTERA_UART is not set
