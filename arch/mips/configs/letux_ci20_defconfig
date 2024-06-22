@@ -1,3 +1,4 @@
+# auto-generated from letux_defconfig
 #
 # Linux/mips 4.19.316 Kernel Configuration
 #
@@ -4363,3 +4364,5 @@ CONFIG_CMDLINE="earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel"
 # CONFIG_DEBUG_ZBOOT is not set
 # CONFIG_SPINLOCK_TEST is not set
 # CONFIG_SCACHE_DEBUGFS is not set
+CONFIG_MACH_INGENIC_GENERIC=n
+CONFIG_INGENIC_GENERIC_BOARD=n
