@@ -1,6 +1,5 @@
-# auto-generated from letux_defconfig
 #
-# Linux/mips 5.10.219 Kernel Configuration
+# Linux/mips 5.10.220 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.1"
 CONFIG_CC_IS_GCC=y
@@ -273,7 +272,7 @@ CONFIG_MACH_INGENIC_SOC=y
 # CONFIG_CAVIUM_OCTEON_SOC is not set
 # CONFIG_NLM_XLR_BOARD is not set
 # CONFIG_NLM_XLP_BOARD is not set
-CONFIG_INGENIC_GENERIC_BOARD=n
+# CONFIG_INGENIC_GENERIC_BOARD is not set
 # CONFIG_JZ4730_MIPSBOOK_400 is not set
 # CONFIG_JZ4740_QI_LB60 is not set
 # CONFIG_JZ4740_RS90 is not set
@@ -5573,4 +5572,3 @@ CONFIG_ARCH_HAS_KCOV=y
 # CONFIG_MEMTEST is not set
 # end of Kernel Testing and Coverage
 # end of Kernel hacking
-CONFIG_MACH_INGENIC_GENERIC=n
