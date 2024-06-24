@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.10.0-rc4 Kernel Configuration
+# Linux/x86 6.10.0-rc5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -7429,7 +7429,6 @@ CONFIG_INIT_STACK_NONE=y
 # CONFIG_GCC_PLUGIN_STACKLEAK is not set
 # CONFIG_INIT_ON_ALLOC_DEFAULT_ON is not set
 # CONFIG_INIT_ON_FREE_DEFAULT_ON is not set
-# CONFIG_INIT_MLOCKED_ON_FREE_DEFAULT_ON is not set
 # end of Memory initialization
 
 #
@@ -7805,7 +7804,6 @@ CONFIG_DMA_NEED_SYNC=y
 # CONFIG_DMA_MAP_BENCHMARK is not set
 CONFIG_SGL_ALLOC=y
 CONFIG_CHECK_SIGNATURE=y
-# CONFIG_FORCE_NR_CPUS is not set
 CONFIG_CPU_RMAP=y
 CONFIG_DQL=y
 CONFIG_GLOB=y
