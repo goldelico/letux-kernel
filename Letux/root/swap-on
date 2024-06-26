@@ -8,12 +8,13 @@ SWAPFILE=/swapfile
 
 echo "### setting up ${GB}GB swap on $SWAPFILE"
 swapoff -a
-if [ ! -r /swapfile ]
-then
-	dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$( echo | awk "{print int(($GB) * 1048576)}")
-	chmod 0600 "$SWAPFILE"
-	mkswap "$SWAPFILE"
-fi || exit
+truncate -s $( echo | awk "{print int(($GB) * 1024 * 1024 * 1024)}") /swapfile || exit
+#if [ ! -r /swapfile ]
+#then
+#	dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$( echo | awk "{print int(($GB) * 1048576)}")
+#	chmod 0600 "$SWAPFILE"
+#	mkswap "$SWAPFILE"
+#fi || exit
 chmod 0600 "$SWAPFILE"
 swapon "$SWAPFILE"
-echo "### set up"
+echo "### $SWAPFILE is set up. To stop, run 'swapoff -a'."
