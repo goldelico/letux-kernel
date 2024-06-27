@@ -22,7 +22,7 @@
 # options:
 #  -s		sequential merge
 #  -p		push --force all branches to 'origin' and archive in separate branch
-#  -r		rebase branches before merge (implies -s)
+#  -r		rebase branches before merge /*(implies -s)*/
 #  -u		upload result
 #  -f file	use this as mergefile (default: Letux/scripts/mergefile) - use -f '' to ignore
 #  -w		fix whitespace on rebase (implies -s -r)
@@ -43,6 +43,7 @@ LASTBASE=""
 function usage {
 	echo "usage: $0 [ -s ] [ -p ] { branches...}"
 	echo "  -s	sequential merge"
+	echo "  -r	rebase before merge"
 	echo "  -p	push --force all branches to 'origin'"
 	echo "  -f file	use this as mergefile (default: Letux/scripts/mergefile)"
 	echo "  -f ''	use no mergefile"
@@ -56,7 +57,7 @@ while [ "$1" ]
 do
 	case "$1" in
 		-p ) PUSH=true; shift ;;
-		-r ) REBASE=true; SEQUENTIAL=true; shift ;;
+		-r ) REBASE=true; : SEQUENTIAL=true; shift ;;
 		-s ) SEQUENTIAL=true; shift ;;
 		-nos ) SEQUENTIAL=false; shift ;;
 		-w ) WHITESPACE=--whitespace=fix; REBASE=true; SEQUENTIAL=true; shift ;;
