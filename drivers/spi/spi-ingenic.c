@@ -346,8 +346,6 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 	struct dma_slave_caps caps;
 	int ret;
 
-return false;
-
 	ret = dma_get_slave_caps(ctlr->dma_tx, &caps);
 	if (ret) {
 		dev_err(&spi->dev, "Unable to get slave caps: %d\n", ret);
