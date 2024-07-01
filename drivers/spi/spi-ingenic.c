@@ -156,7 +156,7 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 	if (!desc)
 		return ERR_PTR(-ENOMEM);
 
-	if (dir == DMA_DEV_TO_MEM) {
+	if (dir == DMA_MEM_TO_DEV) {
 		desc->callback = spi_ingenic_finalize_transfer;
 		desc->callback_param = ctlr;
 	}
@@ -335,8 +335,6 @@ static bool spi_ingenic_can_dma(struct spi_controller *ctlr,
 {
 	struct dma_slave_caps caps;
 	int ret;
-
-return false;
 
 	ret = dma_get_slave_caps(ctlr->dma_tx, &caps);
 	if (ret) {
