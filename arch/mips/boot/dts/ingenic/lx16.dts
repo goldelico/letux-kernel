@@ -7,7 +7,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 #define LX16_REV	2	// 1 = v0.1, 2 = v0.2
-#define LX16_W		1	// variant with WLAN and Bluetooth
+#define LX16_W		0	// variant with WLAN and Bluetooth
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
 /* attached application */
