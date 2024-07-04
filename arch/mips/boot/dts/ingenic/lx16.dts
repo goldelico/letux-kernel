@@ -464,8 +464,8 @@
 		max-speed = <200000>;
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
-#endif
 	};
+#endif
 };
 
 &mac0 {
