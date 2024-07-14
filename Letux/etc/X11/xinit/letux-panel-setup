@@ -31,8 +31,19 @@ LCDS+=" /proc/device-tree/panel"
 LCDS+=" /proc/device-tree/spi/td028ttec1@0"	# GTA04
 LCDS+=" /proc/device-tree/ocp@68000000/spi@48098000/lcd@1"	# OMAP3
 LCDS+=" /proc/device-tree/ocp/target-module@58000000/dss@0/target-module@4000/encoder@0/lcd@0"	# OMAP5 newer
-LCDS+=" /proc/device-tree/ocp/target-module@58000000/dss@0/target-module@4000/encoder@0/lcd"	# OMAP5
+LCDS+=" /proc/device-tree/ocp/target-module@58000000/dss@0/target-module@4000/encoder@0/lcd"	# OMAP5 older
 
+function model_or_compatible {
+	if [ -r /proc/device-tree/model ]
+	then
+		tr -d '\0' </proc/device-tree/model 2>/dev/null
+	elif [ -r /proc/device-tree/compatible ]	# prefix and separate with @
+	then
+		echo @$(tr '\0' '@' </proc/device-tree/compatible 2>/dev/null)
+	else
+		echo "x86"
+	fi
+}
 
 for LCD in $LCDS
 do
@@ -59,23 +70,19 @@ $DEBUG && echo check "/etc/X11/$COMPATIBLE.conf" >&2
 	fi
 done </tmp/$$
 
-function model_or_compatible {
-	if [ -r /proc/device-tree/model ]
-	then
-		tr -d '\0' </proc/device-tree/model 2>/dev/null
-	elif [ -r /proc/device-tree/compatible ]	# prefix and separate with @
-	then
-		echo @$(tr '\0' '@' </proc/device-tree/compatible 2>/dev/null)
-	else
-		echo "x86"
-	fi
-}
-
 $DEBUG && echo "Model: $(model_or_compatible)"
 
 # special handling - overwrite PANEL if needed
 
 case "$(model_or_compatible)" in
+	*PandaBoard* | \
+	*OMAP5*uEVM* | \
+	*PinePhone* | \
+	*'UDOO Neo'* | \
+	*CI20* | \
+	*LX16* | \
+	*x86* )
+		PANEL=auto;;	# works well with auto-detection
 	*'GTA04 b4'* )
 		PANEL=5.0x640x1024;;	# Letux 5004 (never built)
 	*GTA04b7* | \
@@ -84,10 +91,6 @@ case "$(model_or_compatible)" in
 		PANEL=3.0-800x480;;	# Neo900
 	*'GTA04 b8'* )
 		PANEL=2.0-320x320;;	# Letux 2204 (never built)
-	*PandaBoard* | \
-	*OMAP5*uEVM* | \
-	*PinePhone* )
-		PANEL=auto;;	# works well with auto-detection
 	*LC15-EVM* )
 		PANEL=5.0-720x1280
 		/root/tvout 0   # seems to initialize something we need for switching to HDMI
@@ -99,18 +102,14 @@ case "$(model_or_compatible)" in
 		# setup nubs
 		echo mouse > /proc/pandora/nub0/mode	# mouse
 		echo mbuttons > /proc/pandora/nub1/mode	# mouse buttons
+		PANEL=tpo,td043mtea1
 		;;
-	*'UDOO Neo'* )
-		PANEL=auto;;	# works well with auto-detection
 	*'Skytone Alpha 400'* )
 		PANEL=alpha400;;
 	*'Tolino Shine 3'* )
 		PANEL=5.8-1072x1448-epd
 		echo 3 >/sys/class/graphics/fb0/rotate
 		;;
-	*CI20* | \
-	*x86* )
-		PANEL=auto;;	# works well with auto-detection
 esac
 
 $DEBUG && echo "Panel: $PANEL"
