@@ -815,15 +815,19 @@ static irqreturn_t jz_mmc_irq_worker(int irq, void *devid)
 			 */
 			timeout = jz4740_mmc_start_dma_transfer(host, data);
 			data->bytes_xfered = data->blocks * data->blksz;
-		} else if (data->flags & MMC_DATA_READ)
-			/* Use PIO if DMA is not enabled.
+		}
+
+		if (!host->use_dma || timeout) {
+			/* Use PIO if DMA is not enabled or failed.
 			 * Data transfer direction was defined before
 			 * by relying on data flags in
 			 * jz_mmc_prepare_data_transfer().
 			 */
-			timeout = jz4740_mmc_read_data(host, data);
-		else
-			timeout = jz4740_mmc_write_data(host, data);
+			if (data->flags & MMC_DATA_READ)
+				timeout = jz4740_mmc_read_data(host, data);
+			else
+				timeout = jz4740_mmc_write_data(host, data);
+		}
 
 		if (unlikely(timeout)) {
 			host->state = JZ4740_MMC_STATE_TRANSFER_DATA;
