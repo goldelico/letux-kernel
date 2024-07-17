@@ -3,7 +3,7 @@
 /*
  * driver for Retrode 3 game cartridge driver
  *
- * based on ideas and fragents from
+ * based on ideas and fragments from
  *  drivers/char/mem.c
  *  drivers/gnss/core.c
  *  arch/arm/common/locomo.c
@@ -41,7 +41,10 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
+	loff_t addr = *ppos & 0xffffff;	/* max address */
+	uint8_t mode = *ppos >> 24;	/* access mode control */
 	int err;
+
 #ifndef CONFIG_RETRODE3_BUFFER
 	ssize_t read, sz;
 #else
@@ -51,17 +54,18 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 	unsigned int fill = 0;
 #endif
 
+if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 //	dev_info(&slot->dev, "%s\n", __func__);
 
 	read = 0;
 
 	select_slot(slot->bus, slot);
 
-	if (*ppos + count >= EOF) {
-		if (*ppos >= EOF)
+	if (addr + count >= EOF) {
+		if (addr >= EOF)
 			count = 0;	// read nothing
 		else
-			count = EOF - *ppos;	// limit to EOF
+			count = EOF - addr;	// limit to EOF
 	}
 
 	while (count > 0) {
@@ -69,10 +73,10 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 		unsigned long remaining;
 #endif
 
-		if (count >= 2 && slot->bus_width == 16 && ((*ppos & 1) == 0)) {
+		if (count >= 2 && slot->bus_width == 16 && ((addr & 1) == 0)) {
 			u16 word;
 
-			err = set_address(slot->bus, *ppos);
+			err = set_address(slot->bus, addr);
 			if(err < 0)
 				goto failed;
 
@@ -98,6 +102,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			*((u16 *) &buffer[fill]) = swab16(word);	// use htons()?
 			fill += 2;
 			*ppos += 2;
+			addr += 2;
 			count -= 2;
 			read += 2;
 #endif
@@ -105,14 +110,14 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			u8 byte;
 
 			if (slot->bus_width == 16) {
-				err = set_address(slot->bus, *ppos);	// A0 determines lower/upper byte
+				err = set_address(slot->bus, addr);	// A0 determines lower/upper byte
 				// FIXME: should we read a word and take either half based on A0?
 				// we can get rid of read_byte()
 				// but it is slower!
 				byte = err = read_byte(slot->bus);
 			}
 			else { // 8 bit bus
-				err = set_address(slot->bus, *ppos);	// includes setting physical A0
+				err = set_address(slot->bus, addr);	// includes setting physical A0
 				// FIXME: should we read a word and take D0..D7 only?
 				// we can get rid of read_half()
 				// but it is slower!
@@ -136,6 +141,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 			*((u8 *) &buffer[fill]) = byte;
 			fill += 1;
 			*ppos += 1;
+			addr += 1;
 			count -= 1;
 			read += 1;
 #endif
@@ -146,6 +152,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
                         goto failed;
 
 		*ppos += sz;
+		addr += sz;
 		buf += sz;
 		count -= sz;
 		read += sz;
@@ -175,21 +182,24 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
+	loff_t addr = *ppos & 0xffffff;	/* max address */
+	uint8_t mode = *ppos >> 24;	/* access mode control */
 	ssize_t written, sz;
 	unsigned long copied;
 	void *ptr;
 
+if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 //	dev_info(&slot->dev, "%s\n", __func__);
 
 	written = 0;
 
 	select_slot(slot->bus, slot);
 
-	if (*ppos + count >= EOF) {
-		if (*ppos >= EOF)
+	if (addr + count >= EOF) {
+		if (addr >= EOF)
 			count = 0;	// write nothing
 		else
-			count = EOF - *ppos;	// limit to EOF
+			count = EOF - addr;	// limit to EOF
 	}
 
 	while (count > 0) {
@@ -199,7 +209,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 // handle words for 16 bit bus and faster write
 
 		sz = 1;
-		set_address(slot->bus, *ppos);
+		set_address(slot->bus, addr);
 
 #if FIXME	// ptr is uninitialized here
 		copied = copy_from_user(ptr, buf, sz);
@@ -212,6 +222,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 		}
 
 		*ppos += sz;
+		addr += sz;
 		buf += sz;
 		count -= sz;
 		written += sz;
