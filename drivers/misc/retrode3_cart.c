@@ -34,8 +34,29 @@ static struct class *retrode3_class;
 
 /*
  * This function reads the slot. The ppos points directly to the
- * memory location.
+ * memory location. But also includes a special access mode in the upper bits.
  */
+
+/* special mode constants - should be exported as ABI to user-space */
+
+#define MODE_SIMPLE_BUS	0	// default read/write with just CE, RD/WR0/WR8
+#define MD_ROM		MODE_SIMPLE_BUS
+#define MD_P10		1	// 10 toggle pulses on CLK
+#define MD_P1		2	// 1 toggle pulses on CLK
+#define MD_TIME		3	// address with TIME impulse with WE
+#define MD_FLASH	unused 0x04 unused
+#define MD_ENSRAM	5	// TIME impulse without WE (despite write?)
+#define MD_EEPMODE	6
+#define SNES_REGULAR	MODE_SIMPLE_BUS
+#define SNES_HIROM	9
+#define NES_REGULAR	MODE_SIMPLE_BUS
+#define NES_PRG		10	// currently on odd addresses (may change with new hardware)
+#define NES_CHR		11
+#define NES_CHR_M2	12
+#define NES_MMC5_SRAM	13
+#define NES_REG		14
+#define NES_RAM		15
+#define NES_WRAM	16
 
 static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
@@ -68,6 +89,8 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 			count = EOF - addr;	// limit to EOF
 	}
 
+// if (mode == SNES_HIROM)
+// switch (mode)
 	while (count > 0) {
 #ifndef CONFIG_RETRODE3_BUFFER
 		unsigned long remaining;
