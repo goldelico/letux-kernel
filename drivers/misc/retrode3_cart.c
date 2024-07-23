@@ -47,9 +47,14 @@ static struct class *retrode3_class;
 #define MD_FLASH	unused 0x04 unused
 #define MD_ENSRAM	5	// TIME impulse without WE (despite write?)
 #define MD_EEPMODE	6
+
+// define MD specific gpios:	gpio-time = pb5
+
 #define SNES_REGULAR	MODE_SIMPLE_BUS
 #define SNES_HIROM	9
-#define NES_REGULAR	MODE_SIMPLE_BUS
+
+// define SNES specific gpios:	gpio-? =
+
 #define NES_PRG		10	// currently on odd addresses (may change with new hardware)
 #define NES_CHR		11
 #define NES_CHR_M2	12
@@ -58,12 +63,36 @@ static struct class *retrode3_class;
 #define NES_RAM		15
 #define NES_WRAM	16
 
+/* NES special wiring
+ d0..d7  <-> CPU
+ d8..d15 <-> PPU
+ a0..a14  -> A0..A14
+ a15..a23 -> ignored
+ romsel   -> A15
+ a13      -> inverted A16
+ for address mapping: https://www.nesdev.org/wiki/CPU_memory_map
+ for an example: https://www.nesdev.org/wiki/UxROM
+*/
+
+#define NES_A0_A14	(0x7fff)	// note that we ignore A15 here since the user selects
+					// ROMSEL through different mode to allow for different
+					// hardware connections
+#define NES_A13		(1<<13)		// connected inside Cart to /VRAM_CS
+#define NES_ROMSEL	(1<<15)		// connected to A15
+#define NES_A16		(1<<16)		// PPU_/A13
+
+/* should depend on .compatible since it controls hardware peculiarities */
+
+#define IS_MD()		(mode >= MD_ROM && mode <= MD_EEPMODE)
+#define IS_SNES()	(mode == SNES_REGULAR || mode == SNES_HIROM)
+#define IS_NES()	(mode >= NES_PRG && mode <= NES_WRAM)
+
 static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
-	loff_t addr = *ppos & 0xffffff;	/* max address */
-	uint8_t mode = *ppos >> 24;	/* access mode control */
+	uint32_t addr = *ppos & 0xffffff;	/* max address is 24 bit */
+	uint32_t mode = *ppos >> 24;		/* access mode control */
 	int err;
 
 #ifndef CONFIG_RETRODE3_BUFFER
@@ -75,7 +104,19 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 	unsigned int fill = 0;
 #endif
 
-if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
+// if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
+
+	if (IS_NES()) { // NES mapping to address bus
+// printk("%s: pos %08x\n", __func__, *ppos);
+// printk("%s: addr 1 %08x\n", __func__, addr);
+		addr &= NES_A0_A14;	// limit to 15 bit
+// printk("%s: addr 2 %08x\n", __func__, addr);
+		// manipulate A15 if needed
+		if (!(addr & NES_A13))
+			addr |= NES_A16;	// A16 (PPU_/A13) is !A13
+// printk("%s: addr 3 %08x\n", __func__, addr);
+	}
+
 //	dev_info(&slot->dev, "%s\n", __func__);
 
 	read = 0;
@@ -89,15 +130,13 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 			count = EOF - addr;	// limit to EOF
 	}
 
-// if (mode == SNES_HIROM)
-// switch (mode)
 	while (count > 0) {
 #ifndef CONFIG_RETRODE3_BUFFER
 		unsigned long remaining;
 #endif
 
-		if (count >= 2 && slot->bus_width == 16 && ((addr & 1) == 0)) {
-			u16 word;
+		if (mode == MODE_SIMPLE_BUS && slot->bus_width == 16 && count >= 2 && ((addr & 1) == 0)) {
+			uint16_t word;
 
 			err = set_address(slot->bus, addr);
 			if(err < 0)
@@ -122,7 +161,7 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 					goto failed;
 				fill = 0;
 			}
-			*((u16 *) &buffer[fill]) = swab16(word);	// use htons()?
+			*((uint16_t *) &buffer[fill]) = swab16(word);	// use htons()?
 			fill += 2;
 			*ppos += 2;
 			addr += 2;
@@ -130,21 +169,33 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 			read += 2;
 #endif
 		} else {
-			u8 byte;
+			uint8_t byte;
 
-			if (slot->bus_width == 16) {
+			if (slot->bus_width == 16) { // megadrive
 				err = set_address(slot->bus, addr);	// A0 determines lower/upper byte
-				// FIXME: should we read a word and take either half based on A0?
-				// we can get rid of read_byte()
-				// but it is slower!
-				byte = err = read_byte(slot->bus);
+				byte = err = read_byte(slot->bus);	// read half based on a0
 			}
-			else { // 8 bit bus
+			else { // 8 bit bus SNES or NES
 				err = set_address(slot->bus, addr);	// includes setting physical A0
-				// FIXME: should we read a word and take D0..D7 only?
-				// we can get rid of read_half()
-				// but it is slower!
-				byte = err = read_half(slot->bus, 1);	// D0..D7
+				switch (mode) {
+					case NES_PRG:
+					case NES_MMC5_SRAM:
+						byte = err = read_half(slot->bus, 1);	// NES CPU bus = D0..D7
+						break;
+					case NES_CHR:
+					case NES_CHR_M2:	// FIXME: what is the difference? Clocking M2 = CE-NES
+					case NES_REG:		// hier evtl. A15 = 1?
+					case NES_RAM:
+					case NES_WRAM:
+						byte = err = read_half(slot->bus, 0);	// NES PPU bus = D8..D15
+						break;
+					case MODE_SIMPLE_BUS:
+						byte = err = read_half(slot->bus, 1);	// D0..D7
+						break;
+					default:
+						dev_err(&slot->dev, "%s: mode (%d) not implemented\n", __func__, mode);
+						return -EIO;
+				}
 			}
 			if(err < 0)
 				goto failed;
@@ -161,7 +212,7 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 					goto failed;
 				fill = 0;
 			}
-			*((u8 *) &buffer[fill]) = byte;
+			*((uint8_t *) &buffer[fill]) = byte;
 			fill += 1;
 			*ppos += 1;
 			addr += 1;
@@ -205,13 +256,21 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	struct retrode3_slot *slot = file->private_data;
-	loff_t addr = *ppos & 0xffffff;	/* max address */
-	uint8_t mode = *ppos >> 24;	/* access mode control */
+	uint32_t addr = *ppos & 0xffffff;	/* max address is 24 bit */
+	uint32_t mode = *ppos >> 24;		/* access mode control */
 	ssize_t written, sz;
 	unsigned long copied;
-	void *ptr;
+	int err;
 
-if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
+// if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
+
+	if (IS_NES()) { // NES mapping to address bus
+		addr &= NES_A0_A14;	// limit to 15 bit
+		// manipulate A15 if needed
+		if (!(addr & NES_A13))
+			addr |= NES_A16;	// A16 (PPU_/A13) is !A13
+// printk("%s: addr 2 %08x\n", __func__, addr);
+	}
 //	dev_info(&slot->dev, "%s\n", __func__);
 
 	written = 0;
@@ -227,16 +286,56 @@ if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 
 	while (count > 0) {
 		int allowed;
+		uint8_t byte;
 
 // FIXME: loop over bytes and write them to consecutive addresses
 // handle words for 16 bit bus and faster write
 
-		sz = 1;
-		set_address(slot->bus, addr);
+		sz = sizeof(byte);
 
-#if FIXME	// ptr is uninitialized here
-		copied = copy_from_user(ptr, buf, sz);
-#endif
+		copied = copy_from_user(&byte, buf, sz);
+
+		switch (mode) {
+			case MD_TIME:
+				dev_info(&slot->dev, "%s: write MD_TIME %08x %02x\n", __func__, addr, byte);
+				err = set_address(slot->bus, addr);
+				if (err < 0)
+					return err;
+				// write with TIME impulse
+				;;
+			case NES_PRG:
+			case NES_MMC5_SRAM:
+				dev_info(&slot->dev, "%s: write NES PRG/SRAM %08x\n", __func__, addr, byte);
+				err = set_address(slot->bus, addr %02x);
+				if (err < 0)
+					return err;
+// CHECKME: do we have to play the WE0/WE8 differently?
+				write_half(slot->bus, byte, 1);	// NES CPU bus = D0..D7 and WE0
+				break;
+			case NES_CHR:
+			case NES_CHR_M2:	// FIXME: what is the difference? Clocking M2 = CE-NES
+			case NES_REG:
+			case NES_RAM:
+			case NES_WRAM:
+				dev_info(&slot->dev, "%s: write CHR %08x %02x\n", __func__, addr, byte);
+				err = set_address(slot->bus, addr);
+				if (err < 0)
+					return err;
+// CHECKME: do we have to play the WE0/WE8 differently?
+				write_half(slot->bus, byte, 0);	// NES PPU bus = D8..D15 and WE8
+				break;
+			case MODE_SIMPLE_BUS:
+				dev_info(&slot->dev, "%s: write MD %08x %02x\n", __func__, addr, byte);
+				err = set_address(slot->bus, addr);
+				if (err < 0)
+					return err;
+				write_half(slot->bus, byte, 1);	// D0..D7 and WE0
+				break;
+			default:
+				dev_err(&slot->dev, "%s: mode (%d) not implemented\n", __func__, mode);
+				return -EIO;
+		}
+
 		if (copied) {
 			written += sz - copied;
 			if (written)
@@ -473,6 +572,10 @@ MODULE_DEVICE_TABLE(i2c, retrode3_slot_idtable);
 
 static const struct of_device_id retrode3_slot_of_match[] = {
 	{ .compatible = "openpandora,retrode3-slot" },
+/* not yet used */
+	{ .compatible = "openpandora,retrode3-slot-snes", .data = (void *) 0 },
+	{ .compatible = "openpandora,retrode3-slot-megadrive", .data = (void *) 1 },
+	{ .compatible = "openpandora,retrode3-slot-nnes", .data = (void *) 2 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, retrode3_slot_of_match);
