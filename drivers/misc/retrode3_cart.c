@@ -55,13 +55,15 @@ static struct class *retrode3_class;
 
 // define SNES specific gpios:	gpio-? =
 
-#define NES_PRG		10	// currently on odd addresses (may change with new hardware)
-#define NES_CHR		11
-#define NES_CHR_M2	12
-#define NES_MMC5_SRAM	13
-#define NES_REG		14
-#define NES_RAM		15
-#define NES_WRAM	16
+// for NES address mapping: https://www.nesdev.org/wiki/CPU_memory_map
+
+#define NES_PRG		10	// CPU d0..d7	ROM $8000-$ffff
+#define NES_CHR		11	// PPU d8..d15	?
+#define NES_CHR_M2	12	// PPU d8..d15	?
+#define NES_MMC5_SRAM	13	// CPU d0..d7	special RAM? $0000-$07ff
+#define NES_REG		14	// PPU d8..d15	PPU registers? $2000-$2007
+#define NES_RAM		15	// PPU d8..d15	internal RAM? $0000-$07ff
+#define NES_WRAM	16	// PPU d8..d15?	Cartridge RAM  $6000-$7fff
 
 /* NES special wiring
  d0..d7  <-> CPU
@@ -70,7 +72,6 @@ static struct class *retrode3_class;
  a15..a23 -> ignored
  romsel   -> A15
  a13      -> inverted A16
- for address mapping: https://www.nesdev.org/wiki/CPU_memory_map
  for an example: https://www.nesdev.org/wiki/UxROM
 */
 
@@ -305,8 +306,8 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 				;;
 			case NES_PRG:
 			case NES_MMC5_SRAM:
-				dev_info(&slot->dev, "%s: write NES PRG/SRAM %08x\n", __func__, addr, byte);
-				err = set_address(slot->bus, addr %02x);
+				dev_info(&slot->dev, "%s: write NES PRG/SRAM %08x %02x\n", __func__, addr, byte);
+				err = set_address(slot->bus, addr);
 				if (err < 0)
 					return err;
 // CHECKME: do we have to play the WE0/WE8 differently?
