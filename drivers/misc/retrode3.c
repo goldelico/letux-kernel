@@ -58,7 +58,7 @@ static inline void set_bus_bit(struct gpio_desc *desc, int value)
 
 /* access to cart bus */
 
-static inline int set_address(struct retrode3_bus *bus, u32 addr)
+static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 { /* set address on all gpios */
 	int a;
 
@@ -83,7 +83,7 @@ static inline int set_address(struct retrode3_bus *bus, u32 addr)
 static inline int read_half(struct retrode3_bus *bus, int a0)
 { /* read data from data lines */
 	int d;
-	u8 data;
+	uint8_t data;
 // printk("%s: a0=%d\n", __func__, a0);
 
 	set_bus_bit(bus->oe, 0);	// this is the pin level although we have defined "active low" in the DTS
@@ -121,7 +121,7 @@ static inline int read_byte(struct retrode3_bus *bus)
 static inline int read_word(struct retrode3_bus *bus)
 { /* read data from data lines */
 	int d;
-	u16 data;
+	uint16_t data;
 
 // printk("%s:\n", __func__);
 
@@ -147,7 +147,7 @@ static inline int read_word(struct retrode3_bus *bus)
 
 // FIXME: mode should tell if 8 or 16 bit write is to be done and what a0 value should be assumed
 
-static inline void write_half(struct retrode3_bus *bus, u8 data, int a0)
+static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
 { // D0..D7 or D8..D15
 	int d;
 	/* set data bits */
@@ -170,12 +170,12 @@ static inline void write_half(struct retrode3_bus *bus, u8 data, int a0)
 	}
 }
 
-static inline void write_byte(struct retrode3_bus *bus, u8 data)
+static inline void write_byte(struct retrode3_bus *bus, uint8_t data)
 { // use bit 0 of current_address
 	return write_half(bus, data, bus->current_addr & 1);
 }
 
-static inline void write_word(struct retrode3_bus *bus, u16 data)	// D0..D15
+static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 { /* write data to data lines */
 	int d;
 	/* set data bits */

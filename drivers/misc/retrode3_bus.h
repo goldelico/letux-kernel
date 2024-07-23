@@ -37,7 +37,7 @@ struct retrode3_bus {
 	struct gpio_desc *reset;	// reset-gpio
 	struct retrode3_slot *slots[4];
 	struct mutex select_lock;	// used by select_slot
-	u32 current_addr;
+	uint32_t current_addr;
 };
 
 #define EOF	(1L<<24)	// 24 address lines = 16 MByte
@@ -45,7 +45,7 @@ struct retrode3_bus {
 /* access cart bus */
 
 // set the address on the bus
-static int set_address(struct retrode3_bus *bus, u32 addr);
+static int set_address(struct retrode3_bus *bus, uint32_t addr);
 
 // read from the data bus (taking A0 into account)
 static int read_half(struct retrode3_bus *bus, int a0);	// D0..D7 or D8..D15
@@ -53,6 +53,6 @@ static int read_byte(struct retrode3_bus *bus);	// use bit 0 of current_address
 static int read_word(struct retrode3_bus *bus);	// D0..D15
 
 // write a word - potentially a byte
-static void write_half(struct retrode3_bus *bus, u8 data, int a0);	// D0..D7 or D8..D15
-static void write_byte(struct retrode3_bus *bus, u8 data);	// use bit 0 of current_address
-static void write_word(struct retrode3_bus *bus, u16 data);	// D0..D15
+static void write_half(struct retrode3_bus *bus, uint8_t data, int a0);	// D0..D7 or D8..D15
+static void write_byte(struct retrode3_bus *bus, uint8_t data);	// use bit 0 of current_address
+static void write_word(struct retrode3_bus *bus, uint16_t data);	// D0..D15
