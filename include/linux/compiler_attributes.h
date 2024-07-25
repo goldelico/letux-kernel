@@ -39,6 +39,7 @@
 # define __GCC4_has_attribute___no_sanitize_undefined__ (__GNUC_MINOR__ >= 9)
 # define __GCC4_has_attribute___fallthrough__         0
 # define __GCC4_has_attribute___warning__             1
+# define __GCC4_has_attribute___uninitialized__       0
 #endif
 
 /*
