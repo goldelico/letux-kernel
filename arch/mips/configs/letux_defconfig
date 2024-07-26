@@ -1231,8 +1231,6 @@ CONFIG_EEPROM_93CX6=y
 
 CONFIG_RETRODE3=m
 # CONFIG_RETRODE3_BUFFER is not set
-CONFIG_HAVE_IDE=y
-# CONFIG_IDE is not set
 
 #
 # SCSI device support
