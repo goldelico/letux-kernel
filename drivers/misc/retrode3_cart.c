@@ -57,6 +57,9 @@ static struct class *retrode3_class;
 
 // for NES address mapping: https://www.nesdev.org/wiki/CPU_memory_map
 
+// can we simplify this? E.g. make the distinction between ROM (PRG) and RAM depend on address?
+// so that /dev/slot mimicks the CPU_memory_map
+
 #define NES_PRG		10	// CPU d0..d7	ROM $8000-$ffff
 #define NES_CHR		11	// PPU d8..d15	?
 #define NES_CHR_M2	12	// PPU d8..d15	?
@@ -181,6 +184,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 				switch (mode) {
 					case NES_PRG:
 					case NES_MMC5_SRAM:
+						// bei A15 = 0 RAM auslesen
 						byte = err = read_half(slot->bus, 1);	// NES CPU bus = D0..D7
 						break;
 					case NES_CHR:
@@ -188,9 +192,11 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 					case NES_REG:		// hier evtl. A15 = 1?
 					case NES_RAM:
 					case NES_WRAM:
+						// bei A15 = 0 RAM auslesen
 						byte = err = read_half(slot->bus, 0);	// NES PPU bus = D8..D15
 						break;
 					case MODE_SIMPLE_BUS:
+						// bei NES und A15 = 0 RAM auslesen
 						byte = err = read_half(slot->bus, 1);	// D0..D7
 						break;
 					default:
