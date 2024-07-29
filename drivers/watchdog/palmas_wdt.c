@@ -123,7 +123,7 @@ static int palmas_wdt_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int palmas_wdt_remove(struct platform_device *pdev)
+static void palmas_wdt_remove(struct platform_device *pdev)
 {
 	struct watchdog_device *wdt = platform_get_drvdata(pdev);
 
