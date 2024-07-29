@@ -130,7 +130,7 @@ exit_sysfs_group:
 	return err;
 }
 
-static int am335x_bandgap_remove(struct platform_device *pdev)
+static void am335x_bandgap_remove(struct platform_device *pdev)
 {
 	struct am335x_bandgap *data = platform_get_drvdata(pdev);
 
@@ -139,8 +139,6 @@ static int am335x_bandgap_remove(struct platform_device *pdev)
 
 	hwmon_device_unregister(data->hwmon_dev);
 	sysfs_remove_group(&pdev->dev.kobj, &am335x_bandgap_group);
-
-	return 0;
 }
 
 static const struct of_device_id am335x_bandgap_match[] = {
