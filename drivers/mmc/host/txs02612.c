@@ -334,7 +334,7 @@ out:
 	return err;
 }
 
-static int txs_remove(struct platform_device *dev)
+static void txs_remove(struct platform_device *dev)
 {
 	struct txs_data *data = platform_get_drvdata(dev);
 	int port;
@@ -347,8 +347,6 @@ static int txs_remove(struct platform_device *dev)
 	sysfs_remove_group(&dev->dev.kobj, &txs_attr_group);
 
 	mutex_destroy(&data->lock);
-
-	return 0;
 }
 
 static int txs_suspend(struct device *dev)
