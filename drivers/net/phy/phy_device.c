@@ -1882,10 +1882,8 @@ void phy_detach(struct phy_device *phydev)
 		phydev->is_genphy_driven = 0;
 	}
 
-	if (!dev->wol_enabled) {
-		/* Assert the reset signal */
-		phy_device_reset(phydev, 1);
-	}
+	/* Assert the reset signal */
+	phy_device_reset(phydev, 1);
 
 	/*
 	 * The phydev might go away on the put_device() below, so avoid
