@@ -290,11 +290,9 @@ static int ingenic_snd_soc_ci20_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int ingenic_snd_soc_ci20_remove(struct platform_device *pdev)
+static void ingenic_snd_soc_ci20_remove(struct platform_device *pdev)
 {
 	snd_soc_jack_free_gpios(&ci20_hp_jack, 1, &ci20_hp_jack_gpio);
-
-	return 0;
 }
 
 static struct platform_driver ingenic_ci20_audio_driver = {
