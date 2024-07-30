@@ -589,7 +589,7 @@ out_err_register:
 	return ret;
 }
 
-static int jz4780_codec_remove(struct platform_device *pdev)
+static void jz4780_codec_remove(struct platform_device *pdev)
 {
 	struct jz4780_codec *codec = platform_get_drvdata(pdev);
 
@@ -599,8 +599,6 @@ static int jz4780_codec_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	kfree(codec);
-
-	return 0;
 }
 
 static struct platform_driver jz4780_codec_driver = {
