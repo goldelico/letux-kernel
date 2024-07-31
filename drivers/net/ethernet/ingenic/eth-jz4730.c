@@ -1908,7 +1908,7 @@ static int jz4730_eth_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int jz4730_eth_remove(struct platform_device *pdev)
+static void jz4730_eth_remove(struct platform_device *pdev)
 {
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct jz_eth_private *np = netdev_priv(dev);
@@ -1918,7 +1918,6 @@ static int jz4730_eth_remove(struct platform_device *pdev)
 			     (void *)np->vaddr_rx_buf, np->dma_rx_buf,
 			     DMA_BIDIRECTIONAL);
 	free_netdev(dev);
-	return 0;
 }
 
 static const struct of_device_id jz4730_eth_match[] = {
