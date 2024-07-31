@@ -235,10 +235,9 @@ err:
 	return err;
 }
 
-static int wwan_on_off_remove(struct platform_device *pdev)
+static void wwan_on_off_remove(struct platform_device *pdev)
 {
 //	struct wwan_on_off *wwan = platform_get_drvdata(pdev);
-	return 0;
 }
 
 /* we only suspend the driver (i.e. set the gpio in a state
