@@ -95,6 +95,7 @@ struct drm_bridge_connector {
 	 * HDMI connector infrastructure, if any (see &DRM_BRIDGE_OP_HDMI).
 	 */
 	struct drm_bridge *bridge_hdmi;
+	/**
 	 * @bridge_cec:
 	 *
 	 * The last bridge in the chain (closest to the connector) that provides
