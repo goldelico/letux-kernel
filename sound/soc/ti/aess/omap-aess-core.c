@@ -260,7 +260,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int omap_aess_engine_remove(struct platform_device *pdev)
+static void omap_aess_engine_remove(struct platform_device *pdev)
 {
 	struct omap_aess *aess = dev_get_drvdata(&pdev->dev);
 
@@ -280,8 +280,6 @@ static int omap_aess_engine_remove(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(aess->debugfs_root);
 #endif
-
-	return 0;
 }
 
 static const struct of_device_id omap_aess_of_match[] = {
