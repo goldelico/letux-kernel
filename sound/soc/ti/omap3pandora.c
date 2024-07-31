@@ -466,7 +466,7 @@ static int omap3pandora_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int omap3pandora_remove(struct platform_device *pdev)
+static void omap3pandora_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct omap3pandora_sound *ctx = snd_soc_card_get_drvdata(card);
@@ -474,8 +474,6 @@ static int omap3pandora_remove(struct platform_device *pdev)
 	snd_soc_unregister_card(card);
 
 	mutex_destroy(&ctx->sample_rate_lock);
-
-	return 0;
 }
 
 static const struct of_device_id omap3pandora_of_match[] = {
