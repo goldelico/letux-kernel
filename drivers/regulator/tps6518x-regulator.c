@@ -670,7 +670,7 @@ err:
 	return ret;
 }
 
-static int tps6518x_regulator_remove(struct platform_device *pdev)
+static void tps6518x_regulator_remove(struct platform_device *pdev)
 {
 	struct tps6518x_data *priv = platform_get_drvdata(pdev);
 	struct regulator_dev **rdev = priv->rdev;
@@ -678,7 +678,6 @@ static int tps6518x_regulator_remove(struct platform_device *pdev)
 
 	for (i = 0; i < priv->num_regulators; i++)
 		regulator_unregister(rdev[i]);
-	return 0;
 }
 
 static struct platform_driver tps6518x_regulator_driver = {
