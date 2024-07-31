@@ -128,8 +128,6 @@ static void palmas_wdt_remove(struct platform_device *pdev)
 	struct watchdog_device *wdt = platform_get_drvdata(pdev);
 
 	watchdog_unregister_device(wdt);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
