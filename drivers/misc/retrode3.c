@@ -369,9 +369,9 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
         return 0;
 }
 
-static int retrode3_remove(struct platform_device *pdev)
+static void retrode3_remove(struct platform_device *pdev)
 {
-        struct retrode3_bus *bus = platform_get_drvdata(pdev);
+	struct retrode3_bus *bus = platform_get_drvdata(pdev);
 	int i;
 
 	select_slot(bus, NULL);	// deselect all slots
@@ -384,8 +384,6 @@ static int retrode3_remove(struct platform_device *pdev)
 	}
 
 	mutex_destroy(&bus->select_lock);
-
-        return 0;
 }
 
 static const struct of_device_id retrode3_of_match[] = {
