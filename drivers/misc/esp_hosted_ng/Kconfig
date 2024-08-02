@@ -1,0 +1,17 @@
+config ESP_HOSTED_NG
+	tristate "TI TWL4030 Audio"
+	default n
+	help
+	  This is the ESP hosted ng driver.
+
+choice
+	prompt "Interface"
+	default ESP_HOSTED_NG_SDIO
+
+config ESP_HOSTED_NG_SDIO
+	bool "sdio"
+
+config ESP_HOSTED_NG_SPI
+	bool "spi"
+
+endchoice
