@@ -194,9 +194,15 @@ static inline void write_word(struct retrode3_bus *bus, u16 data)	// D0..D15
 	}
 }
 
-/* cart select */
+static int get_slot_power_mV(struct retrode3_slot *slot)
+{
+	if(!slot || IS_ERR_OR_NULL(slot->power))
+		return -ENODEV;
 
-static int set_slot_power(struct retrode3_slot *slot, int mV)
+	return gpiod_get_direction(slot->power) ? 3300 : 5000;
+}
+
+static int set_slot_power_mV(struct retrode3_slot *slot, int mV)
 {
 // printk("%s: %d %px\n", __func__, mV, slot->power);
 
@@ -438,13 +444,12 @@ static ssize_t vcc_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	int mV = get_slot_power_mV(slot);
 
-	if(!slot || IS_ERR_OR_NULL(slot->power))
-		return sprintf(buf, "fixed\n");	// can't control
+	if (mV < 0)
+		return sprintf(buf, "fixed\n");
 
-	// input = floating = 3.3V, output = 5V
-// sould use sysfs_emit()
-	return sprintf(buf, "%s\n", gpiod_get_direction(slot->power)?"3.3V":"5V");
+	return sprintf(buf, "%dmV\n", mV);
 }
 
 static ssize_t vcc_store(struct device *dev,
@@ -452,18 +457,19 @@ static ssize_t vcc_store(struct device *dev,
 			   const char *buf, size_t count)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	int mV;
+	int err;
 
 	if(IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;	// can't control
 
-	if (sysfs_streq(buf, "3.3V"))
-		set_slot_power(slot, 3300);
-	else if (sysfs_streq(buf, "5V"))
-		set_slot_power(slot, 5000);
-	else if (sysfs_streq(buf, "off"))
-		set_slot_power(slot, 0);
-	else
-		return -EINVAL;
+	err = kstrtouint(buf, 10, &mV);
+	if (err < 0)
+		return err;
+
+	err = set_slot_power_mV(slot, mV);
+	if (err < 0)
+		return err;
 
 	return count;
 }

@@ -6,7 +6,7 @@
  *  drivers/gnss/core.c
  *  arch/arm/common/locomo.c
  *
- *  Copyright (C) 2022-23, H. Nikolaus Schaller
+ *  Copyright (C) 2022-24, H. Nikolaus Schaller
  *
  */
 
@@ -95,7 +95,8 @@ static inline void retrode3_unregister_driver(struct retrode3_driver *drv)
 /* cart select */
 
 // switch power for this slot
-static int set_slot_power(struct retrode3_slot *slot, int mV);
+static int get_slot_power_mV(struct retrode3_slot *slot);
+static int set_slot_power_mV(struct retrode3_slot *slot, int mV);
 
 // select this slot on the bus (mutually exclusive!)
 // FIXME: ein Slot kennt seinen bus! - aber was mit SLOT==NULL
