@@ -39,3 +39,7 @@ config ESP_HOSTED_NG_SPI
 	  full-duplex slave synchronous serial interface that is available
 	  immediately following reset when pin ??? (SDIO_SPI_CFG) is tied to
 	  VDDIO. Select this if your platform is using the SPI bus.
+
+config ENABLE_MONITOR_PROCESS
+	depends on ESP_HOSTED_NG
+	bool "Enable monitor process for Espressif devices"
