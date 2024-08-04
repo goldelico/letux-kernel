@@ -12,6 +12,7 @@ platform-$(CONFIG_EYEQ)			+= mobileye/
 platform-$(CONFIG_MIPS_COBALT)		+= cobalt/
 platform-$(CONFIG_MACH_DECSTATION)	+= dec/
 platform-$(CONFIG_MIPS_GENERIC)		+= generic/
+platform-$(CONFIG_MACH_INGENIC)		+= ingenic/
 platform-$(CONFIG_MACH_JAZZ)		+= jazz/
 platform-$(CONFIG_LANTIQ)		+= lantiq/
 platform-$(CONFIG_MACH_LOONGSON2EF)	+= loongson2ef/
