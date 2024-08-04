@@ -1,5 +1,5 @@
 #
-# Linux/arm64 6.11.0-rc1 Kernel Configuration
+# Linux/arm64 6.11.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2538,6 +2538,9 @@ CONFIG_BRCMFMAC_SDIO=y
 # CONFIG_BRCMFMAC_PCIE is not set
 # CONFIG_BRCM_TRACING is not set
 # CONFIG_BRCMDBG is not set
+CONFIG_WLAN_VENDOR_ESPRESSIF=y
+# CONFIG_ESP_HOSTED_NG_SDIO is not set
+# CONFIG_ESP_HOSTED_NG_SPI is not set
 CONFIG_WLAN_VENDOR_INTEL=y
 # CONFIG_IPW2100 is not set
 # CONFIG_IPW2200 is not set
