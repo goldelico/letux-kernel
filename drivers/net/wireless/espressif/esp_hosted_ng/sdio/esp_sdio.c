@@ -983,3 +983,5 @@ void esp_deinit_interface_layer(void)
 {
 	sdio_unregister_driver(&esp_sdio_driver);
 }
+
+MODULE_LICENSE("GPL");
