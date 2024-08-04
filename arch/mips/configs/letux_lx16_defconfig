@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.11.0-rc1 Kernel Configuration
+# Linux/mips 6.11.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1398,6 +1398,8 @@ CONFIG_ATH10K_LEDS=y
 # CONFIG_ATH11K is not set
 # CONFIG_WLAN_VENDOR_ATMEL is not set
 # CONFIG_WLAN_VENDOR_BROADCOM is not set
+CONFIG_WLAN_VENDOR_ESPRESSIF=y
+# CONFIG_ESP_HOSTED_NG_SDIO is not set
 # CONFIG_WLAN_VENDOR_INTEL is not set
 # CONFIG_WLAN_VENDOR_INTERSIL is not set
 # CONFIG_WLAN_VENDOR_MARVELL is not set
