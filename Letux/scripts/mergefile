@@ -165,6 +165,7 @@ letux/jz4780-sound	# contains defconfig fixes...
 # LX16 / X1600
 letux/x1600
 letux/dt-lx16
+letux/esp-hosted-ng
 
 # E-Book reader
 letux/kobolino/backlight
