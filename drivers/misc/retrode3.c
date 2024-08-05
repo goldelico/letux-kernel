@@ -194,17 +194,22 @@ static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D1
 	}
 }
 
+#define CONFIG_V293 y
+
 static int get_slot_power_mV(struct retrode3_slot *slot)
 {
 	if(!slot || IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;
-
+#if CONFIG_V293
+	return gpiod_get_value(slot->power) ? 3300 : 5000;
+#else
 	return gpiod_get_direction(slot->power) ? 3300 : 5000;
+#endif
 }
 
 static int set_slot_power_mV(struct retrode3_slot *slot, int mV)
 {
-// printk("%s: %d %px\n", __func__, mV, slot->power);
+printk("%s: %dmV %px\n", __func__, mV, slot->power);
 
 	if (IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;
@@ -214,10 +219,15 @@ static int set_slot_power_mV(struct retrode3_slot *slot, int mV)
 			gpiod_direction_output(slot->power, 0);	// switch to output and strongly pull down
 			break;
 		case 3300:
+#if CONFIG_V293
+			return -EINVAL;	// broken
+			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.3 board
+#else
 			gpiod_direction_input(slot->power);	// floating
+#endif
 			break;
 		default:
-printk("%s: unknown voltage %d\n", __func__, mV);
+printk("%s: unknown voltage %dmV\n", __func__, mV);
 			return -EINVAL;
 	}
 	return 0;

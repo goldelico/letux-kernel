@@ -492,8 +492,8 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 		return ret;
 
 	if(!IS_ERR_OR_NULL(slot->power)) {
-//		set_slot_power_mV(slot, 5000);	// switch to 5V if possible
-		set_slot_power_mV(slot, 3300);	// switch to 3.3V if possible
+		if (!set_slot_power_mV(slot, 3300))	// switch to 3.3V if possible
+			set_slot_power_mV(slot, 5000);	// fall back to 5V
 	}
 
 	slot->cd_state = -1;	// enforce a state update event for initial state
