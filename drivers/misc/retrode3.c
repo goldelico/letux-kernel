@@ -200,7 +200,7 @@ static int get_slot_power_mV(struct retrode3_slot *slot)
 {
 	if(!slot || IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;
-#if CONFIG_V293
+#ifdef CONFIG_V293
 	return gpiod_get_value(slot->power) ? 3300 : 5000;
 #else
 	return gpiod_get_direction(slot->power) ? 3300 : 5000;
@@ -219,7 +219,7 @@ printk("%s: %dmV %px\n", __func__, mV, slot->power);
 			gpiod_direction_output(slot->power, 0);	// switch to output and strongly pull down
 			break;
 		case 3300:
-#if CONFIG_V293
+#ifdef CONFIG_V293
 			return -EINVAL;	// broken
 			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.3 board
 #else
