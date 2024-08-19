@@ -13,6 +13,12 @@
 
 #include <libgen.h>
 #include <linux/limits.h>
+#if defined(__APPLE__)
+#define off_t local_off_t     /* prevent conflict with Darwin off_t */
+#define dev_t local_dev_t     /* prevent conflict with Darwin dev_t */
+#undef __alloc_size
+#define __alloc_size(x, ...)
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
