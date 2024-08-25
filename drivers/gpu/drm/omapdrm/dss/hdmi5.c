@@ -445,7 +445,7 @@ static void hdmi5_bridge_hpd_notify(struct drm_bridge *bridge,
 	struct omap_hdmi *hdmi = drm_bridge_to_hdmi(bridge);
 
 	if (status == connector_status_disconnected)
-		hdmi5_cec_set_phys_addr(&hdmi->core, NULL);
+		hdmi5_cec_set_phys_addr(&hdmi->core, CEC_PHYS_ADDR_INVALID);
 }
 
 static const struct drm_edid *hdmi5_bridge_edid_read(struct drm_bridge *bridge,
@@ -478,11 +478,6 @@ static const struct drm_edid *hdmi5_bridge_edid_read(struct drm_bridge *bridge,
 
 	drm_edid = drm_edid_read_custom(connector, hdmi5_core_ddc_read, &hdmi->core);
 
-	const struct edid *edid = drm_edid_raw(drm_edid);
-	unsigned int len = (edid->extensions + 1) * EDID_LENGTH;
-
-	cec_addr = cec_get_edid_phys_addr((u8 *)edid, len, NULL);
-
 	hdmi5_core_ddc_uninit(&hdmi->core);
 
 	REG_FLD_MOD(hdmi->wp.base, HDMI_WP_SYSCONFIG, idlemode, 3, 2);
@@ -490,7 +485,23 @@ static const struct drm_edid *hdmi5_bridge_edid_read(struct drm_bridge *bridge,
 	hdmi_runtime_put(hdmi);
 	mutex_unlock(&hdmi->lock);
 
-	hdmi5_cec_set_phys_addr(&hdmi->core, edid);
+	if (drm_edid) {
+		/*
+		 * FIXME: The CEC physical address should be set using
+		 * hdmi4_cec_set_phys_addr(&hdmi->core,
+		 * connector->display_info.source_physical_address) from a path
+		 * that has read the EDID and called
+		 * drm_edid_connector_update().
+		 */
+		const struct edid *edid = drm_edid_raw(drm_edid);
+		unsigned int len = (edid->extensions + 1) * EDID_LENGTH;
+
+		cec_addr = cec_get_edid_phys_addr((u8 *)edid, len, NULL);
+	} else {
+		cec_addr = CEC_PHYS_ADDR_INVALID;
+	}
+
+	hdmi5_cec_set_phys_addr(&hdmi->core, cec_addr);
 
 	if (need_enable)
 		hdmi5_core_disable(hdmi);
