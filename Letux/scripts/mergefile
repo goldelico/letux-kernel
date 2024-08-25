@@ -138,9 +138,10 @@ letux/codecs-for-gta04
 letux/codec-twl4030
 letux/sound-soc
 
-# Pyra sound
+# Pyra sound and video
 letux/palmas-gpadc
 letux/pyra-vol-mon
+letux/omap45-cec
 
 # AESS
 letux/aess
