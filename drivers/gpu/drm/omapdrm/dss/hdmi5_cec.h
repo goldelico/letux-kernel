@@ -11,14 +11,14 @@
 /* HDMI CEC funcs */
 #ifdef CONFIG_OMAP5_DSS_HDMI_CEC
 void hdmi5_cec_set_phys_addr(struct hdmi_core_data *core,
-			     struct edid *edid);
+			     u16 pa);
 void hdmi5_cec_irq(struct hdmi_core_data *core);
 int hdmi5_cec_init(struct platform_device *pdev, struct hdmi_core_data *core,
 		   struct hdmi_wp_data *wp, struct drm_connector *conn);
 void hdmi5_cec_uninit(struct hdmi_core_data *core);
 #else
 static inline void hdmi5_cec_set_phys_addr(struct hdmi_core_data *core,
-					   struct edid *edid)
+					   u16 pa)
 {
 }
 
