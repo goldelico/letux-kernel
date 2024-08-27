@@ -1,12 +1,14 @@
 /dts-v1/;
 
+// FIXME: this should be split into different lx16.dts files which build upon each other to avoid the if LX16_REV conditions
+
 #include "x1600.dtsi"
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-#define LX16_REV	2	// 1 = v0.1, 2 = v0.2
+#define LX16_REV	2	// 1 = v0.1, 2 = v0.2, 3=v0.3
 #define LX16_W		1	// variant with WLAN and Bluetooth
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
@@ -52,7 +54,11 @@
 // Mapping of connector pins to LX16 signals
 #define PIN3	PB31_SDA0
 #define PIN5	PB30_SCL0
+#if LX16_REV == 3
+#define PIN7	PB17
+#else
 #define PIN7	PC24_PWM3_TCU5
+#endif
 #define PIN8	PB8_TXD0
 #define PIN10	PB7_RXD0
 #define PIN11	PB10_RTS0_PWM7_TCU7
@@ -110,6 +116,7 @@
 #define PB14			&gpb 14	// rev2 only
 #define PB15_SCK1		&gpb 15	// rev2 only
 #define PB16_CE1_SDA1		&gpb 16	// rev2 only
+#define PB17			&gpb 17	// rev3 only
 #define PB19_SCL1_RXD0_PWM5	&gpb 19
 #define PB20_SDA1_RXD1_PWM6	&gpb 20
 #define PB21_RXDAT_TXD0_PWM7	&gpb 21
@@ -457,8 +464,8 @@
 		max-speed = <200000>;
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
-#endif
 	};
+#endif
 };
 
 &mac0 {
