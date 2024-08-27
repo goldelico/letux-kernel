@@ -21,6 +21,7 @@
 #include <linux/proc_fs.h>
 #include <linux/idr.h>
 #include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
@@ -34,18 +35,14 @@
 #define PANDORA_NUB_MODE_MBUTTONS	3
 
 static DEFINE_IDR(pandora_nub_proc_id);
-static DEFINE_MUTEX(pandora_nub_mutex);
+static DEFINE_MUTEX(pandora_nub_mutex);	// may not be needed if pandora_nub_reset_refcountis removed
 
 /* Reset state is shared between both nubs, so we keep
  * track of it here.
  */
+// FIXME: this mechanism is broken
 static int pandora_nub_reset_state;
 static int pandora_nub_reset_refcount;
-
-struct pandora_nub_platform_data {
-	int gpio_irq;
-	int gpio_reset;
-};
 
 struct pandora_nub_drvdata {
 	char dev_name[12];
@@ -53,7 +50,7 @@ struct pandora_nub_drvdata {
 	struct i2c_client *client;
 	struct regulator *reg;
 	struct delayed_work work;
-	int reset_gpio;
+	struct gpio_desc *reset_gpio;
 	int irq_gpio;
 	int mode;
 	int proc_id;
@@ -225,10 +222,10 @@ static int pandora_nub_reset(struct pandora_nub_drvdata *ddata, int val)
 	if (ddata->mode != PANDORA_NUB_MODE_ABS)
 		release_mbuttons(ddata);
 
-	ret = gpio_direction_output(ddata->reset_gpio, val);
+	ret = gpiod_direction_output(ddata->reset_gpio, val);
 	if (ret < 0) {
 		dev_err(&ddata->client->dev, "failed to configure direction "
-			"for GPIO %d, error %d\n", ddata->reset_gpio, ret);
+			"for reset gpio, error %d\n", ret);
 	}
 	else {
 		pandora_nub_reset_state = val;
@@ -543,7 +540,6 @@ PANDORA_NUB_PE(mbutton_delay, pandora_nub_proc_int_read, pandora_nub_proc_int_wr
 
 static int pandora_nub_probe(struct i2c_client *client)
 {
-	struct pandora_nub_platform_data *pdata = dev_get_platdata(&client->dev);
 	struct pandora_nub_drvdata *ddata;
 	char buff[32];
 	int ret;
@@ -553,7 +549,7 @@ static int pandora_nub_probe(struct i2c_client *client)
 		return -EIO;
 	}
 
-	ddata = kzalloc(sizeof(struct pandora_nub_drvdata), GFP_KERNEL);
+	ddata = devm_kzalloc(&client->dev, sizeof(struct pandora_nub_drvdata), GFP_KERNEL);
 	if (ddata == NULL)
 		return -ENOMEM;
 
@@ -574,23 +570,13 @@ static int pandora_nub_probe(struct i2c_client *client)
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to alloc idr,"
 				" error %d\n", ret);
-		goto err_idr;
+		return ret;
 	}
 
-	mutex_lock(&pandora_nub_mutex);
-	if (!pandora_nub_reset_refcount) {
-		ret = gpio_request_one(pdata->gpio_reset, GPIOF_OUT_INIT_HIGH,
-			"pandora_nub reset");
-		if (ret < 0) {
-			dev_err(&client->dev, "gpio_request error: %d, %d\n",
-				pdata->gpio_reset, ret);
-			mutex_unlock(&pandora_nub_mutex);
-			goto err_gpio_reset;
-		}
-	}
-	pandora_nub_reset_refcount++;
-
-	mutex_unlock(&pandora_nub_mutex);
+	// FIXME: gpio may already be claimed by other nub!
+	ddata->reset_gpio = devm_gpiod_get(&client->dev, "reset",
+			GPIOD_OUT_HIGH);
+	// handle or ignore error?
 
 	snprintf(ddata->dev_name, sizeof(ddata->dev_name),
 		 "nub%d", ddata->proc_id);
@@ -607,11 +593,11 @@ static int pandora_nub_probe(struct i2c_client *client)
 	ddata->mbutton.delay = 1;
 	i2c_set_clientdata(client, ddata);
 
-	ddata->reg = regulator_get(&client->dev, "vcc");
+	ddata->reg = devm_regulator_get(&client->dev, "vcc");
 	if (IS_ERR(ddata->reg)) {
 		ret = PTR_ERR(ddata->reg);
 		dev_err(&client->dev, "unable to get regulator: %d\n", ret);
-		goto err_regulator_get;
+		goto err_regulator_enable;
 	}
 
 	ret = regulator_enable(ddata->reg);
@@ -634,16 +620,16 @@ static int pandora_nub_probe(struct i2c_client *client)
 	}
 
 	if(client->irq) {
-	ret = request_threaded_irq(client->irq, NULL,
-				     pandora_nub_interrupt,
+		ret = devm_request_threaded_irq(&client->dev, client->irq,
+				     NULL, pandora_nub_interrupt,
 				     IRQF_ONESHOT |
 				     IRQF_TRIGGER_FALLING,
 				     "pandora_joystick", ddata);
-	if (ret) {
-		dev_err(&client->dev, "unable to claim irq %d, error %d\n",
-			client->irq, ret);
-		goto err_request_irq;
-	}
+		if (ret) {
+			dev_err(&client->dev, "unable to claim irq %d, error %d\n",
+				client->irq, ret);
+			goto err_request_irq;
+		}
 
 	}
 
@@ -688,12 +674,8 @@ err_request_irq:
 	pandora_nub_input_unregister(ddata);
 err_input_register:
 err_regulator_enable:
-	regulator_put(ddata->reg);
-err_regulator_get:
-err_gpio_reset:
 	idr_remove(&pandora_nub_proc_id, ddata->proc_id);
 err_idr:
-	kfree(ddata);
 	return ret;
 }
 
@@ -705,14 +687,6 @@ static void pandora_nub_remove(struct i2c_client *client)
 	dev_dbg(&client->dev, "remove\n");
 
 	ddata = i2c_get_clientdata(client);
-
-	mutex_lock(&pandora_nub_mutex);
-
-	pandora_nub_reset_refcount--;
-	if (!pandora_nub_reset_refcount)
-		gpio_free(ddata->reset_gpio);
-
-	mutex_unlock(&pandora_nub_mutex);
 
 	device_remove_file(&client->dev, &dev_attr_reset);
 
@@ -728,9 +702,7 @@ static void pandora_nub_remove(struct i2c_client *client)
 	remove_proc_entry(buff, NULL);
 	idr_remove(&pandora_nub_proc_id, ddata->proc_id);
 
-	free_irq(client->irq, ddata);
 	pandora_nub_input_unregister(ddata);
-	gpio_free(ddata->irq_gpio);
 	regulator_put(ddata->reg);
 	kfree(ddata);
 }
