@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.11.0-rc6 Kernel Configuration
+# Linux/x86 6.11.0-rc7 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3920,7 +3920,6 @@ CONFIG_VIDEO_STK1160=m
 # Webcam, TV (analog/digital) USB devices
 #
 # CONFIG_VIDEO_EM28XX is not set
-CONFIG_VIDEO_SAA711X=m
 
 #
 # Software defined radio USB devices
@@ -4246,6 +4245,7 @@ CONFIG_VIDEO_CAMERA_SENSOR=y
 #
 # audio, video and radio I2C drivers auto-selected by 'Autoselect ancillary drivers'
 #
+CONFIG_VIDEO_SAA711X=m
 
 #
 # Video and audio decoders
