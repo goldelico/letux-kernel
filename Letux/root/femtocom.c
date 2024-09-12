@@ -25,10 +25,10 @@ int main(int argc, char *argv[])
 		argv++;
 	}
 	if(!argv[1]) {
-		fprintf(stderr, "usage: %s [-s] [-r] [b###] /dev/ttyUSB\n", arg0);
+		fprintf(stderr, "usage: %s [-s] [-r] [-b###] /dev/tty...\n", arg0);
 		fprintf(stderr, "  -s send \\n as \\n and not as \\r\\n\n");
 		fprintf(stderr, "  -r receive \\r and don't ignore\n");
-		fprintf(stderr, "  -b#### set baud rate\n");
+		fprintf(stderr, "  -b### set baud rate\n");
 		return 1;
 	}
 	fd=open(argv[1], O_RDWR);
