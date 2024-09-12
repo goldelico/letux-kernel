@@ -35,6 +35,7 @@ function gitfetch { # $1 = repo, $2 = subdir
 	if ! [ -d $2 ]
 	then
 		rm -rf $2.tmp
+		echo "+++ fetch $BRANCH from $1";
 		git clone --depth 1 -b $BRANCH $1 $2.tmp && mv $2.tmp $2 || return
 	fi
 }
