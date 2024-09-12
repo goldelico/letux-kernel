@@ -50,6 +50,7 @@ static const struct sdio_device_id esp_devices[] = {
 	{ SDIO_DEVICE(ESP_VENDOR_ID_2, ESP_DEVICE_ID_C5_C6_C61_2) },
 	{}
 };
+MODULE_DEVICE_TABLE(sdio, esp_devices);
 
 static void esp_process_interrupt(struct esp_sdio_context *context, u32 int_status)
 {
