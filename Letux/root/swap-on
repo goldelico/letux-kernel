@@ -1,0 +1,36 @@
+#!/bin/bash
+
+GB="$1"
+SWAPFILE=/swapfile
+
+[ "$GB" ] || GB=$(ls -l --block-size=1G $SWAPFILE 2>/dev/null | cut -d ' ' -f 5)	# same as currently
+[ "$GB" ] || GB=1
+
+echo "### setting up ${GB}GB swap on $SWAPFILE"
+swapoff -a
+
+case "2" in
+	0 )
+		# modern kernel syscall may not be compatible with older Debian
+		# fallocate: fallocate failed: Operation not supported
+		fallocate -l ${GB}GiB $SWAPFILE || exit
+		;;
+	1 )
+		# creates holes
+		# swapon: /swapfile: skipping - it appears to have holes.
+		truncate -s $( echo | awk "{print int(($GB) * 1024 * 1024 * 1024)}") /swapfile || exit
+		;;
+	2 )
+		# only this works reliably although slowly
+		if [ ! -r $SWAPFILE ]
+		then
+			# the awk formula allows to specify e.g. 0.1 GB because it does a floating point calculation
+			dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$( echo | awk "{print int(($GB) * 1048576)}") || exit
+		fi
+		;;
+esac
+
+chmod 0600 "$SWAPFILE"
+mkswap "$SWAPFILE"
+swapon "$SWAPFILE"
+echo "### $SWAPFILE is set up. To stop, run 'swapoff -a'."
