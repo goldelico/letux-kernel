@@ -18,6 +18,11 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#ifndef strscpy
+ssize_t sized_strscpy(char *, const char *, size_t);
+#define strscpy(dst, src, size)	sized_strscpy((char *) dst, src, size)
+#endif
+
 #define SNDRV_CTL_ELEM_ID_NAME_MAXLEN 44	// from include/uapi/sound/asound.h
 struct __kernel_timespec { int time; };
 struct mutex { int dummy; };
