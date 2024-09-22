@@ -16,6 +16,7 @@
 #define dev_t host_dev_t
 #define blkcnt_t host_blkcnt_t
 typedef int int32_t;
+typedef unsigned int __uint32_t;
 struct timespec { int seconds; };
 
 /*
