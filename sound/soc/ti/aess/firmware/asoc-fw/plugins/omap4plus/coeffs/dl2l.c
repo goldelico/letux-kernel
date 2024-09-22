@@ -20,6 +20,7 @@
 #define dev_t host_dev_t
 #define blkcnt_t host_blkcnt_t
 typedef int int32_t;
+typedef unsigned int __uint32_t;
 struct timespec { int seconds; };
 
 #define __OMAP_AESS_PRIV_H__	// do not define struct snd_soc_file_coeff_data
