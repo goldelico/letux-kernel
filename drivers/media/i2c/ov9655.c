@@ -908,7 +908,7 @@ static int ov9655_enum_mbus_code(struct v4l2_subdev *subdev,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_mbus_code_enum *code)
 {
-	if (code->index >= ARRAY_SIZE(ov9655_formats))
+	if (code->pad || code->index >= ARRAY_SIZE(ov9655_formats))
 		return -EINVAL;
 
 	code->code = ov9655_formats[code->index].code;
@@ -927,7 +927,9 @@ static int ov9655_enum_frame_size(struct v4l2_subdev *subdev,
 	while (--i)
 		if (fse->code == ov9655_formats[i].code)
 			break;
-
+	if (i < 0)
+		return -EINVAL;
+	// CHECKME:
 	fse->code = ov9655_formats[i].code;
 
 	fse->min_width  = ov9655_framesizes[fse->index].width;
@@ -1105,11 +1107,38 @@ static int ov9655_set_selection(struct v4l2_subdev *subdev,
 	return 0;
 }
 
+static int ov9655_init_state(struct v4l2_subdev *subdev,
+			      struct v4l2_subdev_state *sd_state)
+{
+	struct ov9655 *ov9655 = to_ov9655(subdev);
+	struct v4l2_mbus_framefmt *format;
+	struct v4l2_rect *crop;
+	const int which = sd_state == NULL ? V4L2_SUBDEV_FORMAT_ACTIVE :
+					     V4L2_SUBDEV_FORMAT_TRY;
+
+	crop = __ov9655_get_pad_crop(ov9655, sd_state, 0, which);
+	crop->left = OV9655_COLUMN_START_DEF;
+	crop->top = OV9655_ROW_START_DEF;
+	crop->width = OV9655_WINDOW_WIDTH_DEF;
+	crop->height = OV9655_WINDOW_HEIGHT_DEF;
+
+	format = __ov9655_get_pad_format(ov9655, sd_state, 0, which);
+
+	format->code = MEDIA_BUS_FMT_Y12_1X12;
+
+	format->width = OV9655_WINDOW_WIDTH_DEF;
+	format->height = OV9655_WINDOW_HEIGHT_DEF;
+	format->field = V4L2_FIELD_NONE;
+	format->colorspace = V4L2_COLORSPACE_SRGB;
+
+	return 0;
+}
+
 /*
  * V4L2 subdev control operations
  */
 
-/* private extensions to the MT9P031 driver? */
+/* private extensions to the OV9655 driver? */
 
 #define V4L2_CID_BLC_AUTO		(V4L2_CID_USER_BASE | 0x1002)
 #define V4L2_CID_BLC_TARGET_LEVEL	(V4L2_CID_USER_BASE | 0x1003)
@@ -1444,6 +1473,7 @@ nodev:
 static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(subdev);
+	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
 
@@ -1460,14 +1490,22 @@ static int ov9655_open(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
 
 	ov9655_get_default_format(format);
 
-	return 0;
+	return __ov9655_set_power(ov9655, 1);
+}
+
+static int ov9655_close(struct v4l2_subdev *subdev, struct v4l2_subdev_fh *fh)
+{
+	struct ov9655 *ov9655 = to_ov9655(subdev);
+	return __ov9655_set_power(ov9655, 0);
 }
 
 static struct v4l2_subdev_core_ops ov9655_subdev_core_ops = {
 	.s_power		= ov9655_set_power,
+#if 0
 	.log_status		= v4l2_ctrl_subdev_log_status,
 	.subscribe_event	= v4l2_ctrl_subdev_subscribe_event,
 	.unsubscribe_event	= v4l2_event_subdev_unsubscribe,
+#endif
 };
 
 static struct v4l2_subdev_video_ops ov9655_subdev_video_ops = {
@@ -1490,8 +1528,10 @@ static struct v4l2_subdev_ops ov9655_subdev_ops = {
 };
 
 static const struct v4l2_subdev_internal_ops ov9655_subdev_internal_ops = {
+	.init_state	= ov9655_init_state,
 	.registered	= ov9655_registered,
 	.open		= ov9655_open,
+	.close		= ov9655_close,
 };
 
 /*
@@ -1609,8 +1649,8 @@ static int ov9655_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&ov9655->subdev, client, &ov9655_subdev_ops);
 	ov9655->subdev.internal_ops = &ov9655_subdev_internal_ops;
 
-	ov9655->pad.flags = MEDIA_PAD_FL_SOURCE;
 	ov9655->subdev.entity.function = MEDIA_ENT_F_CAM_SENSOR;
+	ov9655->pad.flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&ov9655->subdev.entity, 1, &ov9655->pad);
 	if (ret < 0)
 		goto err_2;
@@ -1621,6 +1661,10 @@ static int ov9655_probe(struct i2c_client *client)
 	ov9655->crop.height = OV9655_WINDOW_HEIGHT_DEF;
 	ov9655->crop.left = OV9655_COLUMN_START_DEF;
 	ov9655->crop.top = OV9655_ROW_START_DEF;
+
+	ret = ov9655_init_state(&ov9655->subdev, NULL);
+	if (ret)
+		goto err_2;
 
 	ov9655->reset = devm_gpiod_get_optional(&client->dev, "reset",
 						 GPIOD_OUT_HIGH);
