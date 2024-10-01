@@ -135,9 +135,9 @@ int mmc_gpio_request_rs(struct mmc_host *host, unsigned int gpio, int low)
 
 	ctx = host->slot.handler_priv;
 	if (low)
-		flags = GPIOF_DIR_OUT | GPIOF_INIT_HIGH | GPIOF_ACTIVE_LOW;
+		flags = GPIOF_OUT_INIT_LOW;
 	else
-		flags = GPIOF_DIR_OUT | GPIOF_INIT_LOW;
+		flags = GPIOF_OUT_INIT_HIGH;
 
 	ret = devm_gpio_request_one(&host->class_dev, gpio,
 				    flags, ctx->rs_label);
