@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# read and rewrite OneNAND
+#
+# run this only if booted from µSD!
+# do not interrupt
+# will clean up kernel messages like
+#   onenand_wait: correctable ECC error = 0x5555
+
+if mount | fgrep mtdblock
+then
+	echo MTD is mounted!
+	echo exit
+fi
+
+for i in /dev/mtdblock*
+do
+	echo "processing $i"
+	umount "$i"
+# 	dd if="$i" of="/tmp/$(basename "$i")" status=progress || exit
+	cat $i >/tmp/$(basename "$i") || exit
+	cat /tmp/$(basename "$i") >$i || exit
+done
