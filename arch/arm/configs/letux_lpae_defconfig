@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.11.0 Kernel Configuration
+# Linux/arm 6.11.1 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6520,7 +6520,7 @@ CONFIG_COMMON_CLK=y
 # CONFIG_COMMON_CLK_CDCE706 is not set
 # CONFIG_COMMON_CLK_CDCE925 is not set
 # CONFIG_COMMON_CLK_CS2000_CP is not set
-# CONFIG_CLK_TWL is not set
+CONFIG_CLK_TWL=m
 CONFIG_CLK_TWL6040=m
 # CONFIG_COMMON_CLK_AXI_CLKGEN is not set
 CONFIG_COMMON_CLK_PALMAS=y
