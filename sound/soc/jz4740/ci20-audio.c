@@ -278,11 +278,15 @@ static int ingenic_snd_soc_ci20_probe(struct platform_device *pdev)
 		ci20_dai_link[0].codecs[0].name = NULL;
 	}
 
-	ci20_hp_jack_gpio.desc = devm_gpiod_get(&pdev->dev, "ingenic,hp-det-gpio", 0);
-	hp_mute_gpiod = devm_gpiod_get(&pdev->dev, "ingenic,hp-mute-gpio", 0);
-	hp_mic_sw_en_gpiod = devm_gpiod_get(&pdev->dev, "ingenic,mic-detect-gpio", 0);
-	gpiod_direction_output(hp_mute_gpiod, 1);
-	gpiod_direction_output(hp_mic_sw_en_gpiod, 0);
+	ci20_hp_jack_gpio.desc = devm_gpiod_get(&pdev->dev, "ingenic,hp-det-gpio", GPIOD_IN);
+	if (IS_ERR(ci20_hp_jack_gpio.desc))
+		return PTR_ERR(ci20_hp_jack_gpio.desc);
+	hp_mute_gpiod = devm_gpiod_get(&pdev->dev, "ingenic,hp-mute-gpio", GPIOD_OUT_HIGH);
+	if (IS_ERR(hp_mute_gpiod))
+		return PTR_ERR(hp_mute_gpiod);
+	hp_mic_sw_en_gpiod = devm_gpiod_get(&pdev->dev, "ingenic,mic-detect-gpio", GPIOD_OUT_LOW);
+	if (IS_ERR(hp_mic_sw_en_gpiod))
+		return PTR_ERR(hp_mic_sw_en_gpiod);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if ((ret) && (ret != -EPROBE_DEFER))
