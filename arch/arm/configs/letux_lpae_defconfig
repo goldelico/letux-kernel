@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.11.1 Kernel Configuration
+# Linux/arm 6.11.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4361,7 +4361,6 @@ CONFIG_VIDEO_ATMEL_ISI=m
 # Chips&Media media platform drivers
 #
 # CONFIG_VIDEO_CODA is not set
-# CONFIG_VIDEO_E5010_JPEG_ENC is not set
 
 #
 # Intel media platform drivers

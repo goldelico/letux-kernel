@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.11.1 Kernel Configuration
+# Linux/mips 6.11.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2806,7 +2806,6 @@ CONFIG_V4L_PLATFORM_DRIVERS=y
 #
 # Chips&Media media platform drivers
 #
-# CONFIG_VIDEO_E5010_JPEG_ENC is not set
 
 #
 # Intel media platform drivers
@@ -2843,7 +2842,6 @@ CONFIG_V4L_PLATFORM_DRIVERS=y
 #
 # Raspberry Pi media platform drivers
 #
-# CONFIG_VIDEO_RASPBERRYPI_PISP_BE is not set
 
 #
 # Renesas media platform drivers
