@@ -112,7 +112,6 @@ ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
 	return od;
 }
 
->>>>>>> 4a452a8a5be70 (clk: ingenic: CGU: Fixed PLL configuration.)
 static unsigned long
 ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -169,6 +168,21 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 			unsigned int *pm, unsigned int *pn, unsigned int *pod)
 {
 	unsigned int m, n, od = 1;
+
+	/*
+	 * The frequency after the input divider must be within the range
+	 * defined in the programming manual as FREF:
+	 *
+	 * JZ4740: 1 MHz - 15 MHz
+	 * JZ4780: 183 kHz - 1.5 GHz
+	 * X1000:  10 MHz - 50 MHz
+	 * X1600:  1 MHz - 800 MHz
+	 *
+	 * The highest divider yields the best resolution.
+	 */
+	n = parent_rate / (10 * MHZ);
+	n = min_t(unsigned int, n, 1 << pll_info->n_bits);
+	n = max_t(unsigned int, n, pll_info->n_offset);
 
 	/*
 	 * The frequency after the VCO stage (parent * m / n) must be in the
