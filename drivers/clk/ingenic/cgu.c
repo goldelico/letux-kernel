@@ -112,7 +112,6 @@ ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
 	return od;
 }
 
->>>>>>> 4a452a8a5be70 (clk: ingenic: CGU: Fixed PLL configuration.)
 static unsigned long
 ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
