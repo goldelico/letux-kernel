@@ -159,13 +159,25 @@
 &pinctrl {
 	uart0_pb: uart0-pb {
 		function = "uart0";
-		groups = "uart0-data" /*, "uart0-hwflow" */;
+		groups = "uart0-data";
+		bias-pull-up;
+	};
+
+	uart0_pb_flow: uart0-pb-flow {
+		function = "uart0";
+		groups = "uart0-hwflow";
 		bias-pull-up;
 	};
 
 	uart1_pb: uart1-pb {
 		function = "uart1";
-		groups = "uart1-data", "uart1-hwflow";
+		groups = "uart1-data";
+		bias-pull-up;
+	};
+
+	uart1_pb_flow: uart1-pb-flow {
+		function = "uart1";
+		groups = "uart1-hwflow";
 		bias-pull-up;
 	};
 
@@ -308,13 +320,17 @@
 &uart0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart0_pb>;
+#if 0	/* may be used as PB7/8 and 9/10 */
+	pinctrl-0 = <&uart0_pb, /* &uart0_pb_flow */>;
+#endif
 };
 
 &uart1 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart1_pb>;
+#if 0	/* may be used as PB2/3 and 4/5 */
+	pinctrl-0 = <&uart1_pb /* &uart1_pb_flow */>;
+#endif
 };
 
 &uart2 {
@@ -326,7 +342,9 @@
 &uart3 {
 	status = "okay";
 	pinctrl-names = "default";
+#if 0	/* may be used as PB4/5 */
 	pinctrl-0 = <&uart3_pb>;
+#endif
 };
 
 &cpufreq {
