@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.11.2 Kernel Configuration
+# Linux/arm 6.11.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6573,7 +6573,6 @@ CONFIG_CLKSRC_IMX_GPT=y
 CONFIG_MAILBOX=y
 # CONFIG_ARM_MHU is not set
 # CONFIG_ARM_MHU_V2 is not set
-# CONFIG_ARM_MHU_V3 is not set
 # CONFIG_IMX_MBOX is not set
 # CONFIG_PLATFORM_MHU is not set
 # CONFIG_PL320_MBOX is not set
@@ -7748,6 +7747,9 @@ CONFIG_ENCRYPTED_KEYS=m
 # CONFIG_USER_DECRYPTED_DATA is not set
 # CONFIG_KEY_DH_OPERATIONS is not set
 # CONFIG_SECURITY_DMESG_RESTRICT is not set
+CONFIG_PROC_MEM_ALWAYS_FORCE=y
+# CONFIG_PROC_MEM_FORCE_PTRACE is not set
+# CONFIG_PROC_MEM_NO_FORCE is not set
 CONFIG_SECURITY=y
 # CONFIG_SECURITYFS is not set
 CONFIG_SECURITY_NETWORK=y
