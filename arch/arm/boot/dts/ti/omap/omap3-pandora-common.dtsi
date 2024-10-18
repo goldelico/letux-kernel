@@ -646,6 +646,7 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
+	broken-cd;
 	/*cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>; */
 	/*wp-gpios = <&gpio4 30 GPIO_ACTIVE_HIGH>;*/	/* GPIO_126 */
 };
@@ -655,6 +656,7 @@
 	pinctrl-0 = <&mmc2_pins>;
 	vmmc-supply = <&vmmc2>;
 	bus-width = <4>;
+	broken-cd;
 	/* cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_LOW>;
 	/*wp-gpios = <&gpio4 31 GPIO_ACTIVE_HIGH>;*/	/* GPIO_127 */
 };
