@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.6.56 Kernel Configuration
+# Linux/mips 6.6.57 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3912,6 +3912,7 @@ CONFIG_HID_MULTITOUCH=y
 # CONFIG_HID_ZYDACRON is not set
 # CONFIG_HID_SENSOR_HUB is not set
 # CONFIG_HID_ALPS is not set
+# CONFIG_HID_MCP2200 is not set
 # CONFIG_HID_MCP2221 is not set
 # end of Special HID drivers
 
