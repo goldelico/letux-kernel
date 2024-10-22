@@ -1,5 +1,5 @@
 #!/bin/bash
-# update code in kernel tree
+# update driver from github
 set +e
 
 ROOT=$PWD/../../../../..	# Root of Letux kernel tree
