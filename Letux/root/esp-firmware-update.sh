@@ -11,10 +11,15 @@ fi
 
 
 (
-# check if SRC exists and if not, do a first git clone
-# ( mkdir $(dirname "$SRC) && cd $(dirname "$SRC") && git clone https://github.com/espressif/esp-hosted.git $(basename "$SRC") )
-	cd $SRC
-	echo pull $PWD
+	if [ ! -x "$SRC" ]
+	then
+		echo clone from git
+		mkdir -p "$(dirname "$SRC")" &&
+		cd "$(dirname "$SRC")" &&
+		git clone https://github.com/espressif/esp-hosted.git "$(basename "$SRC")"
+	fi
+	cd "$SRC"
+	echo pull to $PWD
 	git pull
 	echo submodule update $PWD
 	git submodule update --init --recursive

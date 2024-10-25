@@ -5,13 +5,37 @@
 DEST=$PWD
 CHIP=esp32c6
 
+# maybe this should go into some letux-python37 package
+
+function install_python37
+{
+	apt-get install python3	# let's hope it is already 3.7 or later
+	case "$(python3 --version) 2>/dev/null)" in
+		'Python '3.[7.9].* | 'Python '3.1?.* )
+			;; # ok, is 3.7 or later
+		* )
+			apt-get install make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
+			wget https://www.python.org/ftp/python/3.7.17/Python-3.7.17.tgz
+			tar xvf Python-3.7.17.tgz
+			cd Python-3.7.17
+			./configure --enable-optimizations --enable-shared --with-ensurepip=install
+			make altinstall
+			ldconfig /usr/local/lib	# make it find libpython3.7m.so.1.0
+			update-alternatives --install /usr/bin/python python /usr/local/bin/python3.7 50
+			;;
+	esac
+}
+
 if [ "$(uname)" == "Darwin" ]
 then
 	SRC=/Volumes/Retrode3/esp-hosted
 	PORT=/dev/cu.usbserial-FTH9L0T7	# update to local setup
 else
 	SRC=/usr/local/src/esp-hosted
-	PORT=/dev/tty???	# update to local setup
+	PORT=/dev/ttyS3	# internal UART3
+	[ "$(which cmake)" ] || apt-get install cmake
+	[ "$(which g++)" ] || apt-get install g++
+	[ "$(which python3)" ] || install_python37
 fi
 
 set -e
