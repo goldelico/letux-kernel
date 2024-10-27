@@ -5,7 +5,7 @@
 DEST=$PWD
 CHIP=esp32c6
 
-# maybe this should go into some letux-python37 package
+# maybe this should go into some letux-python37-for-jessie package
 
 function install_python37
 {
@@ -14,14 +14,22 @@ function install_python37
 		'Python '3.[7.9].* | 'Python '3.1?.* )
 			;; # ok, is 3.7 or later
 		* )
-			apt-get install make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
+			apt-get install -t jessie-backports libssl-dev openssl	# we need 1.0.2 from backports
+			apt-get install make build-essential zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev
 			wget https://www.python.org/ftp/python/3.7.17/Python-3.7.17.tgz
 			tar xvf Python-3.7.17.tgz
 			cd Python-3.7.17
 			./configure --enable-optimizations --enable-shared --with-ensurepip=install
 			make altinstall
+			# make test ==>
+			#   Python build finished successfully!
+			#   The necessary bits to build these optional modules were not found:
+			#   _dbm                  _gdbm                 _uuid
+			#   To find the necessary bits, look in setup.py in detect_modules() for the module's name.
+			#
 			ldconfig /usr/local/lib	# make it find libpython3.7m.so.1.0
 			update-alternatives --install /usr/bin/python python /usr/local/bin/python3.7 50
+			update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.7 50
 			;;
 	esac
 }
