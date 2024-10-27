@@ -8,8 +8,8 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-#define LX16_REV	2	// 1 = v0.1, 2 = v0.2, 3=v0.3
-#define LX16_W		1	// variant with WLAN and Bluetooth
+#define LX16_REV	3	// 1 = v0.1, 2 = v0.2, 3=v0.3
+#define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
 /* attached application */
@@ -420,21 +420,29 @@
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
-#if LX16_W == 1
+#if LX16_W == 2
 / {
+#if 1
 	wlan_en: wlan_en_regulator {
 		compatible = "regulator-fixed";
+		regulator-name = "wlan-enable";
 		pinctrl-names = "default";
 //		pinctrl-0 = <&wlan_pins>;
-		regulator-name = "wlan-en-regulator";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 
-//		gpio = <&gb 12 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpb 4 GPIO_ACTIVE_HIGH>;
 
 		startup-delay-us = <70000>;
 		enable-active-high;
 	};
+#else
+	wlan_pwrseq: wifi_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpb 4 GPIO_ACTIVE_HIGH>;
+#error should define clocks!
+	};
+#endif
 };
 #endif
 
@@ -456,15 +464,26 @@
 
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 
-//	vmmc-supply = <&wlan_en>;
-
 #if LX16_W == 1
+	max-frequency = <50000000>;
 	wlan: wlan@0 {
-		compatible = "qcom,qca9377-wlan";	// FIXME
+		compatible = "qcom,qca9377-wlan";
 		reg = <0>;
 //		interrupt-parent = <&gpio5>;
 //		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
 //		ref-clock-frequency = <26000000>;
+	};
+#elif LX16_W == 2
+#if 1
+//	vmmc-supply = <&wlan_en>;
+#else
+	mmc-pwrseq = <&wlan_pwrseq>;
+#endif
+	cap-power-off-card;
+	max-frequency = <18000000>;
+	wlan: wlan@0 {
+		compatible = "espressif,esp_sdio";
+		reg = <0>;
 	};
 #endif
 };
@@ -483,6 +502,8 @@
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
 	};
+#elif LX16_W == 2
+	/* is using HCI over SDIO - needs WLAN to be enabled - uart1 can be used for accessing the chip console/flashing */
 #endif
 };
 
