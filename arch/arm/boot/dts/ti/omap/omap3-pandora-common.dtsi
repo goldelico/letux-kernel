@@ -644,13 +644,14 @@
 
 &mcspi1 {
 	tsc2046@0 {
-		reg = <0>;	/* CS0 */
 		compatible = "ti,tsc2046";
+		reg = <0>;	/* CS0 */
 		spi-max-frequency = <1000000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <30 IRQ_TYPE_NONE>;	/* GPIO_94 */
+		panel = <&lcd>;
 		pendown-gpio = <&gpio3 30 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&vaux4>;
 
