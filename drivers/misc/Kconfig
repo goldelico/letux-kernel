@@ -708,12 +708,4 @@ config TRS3386
 
 endmenu
 
-config RETRODE3
-	tristate "Retrode3 gpio based Cart read"
-	help
-	  Choose Y.
-
-config RETRODE3_BUFFER
-	bool "use in-kernel driver buffer to speed up read()"
-	help
-	  Choose Y.
+source "drivers/misc/retrode3/Kconfig"
