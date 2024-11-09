@@ -4,7 +4,7 @@
 #
 
 obj-$(CONFIG_WWAN_ON_OFF)	+= wwan-on-off.o
-obj-$(CONFIG_RETRODE3)		+= retrode3.o
+obj-y				+= retrode3/
 obj-$(CONFIG_IBM_ASM)		+= ibmasm/
 obj-$(CONFIG_IBMVMC)		+= ibmvmc.o
 obj-$(CONFIG_AD525X_DPOT)	+= ad525x_dpot.o

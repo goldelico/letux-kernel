@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Retrode3
+#
+
+config RETRODE3
+	tristate "Retrode3 gpio based Cart read"
+	help
+	  Choose Y.
+
+config RETRODE3_BUFFER
+	bool "use in-kernel driver buffer to speed up read()"
+	help
+	  Choose Y.
