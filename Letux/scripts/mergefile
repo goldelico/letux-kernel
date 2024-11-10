@@ -141,7 +141,7 @@ letux/sound-soc
 # Pyra sound and video
 letux/palmas-gpadc
 letux/pyra-vol-mon
-letux/omap45-cec
+-letux/omap45-cec	# seems to be broken at least on omap4
 
 # AESS
 letux/aess
