@@ -339,7 +339,7 @@ int hdmi4_cec_init(struct platform_device *pdev, struct hdmi_core_data *core,
 	core->wp = wp;
 
 	/* Disable clock initially, hdmi_cec_adap_enable() manages it */
-	REG_FLD_MOD(core->wp->base, HDMI_WP_CLK, 0, 5, 0);
+//	REG_FLD_MOD(core->wp->base, HDMI_WP_CLK, 0, 5, 0);
 
 	ret = cec_register_adapter(core->adap, &pdev->dev);
 	if (ret < 0) {
