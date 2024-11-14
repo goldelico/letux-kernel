@@ -54,7 +54,7 @@
 // Mapping of connector pins to LX16 signals
 #define PIN3	PB31_SDA0
 #define PIN5	PB30_SCL0
-#if LX16_REV == 3
+#if LX16_REV >= 3
 #define PIN7	PB17
 #else
 #define PIN7	PC24_PWM3_TCU5
@@ -66,7 +66,7 @@
 #if LX16_REV == 1
 #define PIN13	PB4_TXD3_RTS1
 #define PIN15	PB5_TXD3_CTS1
-#elif LX16_REV == 2
+#elif LX16_REV >= 2
 #define PIN13	PB14
 #define PIN15	PB15_SCK1
 #endif
@@ -76,14 +76,14 @@
 #define PIN21	PA29_MISO0_SDA0
 #if LX16_REV == 1
 #define PIN22	PB3
-#elif LX16_REV == 2
+#elif LX16_REV >= 2
 #define PIN22	PB13
 #endif
 #define PIN23	PA31_SCLK0_RXD2
 #define PIN24	PA28_CE0_SCL0
 #if LX16_REV == 1
 #define PIN26	PB2_CE1_TXD1
-#elif LX16_REV == 2
+#elif LX16_REV >= 2
 #define PIN26	PB16_CE1_SDA1
 #endif
 #define PIN27	PB20_SDA1_RXD1_PWM6
@@ -613,8 +613,11 @@
 
 &otg {
 	g-use-dma;
-	dr_mode = "otg"; // host,peripheral,otg
+#if LX16_REV < 3
 	dr_mode = "peripheral"; // host,peripheral,otg
+#else
+	dr_mode = "otg"; // host,peripheral,otg
+#endif
 	device-using-dma = <1>;
 	status = "okay";
 };
