@@ -155,6 +155,21 @@
 		};
 	};
 
+#if LX16_REV >= 3
+	vbus_en: drvvbus_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "drive-vbus";
+
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+#endif
+
 #if LX16_W == 2
 #if 1
 	wlan_en: wlan_en_regulator {
@@ -631,18 +646,18 @@
 
 &otg {
 	g-use-dma;
-#if LX16_REV < 3
-	dr_mode = "peripheral"; // host,peripheral,otg
-#else
-	dr_mode = "otg"; // host,peripheral,otg
-#endif
 	device-using-dma = <1>;
 	status = "okay";
+#if LX16_REV < 3
+	dr_mode = "peripheral"; // one of host,peripheral,otg
+#else
+	dr_mode = "otg";	// one of host,peripheral,otg
+	vbus-supply = <&vbus_en>;
+#endif
 };
 
 &otg_phy {
 	status = "okay";
-//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
 };
 
 &aic {
