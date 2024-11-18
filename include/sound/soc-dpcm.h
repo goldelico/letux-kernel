@@ -58,6 +58,7 @@ enum snd_soc_dpcm_state {
 enum snd_soc_dpcm_trigger {
 	SND_SOC_DPCM_TRIGGER_PRE		= 0,
 	SND_SOC_DPCM_TRIGGER_POST,
+	SND_SOC_DPCM_TRIGGER_BESPOKE,
 };
 
 /*
@@ -113,6 +114,24 @@ struct snd_soc_dpcm_runtime {
 #define for_each_dpcm_be_rollback(fe, stream, _dpcm)			\
 	list_for_each_entry_continue_reverse(_dpcm, &(fe)->dpcm[stream].be_clients, list_be)
 
+/* can this BE stop and free */
+int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
+		struct snd_soc_pcm_runtime *be, int stream);
+
+/* can this BE perform a hw_params() */
+int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
+		struct snd_soc_pcm_runtime *be, int stream);
+
+/* can this BE perform prepare */
+int snd_soc_dpcm_can_be_prepared(struct snd_soc_pcm_runtime *fe,
+				 struct snd_soc_pcm_runtime *be, int stream);
+
+/* is the current PCM operation for this FE ? */
+int snd_soc_dpcm_fe_can_update(struct snd_soc_pcm_runtime *fe, int stream);
+
+/* is the current PCM operation for this BE ? */
+int snd_soc_dpcm_be_can_update(struct snd_soc_pcm_runtime *fe,
+		struct snd_soc_pcm_runtime *be, int stream);
 
 /* get the substream for this BE */
 struct snd_pcm_substream *
@@ -120,6 +139,14 @@ struct snd_pcm_substream *
 
 /* update audio routing between PCMs and any DAI links */
 int snd_soc_dpcm_runtime_update(struct snd_soc_card *card);
+
+/* get the BE runtime state */
+enum snd_soc_dpcm_state
+	snd_soc_dpcm_be_get_state(struct snd_soc_pcm_runtime *be, int stream);
+
+/* set the BE runtime state */
+void snd_soc_dpcm_be_set_state(struct snd_soc_pcm_runtime *be, int stream,
+	enum snd_soc_dpcm_state state);
 
 #ifdef CONFIG_DEBUG_FS
 void soc_dpcm_debugfs_add(struct snd_soc_pcm_runtime *rtd);
