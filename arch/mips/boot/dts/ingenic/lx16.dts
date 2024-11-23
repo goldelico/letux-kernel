@@ -154,6 +154,29 @@
 		      reg = <0x02000000 0x20000>;
 		};
 	};
+
+#if LX16_W == 2
+#if 1
+	wlan_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan-enable";
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+		gpio = <&gpb 4 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+#else
+	wlan_pwrseq: wifi_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpb 4 GPIO_ACTIVE_HIGH>;
+#error should define clocks!
+	};
+#endif
+#endif
 };
 
 &pinctrl {
@@ -419,32 +442,6 @@
 
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
-
-#if LX16_W == 2
-/ {
-#if 1
-	wlan_en: wlan_en_regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-enable";
-		pinctrl-names = "default";
-//		pinctrl-0 = <&wlan_pins>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-
-		gpio = <&gpb 4 GPIO_ACTIVE_HIGH>;
-
-		startup-delay-us = <70000>;
-		enable-active-high;
-	};
-#else
-	wlan_pwrseq: wifi_pwrseq {
-		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&gpb 4 GPIO_ACTIVE_HIGH>;
-#error should define clocks!
-	};
-#endif
-};
-#endif
 
 &mmc1 {
 	status = "okay";
