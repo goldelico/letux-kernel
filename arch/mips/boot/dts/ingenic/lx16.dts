@@ -466,9 +466,6 @@
 	bus-width = <4>;
 	max-frequency = <50000000>;
 
-	pinctrl-names ="default";
-	pinctrl-0 = <&msc1_4bit>;	// FIXME: add interrupt input?
-
 	broken-cd;
 
 	#address-cells = <1>;
