@@ -171,26 +171,11 @@
 #endif
 
 #if LX16_W == 2
-#if 1
-	wlan_en: wlan_en_regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan-enable";
-
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-
-		gpio = <&gpb 4 GPIO_ACTIVE_HIGH>;
-
-		startup-delay-us = <70000>;
-		enable-active-high;
-	};
-#else
-	wlan_pwrseq: wifi_pwrseq {
+	wlan_pwrseq: wlan_pwrseq {
 		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&gpb 4 GPIO_ACTIVE_HIGH>;
-#error should define clocks!
+		reset-gpios = <&gpb 4 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <2000>;
 	};
-#endif
 #endif
 };
 
@@ -483,11 +468,8 @@
 //		ref-clock-frequency = <26000000>;
 	};
 #elif LX16_W == 2
-#if 1
-//	vmmc-supply = <&wlan_en>;
-#else
 	mmc-pwrseq = <&wlan_pwrseq>;
-#endif
+
 	cap-power-off-card;
 	max-frequency = <18000000>;
 	wlan: wlan@0 {
