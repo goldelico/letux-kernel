@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.12.0 Kernel Configuration
+# Linux/mips 6.13.0-rc1 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -532,6 +532,7 @@ CONFIG_MSDOS_PARTITION=y
 # CONFIG_EFI_PARTITION is not set
 # CONFIG_SYSV68_PARTITION is not set
 # CONFIG_CMDLINE_PARTITION is not set
+# CONFIG_OF_PARTITION is not set
 # end of Partition Types
 
 CONFIG_BLK_PM=y
@@ -716,6 +717,7 @@ CONFIG_NETFILTER_EGRESS=y
 #
 # IP: Netfilter Configuration
 #
+# CONFIG_IP_NF_IPTABLES_LEGACY is not set
 # CONFIG_NF_SOCKET_IPV4 is not set
 # CONFIG_NF_TPROXY_IPV4 is not set
 # CONFIG_NF_DUP_IPV4 is not set
@@ -728,6 +730,7 @@ CONFIG_NETFILTER_EGRESS=y
 #
 # IPv6: Netfilter Configuration
 #
+# CONFIG_IP6_NF_IPTABLES_LEGACY is not set
 # CONFIG_NF_SOCKET_IPV6 is not set
 # CONFIG_NF_TPROXY_IPV6 is not set
 # CONFIG_NF_DUP_IPV6 is not set
@@ -1085,7 +1088,6 @@ CONFIG_BLK_DEV=y
 # CONFIG_BLK_DEV_NULL_BLK is not set
 CONFIG_CDROM=m
 # CONFIG_ZRAM is not set
-CONFIG_ZRAM_DEF_COMP="unset-value"
 CONFIG_BLK_DEV_LOOP=y
 CONFIG_BLK_DEV_LOOP_MIN_COUNT=8
 # CONFIG_BLK_DEV_DRBD is not set
@@ -1139,12 +1141,6 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_EEPROM_IDT_89HPESX is not set
 # CONFIG_EEPROM_EE1004 is not set
 # end of EEPROM support
-
-#
-# Texas Instruments shared transport line discipline
-#
-# CONFIG_TI_ST is not set
-# end of Texas Instruments shared transport line discipline
 
 # CONFIG_SENSORS_LIS3_I2C is not set
 # CONFIG_ALTERA_STAPL is not set
@@ -1242,6 +1238,7 @@ CONFIG_NET_VENDOR_ENGLEDER=y
 # CONFIG_NET_VENDOR_EZCHIP is not set
 CONFIG_NET_VENDOR_FUNGIBLE=y
 CONFIG_NET_VENDOR_GOOGLE=y
+CONFIG_NET_VENDOR_HISILICON=y
 CONFIG_NET_VENDOR_HUAWEI=y
 CONFIG_NET_VENDOR_INGENIC=y
 CONFIG_INGENIC_ETH_JZ4730=m
@@ -1783,6 +1780,7 @@ CONFIG_GPIO_CDEV_V1=y
 # CONFIG_GPIO_HLWD is not set
 # CONFIG_GPIO_LOGICVC is not set
 # CONFIG_GPIO_MB86S7X is not set
+# CONFIG_GPIO_POLARFIRE_SOC is not set
 # CONFIG_GPIO_SIFIVE is not set
 # CONFIG_GPIO_SYSCON is not set
 # CONFIG_GPIO_XILINX is not set
@@ -1812,6 +1810,7 @@ CONFIG_GPIO_CDEV_V1=y
 #
 # USB GPIO expanders
 #
+# CONFIG_GPIO_MPSSE is not set
 # end of USB GPIO expanders
 
 #
@@ -2230,8 +2229,15 @@ CONFIG_SND_SOC_GENERIC_DMAENGINE_PCM=y
 # CONFIG_SND_I2S_HI6210_I2S is not set
 CONFIG_SND_JZ4740_SOC_I2S=m
 CONFIG_SND_JZ4780_SOC_CI20=m
+
+#
+# SoC Audio for Loongson CPUs
+#
+# end of SoC Audio for Loongson CPUs
+
 # CONFIG_SND_SOC_IMG is not set
 # CONFIG_SND_SOC_MTK_BTCVSD is not set
+CONFIG_SND_SOC_SDCA_OPTIONAL=m
 # CONFIG_SND_SOC_SOF_TOPLEVEL is not set
 
 #
@@ -2250,6 +2256,7 @@ CONFIG_SND_SOC_I2C_AND_SPI=m
 #
 # CONFIG_SND_SOC_AC97_CODEC is not set
 # CONFIG_SND_SOC_ADAU1372_I2C is not set
+# CONFIG_SND_SOC_ADAU1373 is not set
 # CONFIG_SND_SOC_ADAU1701 is not set
 # CONFIG_SND_SOC_ADAU1761_I2C is not set
 # CONFIG_SND_SOC_ADAU7002 is not set
@@ -2269,6 +2276,7 @@ CONFIG_SND_SOC_AK4642=m
 # CONFIG_SND_SOC_AW8738 is not set
 # CONFIG_SND_SOC_AW88395 is not set
 # CONFIG_SND_SOC_AW88261 is not set
+# CONFIG_SND_SOC_AW88081 is not set
 # CONFIG_SND_SOC_AW87390 is not set
 # CONFIG_SND_SOC_AW88399 is not set
 # CONFIG_SND_SOC_BD28623 is not set
@@ -2288,6 +2296,7 @@ CONFIG_SND_SOC_AK4642=m
 # CONFIG_SND_SOC_CS42L56 is not set
 # CONFIG_SND_SOC_CS42L73 is not set
 # CONFIG_SND_SOC_CS42L83 is not set
+# CONFIG_SND_SOC_CS42L84 is not set
 # CONFIG_SND_SOC_CS4234 is not set
 # CONFIG_SND_SOC_CS4265 is not set
 # CONFIG_SND_SOC_CS4270 is not set
@@ -2310,6 +2319,7 @@ CONFIG_SND_SOC_JZ4780_CODEC=m
 # CONFIG_SND_SOC_ES7241 is not set
 # CONFIG_SND_SOC_ES8311 is not set
 # CONFIG_SND_SOC_ES8316 is not set
+# CONFIG_SND_SOC_ES8323 is not set
 # CONFIG_SND_SOC_ES8326 is not set
 # CONFIG_SND_SOC_ES8328_I2C is not set
 # CONFIG_SND_SOC_GTM601 is not set
@@ -2350,6 +2360,7 @@ CONFIG_SND_SOC_JZ4780_CODEC=m
 CONFIG_SND_SOC_SIMPLE_AMPLIFIER=m
 # CONFIG_SND_SOC_SIMPLE_MUX is not set
 # CONFIG_SND_SOC_SMA1303 is not set
+# CONFIG_SND_SOC_SMA1307 is not set
 # CONFIG_SND_SOC_SPDIF is not set
 # CONFIG_SND_SOC_SRC4XXX_I2C is not set
 # CONFIG_SND_SOC_SSM2305 is not set
@@ -2385,6 +2396,7 @@ CONFIG_SND_SOC_SIMPLE_AMPLIFIER=m
 # CONFIG_SND_SOC_TSCS42XX is not set
 # CONFIG_SND_SOC_TSCS454 is not set
 # CONFIG_SND_SOC_UDA1334 is not set
+# CONFIG_SND_SOC_UDA1342 is not set
 # CONFIG_SND_SOC_WM8510 is not set
 # CONFIG_SND_SOC_WM8523 is not set
 # CONFIG_SND_SOC_WM8524 is not set
@@ -2420,6 +2432,8 @@ CONFIG_SND_SOC_SIMPLE_AMPLIFIER=m
 # CONFIG_SND_SOC_NAU8821 is not set
 # CONFIG_SND_SOC_NAU8822 is not set
 # CONFIG_SND_SOC_NAU8824 is not set
+# CONFIG_SND_SOC_NTP8918 is not set
+# CONFIG_SND_SOC_NTP8835 is not set
 # CONFIG_SND_SOC_TPA6130A2 is not set
 # CONFIG_SND_SOC_LPASS_WSA_MACRO is not set
 # CONFIG_SND_SOC_LPASS_VA_MACRO is not set
@@ -2477,6 +2491,7 @@ CONFIG_HID_GENERIC=y
 # CONFIG_HID_GT683R is not set
 # CONFIG_HID_KEYTOUCH is not set
 # CONFIG_HID_KYE is not set
+# CONFIG_HID_KYSONA is not set
 # CONFIG_HID_UCLOGIC is not set
 # CONFIG_HID_WALTOP is not set
 # CONFIG_HID_VIEWSONIC is not set
@@ -3310,9 +3325,11 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_AD7091R5 is not set
 # CONFIG_AD7291 is not set
 # CONFIG_AD7606_IFACE_PARALLEL is not set
+# CONFIG_AD7625 is not set
 # CONFIG_AD799X is not set
 # CONFIG_CC10001_ADC is not set
 # CONFIG_ENVELOPE_DETECTOR is not set
+# CONFIG_GEHC_PMC_ADC is not set
 # CONFIG_HX711 is not set
 # CONFIG_INA2XX_ADC is not set
 # CONFIG_INGENIC_ADC is not set
@@ -3401,6 +3418,7 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 #
 # Digital to analog converters
 #
+# CONFIG_AD3552R_HS is not set
 # CONFIG_AD5064 is not set
 # CONFIG_AD5380 is not set
 # CONFIG_AD5446 is not set
@@ -3485,6 +3503,7 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # Inertial measurement units
 #
 # CONFIG_BMI160_I2C is not set
+# CONFIG_BMI270_I2C is not set
 # CONFIG_BMI323_I2C is not set
 # CONFIG_BOSCH_BNO055_SERIAL is not set
 # CONFIG_BOSCH_BNO055_I2C is not set
@@ -3550,6 +3569,7 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_US5182D is not set
 # CONFIG_VCNL4000 is not set
 # CONFIG_VCNL4035 is not set
+# CONFIG_VEML3235 is not set
 # CONFIG_VEML6030 is not set
 # CONFIG_VEML6040 is not set
 # CONFIG_VEML6070 is not set
@@ -3565,6 +3585,7 @@ CONFIG_IIO_CONSUMERS_PER_TRIGGER=2
 # CONFIG_AK8974 is not set
 # CONFIG_AK8975 is not set
 # CONFIG_AK09911 is not set
+# CONFIG_ALS31300 is not set
 # CONFIG_BMC150_MAGN_I2C is not set
 # CONFIG_MAG3110 is not set
 # CONFIG_MMC35240 is not set
@@ -3720,6 +3741,7 @@ CONFIG_RESET_CONTROLLER=y
 CONFIG_GENERIC_PHY=y
 # CONFIG_PHY_PISTACHIO_USB is not set
 # CONFIG_PHY_CAN_TRANSCEIVER is not set
+# CONFIG_PHY_NXP_PTN3222 is not set
 
 #
 # PHY drivers for Broadcom platforms
@@ -3807,7 +3829,6 @@ CONFIG_EXT4_FS=y
 CONFIG_JBD2=y
 # CONFIG_JBD2_DEBUG is not set
 CONFIG_FS_MBCACHE=y
-# CONFIG_REISERFS_FS is not set
 # CONFIG_JFS_FS is not set
 # CONFIG_XFS_FS is not set
 # CONFIG_GFS2_FS is not set
@@ -4479,8 +4500,6 @@ CONFIG_PANIC_TIMEOUT=10
 #
 # CONFIG_SCHEDSTATS is not set
 # end of Scheduler Debugging
-
-# CONFIG_DEBUG_TIMEKEEPING is not set
 
 #
 # Lock Debugging (spinlocks, mutexes, etc...)
