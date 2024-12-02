@@ -229,28 +229,24 @@ static struct snd_soc_dai_link abe_fe_dai[] = {
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
 	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
 	SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 },
 {
 	/* ABE Media Capture */
 	SND_SOC_DAI_FE_LINK("OMAP ABE Media2", link_fe_media2),
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
 	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
-	.dpcm_capture = 1,
+	.capture_only = 1,
 },
 {
 	/* ABE Voice */
 	SND_SOC_DAI_FE_LINK("OMAP ABE Voice", link_fe_voice),
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 },
 {
 	/* ABE Tones */
 	SND_SOC_DAI_FE_LINK("OMAP ABE Tones", link_fe_tones),
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
-	.dpcm_playback = 1,
+	.playback_only = 1,
 },
 {
 	/* MODEM */
@@ -261,14 +257,12 @@ static struct snd_soc_dai_link abe_fe_dai[] = {
 #if FIXME
 	SND_SOC_DAI_LINK_NO_HOST,
 #endif
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 },
 {
 	/* Low power ping - pong */
 	SND_SOC_DAI_FE_LINK("OMAP ABE Media LP", link_fe_lp),
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
-	.dpcm_playback = 1,
+	.playback_only = 1,
 },
 };
 
@@ -287,7 +281,7 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_PDM_DL1, omap_mcpdm_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_ops, omap_abe_twl6040_aess_init),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
+	.playback_only = 1,
 },
 {
 	/* McPDM UL1 - Analog Capture (Headset) */
@@ -295,7 +289,7 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_PDM_UL, omap_mcpdm_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_capture = 1,
+	.capture_only = 1,
 },
 {
 	/* McPDM DL2 - Handsfree */
@@ -303,7 +297,7 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_PDM_DL2, omap_mcpdm_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_ops, omap_abe_twl6040_dl2_init),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
+	.playback_only = 1,
 },
 #endif
 };
@@ -315,8 +309,6 @@ static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_BT_VX,	omap_mcbsp_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 };
 
 static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
@@ -325,8 +317,6 @@ static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_MM_FM,	omap_mcbsp_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 };
 
 #if FIXME
@@ -336,8 +326,6 @@ static struct snd_soc_dai_link abe_be_mcbsp3_dai = {
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_MODEM,	omap_mcbsp_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_mcbsp_ops, NULL),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-	.dpcm_playback = 1,
-	.dpcm_capture = 1,
 };
 #endif
 
@@ -351,21 +339,21 @@ static struct snd_soc_dai_link abe_be_dmic_dai[] = {
 	SND_SOC_DAI_CONNECT("DMIC-0", "dmic-hifi", link_be_dmic),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_DMIC0,	omap_dmic_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
-	.dpcm_capture = 1,
+	.capture_only = 1,
 },
 {
 	/* DMIC1 */
 	SND_SOC_DAI_CONNECT("DMIC-1", "dmic-hifi", link_be_dmic),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_DMIC1,	omap_dmic_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
-	.dpcm_capture = 1,
+	.capture_only = 1,
 },
 {
 	/* DMIC2 */
 	SND_SOC_DAI_CONNECT("DMIC-2", "dmic-hifi", link_be_dmic),
 	SND_SOC_DAI_BE_LINK(OMAP_AESS_BE_ID_DMIC2,	omap_dmic_be_hw_params_fixup),
 	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
-	.dpcm_capture = 1,
+	.capture_only = 1,
 },
 };
 
