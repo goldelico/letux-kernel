@@ -11,6 +11,7 @@
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_client_setup.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
@@ -275,6 +276,7 @@ static const uint32_t mxc_epdc_formats[] = {
 
 static struct drm_driver mxc_epdc_driver = {
 	.driver_features = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
+	DRM_FBDEV_DMA_DRIVER_OPS,
 	.fops = &fops,
 	.dumb_create	    = drm_gem_dma_dumb_create,
 	.gem_prime_import_sg_table = drm_gem_dma_prime_import_sg_table,
@@ -334,7 +336,7 @@ static int mxc_epdc_probe(struct platform_device *pdev)
 
 	ret = drm_dev_register(&priv->drm, 0);
 
-	drm_fbdev_dma_setup(&priv->drm, 32);
+	drm_client_setup(&priv->drm, NULL);
 	return 0;
 }
 
