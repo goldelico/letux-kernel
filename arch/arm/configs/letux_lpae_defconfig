@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.11.9 Kernel Configuration
+# Linux/arm 6.11.10 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -579,6 +579,7 @@ CONFIG_CMDLINE_EXTEND=y
 CONFIG_ARCH_SUPPORTS_KEXEC=y
 CONFIG_ATAGS_PROC=y
 CONFIG_ARCH_SUPPORTS_CRASH_DUMP=y
+CONFIG_ARCH_DEFAULT_CRASH_DUMP=y
 CONFIG_AUTO_ZRELADDR=y
 # CONFIG_EFI is not set
 # end of Boot options
