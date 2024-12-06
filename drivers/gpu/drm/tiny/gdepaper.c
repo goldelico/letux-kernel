@@ -22,10 +22,11 @@
 #include <linux/delay.h>
 
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_fbdev_dma.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_fbdev_dma.h>
 #include <drm/drm_fb_dma_helper.h>
-#include <drm/drm_fbdev_generic.h>
 #include <drm/drm_format_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -1449,11 +1450,11 @@ static int gdepaper_probe(struct spi_device *spi)
 	int ret;
 	size_t bufsize;
 
-#endif
 	struct mipi_dbi *dbi;
+//	const struct spi_device_id *id = spi_get_device_id(spi);
+#endif
 	struct device *dev = &spi->dev;
 	struct device_node *np = dev->of_node;
-//	const struct spi_device_id *id = spi_get_device_id(spi);
 	const struct of_device_id *of_id;
 	struct mipi_dbi_dev *dbidev;
 	struct drm_device *drm;
@@ -1479,10 +1480,10 @@ printk("%s\n", __func__);
 		return PTR_ERR(dbidev);
 
 	dbidev = &epap->dbidev;
-	dbi = &dbidev->dbi;
 	drm = &dbidev->drm;
 
 #if 0
+	dbi = &dbidev->dbi;
 	dbi->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(dbi->reset)) {
 		DRM_DEV_ERROR(dev, "Failed to get gpio 'reset'\n");
@@ -1673,7 +1674,7 @@ printk("%s\n", __func__);
 	}
 
 	spi_set_drvdata(spi, drm);
-	drm_fbdev_generic_setup(drm, 0);
+	drm_fbdev_dma_setup(drm, 0);
 
 	dev_dbg(dev, "Probed gdepaper module\n");
 	return 0;
