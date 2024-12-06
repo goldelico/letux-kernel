@@ -182,6 +182,7 @@ config TINYDRM_REPAPER
 config TINYDRM_GDEPAPER
 	tristate "DRM support for Good Display E-Paper Display"
 	depends on DRM && SPI
+	select DRM_CLIENT_SELECTION
 	select DRM_MIPI_DBI
 	help
 	  DRM driver for the following Good Display E-Papar displays:
