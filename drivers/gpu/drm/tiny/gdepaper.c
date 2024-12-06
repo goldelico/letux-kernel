@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_client_setup.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fb_dma_helper.h>
@@ -1405,6 +1406,7 @@ static void gdepaper_release(struct drm_device *drm)
 static struct drm_driver gdepaper_driver = {
 	.driver_features	= DRIVER_GEM | DRIVER_MODESET | DRIVER_PRIME |
 				  DRIVER_ATOMIC,
+	DRM_FBDEV_DMA_DRIVER_OPS,
 	.fops			= &gdepaper_fops,
 	.release		= gdepaper_release,
 	DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE(drm_gem_dma_dumb_create),
@@ -1449,11 +1451,11 @@ static int gdepaper_probe(struct spi_device *spi)
 	int ret;
 	size_t bufsize;
 
-#endif
 	struct mipi_dbi *dbi;
+//	const struct spi_device_id *id = spi_get_device_id(spi);
+#endif
 	struct device *dev = &spi->dev;
 	struct device_node *np = dev->of_node;
-//	const struct spi_device_id *id = spi_get_device_id(spi);
 	const struct of_device_id *of_id;
 	struct mipi_dbi_dev *dbidev;
 	struct drm_device *drm;
@@ -1479,10 +1481,10 @@ printk("%s\n", __func__);
 		return PTR_ERR(dbidev);
 
 	dbidev = &epap->dbidev;
-	dbi = &dbidev->dbi;
 	drm = &dbidev->drm;
 
 #if 0
+	dbi = &dbidev->dbi;
 	dbi->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(dbi->reset)) {
 		DRM_DEV_ERROR(dev, "Failed to get gpio 'reset'\n");
