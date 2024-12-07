@@ -109,14 +109,9 @@
 		reg = <0x48>;
 		interrupt-parent = <&gpio6>;
 		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		panel = <&lcd_neo900>;
 		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;	/* gpio160 */
 		ti,x-plate-ohms = <600>;
-		ti,rng_x = <123 456>;
-		ti,rng_y = <123 456>;
-		ti,rng_z = <123 456>;
-		ti,flip_x = <0>;
-		ti,flip_y = <1>;
-		ti,swap_xy = <0>;
 	};
 
 };
