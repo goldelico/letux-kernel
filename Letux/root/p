@@ -13,6 +13,16 @@ do
 	esac
 done
 
+modprobe snd_soc_omap_abe_twl6040	# if disabled by /etc/modprobe.d/aess.conf
+
+for C in PandaBoardES omap5uevm Pyra L15
+do
+	CARD=$(./findsoundcard $C)
+	[ "$CARD" ] && break
+done
+
+echo "You may use 'alsamixer -c$CARD'"
+
 ./twl -nohf -D "$DEV" $@ testmp3.mp3
 exit
 
