@@ -423,4 +423,5 @@ static inline int scl_vop_cal_lb_mode(int width, bool is_yuv)
 }
 
 extern const struct component_ops vop_component_ops;
+
 #endif /* _ROCKCHIP_DRM_VOP_H */
