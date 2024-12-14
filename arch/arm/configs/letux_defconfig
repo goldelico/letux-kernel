@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.12.4 Kernel Configuration
+# Linux/arm 6.12.5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -8317,8 +8317,6 @@ CONFIG_HAVE_HARDLOCKUP_DETECTOR_BUDDY=y
 #
 # CONFIG_SCHEDSTATS is not set
 # end of Scheduler Debugging
-
-# CONFIG_DEBUG_TIMEKEEPING is not set
 
 #
 # Lock Debugging (spinlocks, mutexes, etc...)
