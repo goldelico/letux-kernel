@@ -184,6 +184,7 @@ letux/pinephone
 
 # Odroid M1
 letux/odroid-m1
+letux/dwavtouch
 
 # hacks and fixes - we should consider upstreaming...
 letux/hacks
