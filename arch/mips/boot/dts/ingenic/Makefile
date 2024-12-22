@@ -17,5 +17,3 @@ dtb-$(CONFIG_INGENIC_GENERIC_BOARD)	+= alpha400.dtb \
 					   cu1000-neo.dtb \
 					   lx16.dtb \
 					   cu1830-neo.dtb
-
-obj-$(CONFIG_BUILTIN_DTB)	+= $(addsuffix .o, $(dtb-y))
