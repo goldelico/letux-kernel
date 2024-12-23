@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# scan wlan
+#
+
+read -t 5 WLAN OTHER < <(iwconfig 2>&1 | fgrep 'wlan')
+[ "$WLAN" ] || WLAN=wlan0
+
+ifconfig $WLAN up
+
+case "$1" in
+	-a ) # full scan
+		iw dev $WLAN scan
+		;;
+	* ) # filtered scan
+		iw dev $WLAN scan | while read INFO PARAMETER
+		do
+			case "$INFO" in
+				BSS )
+					MAC=${PARAMETER%(*}	# strip off "(on wlan*)"
+					SSID=""
+					FREQ=""
+					SIGNAL=""
+					RATES=""
+					;;
+				freq: )
+					FREQ=$PARAMETER
+					;;
+				signal: )
+					SIGNAL=$PARAMETER
+					;;
+				SSID: )
+					SSID=$PARAMETER
+					;;
+				'last seen:' )
+					# must be decoded as 'last' + 'seen:'
+					;;
+				'Supported' )
+					case "$PARAMETER" in
+						rates:* )
+							RATES=$(echo "$PARAMETER" | cut -d ' ' -f2-)
+							echo $MAC $SSID $FREQ $SIGNAL $RATES
+							;;
+					esac
+					;;
+			esac
+		done
+		;;
+esac | sort	# make it almost stable
+
