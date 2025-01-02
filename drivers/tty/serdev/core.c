@@ -107,7 +107,6 @@ int serdev_device_add(struct serdev_device *serdev)
 	struct device *parent = serdev->dev.parent;
 	int err;
 
-printk("%s:\n", __func__);
 	dev_set_name(&serdev->dev, "%s-%d", dev_name(parent), serdev->nr);
 
 	/* Only a single slave device is currently supported. */
@@ -152,7 +151,6 @@ int serdev_device_open(struct serdev_device *serdev)
 	struct serdev_controller *ctrl = serdev->ctrl;
 	int ret;
 
-printk("%s: %pS\n", __func__, ctrl?ctrl->ops->open:NULL);
 	if (!ctrl || !ctrl->ops->open)
 		return -EINVAL;
 
@@ -180,7 +178,6 @@ void serdev_device_close(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS\n", __func__, ctrl?ctrl->ops->close:NULL);
 	if (!ctrl || !ctrl->ops->close)
 		return;
 
@@ -232,7 +229,6 @@ int serdev_device_write_buf(struct serdev_device *serdev, const u8 *buf, size_t 
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %u\n", __func__, ctrl?ctrl->ops->write_buf:NULL, count);
 	if (!ctrl || !ctrl->ops->write_buf)
 		return -EINVAL;
 
@@ -268,8 +264,6 @@ ssize_t serdev_device_write(struct serdev_device *serdev, const u8 *buf,
 	struct serdev_controller *ctrl = serdev->ctrl;
 	size_t written = 0;
 	ssize_t ret;
-
-printk("%s\n", __func__);
 
 	if (!ctrl || !ctrl->ops->write_buf || !serdev->ops->write_wakeup)
 		return -EINVAL;
@@ -315,8 +309,6 @@ void serdev_device_write_flush(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS\n", __func__, ctrl?ctrl->ops->write_flush:NULL);
-
 	if (!ctrl || !ctrl->ops->write_flush)
 		return;
 
@@ -328,8 +320,6 @@ int serdev_device_write_room(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS\n", __func__, ctrl?ctrl->ops->write_room:NULL);
-
 	if (!ctrl || !ctrl->ops->write_room)
 		return 0;
 
@@ -340,8 +330,6 @@ EXPORT_SYMBOL_GPL(serdev_device_write_room);
 unsigned int serdev_device_set_baudrate(struct serdev_device *serdev, unsigned int speed)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
-
-printk("%s: %pS %u\n", __func__, ctrl?ctrl->ops->set_baudrate:NULL, speed);
 
 	if (!ctrl || !ctrl->ops->set_baudrate)
 		return 0;
@@ -355,7 +343,6 @@ void serdev_device_set_flow_control(struct serdev_device *serdev, bool enable)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %u\n", __func__, ctrl?ctrl->ops->set_flow_control:NULL, enable);
 	if (!ctrl || !ctrl->ops->set_flow_control)
 		return;
 
@@ -368,7 +355,6 @@ int serdev_device_set_parity(struct serdev_device *serdev,
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %u\n", __func__, ctrl?ctrl->ops->set_parity:NULL, parity);
 	if (!ctrl || !ctrl->ops->set_parity)
 		return -EOPNOTSUPP;
 
@@ -380,7 +366,6 @@ void serdev_device_wait_until_sent(struct serdev_device *serdev, long timeout)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %ld\n", __func__, ctrl?ctrl->ops->wait_until_sent:NULL, timeout);
 	if (!ctrl || !ctrl->ops->wait_until_sent)
 		return;
 
@@ -392,7 +377,6 @@ int serdev_device_get_tiocm(struct serdev_device *serdev)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS\n", __func__, ctrl?ctrl->ops->get_tiocm:NULL);
 	if (!ctrl || !ctrl->ops->get_tiocm)
 		return -EOPNOTSUPP;
 
@@ -404,7 +388,6 @@ int serdev_device_set_tiocm(struct serdev_device *serdev, int set, int clear)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %d %d\n", __func__, ctrl?ctrl->ops->set_tiocm:NULL, set, clear);
 	if (!ctrl || !ctrl->ops->set_tiocm)
 		return -EOPNOTSUPP;
 
@@ -416,7 +399,6 @@ int serdev_device_break_ctl(struct serdev_device *serdev, int break_state)
 {
 	struct serdev_controller *ctrl = serdev->ctrl;
 
-printk("%s: %pS %u\n", __func__, ctrl?ctrl->ops->break_ctl:NULL, break_state);
 	if (!ctrl || !ctrl->ops->break_ctl)
 		return -EOPNOTSUPP;
 
