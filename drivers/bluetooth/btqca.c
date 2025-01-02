@@ -13,11 +13,6 @@
 
 #include "btqca.h"
 
-#undef BT_DBG
-#define BT_DBG(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#undef BT_ERR
-#define BT_ERR(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-
 int qca_read_soc_version(struct hci_dev *hdev, struct qca_btsoc_version *ver,
 			 enum qca_btsoc_type soc_type)
 {
