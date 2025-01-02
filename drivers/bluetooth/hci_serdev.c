@@ -21,11 +21,6 @@
 
 #include "hci_uart.h"
 
-#undef BT_DBG
-#define BT_DBG(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#undef BT_ERR
-#define BT_ERR(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-
 static inline void hci_uart_tx_complete(struct hci_uart *hu, int pkt_type)
 {
 	struct hci_dev *hdev = hu->hdev;

@@ -40,11 +40,6 @@
 #include "hci_uart.h"
 #include "btqca.h"
 
-#undef BT_DBG
-#define BT_DBG(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#undef BT_ERR
-#define BT_ERR(fmt, ...)	printk("%s: " fmt "\n", __func__, ##__VA_ARGS__)
-
 /* HCI_IBS protocol messages */
 #define HCI_IBS_SLEEP_IND	0xFE
 #define HCI_IBS_WAKE_IND	0xFD
@@ -294,7 +289,6 @@ static void serial_clock_vote(unsigned long vote, struct hci_uart *hu)
 	bool old_vote = (qca->tx_vote | qca->rx_vote);
 	bool new_vote;
 
-printk("%s\n", __func__);
 	switch (vote) {
 	case HCI_IBS_VOTE_STATS_UPDATE:
 		diff = jiffies_to_msecs(jiffies - qca->vote_last_jif);
@@ -572,6 +566,7 @@ static int qca_open(struct hci_uart *hu)
 	struct qca_serdev *qcadev;
 	struct qca_data *qca;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca_open", hu);
 
 	if (!hci_uart_has_flow_control(hu))
@@ -699,6 +694,7 @@ static int qca_flush(struct hci_uart *hu)
 {
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca flush", hu);
 
 	skb_queue_purge(&qca->tx_wait_q);
@@ -712,6 +708,7 @@ static int qca_close(struct hci_uart *hu)
 {
 	struct qca_data *qca = hu->priv;
 
+printk("%s\n", __func__);
 	BT_DBG("hu %p qca close", hu);
 
 	serial_clock_vote(HCI_IBS_VOTE_STATS_UPDATE, hu);
