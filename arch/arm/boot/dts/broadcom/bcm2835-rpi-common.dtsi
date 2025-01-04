@@ -25,7 +25,3 @@
 	clocks = <&firmware_clocks 5>;
 	power-domains = <&power RPI_POWER_DOMAIN_V3D>;
 };
-
-&vec {
-	clocks = <&firmware_clocks 15>;
-};
