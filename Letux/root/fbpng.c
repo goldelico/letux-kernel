@@ -80,14 +80,20 @@ int main(int argc, char *argv[])
 
 	ret = ioctl(fd, FBIOGET_VSCREENINFO, &fbvar);
 	if (ret == -1)
+	{
 		perror("ioctl(FBIOGET_VSCREENINFO)");
+		return 1;
+	}
 
 	if ((fbvar.bits_per_pixel != 32) && (fbvar.bits_per_pixel != 24)) {
 		fbvar.bits_per_pixel = info_ptr->pixel_depth;
 
 		ret = ioctl(fd, FBIOPUT_VSCREENINFO, &fbvar);
 		if (ret == -1)
+			{
 			perror("ioctl(FBIOPUT_VSCREENINFO)");
+			return 1;
+			}
 	}
 
 	destsize = fbvar.xres_virtual * fbvar.yres_virtual
