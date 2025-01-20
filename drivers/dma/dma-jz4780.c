@@ -939,14 +939,12 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	jzdma->clk = devm_clk_get(dev, NULL);
+	jzdma->clk = devm_clk_get_enabled(dev, NULL);
 	if (IS_ERR(jzdma->clk)) {
-		dev_err(dev, "failed to get clock\n");
+		dev_err(dev, "failed to get and enable clock\n");
 		ret = PTR_ERR(jzdma->clk);
 		return ret;
 	}
-
-	clk_prepare_enable(jzdma->clk);
 
 	/* Property is optional, if it doesn't exist the value will remain 0. */
 	of_property_read_u32_index(dev->of_node, "ingenic,reserved-channels",
@@ -1015,7 +1013,7 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 
 	ret = platform_get_irq(pdev, 0);
 	if (ret < 0)
-		goto err_disable_clk;
+		return ret;
 
 	jzdma->irq = ret;
 
@@ -1023,7 +1021,7 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 			  jzdma);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ %u!\n", jzdma->irq);
-		goto err_disable_clk;
+		return ret;
 	}
 
 	ret = dmaenginem_async_device_register(dd);
@@ -1045,9 +1043,6 @@ static int jz4780_dma_probe(struct platform_device *pdev)
 
 err_free_irq:
 	free_irq(jzdma->irq, jzdma);
-
-err_disable_clk:
-	clk_disable_unprepare(jzdma->clk);
 	return ret;
 }
 
@@ -1058,7 +1053,6 @@ static void jz4780_dma_remove(struct platform_device *pdev)
 
 	of_dma_controller_free(pdev->dev.of_node);
 
-	clk_disable_unprepare(jzdma->clk);
 	free_irq(jzdma->irq, jzdma);
 
 	for (i = 0; i < jzdma->soc_data->nb_channels; i++)
