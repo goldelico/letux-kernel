@@ -4104,7 +4104,7 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 		pulldown = (bias == GPIO_PULL_DOWN) && (jzpc->info->pull_downs[offt] & BIT(idx));
 
 	} else {
-		if (is_soc_or_above(jzpc, ID_X1600))
+	if (is_soc_or_above(jzpc, ID_X1600) && !is_soc_or_above(jzpc, ID_X1600 + 1))
 // CHECKME: does this influence X1830, X2000 badly?
 			pull = ingenic_get_pin_config(jzpc, pin, X1600_GPIO_PU);
 		else if (is_soc_or_above(jzpc, ID_JZ4770))
@@ -4206,7 +4206,7 @@ static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 					REG_SET(X1830_GPIO_PEH), bias << idxh);
 		}
 
-	} else if (is_soc_or_above(jzpc, ID_X1600)) {
+	} else	if (is_soc_or_above(jzpc, ID_X1600) && !is_soc_or_above(jzpc, ID_X1600 + 1)) {
 		ingenic_config_pin(jzpc, pin, X1600_GPIO_PU, bias);
 // CHECKME: does this influence X1830, X2000 badly?
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
