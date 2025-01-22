@@ -110,7 +110,7 @@ void __init plat_mem_setup(void)
 	fw_init_cmdline();
 	__dt_setup_arch((void *)fdt);
 
-	if (IS_ENABLED(CONFIG_SMP))
+	if (IS_ENABLED(CONFIG_MACH_INGENIC) && IS_ENABLED(CONFIG_SMP))
 		ingenic_smp_init();
 }
 
