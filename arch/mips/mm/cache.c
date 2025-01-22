@@ -211,6 +211,14 @@ void cpu_cache_init(void)
 		r3k_cache_init();
 	}
 
+#if 0	// not upstream - seems to come from TX3922 and TX3927
+	if (cpu_has_tx39_cache) {
+		extern void __weak tx39_cache_init(void);
+
+		tx39_cache_init();
+	}
+#endif
+
 	if (cpu_has_4k_cache) {
 		extern void __weak r4k_cache_init(void);
 
