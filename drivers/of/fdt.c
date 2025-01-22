@@ -1190,13 +1190,17 @@ static void *__init copy_device_tree(void *fdt)
 	int size;
 	void *dt;
 
+printk("%s: 1 %px\n", __func__, fdt);
 	size = fdt_totalsize(fdt);
+printk("%s: 2 size = %d\n", __func__, size);
 	dt = early_init_dt_alloc_memory_arch(size,
 					     roundup_pow_of_two(FDT_V17_SIZE));
 
+printk("%s: 3 %px\n", __func__, dt);
 	if (dt)
 		memcpy(dt, fdt, size);
 
+printk("%s: 4 %px\n", __func__, dt);
 	return dt;
 }
 
@@ -1257,10 +1261,13 @@ void __init unflatten_device_tree(void)
  */
 void __init unflatten_and_copy_device_tree(void)
 {
+printk("%s: 1 %px\n", __func__, initial_boot_params);
 	if (initial_boot_params)
 		initial_boot_params = copy_device_tree(initial_boot_params);
+printk("%s: 2 %px\n", __func__, initial_boot_params);
 
 	unflatten_device_tree();
+printk("%s: 3\n", __func__);
 }
 
 #ifdef CONFIG_SYSFS

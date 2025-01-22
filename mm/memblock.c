@@ -1439,6 +1439,8 @@ phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
 	enum memblock_flags flags = choose_memblock_flags();
 	phys_addr_t found;
 
+printk("%s: size=%d align=%08x start=%08x end=%08x nid=%d\n", __func__, size, align, start, end, nid);
+
 	/*
 	 * Detect any accidental use of these APIs after slab is ready, as at
 	 * this moment memblock may be deinitialized already and its

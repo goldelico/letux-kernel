@@ -29,6 +29,7 @@ static __initconst const void *mach_match_data;
 
 void __init prom_init(void)
 {
+printk("%s:\n", __func__);
 	plat_get_fdt();
 	BUG_ON(!fdt);
 }
@@ -38,26 +39,33 @@ void __init *plat_get_fdt(void)
 	const struct mips_machine *check_mach;
 	const struct of_device_id *match;
 
+printk("%s: %px\n", __func__, fdt);
+
 	if (fdt)
 		/* Already set up */
 		return (void *)fdt;
 
 	fdt = (void *)get_fdt();
+printk("%s: %px\n", __func__, fdt);
 	if (fdt && !fdt_check_header(fdt)) {
 		/*
 		 * We have been provided with the appropriate device tree for
 		 * the board. Make use of it & search for any machine struct
 		 * based upon the root compatible string.
 		 */
+printk("%s: a\n", __func__);
 		for_each_mips_machine(check_mach) {
 			match = mips_machine_is_compatible(check_mach, fdt);
+printk("%s: mach = %px match = %px\n", __func__, check_mach, match);
 			if (match) {
 				mach = check_mach;
 				mach_match_data = match->data;
 				break;
 			}
+printk("%s: mach_match_data = %px\n", __func__, mach_match_data);
 		}
 	} else if (IS_ENABLED(CONFIG_LEGACY_BOARDS)) {
+printk("%s: b\n", __func__);
 		/*
 		 * We weren't booted using the UHI boot protocol, but do
 		 * support some number of boards with legacy boot protocols.
@@ -82,6 +90,7 @@ void __init *plat_get_fdt(void)
 		/* Retrieve the machine's FDT */
 		fdt = mach->fdt;
 	}
+printk("%s: %px\n", __func__, fdt);
 	return (void *)fdt;
 }
 
@@ -96,6 +105,8 @@ void __init plat_fdt_relocated(void *new_location)
 	 */
 	fdt = NULL;
 
+printk("%s: %lu\n", __func__, fw_arg0);
+
 	if (fw_arg0 == -2)
 		fw_arg1 = (unsigned long)new_location;
 }
@@ -104,6 +115,7 @@ void __init plat_fdt_relocated(void *new_location)
 
 void __init plat_mem_setup(void)
 {
+printk("%s:\n", __func__);
 	if (mach && mach->fixup_fdt)
 		fdt = mach->fixup_fdt(fdt, mach_match_data);
 
@@ -116,15 +128,22 @@ void __init plat_mem_setup(void)
 
 void __init device_tree_init(void)
 {
+printk("%s:\n", __func__);
 	unflatten_and_copy_device_tree();
+printk("%s: a\n", __func__);
 	mips_cpc_probe();
 
+printk("%s: b\n", __func__);
 	if (!register_cps_smp_ops())
 		return;
+printk("%s: c\n", __func__);
 	if (!register_vsmp_smp_ops())
 		return;
+printk("%s: d\n", __func__);
 
 	register_up_smp_ops();
+printk("%s: e\n", __func__);
+
 }
 
 int __init apply_mips_fdt_fixups(void *fdt_out, size_t fdt_out_size,
@@ -133,6 +152,7 @@ int __init apply_mips_fdt_fixups(void *fdt_out, size_t fdt_out_size,
 {
 	int err;
 
+printk("%s:\n", __func__);
 	err = fdt_open_into(fdt_in, fdt_out, fdt_out_size);
 	if (err) {
 		pr_err("Failed to open FDT\n");
@@ -159,6 +179,7 @@ void __init plat_time_init(void)
 	struct device_node *np;
 	struct clk *clk;
 
+printk("%s:\n", __func__);
 	of_clk_init(NULL);
 
 	if (!cpu_has_counter) {
@@ -200,6 +221,7 @@ void __init arch_init_irq(void)
 {
 	struct device_node *intc_node;
 
+printk("%s:\n", __func__);
 	intc_node = of_find_compatible_node(NULL, NULL, "mti,cpu-interrupt-controller");
 
 	if (!cpu_has_veic && !intc_node)
