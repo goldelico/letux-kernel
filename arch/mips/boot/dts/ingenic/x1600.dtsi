@@ -46,6 +46,11 @@
 
 	};
 
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x02000000>;	/* default to 32 MB of the smallest X1600 */
+	};
+
 	cpufreq: cpufreq-dt {
 		 compatible = "ingenic,x1600-cpufreq";
 		 status = "okay";
