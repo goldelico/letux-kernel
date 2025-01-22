@@ -210,7 +210,7 @@ void __init check_wait(void)
 
 	case CPU_XBURST:
 		cpu_wait = r4k_wait;
-		if (IS_ENABLED(CONFIG_SMP))
+		if (IS_ENABLED(CONFIG_MACH_INGENIC) && IS_ENABLED(CONFIG_SMP))
 			cpu_wait = jz4780_smp_wait_irqoff;
 		break;
 
