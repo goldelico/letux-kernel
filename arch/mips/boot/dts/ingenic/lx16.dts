@@ -135,7 +135,7 @@
 #define PC26_PWM5_TCU6		&gpc 26
 
 / {
-	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
+	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
 
 	model = "Letux LX16";
 
