@@ -7,7 +7,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,halley6_v10";
+	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
 
 	model = "Letux LX16";
 
