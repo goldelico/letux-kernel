@@ -5,12 +5,18 @@ config MACH_INGENIC_GENERIC
 	select MACH_INGENIC
 	select MACH_JZ4740
 	select MACH_JZ4725B
+	select MACH_JZ4750
+	select MACH_JZ4755
+	select MACH_JZ4760
 	select MACH_JZ4770
+	select MACH_JZ4775
 	select MACH_JZ4780
 	select MACH_X1000
+	select MACH_X1500
 	select MACH_X1600
 	select MACH_X1830
 	select MACH_X2000
+	select MACH_X2100
 
 choice
 	prompt "Machine type"
