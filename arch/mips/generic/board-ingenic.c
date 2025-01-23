@@ -109,6 +109,7 @@ static __init void ingenic_force_12M_ext(const void *fdt, unsigned int mask)
 
 static __init const void *ingenic_fixup_fdt(const void *fdt, const void *match_data)
 {
+printk("%s\n", __func__);
 	/*
 	 * Old devicetree files for the qi,lb60 board did not have a /memory
 	 * node. Hardcode the memory info here.
@@ -119,6 +120,8 @@ static __init const void *ingenic_fixup_fdt(const void *fdt, const void *match_d
 
 	mips_machtype = (unsigned long)match_data;
 	system_type = ingenic_get_system_type(mips_machtype);
+
+printk("%s: %s detected from DTB\n", __func__, system_type);
 
 	switch (mips_machtype) {
 	case MACH_INGENIC_JZ4750:

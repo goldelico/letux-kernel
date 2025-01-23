@@ -552,7 +552,7 @@ static int __init bootcmdline_scan_chosen(unsigned long node, const char *uname,
 static void __init bootcmdline_init(void)
 {
 	bool dt_bootargs = false;
-
+printk("%s\n", __func__);
 	/*
 	 * If CMDLINE_OVERRIDE is enabled then initializing the command line is
 	 * trivial - we simply use the built-in command line unconditionally &
@@ -560,6 +560,7 @@ static void __init bootcmdline_init(void)
 	 */
 	if (IS_ENABLED(CONFIG_CMDLINE_OVERRIDE)) {
 		strscpy(boot_command_line, builtin_cmdline, COMMAND_LINE_SIZE);
+printk("%s: 1 %s\n", __func__, boot_command_line);
 		return;
 	}
 
@@ -575,15 +576,21 @@ static void __init bootcmdline_init(void)
 	else
 		boot_command_line[0] = 0;
 
+printk("%s: 2 %s\n", __func__, boot_command_line);
+
 #ifdef CONFIG_OF_EARLY_FLATTREE
 	/*
 	 * If we're configured to take boot arguments from DT, look for those
 	 * now.
 	 */
+printk("%s: 3 %s\n", __func__, boot_command_line);
+
 	if (IS_ENABLED(CONFIG_MIPS_CMDLINE_FROM_DTB) ||
 	    IS_ENABLED(CONFIG_MIPS_CMDLINE_DTB_EXTEND))
 		of_scan_flat_dt(bootcmdline_scan_chosen, &dt_bootargs);
 #endif
+
+printk("%s: 3b %s\n", __func__, boot_command_line);
 
 	/*
 	 * If we didn't get any arguments from DT (regardless of whether that's
@@ -593,7 +600,12 @@ static void __init bootcmdline_init(void)
 	 * the bootloader.
 	 */
 	if (IS_ENABLED(CONFIG_MIPS_CMDLINE_DTB_EXTEND) || !dt_bootargs)
+{
+printk("%s: 3c arcs_cmdline = %s\n", __func__, arcs_cmdline);
 		bootcmdline_append(arcs_cmdline, COMMAND_LINE_SIZE);
+}
+
+printk("%s: 4 %s\n", __func__, boot_command_line);
 
 	/*
 	 * If the user specified a built-in command line & we didn't already
@@ -601,7 +613,12 @@ static void __init bootcmdline_init(void)
 	 */
 	if (IS_ENABLED(CONFIG_CMDLINE_BOOL) &&
 	    !IS_ENABLED(CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND))
+{
+printk("%s: 4b %s\n", __func__, builtin_cmdline);
 		bootcmdline_append(builtin_cmdline, COMMAND_LINE_SIZE);
+}
+
+printk("%s: 5 %s\n", __func__, boot_command_line);
 }
 
 /*

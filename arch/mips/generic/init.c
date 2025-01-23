@@ -56,7 +56,7 @@ printk("%s: %px\n", __func__, fdt);
 printk("%s: a\n", __func__);
 		for_each_mips_machine(check_mach) {
 			match = mips_machine_is_compatible(check_mach, fdt);
-printk("%s: mach = %px match = %px\n", __func__, check_mach, match);
+printk("%s: mach = %px match = %px name=%s type=%s compat=%s\n", __func__, check_mach, match, match->name, match->type, match->compatible);
 			if (match) {
 				mach = check_mach;
 				mach_match_data = match->data;
@@ -115,9 +115,15 @@ printk("%s: %lu\n", __func__, fw_arg0);
 
 void __init plat_mem_setup(void)
 {
-printk("%s:\n", __func__);
-	if (mach && mach->fixup_fdt)
+printk("%s: mach=%px fixup=%pF\n", __func__, mach, mach?mach->fixup_fdt:NULL);
+printk("%s: 2b fdt=%px\n", __func__, fdt);
+
+printk("%s: 1 fdt=%px\n", __func__, fdt);
+
+	if (mach && mach->fixup_fdt) {
 		fdt = mach->fixup_fdt(fdt, mach_match_data);
+printk("%s: 2 fdt=%px\n", __func__, fdt);
+}
 
 	fw_init_cmdline();
 	__dt_setup_arch((void *)fdt);

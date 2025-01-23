@@ -573,6 +573,8 @@ static int call_driver_probe(struct device *dev, const struct device_driver *drv
 {
 	int ret = 0;
 
+dev_info(dev, "Driver %s call_driver_probe\n", drv->name);
+
 	if (dev->bus->probe)
 		ret = dev->bus->probe(dev);
 	else if (drv->probe)
@@ -606,6 +608,8 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
+dev_info(dev, "Really probe %s\n", drv->name);
+
 	if (defer_all_probes) {
 		/*
 		 * Value of defer_all_probes can be set only by
@@ -620,7 +624,7 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 	if (link_ret == -EPROBE_DEFER)
 		return link_ret;
 
-	dev_dbg(dev, "bus: '%s': %s: probing driver %s with device\n",
+	dev_info(dev, "bus: '%s': %s: probing driver %s with device\n",
 		drv->bus->name, __func__, drv->name);
 	if (!list_empty(&dev->devres_head)) {
 		dev_crit(dev, "Resources present before probing\n");
