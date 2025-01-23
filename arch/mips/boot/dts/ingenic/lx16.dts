@@ -11,9 +11,9 @@
 
 	model = "Letux LX16";
 
-	/*chosen {
-		bootargs = "earlycon console=ttyS2,115200 mem=128M@0x0ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
-	};*/
+	chosen {
+		stdout-path = &uart2;
+	};
 
 	reserved-memory {
 		#address-cells = <1>;
