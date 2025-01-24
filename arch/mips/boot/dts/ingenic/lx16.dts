@@ -141,7 +141,9 @@
 
 	chosen {
 		stdout-path = &uart2;
-//		bootargs = "earlycon console=ttyS2,115200 mem=128M@0x0 ip=off init=/linuxrc ubi.mtd=3 root=ubi0:rootfs ubi.mtd=4 rootfstype=ubifs rw";
+#if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
+		bootargs = "mem=64M@0x0 rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait";
+#endif
 	};
 
 	reserved-memory {
