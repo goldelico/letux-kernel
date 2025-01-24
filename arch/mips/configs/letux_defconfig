@@ -4628,7 +4628,7 @@ CONFIG_TRACING_SUPPORT=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="fromconfig earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
+CONFIG_CMDLINE="earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_SPINLOCK_TEST is not set
 # CONFIG_SCACHE_DEBUGFS is not set
