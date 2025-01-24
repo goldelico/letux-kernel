@@ -332,8 +332,13 @@ void *__init relocate_kernel(void)
 	void *kernel_entry = start_kernel;
 	void *fdt = NULL;
 
+printk("%s: arcs_cmdline = %s\n", __func__, arcs_cmdline);
+
 	/* Get the command line */
 	fw_init_cmdline();
+
+printk("%s: 0 arcs_cmdline = %s\n", __func__, arcs_cmdline);
+
 #if defined(CONFIG_USE_OF)
 	/* Deal with the device tree */
 	fdt = plat_get_fdt();
@@ -341,6 +346,7 @@ void *__init relocate_kernel(void)
 	if (boot_command_line[0]) {
 		/* Boot command line was passed in device tree */
 		strscpy(arcs_cmdline, boot_command_line, COMMAND_LINE_SIZE);
+printk("%s: 1 arcs_cmdline = %s\n", __func__, arcs_cmdline);
 	}
 #endif /* CONFIG_USE_OF */
 
@@ -354,7 +360,9 @@ void *__init relocate_kernel(void)
 		offset = (unsigned long)loc_new - (unsigned long)(&_text);
 
 	/* Reset the command line now so we don't end up with a duplicate */
+printk("%s: 2 arcs_cmdline = %s\n", __func__, arcs_cmdline);
 	arcs_cmdline[0] = '\0';
+printk("%s: 3 arcs_cmdline = %s\n", __func__, arcs_cmdline);
 
 	if (offset) {
 		void (*fdt_relocated_)(void *) = NULL;

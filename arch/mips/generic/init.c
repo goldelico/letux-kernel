@@ -126,10 +126,16 @@ printk("%s: 2 fdt=%px\n", __func__, fdt);
 }
 
 	fw_init_cmdline();
+
+printk("%s: 3\n", __func__);
+
 	__dt_setup_arch((void *)fdt);
+
+printk("%s: 4\n", __func__);
 
 	if (IS_ENABLED(CONFIG_MACH_INGENIC) && IS_ENABLED(CONFIG_SMP))
 		ingenic_smp_init();
+printk("%s: 5\n", __func__);
 }
 
 void __init device_tree_init(void)

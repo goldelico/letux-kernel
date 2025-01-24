@@ -21,6 +21,8 @@ void __init fw_init_cmdline(void)
 {
 	int i;
 
+printk("%s: fw_arg0=%08x fw_arg1=%08x fw_arg2=%08x\n", __func__, fw_arg0, fw_arg1, fw_arg2);
+
 	/* Validate command line parameters. */
 	if ((fw_arg0 >= CKSEG0) || (fw_arg1 < CKSEG0)) {
 		fw_argc = 0;
@@ -41,6 +43,7 @@ void __init fw_init_cmdline(void)
 		if (i < (fw_argc - 1))
 			strlcat(arcs_cmdline, " ", COMMAND_LINE_SIZE);
 	}
+printk("%s: arcs_cmdline = %s\n", __func__, arcs_cmdline);
 }
 #endif
 
