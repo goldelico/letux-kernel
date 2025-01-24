@@ -363,14 +363,13 @@ err:
 	return ret;
 }
 
-static int jz4730_i2c_remove(struct platform_device *pdev)
+static void jz4730_i2c_remove(struct platform_device *pdev)
 {
 	struct jz4730_i2c *i2c = platform_get_drvdata(pdev);
 
 	jz4730_i2c_updateb(i2c, JZ4730_REG_I2C_CR, JZ4730_I2C_CR_IEN | JZ4730_I2C_CR_I2CE, 0);
 	clk_disable_unprepare(i2c->clk);
 	i2c_del_adapter(&i2c->adap);
-	return 0;
 }
 
 static struct platform_driver jz4730_i2c_driver = {
