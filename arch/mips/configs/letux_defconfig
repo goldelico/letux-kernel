@@ -426,9 +426,9 @@ CONFIG_MIPS_NO_APPENDED_DTB=y
 # CONFIG_MIPS_ELF_APPENDED_DTB is not set
 # CONFIG_MIPS_RAW_APPENDED_DTB is not set
 # CONFIG_MIPS_CMDLINE_FROM_DTB is not set
-# CONFIG_MIPS_CMDLINE_DTB_EXTEND is not set
+CONFIG_MIPS_CMDLINE_DTB_EXTEND=y
 # CONFIG_MIPS_CMDLINE_FROM_BOOTLOADER is not set
-CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND=y
+# CONFIG_MIPS_CMDLINE_BUILTIN_EXTEND is not set
 # end of Kernel type
 
 CONFIG_LOCKDEP_SUPPORT=y
@@ -4628,7 +4628,7 @@ CONFIG_TRACING_SUPPORT=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="fromconfig-for-lx16 mem=64M@0x0 rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
+CONFIG_CMDLINE="fromconfig earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_SPINLOCK_TEST is not set
 # CONFIG_SCACHE_DEBUGFS is not set
