@@ -220,7 +220,6 @@ void cpu_cache_init(void)
 	     IS_ENABLED(CONFIG_CPU_SB1)) && cpu_has_4k_cache) {
 
 		r4k_cache_init();
-	}
 
 	if (IS_ENABLED(CONFIG_CPU_CAVIUM_OCTEON) && cpu_has_octeon_cache)
 		octeon_cache_init();
