@@ -212,12 +212,6 @@ void __init check_wait(void)
 			cpu_wait = r4k_wait_irqoff;
 		break;
 
-	case CPU_XBURST:
-		cpu_wait = r4k_wait;
-		if (IS_ENABLED(CONFIG_MACH_INGENIC) && IS_ENABLED(CONFIG_SMP))
-			cpu_wait = jz4780_smp_wait_irqoff;
-		break;
-
 	case CPU_TX49XX:
 		cpu_wait = r4k_wait_irqoff;
 		break;
