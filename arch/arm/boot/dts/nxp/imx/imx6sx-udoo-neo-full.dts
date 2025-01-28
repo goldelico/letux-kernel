@@ -21,6 +21,8 @@
 	phy-handle = <&ethphy1>;
 	status = "okay";
 
+	mac-address = [5E56A6D4006D]; /* random default: can be overwritten by bootloader */
+
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
