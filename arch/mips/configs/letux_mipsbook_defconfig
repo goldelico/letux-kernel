@@ -5851,6 +5851,7 @@ CONFIG_SYMBOLIC_ERRNAME=y
 # end of printk and dmesg options
 
 # CONFIG_DEBUG_KERNEL is not set
+CONFIG_DEBUG_MISC=y
 
 #
 # Compile-time checks and compiler options
