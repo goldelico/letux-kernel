@@ -101,11 +101,21 @@ static void spi_ingenic_prepare_transfer(struct ingenic_spi *priv,
 					 struct spi_device *spi,
 					 struct spi_transfer *xfer)
 {
-	unsigned long clk_hz = clk_get_rate(priv->clk);
+	unsigned long clk_hz;
+	u64 wanted_clk_hz;
 	u32 cdiv, speed_hz = xfer->speed_hz ?: spi->max_speed_hz,
 	    bits_per_word = xfer->bits_per_word ?: spi->bits_per_word;
 
-	cdiv = clk_hz / (speed_hz * 2);
+	/* try to raise as high as possible while keeping cdiv in unclamped range */
+	wanted_clk_hz = 256 * (u64) speed_hz * 2;
+	clk_hz = MIN(wanted_clk_hz, 300000000);	/* upper limit */
+
+	clk_set_rate(priv->clk, clk_hz);
+
+	/* read back frequency that is really divided */
+	clk_hz = clk_get_rate(priv->clk);
+
+	cdiv = (clk_hz + speed_hz * 2 - 1) / (speed_hz * 2);
 	cdiv = clamp(cdiv, 1u, 0x100u) - 1;
 
 	regmap_write(priv->map, REG_SSIGR, cdiv);
@@ -501,6 +511,7 @@ static const struct of_device_id spi_ingenic_of_match[] = {
 	{ .compatible = "ingenic,jz4775-spi", .data = &jz4780_soc_info },
 	{ .compatible = "ingenic,jz4780-spi", .data = &jz4780_soc_info },
 	{ .compatible = "ingenic,x1000-spi", .data = &x1000_soc_info },
+	{ .compatible = "ingenic,x1600-spi", .data = &x1000_soc_info },
 	{ .compatible = "ingenic,x2000-spi", .data = &x2000_soc_info },
 	{}
 };
