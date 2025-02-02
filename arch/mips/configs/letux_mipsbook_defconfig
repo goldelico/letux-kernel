@@ -5599,6 +5599,7 @@ CONFIG_ARCH_HAS_UBSAN_SANITIZE_ALL=y
 # end of Generic Kernel Debugging Instruments
 
 # CONFIG_DEBUG_KERNEL is not set
+CONFIG_DEBUG_MISC=y
 
 #
 # Memory Debugging
