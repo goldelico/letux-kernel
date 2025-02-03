@@ -190,7 +190,6 @@ static struct drm_driver ili9488_driver = {
 	DRM_GEM_DMA_DRIVER_OPS_VMAP,
 	.name			= "ili9488",
 	.desc			= "Ilitek ILI9488",
-	.date			= "20210201",
 	.major			= 1,
 	.minor			= 0,
 };
