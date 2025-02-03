@@ -21,11 +21,11 @@
 #include <linux/thermal.h>
 #include <linux/delay.h>
 
+#include <drm/clients/drm_client_setup.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fb_dma_helper.h>
-#include <drm/drm_fbdev_generic.h>
 #include <drm/drm_format_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -1410,7 +1410,6 @@ static struct drm_driver gdepaper_driver = {
 	DRM_GEM_DMA_DRIVER_OPS_VMAP_WITH_DUMB_CREATE(drm_gem_dma_dumb_create),
 	.name			= "gdepaper",
 	.desc			= "Good Display ePaper panel",
-	.date			= "20190715",
 	.major			= 1,
 	.minor			= 0,
 	.ioctls			= gdepaper_ioctls,
@@ -1673,7 +1672,7 @@ printk("%s\n", __func__);
 	}
 
 	spi_set_drvdata(spi, drm);
-	drm_fbdev_generic_setup(drm, 0);
+	drm_client_setup(drm, NULL);
 
 	dev_dbg(dev, "Probed gdepaper module\n");
 	return 0;
