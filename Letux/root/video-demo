@@ -8,7 +8,7 @@ SCRIPTPATH="$(dirname "$0")"
 
 FILE=$SCRIPTPATH/big_buck_bunny_480p_stereo.ogg
 
-[ -r $FILE ] || wget -O "$FILE" "http://ftp.nc.debian.org/media/films/big_buck_bunny_480p_stereo.ogg"
+[ -r $FILE ] || wget --no-check-certificate -O "$FILE" "https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_480p_stereo.ogg"
 
 export XAUTHORITY=/.Xauthority
 
