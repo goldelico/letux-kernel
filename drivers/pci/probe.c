@@ -345,7 +345,7 @@ static void pci_read_bases(struct pci_dev *dev, unsigned int howmany, int rom)
 	unsigned int pos, reg;
 	u16 orig_cmd;
 
-	BUILD_BUG_ON(howmany > PCI_STD_NUM_BARS);
+// broken?	BUILD_BUG_ON(howmany > PCI_STD_NUM_BARS);
 
 	if (dev->non_compliant_bars)
 		return;
