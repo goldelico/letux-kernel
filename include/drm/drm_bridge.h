@@ -735,6 +735,33 @@ struct drm_bridge_funcs {
 	 * Allows bridges to create bridge-specific debugfs files.
 	 */
 	void (*debugfs_init)(struct drm_bridge *bridge, struct dentry *root);
+
+	/**
+	 * @connector_attach:
+	 *
+	 * This callback is invoked whenever our bridge is being attached to a
+	 * &drm_connector. This is where an HDMI CEC adapter can be registered.
+	 *
+	 * The @connector_attach callback is optional.
+	 *
+	 * RETURNS:
+	 *
+	 * Zero on success, error code on failure.
+	 */
+	int (*connector_attach)(struct drm_bridge *bridge,
+				struct drm_connector *conn);
+
+	/**
+	 * @connector_detach:
+	 *
+	 * This callback is invoked whenever our bridge is being detached from a
+	 * &drm_connector. This is where an HDMI CEC adapter can be
+	 * unregistered.
+	 *
+	 * The @connector_detach callback is optional.
+	 */
+	void (*connector_detach)(struct drm_bridge *bridge,
+				 struct drm_connector *conn);
 };
 
 /**
@@ -814,6 +841,13 @@ enum drm_bridge_ops {
 	 * drivers.
 	 */
 	DRM_BRIDGE_OP_HDMI = BIT(4),
+	/**
+	 * @DRM_BRIDGE_OP_CEC: The bridge supports a CEC adapter.
+	 * Bridges that set this flag shall implement the
+	 * &drm_bridge_funcs->cec_init and &drm_bridge_funcs->cec_exit
+	 * callbacks.
+	 */
+	DRM_BRIDGE_OP_CEC = BIT(5),
 };
 
 /**
