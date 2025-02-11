@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.14.0-rc1 Kernel Configuration
+# Linux/mips 6.14.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5447,7 +5447,6 @@ CONFIG_PWM_JZ4740=m
 #
 CONFIG_IRQCHIP=y
 # CONFIG_AL_FIC is not set
-# CONFIG_LAN966X_OIC is not set
 CONFIG_IRQ_MIPS_CPU=y
 # CONFIG_XILINX_INTC is not set
 CONFIG_INGENIC_IRQ=y
