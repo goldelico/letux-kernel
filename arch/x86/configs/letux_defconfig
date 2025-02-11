@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.14.0-rc1 Kernel Configuration
+# Linux/x86 6.14.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -3149,7 +3149,6 @@ CONFIG_GPIO_AMDPT=y
 CONFIG_GPIO_EXAR=y
 # CONFIG_GPIO_GENERIC_PLATFORM is not set
 # CONFIG_GPIO_GRANITERAPIDS is not set
-# CONFIG_GPIO_GRGPIO is not set
 # CONFIG_GPIO_ICH is not set
 # CONFIG_GPIO_MB86S7X is not set
 # CONFIG_GPIO_POLARFIRE_SOC is not set
@@ -6883,7 +6882,6 @@ CONFIG_PWM_LPSS_PLATFORM=y
 #
 # IRQ chip support
 #
-# CONFIG_LAN966X_OIC is not set
 # end of IRQ chip support
 
 # CONFIG_IPACK_BUS is not set
