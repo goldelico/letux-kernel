@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.14.0-rc2 Kernel Configuration
+# Linux/mips 6.14.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -2568,7 +2568,6 @@ CONFIG_HID_GENERIC=y
 # CONFIG_HID_KENSINGTON is not set
 # CONFIG_HID_LCPOWER is not set
 # CONFIG_HID_LED is not set
-# CONFIG_HID_LENOVO is not set
 # CONFIG_HID_LETSKETCH is not set
 # CONFIG_HID_LOGITECH is not set
 # CONFIG_HID_MAGICMOUSE is not set
@@ -2630,6 +2629,11 @@ CONFIG_HID_MULTITOUCH=y
 #
 # end of HID-BPF support
 
+CONFIG_I2C_HID=y
+# CONFIG_I2C_HID_OF is not set
+# CONFIG_I2C_HID_OF_ELAN is not set
+# CONFIG_I2C_HID_OF_GOODIX is not set
+
 #
 # USB HID support
 #
@@ -2638,10 +2642,6 @@ CONFIG_USB_HID=y
 # CONFIG_USB_HIDDEV is not set
 # end of USB HID support
 
-CONFIG_I2C_HID=y
-# CONFIG_I2C_HID_OF is not set
-# CONFIG_I2C_HID_OF_ELAN is not set
-# CONFIG_I2C_HID_OF_GOODIX is not set
 CONFIG_USB_OHCI_LITTLE_ENDIAN=y
 CONFIG_USB_SUPPORT=y
 CONFIG_USB_COMMON=y
