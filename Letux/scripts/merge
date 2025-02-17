@@ -116,7 +116,8 @@ function pushbranch { # if enabled, push and archive branch
 	if $PUSH && [ "$REMOTE" != "$LOCAL" ]
 	then
 		echo "*** pushing newer $1 to overwrite older origin/$1 ***"
-		git push --force origin "$1:$1" || exit	# update branch on public server
+		git push --force origin "$1:$1" ||	# update branch on public server
+			git push --force origin "$1:$1" || exit	# try again in case of temporary network error...
 		if [ "$OUTPUT" ]
 		then git branch -f "archive/$OUTPUT/$1" "$1" 	# save a copy in the archive
 		else git branch -f "archive/$1" "$1" 	# save a copy in the archive
