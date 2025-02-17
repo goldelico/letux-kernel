@@ -1,5 +1,5 @@
 #
-# Linux/arm64 6.14.0-rc2 Kernel Configuration
+# Linux/arm64 6.14.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5725,6 +5725,12 @@ CONFIG_HID_MONTEREY=y
 #
 # end of HID-BPF support
 
+CONFIG_I2C_HID=y
+# CONFIG_I2C_HID_ACPI is not set
+# CONFIG_I2C_HID_OF is not set
+# CONFIG_I2C_HID_OF_ELAN is not set
+# CONFIG_I2C_HID_OF_GOODIX is not set
+
 #
 # USB HID support
 #
@@ -5733,11 +5739,6 @@ CONFIG_USB_HID=y
 # CONFIG_USB_HIDDEV is not set
 # end of USB HID support
 
-CONFIG_I2C_HID=y
-# CONFIG_I2C_HID_ACPI is not set
-# CONFIG_I2C_HID_OF is not set
-# CONFIG_I2C_HID_OF_ELAN is not set
-# CONFIG_I2C_HID_OF_GOODIX is not set
 CONFIG_USB_OHCI_LITTLE_ENDIAN=y
 CONFIG_USB_SUPPORT=y
 CONFIG_USB_COMMON=y
@@ -6562,7 +6563,6 @@ CONFIG_STAGING=y
 # CONFIG_XIL_AXIS_FIFO is not set
 # CONFIG_VME_BUS is not set
 # CONFIG_GPIB is not set
-# CONFIG_RTL8723CS_NEW is not set
 # CONFIG_GOLDFISH is not set
 CONFIG_CHROME_PLATFORMS=y
 # CONFIG_CHROMEOS_ACPI is not set
