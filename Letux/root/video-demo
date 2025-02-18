@@ -2,6 +2,7 @@
 #
 # video demo
 # needs 160 MByte on Flash card!
+# ./twl shoulc also be available
 #
 
 SCRIPTPATH="$(dirname "$0")"
@@ -9,18 +10,23 @@ SCRIPTPATH="$(dirname "$0")"
 FILE=$SCRIPTPATH/big_buck_bunny_480p_stereo.ogg
 
 [ -r $FILE ] || wget --no-check-certificate -O "$FILE" "https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_480p_stereo.ogg"
+# there is also BigBuckBunny_320x180.mp4
 
 export XAUTHORITY=/.Xauthority
 
 [ -x /usr/bin/mplayer ] || apt-get install -y mplayer
 
-NUM=$($SCRIPTPATH/findsoundcard "gta04")	# GTA04
-[ "$NUM" ] || NUM=$($SCRIPTPATH/findsoundcard "L15")	# Pyra
+while [ "$1" ]
+do
+	case "$1" in
+# download several files on demand and allow to choose
+		* )
+			break;;
+	esac
+	shift
+done
 
-amixer -c "$NUM" set HandsfreeL on
-amixer -c "$NUM" set HandsfreeR on
-amixer -c "$NUM" set 'HandsfreeL Mux' AudioL2
-amixer -c "$NUM" set 'HandsfreeR Mux' AudioR2
+$SCRIPTPATH/twl "$@" || NOSOUND=-nosound
 
 export DISPLAY=:0.0
-mplayer -vo x11 $FILE
+mplayer $NOSOUND -vo x11 $FILE
