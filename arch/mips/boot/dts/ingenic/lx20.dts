@@ -1,0 +1,26 @@
+/dts-v1/;
+
+// NOTE: all this could be made depend on a set of some CONFIG options
+
+#define LX20_REV 	2	// main board revision
+#define LX20_W		0	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
+#define PWM_LED		0	// 1 = use PWM on led0 and led1
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+
+/* choose one board revision */
+#if LX20_REV == 1
+#error v0.1 was a not working mockup
+#elif LX20_REV == 2
+#include "lx20-v0.2.dtsi"
+#else
+#error unknown LX20_REV
+#endif
+
+/* choose none or one of the wireless options */
+#if LX16_W == 0
+// none
+#elif LX16_W == 2
+#include "lx16-wireless-esp32.dtsi"
+#else
+#error unknown LX20_W
+#endif
