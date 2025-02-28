@@ -4082,9 +4082,6 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 	bool pull, pullup, pulldown;
 
 	if (is_soc_or_above(jzpc, ID_X2000)) {
-extern int iscompiled1_x2000(void);
-iscompiled1_x2000();	// undefined function...
-
 		pullup = ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPU) &&
 				!ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPD) &&
 				(jzpc->info->pull_ups[offt] & BIT(idx));
@@ -4110,25 +4107,14 @@ iscompiled1_x2000();	// undefined function...
 
 	} else {
 		if (is_soc_or_above(jzpc, ID_X1600))
-{
-extern int iscompiled1_x1600(void);
-iscompiled1_x1600();	// undefined function...
 			pull = ingenic_get_pin_config(jzpc, pin, X1600_GPIO_PU);
-}
 		else if (is_soc_or_above(jzpc, ID_JZ4770))
-{
-extern int iscompiled1_jz4770(void);
-iscompiled1_jz4770();	// undefined function...
 			pull = !ingenic_get_pin_config(jzpc, pin, JZ4770_GPIO_PEN);
-}
 		else if (is_soc_or_above(jzpc, ID_JZ4740))
 			pull = !ingenic_get_pin_config(jzpc, pin, JZ4740_GPIO_PULL_DIS);
 		else
-{
-extern int iscompiled1_jz4730(void);
-iscompiled1_jz4730();	// undefined function...
 			pull = ingenic_get_pin_config(jzpc, pin, JZ4730_GPIO_GPPUR);
-}
+
 		pullup = pull && (jzpc->info->pull_ups[offt] & BIT(idx));
 		pulldown = pull && (jzpc->info->pull_downs[offt] & BIT(idx));
 	}
@@ -4186,8 +4172,6 @@ static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 		unsigned int pin, unsigned int bias)
 {
 	if (is_soc_or_above(jzpc, ID_X2000)) {
-extern int iscompiled2_x2000(void);
-iscompiled2_x2000();	// undefined function...
 		switch (bias) {
 		case GPIO_PULL_UP:
 			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPD, false);
@@ -4211,8 +4195,6 @@ iscompiled2_x2000();	// undefined function...
 		unsigned int idxh = (pin % half) * 2;
 		unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 
-extern int iscompiled2_x1830(void);
-iscompiled2_x1830();	// undefined function...
 		if (idx < half) {
 			regmap_write(jzpc->map, offt * jzpc->info->reg_offset +
 					REG_CLEAR(X1830_GPIO_PEL), 3 << idxh);
@@ -4226,18 +4208,12 @@ iscompiled2_x1830();	// undefined function...
 		}
 
 	} else if (is_soc_or_above(jzpc, ID_X1600)) {
-extern int iscompiled2_x1600(void);
-iscompiled2_x1600();	// undefined function...
 		ingenic_config_pin(jzpc, pin, X1600_GPIO_PU, bias);
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
-extern int iscompiled2_jz4770(void);
-iscompiled2_jz4770();	// undefined function...
 		ingenic_config_pin(jzpc, pin, JZ4770_GPIO_PEN, !bias);
 	} else if (is_soc_or_above(jzpc, ID_JZ4740)) {
 		ingenic_config_pin(jzpc, pin, JZ4740_GPIO_PULL_DIS, !bias);
 	} else {
-extern int iscompiled2_jz4730(void);
-iscompiled2_jz4730();	// undefined function...
 		ingenic_config_pin(jzpc, pin, JZ4730_GPIO_GPPUR, bias);
 	}
 }
