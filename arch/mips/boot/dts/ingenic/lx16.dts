@@ -242,6 +242,66 @@
 		bias-disable;
 	};
 
+	pwm1_pc: pwm1 {
+		function = "pwm1";
+		groups = "pwm1";
+		bias-disable;
+	};
+
+	pwm2_pc: pwm2 {
+		function = "pwm2";
+		groups = "pwm2";
+		bias-disable;
+	};
+
+	pwm3_pc: pwm3 {
+		function = "pwm3";
+		groups = "pwm3";
+		bias-disable;
+	};
+
+	pwm4_pc: pwm4 {
+		function = "pwm4";
+		groups = "pwm4";
+		bias-disable;
+	};
+
+	pwm5_pb: pwm5-pb {
+		function = "pwm5-b";
+		groups = "pwm5";
+		bias-disable;
+	};
+
+	pwm5_pc: pwm5-pc {
+		function = "pwm5-c";
+		groups = "pwm5";
+		bias-disable;
+	};
+
+	pwm6_pb9: pwm6-pb9 {
+		function = "pwm6-b9";
+		groups = "pwm6";
+		bias-disable;
+	};
+
+	pwm6_pb20: pwm6-pb20 {
+		function = "pwm6-b20";
+		groups = "pwm6";
+		bias-disable;
+	};
+
+	pwm7_pb10: pwm7-pb10 {
+		function = "pwm7-b10";
+		groups = "pwm7";
+		bias-disable;
+	};
+
+	pwm7_pb21: pwm7-pb21 {
+		function = "pwm7-b21";
+		groups = "pwm7";
+		bias-disable;
+	};
+
 	i2c0_pa: i2c0 {
 		function = "i2c0";
 		groups = "i2c0-data-a";
@@ -616,13 +676,11 @@
 };
 
 &pwm {
-#if PWM_LED	// intereferes with gpc 0 led
+#if PWM_LED
 	status = "okay";
 #else
 	status = "disabled";
 #endif
-	pinctrl-names = "default";
-	pinctrl-0 = <&pwm0_pc>;
 };
 
 &otg {
@@ -656,29 +714,32 @@
 	leds: leds {
 #if PWM_LED
 		compatible = "pwm-leds";
-#else
-		compatible = "gpio-leds";
-#endif
 
 		led-0 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm0_pc>;
 			linux,default-trigger = "heartbeat";
-#if PWM_LED
 			pwms = <&pwm 2 100000>;
 			max-brightness = <255>;
-#else
-			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
-#endif
 		};
 
 		led-1 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm1_pc>;
 			linux,default-trigger = "mmc0";
-#if PWM_LED
 			pwms = <&pwm 3 100000>;
 			max-brightness = <255>;
-#else
-			gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
-#endif
 		};
+#else
+		led-0 {
+			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-1 {
+			gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
+		};
+#endif
+
 	};
 
 	gpio_keys: gpio_keys {
