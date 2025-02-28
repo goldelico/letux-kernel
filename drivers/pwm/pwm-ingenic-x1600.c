@@ -89,7 +89,7 @@ enum pwm_mode_sel{
 };
 
 struct ingenic_pwm_chip {
-	struct pwm_chip chip;
+	struct pwm_chip *chip;
 	struct clk *clk_pwm;
 	struct clk *clk_gate;
 	void __iomem    *iomem;
@@ -426,9 +426,9 @@ static void dump_pwm_reg(struct ingenic_pwm_chip *ingenic_pwm)
 	}
 }
 
-static inline struct ingenic_pwm_chip *to_ingenic_chip(struct pwm_chip *chip)
+static inline struct ingenic_pwm_chip *to_ingenic_pwm(struct pwm_chip *chip)
 {
-	return container_of(chip, struct ingenic_pwm_chip, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 static void dma_tx_callback(void *data)
@@ -437,9 +437,9 @@ static void dma_tx_callback(void *data)
 }
 
 static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
-		int duty_ns, int period_ns)
+		int duty_ns, int period_ns, bool enabled)
 {
-	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_chip(chip);
+	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_pwm(chip);
 	int channel = pwm->hwpwm;
 	struct ingenic_pwm_chan *ingenic_chan = &ingenic_pwm->chan[channel];
 	unsigned int period = 0;
@@ -452,7 +452,7 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	mutex_lock(&ingenic_pwm->mutex);
 	if (duty_ns < 0 || duty_ns > period_ns) {
-		pr_err("%s, duty_ns(%d)< 0 or duty_ns > period_ns(%d)\n", __func__, duty_ns, period_ns);
+		dev_err(&ingenic_pwm->chip->dev, "%s: duty_ns(%d) < 0 or duty_ns > period_ns(%d)\n", __func__, duty_ns, period_ns);
 		mutex_unlock(&ingenic_pwm->mutex);
 		return -EINVAL;
 	}
@@ -543,7 +543,7 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			pwm_enable_hw(ingenic_pwm, channel);
 			ingenic_chan->full_duty_status = 0;
 		}
-		else if(ingenic_pwm->chip.pwms[channel].flags) {
+		else if(ingenic_pwm->chip->pwms[channel].flags) {
 			pwm_update(ingenic_pwm, channel);
 			while(pwm_busy(ingenic_pwm, channel));
 		}
@@ -562,14 +562,14 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		tx_config.dst_maxburst = 4;
 		tx_config.src_maxburst = 4;
 		tx_config.dst_addr = (dma_addr_t)(ingenic_pwm->phys+PWM_DR(channel));
-		tx_config.slave_id = 0;
+// FIXME:		tx_config.slave_id = 0;
 		tx_config.direction = DMA_MEM_TO_DEV;
 		dmaengine_slave_config(txchan, &tx_config);
 
-		ingenic_chan->buffer = dma_alloc_coherent(ingenic_pwm->chip.dev, BUFFER_SIZE,
+		ingenic_chan->buffer = dma_alloc_coherent(&ingenic_pwm->chip->dev, BUFFER_SIZE,
 						&ingenic_chan->buffer_dma, GFP_KERNEL);
 		if (!ingenic_chan->buffer) {
-			dev_err(ingenic_pwm->chip.dev, "PWM request temp dma buffer failed");
+			dev_err(&ingenic_pwm->chip->dev, "PWM request temp dma buffer failed");
 		}
 		memset(ingenic_chan->buffer, 0, BUFFER_SIZE);
 		wave = ingenic_chan->buffer;
@@ -586,9 +586,9 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 						      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		} else {
 			sg_init_one(ingenic_chan->sg, ingenic_chan->buffer, ingenic_chan->sg_pwm_num*4);
-			if (dma_map_sg(ingenic_pwm->chip.dev,
+			if (dma_map_sg(&ingenic_pwm->chip->dev,
 				       ingenic_chan->sg, 1, DMA_TO_DEVICE) != 1) {
-				dev_err(ingenic_pwm->chip.dev, "dma_map_sg tx error\n");
+				dev_err(&ingenic_pwm->chip->dev, "dma_map_sg tx error\n");
 			}
 
 			txdesc = dmaengine_prep_slave_sg(txchan,
@@ -598,7 +598,7 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 						      DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 		}
 		if(!txdesc) {
-			dev_err(ingenic_pwm->chip.dev, "PWM request dma desc failed");
+			dev_err(&ingenic_pwm->chip->dev, "PWM request dma desc failed");
 		}
 		txdesc->callback = dma_tx_callback;
 		txdesc->callback_param = ingenic_chan;
@@ -616,7 +616,7 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 
 static int ingenic_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_chip(chip);
+	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_pwm(chip);
 	int channel = pwm->hwpwm;
 	struct ingenic_pwm_chan *ingenic_chan = &ingenic_pwm->chan[channel];
 
@@ -638,7 +638,7 @@ static int ingenic_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 static void ingenic_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_chip(chip);
+	struct ingenic_pwm_chip *ingenic_pwm = to_ingenic_pwm(chip);
 	int channel = pwm->hwpwm;
 	struct ingenic_pwm_chan *ingenic_chan = &ingenic_pwm->chan[channel];
 
@@ -647,10 +647,10 @@ static void ingenic_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	if(ingenic_chan->mode == DMA_MODE_SG || ingenic_chan->mode == DMA_MODE_CYCLIC){
 		dmaengine_terminate_all(ingenic_chan->dma_chan);
 		pwm_dma_disable_hw(ingenic_pwm,channel);
-		dma_free_coherent(ingenic_pwm->chip.dev, BUFFER_SIZE,
+		dma_free_coherent(&ingenic_pwm->chip->dev, BUFFER_SIZE,
 				ingenic_chan->buffer, ingenic_chan->buffer_dma);
 		if(ingenic_chan->mode == DMA_MODE_SG)
-			dma_unmap_sg(ingenic_pwm->chip.dev, ingenic_chan->sg, 1, DMA_TO_DEVICE);
+			dma_unmap_sg(&ingenic_pwm->chip->dev, ingenic_chan->sg, 1, DMA_TO_DEVICE);
 		pwm_dma_under_irq_disable(ingenic_pwm,channel);
 	}
 
@@ -666,12 +666,43 @@ static void ingenic_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 	mutex_unlock(&ingenic_pwm->mutex);
 }
 
+static int ingenic_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+			 const struct pwm_state *state)
+{
+	int err;
+	bool enabled = pwm->state.enabled;
+#if FIXME
+	if (state->polarity != pwm->state.polarity) {
+		if (enabled) {
+			ingenic_pwm_disable(chip, pwm);
+			enabled = false;
+		}
+
+		err = ingenic_pwm_set_polarity(chip, pwm, state->polarity);
+		if (err)
+			return err;
+	}
+#endif
+	if (!state->enabled) {
+		if (enabled)
+			ingenic_pwm_disable(chip, pwm);
+
+		return 0;
+	}
+
+	err = ingenic_pwm_config(pwm->chip, pwm,
+			     state->duty_cycle, state->period, enabled);
+	if (err)
+		return err;
+
+	if (!enabled)
+		err = ingenic_pwm_enable(chip, pwm);
+
+	return err;
+}
 
 static const struct pwm_ops ingenic_pwm_ops = {
-	.config = ingenic_pwm_config,
-	.enable = ingenic_pwm_enable,
-	.disable = ingenic_pwm_disable,
-	.owner = THIS_MODULE,
+	.apply = ingenic_pwm_apply,
 };
 
 
@@ -729,7 +760,7 @@ static ssize_t pwm_channel_store(struct device *dev, struct device_attribute *at
 			return count;
 	}
 	pwm_id = simple_strtoul(str, (char **)&str, 10);
-	pwm = pwm_request(pwm_id, "pwm_request_test");
+	pwm = devm_pwm_get(dev, NULL);
 	if (IS_ERR(pwm)) {
 		printk("unable to request pwm\n");
 		return -1;
@@ -755,7 +786,6 @@ static ssize_t pwm_free_store(struct device *dev, struct device_attribute *attr,
 	pwm_id = simple_strtoul(str, (char **)&str, 10);
 
 	pwm_disable(ingenic_pwm->debug_pwm[pwm_id]);
-	pwm_put(ingenic_pwm->debug_pwm[pwm_id]);
 	ingenic_pwm->debug_pwm[pwm_id] = NULL;
 	return count;
 }
@@ -767,7 +797,7 @@ static ssize_t pwm_show_requested_channel(struct device *dev, struct device_attr
 	int ret = 0;
 
 	for (i = 0; i <INGENIC_PWM_NUM ; i++) {
-		if (ingenic_pwm->debug_pwm[i] == &(ingenic_pwm->chip.pwms[i]))
+		if (ingenic_pwm->debug_pwm[i] == &(ingenic_pwm->chip->pwms[i]))
 			ret += sprintf(buf + ret, "ch: %02d requested\n", i);
 		else
 			ret += sprintf(buf + ret, "ch: %02d unrequested\n", i);
@@ -1068,19 +1098,21 @@ end:
 
 static int ingenic_pwm_probe(struct platform_device *pdev)
 {
-	struct ingenic_pwm_chip *chip;
+	struct pwm_chip *chip;
+	struct ingenic_pwm_chip *ingenic_pwm;
 	struct resource *res;
 	int err = 0;
 	int ret = 0;
 	int i = 0;
 
-	chip = devm_kzalloc(&pdev->dev,
-			sizeof(struct ingenic_pwm_chip), GFP_KERNEL);
+	/* there is a single chip with multiple channels */
+	chip = devm_pwmchip_alloc(&pdev->dev, 1, sizeof(*ingenic_pwm));
+
 	if (!chip) {
-		pr_err("%s %d,malloc ingenic_pwm_chip error\n",
-				__func__, __LINE__);
+		dev_err(&pdev->dev, "Ingenic pwm_chip alloc error\n");
 		return -ENOMEM;
 	}
+	ingenic_pwm = to_ingenic_pwm(chip);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
@@ -1088,60 +1120,56 @@ static int ingenic_pwm_probe(struct platform_device *pdev)
 		return  -ENOENT;
 	}
 
-	chip->irq = platform_get_irq(pdev, 0);
-	if(chip->irq < 0){
-		dev_err(&pdev->dev, "Cannot get %d  IORESOURCE_IRQ\n",chip->irq);
+	ingenic_pwm->irq = platform_get_irq(pdev, 0);
+	if (ingenic_pwm->irq < 0){
+		dev_err(&pdev->dev, "Cannot get %d  IORESOURCE_IRQ\n", ingenic_pwm->irq);
 		return  -ENOENT;
 	}
 
-	chip->iomem = ioremap(res->start, (res->end - res->start) + 1);
-	if (chip->iomem == NULL) {
+	ingenic_pwm->iomem = ioremap(res->start, (res->end - res->start) + 1);
+	if (ingenic_pwm->iomem == NULL) {
 		dev_err(&pdev->dev, "Cannot map IO\n");
 		err = -ENXIO;
 		goto err_no_iomap;
 	}
 
-	chip->clk_gate = devm_clk_get(&pdev->dev, "gate_pwm");
-	if (IS_ERR(chip->clk_gate)) {
-		dev_err(&pdev->dev, "get pwm clk gate failed %ld\n", PTR_ERR(chip->clk_gate));
-		return PTR_ERR(chip->clk_gate);
+	ingenic_pwm->clk_gate = devm_clk_get(&pdev->dev, "gate_pwm");
+	if (IS_ERR(ingenic_pwm->clk_gate)) {
+		dev_err(&pdev->dev, "get pwm clk gate failed %ld\n", PTR_ERR(ingenic_pwm->clk_gate));
+		return PTR_ERR(ingenic_pwm->clk_gate);
 	}
 
-	chip->clk_pwm = devm_clk_get(&pdev->dev, "div_pwm");
-	if(IS_ERR(chip->clk_pwm)){
-		dev_err(&pdev->dev, "get pwm clk failed %ld\n", PTR_ERR(chip->clk_pwm));
-		return PTR_ERR(chip->clk_pwm);
+	ingenic_pwm->clk_pwm = devm_clk_get(&pdev->dev, "div_pwm");
+	if (IS_ERR(ingenic_pwm->clk_pwm)){
+		dev_err(&pdev->dev, "get pwm clk failed %ld\n", PTR_ERR(ingenic_pwm->clk_pwm));
+		return PTR_ERR(ingenic_pwm->clk_pwm);
 	}
 
-	if(chip->clk_gate) {
-		ret = clk_prepare_enable(chip->clk_gate);
+	if (ingenic_pwm->clk_gate) {
+		ret = clk_prepare_enable(ingenic_pwm->clk_gate);
 		if(ret) {
 			dev_err(&pdev->dev, "enable pwm clock gate failed!\n");
 		}
 	}
 
-	if(chip->clk_pwm) {
-		ret = clk_set_rate(chip->clk_pwm, DEFAULT_PWM_CLK_RATE);
+	if (ingenic_pwm->clk_pwm) {
+		ret = clk_set_rate(ingenic_pwm->clk_pwm, DEFAULT_PWM_CLK_RATE);
 		if(ret) {
 			dev_err(&pdev->dev, "set pwm clock rate failed!\n");
 		}
-		ret = clk_prepare_enable(chip->clk_pwm);
+		ret = clk_prepare_enable(ingenic_pwm->clk_pwm);
 		if(ret) {
 			dev_err(&pdev->dev, "enable pwm clock failed!\n");
 		}
 	}
 
-	chip->chip.dev = &pdev->dev;
-	chip->chip.ops = &ingenic_pwm_ops;
-	chip->chip.base = 0;
-	chip->chip.npwm = INGENIC_PWM_NUM;
-	chip->phys = res->start;
+	chip->ops = &ingenic_pwm_ops;
+	chip->npwm = INGENIC_PWM_NUM;
+	ingenic_pwm->phys = res->start;
 
-	ret = pwmchip_add(&chip->chip);
-	if (ret < 0) {
-		devm_kfree(&pdev->dev, chip);
+	ret = devm_pwmchip_add(&pdev->dev, chip);
+	if (ret < 0)
 		return ret;
-	}
 
 	{
 		dma_cap_mask_t mask;
@@ -1151,33 +1179,33 @@ static int ingenic_pwm_probe(struct platform_device *pdev)
 		for(i = 0; i < INGENIC_PWM_NUM; i++) {
 			char str[2] = "0";
 
-			chip->chan[i].id = i;
-			chip->chan[i].chip = chip;
+			ingenic_pwm->chan[i].id = i;
+			ingenic_pwm->chan[i].chip = ingenic_pwm;
 			sprintf(str, "%d", i);
-			chip->chan[i].dma_chan = dma_request_chan(&pdev->dev, str);
-			if(!chip->chan[i].dma_chan) {
+			ingenic_pwm->chan[i].dma_chan = dma_request_chan(&pdev->dev, str);
+			if(!ingenic_pwm->chan[i].dma_chan) {
 				dev_err(&pdev->dev, "PWM request dma tx channel failed");
 			}
-			chip->chan[i].sg = kmalloc(sizeof(struct scatterlist), GFP_KERNEL);
-			if (!chip->chan[i].sg) {
+			ingenic_pwm->chan[i].sg = kmalloc(sizeof(struct scatterlist), GFP_KERNEL);
+			if (!ingenic_pwm->chan[i].sg) {
 				dev_err(&pdev->dev, "Failed to alloc tx scatterlist\n");
 			}
-			chip->chan[i].init_level = 0;
-			chip->chan[i].finish_level = 0;
-			chip->chan[i].trigger_en = 0;
-			chip->chan[i].sg_pwm_num = SG_PWM_NUM;
+			ingenic_pwm->chan[i].init_level = 0;
+			ingenic_pwm->chan[i].finish_level = 0;
+			ingenic_pwm->chan[i].trigger_en = 0;
+			ingenic_pwm->chan[i].sg_pwm_num = SG_PWM_NUM;
 		}
 	}
 
-	ret = request_irq(chip->irq,ingenic_pwm_interrupt,
-			IRQF_SHARED | IRQF_TRIGGER_LOW,"pwm-interrupt",chip);
+	ret = request_irq(ingenic_pwm->irq,ingenic_pwm_interrupt,
+			IRQF_SHARED | IRQF_TRIGGER_LOW,"pwm-interrupt", chip);
 	if (ret) {
-		dev_err(&pdev->dev, "request_irq failed !! %d-\n",chip->irq);
+		dev_err(&pdev->dev, "request_irq failed !! %d-\n", ingenic_pwm->irq);
 		goto err_no_iomap;
 	}
 
-	platform_set_drvdata(pdev, chip);
-	mutex_init(&chip->mutex);
+	platform_set_drvdata(pdev, ingenic_pwm);
+	mutex_init(&ingenic_pwm->mutex);
 
 	for (i = 0; i < ARRAY_SIZE(pwm_device_attributes); i++) {
 		ret = device_create_file(&pdev->dev, &pwm_device_attributes[i]);
@@ -1189,34 +1217,32 @@ static int ingenic_pwm_probe(struct platform_device *pdev)
 	return 0;
 
 err_no_iomap:
-	iounmap(chip->iomem);
+	iounmap(ingenic_pwm->iomem);
 
 	return err;
 }
 
-static int ingenic_pwm_remove(struct platform_device *pdev)
+static void ingenic_pwm_remove(struct platform_device *pdev)
 {
-	struct ingenic_pwm_chip *chip;
-	chip =platform_get_drvdata(pdev);
-	if (!chip)
+	struct ingenic_pwm_chip *ingenic_pwm;
+	ingenic_pwm =platform_get_drvdata(pdev);
+	if (!ingenic_pwm)
 		return -ENODEV;
 
-	pwmchip_remove(&chip->chip);
-	devm_clk_put(&pdev->dev,chip->clk_pwm);
-	devm_clk_put(&pdev->dev,chip->clk_gate);
-	devm_kfree(&pdev->dev, chip);
-	return 0;
+	devm_clk_put(&pdev->dev, ingenic_pwm->clk_pwm);
+	devm_clk_put(&pdev->dev, ingenic_pwm->clk_gate);
 }
 
 static const struct of_device_id ingenic_pwm_matches[] = {
 	{ .compatible = "ingenic,x1600-pwm", .data = NULL },
 	{},
 };
+MODULE_DEVICE_TABLE(of, ingenic_pwm_matches);
 
 #ifdef CONFIG_PM_SLEEP
 static int ingenic_pwm_suspend(struct device *dev)
 {
-	struct ingenic_pwm_chip *chip = dev_get_drvdata(dev);
+	struct ingenic_pwm_chip *ingenic_pwm = dev_get_drvdata(dev);
 	unsigned int i;
 
 	/*
@@ -1225,13 +1251,15 @@ static int ingenic_pwm_suspend(struct device *dev)
 	 * passed to pwm_config() next time.
 	 */
 	for (i = 0; i < INGENIC_PWM_NUM; ++i) {
-		struct pwm_device *pwm = &chip->chip.pwms[i];
+#if FIXME
+		struct pwm_device *pwm = &ingenic_pwm->chip->pwms[i];
 		struct ingenic_pwm_channel *chan = pwm_get_chip_data(pwm);
 
 		if (!chan)
 			continue;
 		chan->period_ns = 0;
 		chan->duty_ns = 0;
+#endif
 	}
 
 	return 0;
@@ -1239,7 +1267,7 @@ static int ingenic_pwm_suspend(struct device *dev)
 
 static int ingenic_pwm_resume(struct device *dev)
 {
-	struct ingenic_pwm_chip *chip = dev_get_drvdata(dev);
+	struct ingenic_pwm_chip *ingenic_pwm = dev_get_drvdata(dev);
 	unsigned int chan;
 
 	/*
@@ -1247,7 +1275,7 @@ static int ingenic_pwm_resume(struct device *dev)
 	 * as nobody really seems to configure it more than once.
 	 */
 	for (chan = 0; chan < INGENIC_PWM_NUM; ++chan) {
-		if (chip->output_mask & BIT(chan)) {
+		if (ingenic_pwm->output_mask & BIT(chan)) {
 			/*TODO: ??*/
 		}
 	}
