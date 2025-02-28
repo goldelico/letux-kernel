@@ -2433,10 +2433,10 @@ static int x1600_pwm_pwm3_pins[] = { 0x58, };
 static int x1600_pwm_pwm4_pins[] = { 0x59, };
 static int x1600_pwm_pwm5_b_pins[] = { 0x33, };
 static int x1600_pwm_pwm5_c_pins[] = { 0x5a, };
-static int x1600_pwm_pwm6_b_9_pins[] = { 0x29, };
-static int x1600_pwm_pwm6_b_20_pins[] = { 0x34, };
-static int x1600_pwm_pwm7_b_10_pins[] = { 0x2a, };
-static int x1600_pwm_pwm7_b_21_pins[] = { 0x35, };
+static int x1600_pwm_pwm6_b9_pins[] = { 0x29, };
+static int x1600_pwm_pwm6_b20_pins[] = { 0x34, };
+static int x1600_pwm_pwm7_b10_pins[] = { 0x2a, };
+static int x1600_pwm_pwm7_b21_pins[] = { 0x35, };
 
 static int x1600_mac_pins[] = {
 	0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c,
@@ -2492,10 +2492,10 @@ static const struct group_desc x1600_groups[] = {
 	INGENIC_PIN_GROUP("pwm4", x1600_pwm_pwm4, 1),
 	INGENIC_PIN_GROUP("pwm5-b", x1600_pwm_pwm5_b, 2),
 	INGENIC_PIN_GROUP("pwm5-c", x1600_pwm_pwm5_c, 1),
-	INGENIC_PIN_GROUP("pwm6-b9", x1600_pwm_pwm6, 1),
-	INGENIC_PIN_GROUP("pwm6-b20", x1600_pwm_pwm6, 2),
-	INGENIC_PIN_GROUP("pwm7-b10", x1600_pwm_pwm7, 1),
-	INGENIC_PIN_GROUP("pwm7-b21", x1600_pwm_pwm7, 2),
+	INGENIC_PIN_GROUP("pwm6-b9", x1600_pwm_pwm6_b9, 1),
+	INGENIC_PIN_GROUP("pwm6-b20", x1600_pwm_pwm6_b20, 2),
+	INGENIC_PIN_GROUP("pwm7-b10", x1600_pwm_pwm7_b10, 1),
+	INGENIC_PIN_GROUP("pwm7-b21", x1600_pwm_pwm7_b21, 2),
 	INGENIC_PIN_GROUP("mac", x1600_mac, 1),
 };
 
