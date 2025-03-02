@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.14.0-rc4 Kernel Configuration
+# Linux/mips 6.14.0-rc5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5437,6 +5437,7 @@ CONFIG_PWM=y
 CONFIG_PWM_JZ4730=m
 CONFIG_PWM_JZ4740=m
 # CONFIG_PWM_PCA9685 is not set
+# CONFIG_PWM_X1600 is not set
 # CONFIG_PWM_XILINX is not set
 
 #
