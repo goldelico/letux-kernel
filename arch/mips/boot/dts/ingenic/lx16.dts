@@ -731,11 +731,15 @@
 			max-brightness = <255>;
 		};
 #else
+		compatible = "gpio-leds";
+
 		led-0 {
+			linux,default-trigger = "heartbeat";
 			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
 		};
 
 		led-1 {
+			linux,default-trigger = "mmc0";
 			gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
 		};
 #endif
