@@ -207,11 +207,29 @@ void cpu_cache_init(void)
 {
 	if (IS_ENABLED(CONFIG_CPU_R3000) && cpu_has_3k_cache)
 		r3k_cache_init();
-	if (IS_ENABLED(CONFIG_CPU_R4K_CACHE_TLB) && cpu_has_4k_cache)
+
+	if (IS_ENABLED(CONFIG_CPU_R4K_CACHE_TLB) && cpu_has_4k_cache) {
+		extern void __weak r4k_cache_init(void);
+
 		r4k_cache_init();
+	}
+
+#if 0	// not upstream - seems to come from TX3922 and TX3927
+	if (cpu_has_tx39_cache) {
+		extern void __weak tx39_cache_init(void);
+
+		tx39_cache_init();
+	}
+#endif
 
 	if (IS_ENABLED(CONFIG_CPU_CAVIUM_OCTEON) && cpu_has_octeon_cache)
 		octeon_cache_init();
+
+	if (cpu_has_ingenic_cache) {
+		extern void __weak ingenic_cache_init(void);
+
+		ingenic_cache_init();
+	}
 
 	setup_protection_map();
 }
