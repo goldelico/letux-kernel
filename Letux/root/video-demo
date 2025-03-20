@@ -7,10 +7,10 @@
 
 SCRIPTPATH="$(dirname "$0")"
 
+# there is also BigBuckBunny_320x180.mp4
 FILE=$SCRIPTPATH/big_buck_bunny_480p_stereo.ogg
 
-[ -r $FILE ] || wget --no-check-certificate -O "$FILE" "https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_480p_stereo.ogg"
-# there is also BigBuckBunny_320x180.mp4
+[ -r $FILE ] || wget --no-check-certificate -O "$FILE" "https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_480p_stereo.ogg" || rm -f "$FILE"
 
 export XAUTHORITY=/.Xauthority
 
