@@ -1,0 +1,20 @@
+#!/bin/bash
+
+evtest /dev/input/touchscreen | while read EVENT time TIME type TYPE TYPEP code CODE CODEP value VALUE
+do
+	case "$CODE" in
+		0 ) # ABS_X
+			X="$VALUE"
+			;;
+		1 ) # ABS_Y
+			Y="$VALUE"
+			;;
+		330 ) # BTN_TOUCH
+			BTN="$VALUE"
+			;;
+		* )
+			continue	# ignore
+			;;
+	esac
+	echo "BTN: $BTN X: $X Y: $Y"
+done
