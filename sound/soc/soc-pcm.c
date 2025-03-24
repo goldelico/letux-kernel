@@ -49,17 +49,16 @@ static inline int _soc_pcm_ret(struct snd_soc_pcm_runtime *rtd,
 }
 
 /* is the current PCM operation for this FE ? */
-#if 0
-static int snd_soc_dpcm_fe_can_update(struct snd_soc_pcm_runtime *fe, int stream)
+int snd_soc_dpcm_fe_can_update(struct snd_soc_pcm_runtime *fe, int stream)
 {
 	if (fe->dpcm[stream].runtime_update == SND_SOC_DPCM_UPDATE_FE)
 		return 1;
 	return 0;
 }
-#endif
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_fe_can_update);
 
 /* is the current PCM operation for this BE ? */
-static int snd_soc_dpcm_be_can_update(struct snd_soc_pcm_runtime *fe,
+int snd_soc_dpcm_be_can_update(struct snd_soc_pcm_runtime *fe,
 			       struct snd_soc_pcm_runtime *be, int stream)
 {
 	if ((fe->dpcm[stream].runtime_update == SND_SOC_DPCM_UPDATE_FE) ||
@@ -68,6 +67,7 @@ static int snd_soc_dpcm_be_can_update(struct snd_soc_pcm_runtime *fe,
 		return 1;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_be_can_update);
 
 static int snd_soc_dpcm_check_state(struct snd_soc_pcm_runtime *fe,
 				    struct snd_soc_pcm_runtime *be,
@@ -102,8 +102,8 @@ static int snd_soc_dpcm_check_state(struct snd_soc_pcm_runtime *fe,
  * We can only hw_free, stop, pause or suspend a BE DAI if any of it's FE
  * are not running, paused or suspended for the specified stream direction.
  */
-static int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
-					 struct snd_soc_pcm_runtime *be, int stream)
+int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
+				  struct snd_soc_pcm_runtime *be, int stream)
 {
 	const enum snd_soc_dpcm_state state[] = {
 		SND_SOC_DPCM_STATE_START,
@@ -113,13 +113,14 @@ static int snd_soc_dpcm_can_be_free_stop(struct snd_soc_pcm_runtime *fe,
 
 	return snd_soc_dpcm_check_state(fe, be, stream, state, ARRAY_SIZE(state));
 }
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_can_be_free_stop);
 
 /*
  * We can only change hw params a BE DAI if any of it's FE are not prepared,
  * running, paused or suspended for the specified stream direction.
  */
-static int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
-				      struct snd_soc_pcm_runtime *be, int stream)
+int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
+			       struct snd_soc_pcm_runtime *be, int stream)
 {
 	const enum snd_soc_dpcm_state state[] = {
 		SND_SOC_DPCM_STATE_START,
@@ -130,13 +131,14 @@ static int snd_soc_dpcm_can_be_params(struct snd_soc_pcm_runtime *fe,
 
 	return snd_soc_dpcm_check_state(fe, be, stream, state, ARRAY_SIZE(state));
 }
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_can_be_params);
 
 /*
  * We can only prepare a BE DAI if any of it's FE are not prepared,
  * running or paused for the specified stream direction.
  */
-static int snd_soc_dpcm_can_be_prepared(struct snd_soc_pcm_runtime *fe,
-					struct snd_soc_pcm_runtime *be, int stream)
+int snd_soc_dpcm_can_be_prepared(struct snd_soc_pcm_runtime *fe,
+				 struct snd_soc_pcm_runtime *be, int stream)
 {
 	const enum snd_soc_dpcm_state state[] = {
 		SND_SOC_DPCM_STATE_START,
@@ -146,6 +148,7 @@ static int snd_soc_dpcm_can_be_prepared(struct snd_soc_pcm_runtime *fe,
 
 	return snd_soc_dpcm_check_state(fe, be, stream, state, ARRAY_SIZE(state));
 }
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_can_be_prepared);
 
 #define DPCM_MAX_BE_USERS	8
 
@@ -2467,6 +2470,14 @@ static int dpcm_fe_dai_do_trigger(struct snd_pcm_substream *substream, int cmd)
 			break;
 		}
 		break;
+	case SND_SOC_DPCM_TRIGGER_BESPOKE:
+		/* bespoke trigger() - handles both FE and BEs */
+
+		dev_dbg(fe->dev, "ASoC: bespoke trigger FE %s cmd %d\n",
+				fe->dai_link->name, cmd);
+
+		ret = snd_soc_pcm_dai_bespoke_trigger(substream, cmd);
+		break;
 	default:
 		dev_err(fe->dev, "ASoC: invalid trigger cmd %d for %s\n", cmd,
 				fe->dai_link->name);
@@ -2608,12 +2619,26 @@ out:
 
 static int dpcm_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 {
+	struct snd_pcm_substream *substream =
+		snd_soc_dpcm_get_substream(fe, stream);
+	enum snd_soc_dpcm_trigger trigger = fe->dai_link->trigger[stream];
 	int err;
 
 	dev_dbg(fe->dev, "ASoC: runtime %s close on FE %s\n",
 		snd_pcm_direction_name(stream), fe->dai_link->name);
 
-	err = dpcm_be_dai_trigger(fe, stream, SNDRV_PCM_TRIGGER_STOP);
+	if (trigger == SND_SOC_DPCM_TRIGGER_BESPOKE) {
+		/* call bespoke trigger - FE takes care of all BE triggers */
+		dev_dbg(fe->dev, "ASoC: bespoke trigger FE %s cmd stop\n",
+				fe->dai_link->name);
+
+		err = snd_soc_pcm_dai_bespoke_trigger(substream, SNDRV_PCM_TRIGGER_STOP);
+	} else {
+		dev_dbg(fe->dev, "ASoC: trigger FE %s cmd stop\n",
+			fe->dai_link->name);
+
+		err = dpcm_be_dai_trigger(fe, stream, SNDRV_PCM_TRIGGER_STOP);
+	}
 
 	dpcm_be_dai_hw_free(fe, stream);
 
@@ -2627,7 +2652,10 @@ static int dpcm_run_update_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 
 static int dpcm_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 {
+	struct snd_pcm_substream *substream =
+		snd_soc_dpcm_get_substream(fe, stream);
 	struct snd_soc_dpcm *dpcm;
+	enum snd_soc_dpcm_trigger trigger = fe->dai_link->trigger[stream];
 	int ret = 0;
 
 	dev_dbg(fe->dev, "ASoC: runtime %s open on FE %s\n",
@@ -2671,9 +2699,23 @@ static int dpcm_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		fe->dpcm[stream].state == SND_SOC_DPCM_STATE_STOP)
 		return 0;
 
-	ret = dpcm_be_dai_trigger(fe, stream, SNDRV_PCM_TRIGGER_START);
-	if (ret < 0)
-		goto hw_free;
+	if (trigger == SND_SOC_DPCM_TRIGGER_BESPOKE) {
+		/* call trigger on the frontend - FE takes care of all BE triggers */
+		dev_dbg(fe->dev, "ASoC: bespoke trigger FE %s cmd start\n",
+				fe->dai_link->name);
+
+		ret = snd_soc_pcm_dai_bespoke_trigger(substream, SNDRV_PCM_TRIGGER_START);
+		if (ret < 0)
+			goto hw_free;
+	} else {
+		dev_dbg(fe->dev, "ASoC: trigger FE %s cmd start\n",
+			fe->dai_link->name);
+
+		ret = dpcm_be_dai_trigger(fe, stream,
+					SNDRV_PCM_TRIGGER_START);
+		if (ret < 0)
+			goto hw_free;
+	}
 
 	return 0;
 
@@ -3053,3 +3095,19 @@ struct snd_pcm_substream *
 	return be->pcm->streams[stream].substream;
 }
 EXPORT_SYMBOL_GPL(snd_soc_dpcm_get_substream);
+
+/* get the BE runtime state */
+enum snd_soc_dpcm_state
+	snd_soc_dpcm_be_get_state(struct snd_soc_pcm_runtime *be, int stream)
+{
+	return be->dpcm[stream].state;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_be_get_state);
+
+/* set the BE runtime state */
+void snd_soc_dpcm_be_set_state(struct snd_soc_pcm_runtime *be,
+		int stream, enum snd_soc_dpcm_state state)
+{
+	be->dpcm[stream].state = state;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dpcm_be_set_state);
