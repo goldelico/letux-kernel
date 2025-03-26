@@ -44,8 +44,8 @@ allOf:
   - if:
       properties:
         compatible:
-          enum:
-            - ingenic,x1600-phy
+          contains:
+            const: ingenic,x1600-phy
     then:
       properties:
         reg:
