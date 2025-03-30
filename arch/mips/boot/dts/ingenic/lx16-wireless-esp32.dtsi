@@ -1,0 +1,48 @@
+/* assumes that lx16-common is already included */
+
+FIXME: make this control the ESP32
+
+/ {
+	wlan_en: wlan_en_regulator {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+//		pinctrl-0 = <&wlan_pins>;
+		regulator-name = "wlan-en-regulator";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+
+//		gpio = <&gb 12 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+};
+
+&mmc1 {
+//	vmmc-supply = <&wlan_en>;
+
+	wlan: wlan@0 {
+#if 1	// could allow CONFIG_LX16_REDBEAN for different Wireless clients (RedBean vs. ESP WROOM)
+		compatible = "qcom,qca9377-wlan";	// FIXME
+#endif
+		reg = <0>;
+//		interrupt-parent = <&gpio5>;
+//		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+//		ref-clock-frequency = <26000000>;
+	};
+};
+
+&uart1 {
+//	uart-has-rtscts;
+
+	bluetooth: bluetooth {
+#if 1
+		compatible = "qcom,qca9377-bt";
+#endif
+		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
+		max-speed = <200000>;
+	//	clocks = <&wifi32k>;
+	//	vdd-supply = <&bt_en>;
+	};
+};
+
