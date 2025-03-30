@@ -1,46 +1,18 @@
 /dts-v1/;
 
-// FIXME: this should be split into different lx16.dts files which build upon each other to avoid the if LX16_REV conditions
+// NOTE: all this could be made depend on a set of some CONFIG options
 
-#define LX16_REV	3	// 1 = v0.1, 2 = v0.2, 3=v0.3
+/* choose one board revision */
+// #include "lx16-v0.1.dtsi"
+// #include "lx16-v0.2.dtsi"
+#include "lx16-v0.3.dtsi"
 
-#include "lx16-common.dtsi"
-#if 1	// could be some CONFIG_LX16_WIRELESS
-#include "lx16-wireless.dtsi"
-#endif
+/* choose none or one of the wireless options */
+#include "lx16-wireless-qcom.dtsi"
+// #include "lx16-wireless-esp32.dtsi"
 
-/* attached application */
-#define APPLICATION	0	// 0 = none
-
-/ {
-	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
-
-	model = "Letux LX16";
-
-	chosen {
-		stdout-path = &uart2;
-#if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
-		bootargs = "mem=64M@0x0 rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait";
-#endif
-	};
-
-	reserved-memory {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges =<>;
-
-		reserved_memory: reserved_mem@2000000{
-		      compatible = "shared-dma-pool";
-		      reg = <0x02000000 0x20000>;
-		};
-	};
-};
-
-/* Application connected to RasPi compatible Header - append here with #if APPLICATION == number */
-#if APPLICATION == 1
+/* choose none or one of the application options */
+// #include "lx16-spi-epd.dtsi"
 // #include "lx16-spi-lcd.dtsi"
-#elif APPLICATION == 2
-// #include "lx16-epd.dtsi"
-#elif APPLICATION == 3
-// #include "lx16-retread.dtsi"
-#endif
+
+// #include "lx16-retrode3.dtsi"
