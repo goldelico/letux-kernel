@@ -1,0 +1,43 @@
+/* ESP32-C6-WROOM-1 with esp-hosted-ng firmware */
+
+/ {
+	wlan_pwrseq: wlan_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpb 4 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <2000>;
+	};
+};
+
+&mmc1 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	broken-cd;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+
+	mmc-pwrseq = <&wlan_pwrseq>;
+
+	cap-power-off-card;
+	max-frequency = <18000000>;
+	wlan: wlan@0 {
+		compatible = "espressif,esp_sdio";
+		reg = <0>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+//	uart-has-rtscts;
+
+	/* is using HCI over SDIO - needs WLAN to be enabled - uart1 can be used for accessing the chip console/flashing */
+};
