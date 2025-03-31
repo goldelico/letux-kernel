@@ -1,13 +1,5 @@
 /* RedBean module (Qualcomm) */
 
-/ {
-	wlan_pwrseq: wlan_pwrseq {
-		compatible = "mmc-pwrseq-simple";
-		reset-gpios = <&gpb 4 GPIO_ACTIVE_LOW>;
-		post-power-on-delay-ms = <2000>;
-	};
-};
-
 &mmc1 {
 	status = "okay";
 	pinctrl-names ="default";
