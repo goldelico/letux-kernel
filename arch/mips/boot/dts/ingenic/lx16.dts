@@ -4,6 +4,7 @@
 
 #define LX16_REV 	3	// main board revision
 #define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
+#define APPLICATION	1	// 0 = none, 1 = LCD, 2 = EPD, 3 = tbd.
 
 /* choose one board revision */
 #if LX16_REV == 1
@@ -19,4 +20,10 @@
 #include "lx16-wireless-qcom.dtsi"
 #elif LX16_W == 2
 #include "lx16-wireless-esp32.dtsi"
+#endif
+
+#if APPLICATION == 1
+#include "lx16+spi-display.dtsi"
+#elif APPLICATION == 2
+#include "lx16+epd-display.dtsi"
 #endif
