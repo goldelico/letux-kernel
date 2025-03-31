@@ -1,28 +1,31 @@
-/* assumes that lx16-common is already included */
+/* RedBean module (Qualcomm) */
 
 / {
-	wlan_en: wlan_en_regulator {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default";
-//		pinctrl-0 = <&wlan_pins>;
-		regulator-name = "wlan-en-regulator";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-
-//		gpio = <&gb 12 GPIO_ACTIVE_HIGH>;
-
-		startup-delay-us = <70000>;
-		enable-active-high;
+	wlan_pwrseq: wlan_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpb 4 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <2000>;
 	};
 };
 
 &mmc1 {
-//	vmmc-supply = <&wlan_en>;
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
 
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	broken-cd;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+
+	max-frequency = <50000000>;
 	wlan: wlan@0 {
-#if 1	// could allow CONFIG_LX16_REDBEAN for different Wireless clients (RedBean vs. ESP WROOM)
-		compatible = "qcom,qca9377-wlan";	// FIXME
-#endif
+		compatible = "qcom,qca9377-wlan";
 		reg = <0>;
 //		interrupt-parent = <&gpio5>;
 //		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
@@ -31,16 +34,16 @@
 };
 
 &uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
 //	uart-has-rtscts;
 
 	bluetooth: bluetooth {
-#if 1
 		compatible = "qcom,qca9377-bt";
-#endif
 		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
 		max-speed = <200000>;
 	//	clocks = <&wifi32k>;
 	//	vdd-supply = <&bt_en>;
 	};
 };
-
