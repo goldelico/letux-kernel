@@ -8,4 +8,22 @@
 
 / {
 	model = "Letux LX16v0.3";	// also 0.4, 0.5
+
+	vbus_en: drvvbus_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "drive-vbus";
+
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
+};
+
+&otg {
+	dr_mode = "otg";	// one of host,peripheral,otg
+	vbus-supply = <&vbus_en>;
 };
