@@ -1,0 +1,348 @@
+/* Application for Retrode3 board (based on LX16) */
+
+// FIXME: should go to lx16-v0.1.dtsi
+#include <dt-bindings/leds/common.h>
+
+// Mapping of Retrode signals to x1600 gpios/pins
+// so that we can encode hardware variations here
+#define A0		&gpa 0
+// ...
+
+/* Application Retread 3 */
+
+/ {
+#if APPLICATION == 290
+	compatible = "openpandora,retread290", "ingenic,x1600";
+	model = "Openpandora RetRead 2.9.0";
+#elif APPLICATION == 291
+	compatible = "openpandora,retread291", "ingenic,x1600";
+	model = "Openpandora RetRead 2.9.1";
+#elif APPLICATION == 292
+	compatible = "openpandora,retread292", "ingenic,x1600";
+	model = "Openpandora RetRead 2.9.2";
+#elif APPLICATION == 293
+	compatible = "openpandora,retread293", "ingenic,x1600";
+	model = "Openpandora RetRead 2.9.3";
+#elif APPLICATION == 294
+	compatible = "openpandora,retrode294", "ingenic,x1600";
+	model = "Openpandora Retrode 2.9.4";
+/* FIXME: this does not work because lx16+retrode.dtsi is imported too late
+#undef LX16_REV
+#define LX16_REV	2	// 1 = v0.1, 2 = v0.2, 3=v0.3
+#undef LX16_W
+#define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
+*/
+#else
+#error unknown APPLICATION revision
+#endif
+};
+
+#if APPLICATION == 293
+/ {
+#define I2C i2c_gpio
+	i2c_gpio: bitbang {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpc 25 GPIO_ACTIVE_HIGH>;
+		scl-gpios = <&gpc 26 GPIO_ACTIVE_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&i2c1 {
+	status = "disabled";
+};
+
+#elif APPLICATION >= 294
+
+&i2c1 {
+#define I2C i2c1
+// setup pinctrl
+	status = "ok";
+};
+
+#endif
+
+#if APPLICATION >= 293
+&I2C {
+	clkgen: clock-generator@60 {
+		compatible = "silabs,si5351a-msop";	// 10-MSOP package has just 3 clock outputs
+		reg = <0x60>;	// 61?
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+
+		/* Connect XTAL input to 25MHz reference */
+// tbd.		clocks = <&ref25>;
+		clock-names = "xtal";
+
+		/* Use XTAL input as source of PLL0 and PLL1 */
+		silabs,pll-source = <0 0>, <1 0>;
+
+		/* Don't reset PLL1 on rate adjustment */
+		silabs,pll-reset-mode = <1 1>;
+
+		/*
+		* Overwrite CLK0 configuration with:
+		* - 8 mA output drive strength
+		* - PLL0 as clock source of multisynth 0
+		* - Multisynth 0 as clock source of output divider
+		* - Multisynth 0 can change PLL0
+		* - Set initial clock frequency of 74.25MHz
+		*/
+		clkout@0 {
+			reg = <0>;
+			silabs,drive-strength = <8>;
+			silabs,multisynth-source = <0>;
+			silabs,clock-source = <0>;
+			silabs,pll-master;
+			clock-frequency = <74250000>;
+		};
+
+		/*
+		* Overwrite CLK1 configuration with:
+		* - 4 mA output drive strength
+		* - PLL1 as clock source of multisynth 1
+		* - Multisynth 1 as clock source of output divider
+		* - Multisynth 1 can change PLL1
+		* - Reset PLL1 when enabling this clock output
+		*/
+		clkout@1 {
+			reg = <1>;
+			silabs,drive-strength = <4>;
+			silabs,multisynth-source = <1>;
+			silabs,clock-source = <0>;
+			silabs,pll-master;
+			silabs,pll-reset;
+			};
+
+		/*
+		* Overwrite CLK2 configuration with:
+		* - XTAL as clock source of output divider
+		*/
+		clkout@2 {
+			reg = <2>;
+			silabs,clock-source = <2>;
+		};
+	};
+#endif
+};
+
+
+#if APPLICATION >= 294
+&I2C {
+	// tca6408 GPIO expanders
+};
+#endif
+
+&SPI {
+	status = "disable";
+};
+
+&leds {
+	led-0 {
+		function = LED_FUNCTION_HEARTBEAT;
+		color = <LED_COLOR_ID_RED>;
+	};
+
+#if APPLICATION >= 292
+
+	led-1 {
+		function = LED_FUNCTION_MTD;
+		color = <LED_COLOR_ID_YELLOW>;
+	};
+#endif
+
+#if APPLICATION >= 292
+
+	sd_led: led-2 {
+		linux,default-trigger = "mmc1";
+		function = LED_FUNCTION_MTD;
+		color = <LED_COLOR_ID_GREEN>;
+#if APPLICATION < 294
+		gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
+#else
+	## hook to tca6408
+#endif
+	};
+
+	snes_led: led-3 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		color = <LED_COLOR_ID_GREEN>;
+		function-enumerator = <0>;	// match slot number
+#if APPLICATION < 294
+		gpios = <&gpb 9 GPIO_ACTIVE_HIGH>;
+#else
+	## hook to tca6408
+#endif
+	};
+
+	md_led: led-4 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		function-enumerator = <1>;	// match slot number
+		color = <LED_COLOR_ID_GREEN>;
+#if APPLICATION < 294
+		gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+#else
+	## hook to tca6408
+#endif
+	};
+
+	nes_led: led-5 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		color = <LED_COLOR_ID_GREEN>;
+		function-enumerator = <2>;	// match slot number
+#if APPLICATION < 294
+		gpios = <&gpb 8 GPIO_ACTIVE_HIGH>;
+#else
+	## hook to tca6408
+#endif
+	};
+#endif	// APPLICATION >= 292
+};
+
+&pinctrl {
+	retrode3: retrode3 {
+		// NOTE: x1600 pins can be either pull-up or pull-down (only some PC can pull down). Or bias-disable.
+		control { /* !WE0/1, !RD, !TIME, !RESET */
+			pins = "PB2", "PB3", "PB4", "PB5", "PB7";
+			bias-pull-up;
+		};
+		data { /* D0 .. D15 */
+			pins = "PA8", "PA9", "PA10", "PA11", "PA12", "PA13", "PA14", "PA15",
+			       "PA16", "PA17", "PA18", "PA19", "PA20", "PA21", "PA22", "PA23";
+			bias-pull-up;
+		};
+	};
+
+	slots: slots {
+		cart-detect { /* Cart Detects */
+			pins = "PB23", "PB25", "PB27";
+			bias-pull-up;
+//			input-schmitt-enable;	// not yet supported by driver
+		};
+		cart-enable { /* Cart Enables */
+			pins = "PB22", "PB24", "PB26", "PB28";
+			bias-pull-up;
+		};
+		md-power {
+			pins = "PC24";
+			bias-disable;
+		};
+	};
+};
+
+/ {
+	retrode3 {
+		compatible = "openpandora,retrode3";
+		pinctrl-names = "default";
+		pinctrl-0 = <&retrode3>, <&slots>;
+
+#if APPLICATION < 292
+		addr-gpios = <&gpb 30 GPIO_ACTIVE_HIGH>, // A0	should be &gpa 0 but that ends in error -16
+#else
+		addr-gpios = <&gpa 0 GPIO_ACTIVE_HIGH>, // A0
+#endif
+			     <&gpa 1 GPIO_ACTIVE_HIGH>, // A1
+			     <&gpa 2 GPIO_ACTIVE_HIGH>, // A2
+			     <&gpa 3 GPIO_ACTIVE_HIGH>, // A3
+			     <&gpa 4 GPIO_ACTIVE_HIGH>, // A4
+			     <&gpa 5 GPIO_ACTIVE_HIGH>, // A5
+			     <&gpa 6 GPIO_ACTIVE_HIGH>, // A6
+			     <&gpa 7 GPIO_ACTIVE_HIGH>, // A7
+			     <&gpa 24 GPIO_ACTIVE_HIGH>, // A8
+			     <&gpa 25 GPIO_ACTIVE_HIGH>, // A9
+			     <&gpa 26 GPIO_ACTIVE_HIGH>, // A10
+			     <&gpa 27 GPIO_ACTIVE_HIGH>, // A11
+			     <&gpa 28 GPIO_ACTIVE_HIGH>, // A12
+			     <&gpa 29 GPIO_ACTIVE_HIGH>, // A13
+			     <&gpa 30 GPIO_ACTIVE_HIGH>, // A14
+			     <&gpa 31 GPIO_ACTIVE_HIGH>, // A15
+			     <&gpb 12 GPIO_ACTIVE_HIGH>, // A16
+			     <&gpb 13 GPIO_ACTIVE_HIGH>, // A17
+			     <&gpb 14 GPIO_ACTIVE_HIGH>, // A18
+			     <&gpb 15 GPIO_ACTIVE_HIGH>, // A19
+			     <&gpb 16 GPIO_ACTIVE_HIGH>, // A20
+			     <&gpb 17 GPIO_ACTIVE_HIGH>, // A21
+			     <&gpb 19 GPIO_ACTIVE_HIGH>, // A22
+			     <&gpb 20 GPIO_ACTIVE_HIGH>; // A23
+
+		data-gpios = <&gpa 8 GPIO_ACTIVE_HIGH>, // D0
+			     <&gpa 9 GPIO_ACTIVE_HIGH>, // D1
+			     <&gpa 10 GPIO_ACTIVE_HIGH>, // D2
+			     <&gpa 11 GPIO_ACTIVE_HIGH>, // D3
+			     <&gpa 12 GPIO_ACTIVE_HIGH>, // D4
+			     <&gpa 13 GPIO_ACTIVE_HIGH>, // D5
+			     <&gpa 14 GPIO_ACTIVE_HIGH>, // D6
+			     <&gpa 15 GPIO_ACTIVE_HIGH>, // D7
+			     <&gpa 16 GPIO_ACTIVE_HIGH>, // D8
+			     <&gpa 17 GPIO_ACTIVE_HIGH>, // D9
+			     <&gpa 18 GPIO_ACTIVE_HIGH>, // D10
+			     <&gpa 19 GPIO_ACTIVE_HIGH>, // D11
+			     <&gpa 20 GPIO_ACTIVE_HIGH>, // D12
+			     <&gpa 21 GPIO_ACTIVE_HIGH>, // D13
+			     <&gpa 22 GPIO_ACTIVE_HIGH>, // D14
+			     <&gpa 23 GPIO_ACTIVE_HIGH>; // D15
+
+#if APPLICATION < 294
+		oe-gpio =    <&gpb 4 GPIO_ACTIVE_LOW>;	// OE/RD
+		we-gpios =   <&gpb 2 GPIO_ACTIVE_LOW>,	// LDSW
+			     <&gpb 3 GPIO_ACTIVE_LOW>;	// UDSW
+		time-gpio =  <&gpb 5 GPIO_ACTIVE_LOW>;	// TIME
+		reset-gpio = <&gpb 7 GPIO_ACTIVE_LOW>;  // RESET
+#else
+// FIXME:
+		oe-gpio =    <&gpb 4 GPIO_ACTIVE_LOW>;	// OE/RD
+		we-gpios =   <&gpb 2 GPIO_ACTIVE_LOW>,	// LDSW
+			     <&gpb 3 GPIO_ACTIVE_LOW>;	// UDSW
+		time-gpio =  <&gpb 5 GPIO_ACTIVE_LOW>;	// TIME
+		reset-gpio = <&gpb 7 GPIO_ACTIVE_LOW>;  // RESET
+#endif
+
+		slots {
+			pinctrl-names = "default";
+			pinctrl-0 = <&slots>;
+
+			slot1 {
+				compatible = "openpandora,retrode3-slot-snes", "openpandora,retrode3-slot";
+				cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
+				ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
+				status-led = <&snes_led>;
+				address-width = <18>;
+				bus-width = <8>;
+			};
+			slot2 {
+				compatible = "openpandora,retrode3-slot-megadrive", "openpandora,retrode3-slot";
+#if APPLICATION >= 292
+				power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
+#endif
+				cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
+				ce-gpio = <&gpb 28 GPIO_ACTIVE_LOW>;
+				status-led = <&md_led>;
+				address-width = <23>;
+				bus-width = <16>;
+			};
+			slot3 {
+				compatible = "openpandora,retrode3-slot-nes", "openpandora,retrode3-slot";
+				cd-gpio = <&gpb 23 GPIO_ACTIVE_LOW>;
+				ce-gpio = <&gpb 24 GPIO_ACTIVE_LOW>;
+				status-led = <&nes_led>;
+				address-width = <15>;
+				bus-width = <8>;	// effectively 8 + 8
+			};
+			slot4 {
+				compatible = "openpandora,retrode3-gamepads", "openpandora,retrode3-controller";
+				ce-gpio = <&gpb 22 GPIO_ACTIVE_LOW>;
+				left {
+					data-offset = <0>;
+				};
+				right {
+					data-offset = <8>;
+				};
+			};
+		};
+	};
+};
