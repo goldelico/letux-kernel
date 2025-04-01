@@ -556,10 +556,17 @@
 
 };
 
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pa>;
+	status = "disabled";
+};
+
 #if SPI_BITBANG
+
+#define SPI spi_gpio
 / {
 	spi_gpio: bitbang {
-#define SPI spi_gpio
 		compatible = "spi-gpio";
 		sck-gpios = <SCLK GPIO_ACTIVE_HIGH>;
 		miso-gpios = <MISO GPIO_ACTIVE_HIGH>;
@@ -571,16 +578,10 @@
 	};
 };
 
-&spi0 {
-	status = "disabled";
-};
-
 #else
 
-&spi0 {
 #define SPI spi0
-	pinctrl-names = "default";
-	pinctrl-0 = <&spi0_pa>;
+&spi0 {
 	status = "okay";
 };
 
