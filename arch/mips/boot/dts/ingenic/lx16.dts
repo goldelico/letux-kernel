@@ -11,13 +11,11 @@
 /* overwrites for Retrode3 */
 #undef LX16_REV
 #define LX16_REV	2	// based on Rev 2
-#if APPLICATION == 293
+#if APPLICATION <= 293
 #undef SPI_BITBANG
-#define SPI_BITBANG	1	// no WLAN
+#define SPI_BITBANG	1	// default to bitbang SPI
 #endif
-#undef LX16_W
-#define LX16_W	2		// ESP32
-#if APPLICATION < 294
+#if APPLICATION <= 293
 #undef LX16_W
 #define LX16_W	0		// no WLAN
 #else
