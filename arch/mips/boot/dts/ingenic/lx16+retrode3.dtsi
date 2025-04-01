@@ -40,6 +40,7 @@
 #if APPLICATION == 293
 / {
 #define I2C i2c_gpio
+	/delete-node/ bitbang;	// may be the spi bitbang node
 	i2c_gpio: bitbang {
 		compatible = "i2c-gpio";
 		sda-gpios = <&gpc 25 GPIO_ACTIVE_HIGH>;
