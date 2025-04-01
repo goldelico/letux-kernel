@@ -6,9 +6,6 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
-#define PWM_LED		0	// 1 = use PWM on led0 and led1
-#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
-
 // Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
 #define SDA	PIN3
 #define SCL	PIN5
@@ -408,39 +405,39 @@
 
 &tcu {
 #if 0
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pwm_tcu_trig_pa>;
 #endif
 };
 
 &can0 {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&can0_pd>;
 	ingenic,clk-freq = <12000000>;
 };
 
 &can1 {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&can1_pd>;
 	ingenic,clk-freq = <12000000>;
 };
 
 &cim {
-	status = "disable";
+	status = "disabled";
 	memory-region=<&reserved_memory>;
 };
 
 &i2c0 {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pa>;
 };
 
 &i2c1 {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pb>;
 };
@@ -489,7 +486,7 @@
 	pinctrl-names = "default", "reset";
 	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
 	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
-	status = "disable";
+	status = "disabled";
 	ingenic,pwr-gpio = <&gpb 30 GPIO_ACTIVE_HIGH>;
 	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW>;
 	ingenic,rst-ms = <10>;
@@ -590,7 +587,7 @@
 #endif
 
 &spi_slv0 {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi_slv_pa>;
 	ingenic,has_dma_support = <1>;
@@ -622,13 +619,13 @@
 };
 
 &aic {
-	status = "disable";
+	status = "disabled";
 	pinctrl-names = "default";
 	pinctrl-0 = <&aic_pb>;
 };
 
 &efuse {
-	status = "disable";
+	status = "disabled";
 };
 
 
