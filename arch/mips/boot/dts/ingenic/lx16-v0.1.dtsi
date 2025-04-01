@@ -700,10 +700,6 @@
 	};
 #endif
 
-	spi_gpio {
-		status = "disable";
-	};
-
 #ifdef CONFIG_LINUX_PMEM
 	linux_pmem {
 		status = "okay";
