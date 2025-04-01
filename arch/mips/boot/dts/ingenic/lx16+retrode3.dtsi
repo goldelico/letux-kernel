@@ -12,20 +12,20 @@
 
 / {
 #if APPLICATION == 290
-	compatible = "openpandora,retread290", "ingenic,x1600";
-	model = "Openpandora RetRead 2.9.0";
+	compatible = "openpandora,retrode290", "ingenic,x1600";
+	model = "Openpandora Retrode-2.9.0";
 #elif APPLICATION == 291
-	compatible = "openpandora,retread291", "ingenic,x1600";
-	model = "Openpandora RetRead 2.9.1";
+	compatible = "openpandora,retrode291", "ingenic,x1600";
+	model = "Openpandora Retrode-2.9.1";
 #elif APPLICATION == 292
-	compatible = "openpandora,retread292", "ingenic,x1600";
-	model = "Openpandora RetRead 2.9.2";
+	compatible = "openpandora,retrode292", "ingenic,x1600";
+	model = "Openpandora Retrode-2.9.2";
 #elif APPLICATION == 293
-	compatible = "openpandora,retread293", "ingenic,x1600";
-	model = "Openpandora RetRead 2.9.3";
+	compatible = "openpandora,retrode293", "ingenic,x1600";
+	model = "Openpandora Retrode-2.9.3";
 #elif APPLICATION == 294
 	compatible = "openpandora,retrode294", "ingenic,x1600";
-	model = "Openpandora Retrode 2.9.4";
+	model = "Openpandora Retrode-2.9.4";
 /* FIXME: this does not work because lx16+retrode.dtsi is imported too late
 #undef LX16_REV
 #define LX16_REV	2	// 1 = v0.1, 2 = v0.2, 3=v0.3
@@ -61,6 +61,12 @@
 	status = "ok";
 };
 
+/ {
+	/delete-node/ spi_gpio;
+);
+
+#else
+	// use bitbang gpio
 #endif
 
 #if APPLICATION >= 293
@@ -134,10 +140,6 @@
 	// tca6408 GPIO expanders
 };
 #endif
-
-&SPI {
-	status = "disable";
-};
 
 &leds {
 	led-0 {
