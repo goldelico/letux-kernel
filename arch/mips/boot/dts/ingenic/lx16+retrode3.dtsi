@@ -64,10 +64,15 @@
 
 / {
 	/delete-node/ spi_gpio;
-);
+};
 
-#else
-	// use bitbang gpio
+#elif APPLICATION <= 292
+&spi0 {
+	status = "disabled";
+};
+/ {
+	/delete-node/ bitbang;
+};
 #endif
 
 #if APPLICATION >= 293
@@ -132,13 +137,26 @@
 			silabs,clock-source = <2>;
 		};
 	};
-#endif
 };
-
+#endif
 
 #if APPLICATION >= 294
 &I2C {
-	// tca6408 GPIO expanders
+	exp_leds: tca6408-leds {
+		compatible = "ti,tca6408";
+		reg = <0x20>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	cic: tca6408-cic {
+		compatible = "ti,tca6408";
+		reg = <0x21>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	// rewire ESP32 enable
 };
 #endif
 
@@ -154,6 +172,8 @@
 		function = LED_FUNCTION_MTD;
 		color = <LED_COLOR_ID_YELLOW>;
 	};
+#else
+	/delete-node/ led-1;
 #endif
 
 #if APPLICATION >= 292
@@ -165,7 +185,7 @@
 #if APPLICATION < 294
 		gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
 #else
-	## hook to tca6408
+		gpios = <&exp_leds 2 GPIO_ACTIVE_HIGH>;
 #endif
 	};
 
@@ -177,7 +197,7 @@
 #if APPLICATION < 294
 		gpios = <&gpb 9 GPIO_ACTIVE_HIGH>;
 #else
-	## hook to tca6408
+		gpios = <&exp_leds 4 GPIO_ACTIVE_HIGH>;
 #endif
 	};
 
@@ -189,7 +209,7 @@
 #if APPLICATION < 294
 		gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
 #else
-	## hook to tca6408
+		gpios = <&exp_leds 5 GPIO_ACTIVE_HIGH>;
 #endif
 	};
 
@@ -201,7 +221,7 @@
 #if APPLICATION < 294
 		gpios = <&gpb 8 GPIO_ACTIVE_HIGH>;
 #else
-	## hook to tca6408
+		gpios = <&exp_leds 6 GPIO_ACTIVE_HIGH>;
 #endif
 	};
 #endif	// APPLICATION >= 292
@@ -313,7 +333,9 @@
 				compatible = "openpandora,retrode3-slot-snes", "openpandora,retrode3-slot";
 				cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
 				ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
 				status-led = <&snes_led>;
+#endif
 				address-width = <18>;
 				bus-width = <8>;
 			};
@@ -324,7 +346,9 @@
 #endif
 				cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
 				ce-gpio = <&gpb 28 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
 				status-led = <&md_led>;
+#endif
 				address-width = <23>;
 				bus-width = <16>;
 			};
@@ -332,7 +356,9 @@
 				compatible = "openpandora,retrode3-slot-nes", "openpandora,retrode3-slot";
 				cd-gpio = <&gpb 23 GPIO_ACTIVE_LOW>;
 				ce-gpio = <&gpb 24 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
 				status-led = <&nes_led>;
+#endif
 				address-width = <15>;
 				bus-width = <8>;	// effectively 8 + 8
 			};
