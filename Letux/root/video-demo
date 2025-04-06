@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# video demo
+# needs 160 MByte on Flash card!
+# ./twl shoulc also be available
+#
+
+SCRIPTPATH="$(dirname "$0")"
+
+# there is also BigBuckBunny_320x180.mp4
+FILE=$SCRIPTPATH/big_buck_bunny_480p_stereo.ogg
+
+[ -r $FILE ] || wget --no-check-certificate -O "$FILE" "https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_480p_stereo.ogg" || rm -f "$FILE"
+
+export XAUTHORITY=/.Xauthority
+
+[ -x /usr/bin/mplayer ] || apt-get install -y mplayer
+
+while [ "$1" ]
+do
+	case "$1" in
+# download several files on demand and allow to choose
+		* )
+			break;;
+	esac
+	shift
+done
+
+$SCRIPTPATH/twl "$@" || NOSOUND=-nosound
+
+export DISPLAY=:0.0
+mplayer $NOSOUND -vo x11 $FILE
