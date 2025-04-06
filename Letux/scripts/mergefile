@@ -38,6 +38,7 @@ letux/mips_defconfig
 letux/mips_ci20_defconfig
 letux/mips_alpha400_defconfig
 letux/mips_lx16_defconfig
+letux/mips_lx20_defconfig
 letux/x86_defconfig
 
 # Letux Rootfs
@@ -163,9 +164,11 @@ letux/jz4780-smp
 letux/ci20_defconfig
 letux/jz4780-sound	# contains defconfig fixes...
 
-# LX16 / X1600
+# LX16/20 and X1600/X2000
 letux/x1600
 letux/dt-lx16
+letux/x2000
+letux/dt-lx20
 letux/esp-hosted-ng
 
 # E-Book reader
