@@ -1,0 +1,3 @@
+// FIXME: add X2000 support here
+
+#include "x1600.dtsi"	// to get current DTC compiled into a broken DTB...
