@@ -211,7 +211,7 @@ int lbs_stop_iface(struct lbs_private *priv)
 	/* autosleep should not mess with commands
 	 * when the interface is powered down
 	 */
-	del_timer_sync(&priv->auto_deepsleep_timer);
+	timer_delete_sync(&priv->auto_deepsleep_timer);
 
 	/* Disable command processing, and wait for all commands to complete */
 	lbs_deb_main("waiting for commands to complete\n");
@@ -797,7 +797,7 @@ int lbs_exit_auto_deep_sleep(struct lbs_private *priv)
 {
 	priv->is_auto_deep_sleep_enabled = 0;
 	priv->auto_deep_sleep_timeout = 0;
-	del_timer(&priv->auto_deepsleep_timer);
+	timer_delete(&priv->auto_deepsleep_timer);
 
 	return 0;
 }
