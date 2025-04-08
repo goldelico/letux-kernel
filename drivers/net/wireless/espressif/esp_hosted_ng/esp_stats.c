@@ -148,7 +148,7 @@ void test_raw_tp_cleanup(void)
 	int ret = 0;
 
 	if (log_raw_tp_stats_timer_running) {
-		ret = del_timer(&log_raw_tp_stats_timer);
+		ret = timer_delete(&log_raw_tp_stats_timer);
 		if (!ret) {
 			log_raw_tp_stats_timer_running = 0;
 		}
