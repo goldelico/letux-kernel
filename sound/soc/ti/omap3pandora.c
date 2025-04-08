@@ -394,7 +394,7 @@ static struct snd_soc_dai_link omap3pandora_dai[] = {
 		.name = "PCM1773",
 		.stream_name = "HiFi Out",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
-			   SND_SOC_DAIFMT_CBS_CFS,
+			   SND_SOC_DAIFMT_CBC_CFC,
 		.ops = &omap3pandora_playback_ops,
 		.init = omap3pandora_out_init,
 		.playback_only = 1,
