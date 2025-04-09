@@ -397,7 +397,7 @@ __inline static void _set_timer(_timer *ptimer, u32 delay_time)
 
 __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
 {
-	*bcancelled = del_timer_sync(&ptimer->timer) == 1 ? 1 : 0;
+	*bcancelled = timer_delete_sync(&ptimer->timer) == 1 ? 1 : 0;
 }
 
 static inline void _init_workitem(_workitem *pwork, void *pfunc, void *cntx)
