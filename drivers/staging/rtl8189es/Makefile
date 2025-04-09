@@ -2203,6 +2203,8 @@ endif
 
 endif
 
+subdir-ccflags-y += $(EXTRA_CFLAGS)
+
 USER_MODULE_NAME ?=
 ifneq ($(USER_MODULE_NAME),)
 MODULE_NAME := $(USER_MODULE_NAME)
