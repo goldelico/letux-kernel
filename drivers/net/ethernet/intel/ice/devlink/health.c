@@ -28,7 +28,7 @@ struct ice_health_status {
 static const char ice_common_port_solutions[] =
 	"Check your cable connection. Change or replace the module or cable. Manually set speed and duplex.";
 static const char ice_port_number_label[] = "Port Number";
-static const char const ice_update_nvm_solution[] = "Update to the latest NVM image.";
+static const char ice_update_nvm_solution[] = "Update to the latest NVM image.";
 
 static const struct ice_health_status ice_health_status_lookup[] = {
 	{ICE_AQC_HEALTH_STATUS_ERR_UNKNOWN_MOD_STRICT, "An unsupported module was detected.",
