@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.10.235 Kernel Configuration
+# Linux/arm 5.10.236 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 4.9.1"
 CONFIG_CC_IS_GCC=y
