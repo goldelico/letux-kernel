@@ -662,6 +662,11 @@ properties:
           - const: hardkernel,odroid-m1
           - const: rockchip,rk3568
 
+      - description: Rockchip RK3568 Hardkernel ODROID-M1
+        items:
+          - const: rockchip,rk3568-odroid-m1
+          - const: rockchip,rk3568
+
       - description: Hardkernel Odroid M1S
         items:
           - const: hardkernel,odroid-m1s
@@ -1185,6 +1190,7 @@ properties:
           - const: zkmagic,a95x-z2
           - const: rockchip,rk3318
 
+>>>>>>> 7e9ab7bd754c5 (dt-bindings: rockchip: Add Hardkernel ODROID-M1 board)
 additionalProperties: true
 
 ...
