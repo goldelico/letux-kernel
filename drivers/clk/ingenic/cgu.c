@@ -4,6 +4,7 @@
  *
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
+ * Copyright (c) 2023, 2024 Paul Boddie <paul@boddie.org.uk>
  */
 
 #include <linux/bitops.h>
@@ -76,6 +77,41 @@ ingenic_cgu_gate_set(struct ingenic_cgu *cgu,
  * PLL operations
  */
 
+static unsigned
+ingenic_pll_recalc_rate_od(u32 ctl, u8 od_shift, u8 od_bits, u8 od_max,
+			   const s8 *od_encoding)
+{
+	unsigned od, od_enc = 0;
+
+	if (od_bits > 0) {
+		od_enc = ctl >> od_shift;
+		od_enc &= GENMASK(od_bits - 1, 0);
+	}
+
+	/*
+	 * Use the encoding table if indicated. Otherwise, use the value
+	 * directly, interpreting an encoded value of zero as a divider
+	 * value of one.
+	 */
+	if (od_encoding)
+	{
+		for (od = 0; od < od_max; od++)
+			if (od_encoding[od] == od_enc)
+				break;
+		od++;
+	}
+	else
+		od = od_enc ? od_enc : 1;
+
+	/* if od_max = 0, od_bits should be 0 and od is fixed to 1. */
+	if (od_max == 0)
+		BUG_ON(od_bits != 0);
+	else
+		BUG_ON(od == od_max);
+
+	return od;
+}
+
 static unsigned long
 ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -83,7 +119,7 @@ ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	const struct ingenic_cgu_clk_info *clk_info = to_clk_info(ingenic_clk);
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	const struct ingenic_cgu_pll_info *pll_info;
-	unsigned m, n, od, od_enc = 0;
+	unsigned m, n, od, od1;
 	bool bypass;
 	u32 ctl;
 
@@ -97,11 +133,6 @@ ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	n = (ctl >> pll_info->n_shift) & GENMASK(pll_info->n_bits - 1, 0);
 	n += pll_info->n_offset;
 
-	if (pll_info->od_bits > 0) {
-		od_enc = ctl >> pll_info->od_shift;
-		od_enc &= GENMASK(pll_info->od_bits - 1, 0);
-	}
-
 	if (pll_info->bypass_bit >= 0) {
 		ctl = readl(cgu->base + pll_info->bypass_reg);
 
@@ -111,57 +142,71 @@ ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 			return parent_rate;
 	}
 
-	for (od = 0; od < pll_info->od_max; od++)
-		if (pll_info->od_encoding[od] == od_enc)
-			break;
+	od = ingenic_pll_recalc_rate_od(ctl, pll_info->od_shift, pll_info->od_bits,
+		pll_info->od_max, pll_info->od_encoding);
 
-	/* if od_max = 0, od_bits should be 0 and od is fixed to 1. */
-	if (pll_info->od_max == 0)
-		BUG_ON(pll_info->od_bits != 0);
-	else
-		BUG_ON(od == pll_info->od_max);
-	od++;
+	od1 = ingenic_pll_recalc_rate_od(ctl, pll_info->od1_shift, pll_info->od1_bits,
+		pll_info->od1_max, pll_info->od_encoding);
 
 	return div_u64((u64)parent_rate * m * pll_info->rate_multiplier,
-		n * od);
+		n * od * od1);
 }
 
 static void
 ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 			unsigned long rate, unsigned long parent_rate,
-			unsigned int *pm, unsigned int *pn, unsigned int *pod)
+			unsigned int *pm, unsigned int *pn, unsigned int *pod,
+			unsigned int *pod1)
 {
-	unsigned int m, n, od = 1;
+	unsigned int m, n, od = 1, od1 = 1;
 
 	/*
-	 * The frequency after the input divider must be between 10 and 50 MHz.
+	 * The frequency after the input divider must be within the range
+	 * defined in the programming manual as FREF:
+	 *
+	 * JZ4740: 1 MHz - 15 MHz
+	 * JZ4780: 183 kHz - 1.5 GHz
+	 * X1000:  10 MHz - 50 MHz
+	 * X1600:  1 MHz - 800 MHz
+	 *
 	 * The highest divider yields the best resolution.
 	 */
 	n = parent_rate / (10 * MHZ);
 	n = min_t(unsigned int, n, 1 << pll_info->n_bits);
 	n = max_t(unsigned int, n, pll_info->n_offset);
 
-	m = (rate / MHZ) * od * n / (parent_rate / MHZ);
+	/*
+	 * The frequency after the VCO stage (parent * m / n) must be in the
+	 * range defined in the programming manual as FVCO:
+	 *
+	 * JZ4740: 100 MHz - 500 MHz
+	 * JZ4780: 300 MHz - 1.5 GHz
+	 * X1000:  300 MHz - 600 MHz (low-band), 500 MHz - 1 GHz (high-band)
+	 * X1600:  600 MHz - 2.4 GHz
+	 */
+	m = (rate / MHZ) * od * od1 * n / (parent_rate / MHZ);
 	m = min_t(unsigned int, m, 1 << pll_info->m_bits);
 	m = max_t(unsigned int, m, pll_info->m_offset);
 
 	*pm = m;
 	*pn = n;
 	*pod = od;
+	*pod1 = od1;
 }
 
 static unsigned long
 ingenic_pll_calc(const struct ingenic_cgu_clk_info *clk_info,
 		 unsigned long rate, unsigned long parent_rate,
-		 unsigned int *pm, unsigned int *pn, unsigned int *pod)
+		 unsigned int *pm, unsigned int *pn, unsigned int *pod,
+		 unsigned int *pod1)
 {
 	const struct ingenic_cgu_pll_info *pll_info = &clk_info->pll;
-	unsigned int m, n, od;
+	unsigned int m, n, od, od1 = 1;
 
 	if (pll_info->calc_m_n_od)
-		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od);
+		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od, &od1);
 	else
-		ingenic_pll_calc_m_n_od(pll_info, rate, parent_rate, &m, &n, &od);
+		ingenic_pll_calc_m_n_od(pll_info, rate, parent_rate, &m, &n, &od, &od1);
 
 	if (pm)
 		*pm = m;
@@ -169,9 +214,11 @@ ingenic_pll_calc(const struct ingenic_cgu_clk_info *clk_info,
 		*pn = n;
 	if (pod)
 		*pod = od;
+	if (pod1)
+		*pod1 = od1;
 
 	return div_u64((u64)parent_rate * m * pll_info->rate_multiplier,
-		n * od);
+		n * od * od1);
 }
 
 static long
@@ -181,7 +228,7 @@ ingenic_pll_round_rate(struct clk_hw *hw, unsigned long req_rate,
 	struct ingenic_clk *ingenic_clk = to_ingenic_clk(hw);
 	const struct ingenic_cgu_clk_info *clk_info = to_clk_info(ingenic_clk);
 
-	return ingenic_pll_calc(clk_info, req_rate, *prate, NULL, NULL, NULL);
+	return ingenic_pll_calc(clk_info, req_rate, *prate, NULL, NULL, NULL, NULL);
 }
 
 static inline int ingenic_pll_check_stable(struct ingenic_cgu *cgu,
@@ -206,12 +253,12 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	const struct ingenic_cgu_clk_info *clk_info = to_clk_info(ingenic_clk);
 	const struct ingenic_cgu_pll_info *pll_info = &clk_info->pll;
 	unsigned long rate, flags;
-	unsigned int m, n, od;
+	unsigned int m, n, od, od1;
 	int ret = 0;
 	u32 ctl;
 
 	rate = ingenic_pll_calc(clk_info, req_rate, parent_rate,
-			       &m, &n, &od);
+			       &m, &n, &od, &od1);
 	if (rate != req_rate)
 		pr_info("ingenic-cgu: request '%s' rate %luHz, actual %luHz\n",
 			clk_info->name, req_rate, rate);
@@ -227,7 +274,18 @@ ingenic_pll_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 	if (pll_info->od_bits > 0) {
 		ctl &= ~(GENMASK(pll_info->od_bits - 1, 0) << pll_info->od_shift);
-		ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od - 1] << pll_info->od_shift;
+		else
+			ctl |= (od ? od : 1) << pll_info->od_shift;
+	}
+
+	if (pll_info->od1_bits > 0) {
+		ctl &= ~(GENMASK(pll_info->od1_bits - 1, 0) << pll_info->od1_shift);
+		if (pll_info->od_encoding)
+			ctl |= pll_info->od_encoding[od1 - 1] << pll_info->od1_shift;
+		else
+			ctl |= (od1 ? od1 : 1) << pll_info->od1_shift;
 	}
 
 	writel(ctl, cgu->base + pll_info->reg);
@@ -529,7 +587,7 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 	struct ingenic_cgu *cgu = ingenic_clk->cgu;
 	unsigned long rate, flags;
 	unsigned int hw_div, div;
-	u32 reg, mask;
+	u32 reg, mask, d_reg;
 	int ret = 0;
 
 	if (clk_info->type & CGU_CLK_DIV) {
@@ -552,6 +610,30 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 		reg &= ~(mask << clk_info->div.shift);
 		reg |= hw_div << clk_info->div.shift;
 
+		/*
+		 * NOTE: Special treatment for the I2S dividers in the X1600.
+		 * Set the multiplier to 1, imposing an N >= M*2 constraint,
+		 * also setting D to "automatic" calculation. This permits the
+		 * treatment of these dividers as normal dividers, although
+		 * they are configured more similarly to PLLs.
+		 */
+		if (clk_info->mdiv.reg) {
+			if (div < 2) {
+				spin_unlock_irqrestore(&cgu->lock, flags);
+				return -EINVAL;
+			}
+
+			mask = GENMASK(clk_info->mdiv.bits - 1, 0);
+			reg &= ~(mask << clk_info->mdiv.shift);
+			reg |= 1 << clk_info->mdiv.shift;
+
+			if (clk_info->nddiv.reg) {
+				d_reg = readl(cgu->base + clk_info->nddiv.reg);
+				d_reg &= ~(1 << clk_info->nddiv.explicit_d_bit);
+				d_reg |= 1 << clk_info->nddiv.explicit_n_bit;
+			}
+		}
+
 		/* clear the stop bit */
 		if (clk_info->div.stop_bit != -1)
 			reg &= ~BIT(clk_info->div.stop_bit);
@@ -562,6 +644,9 @@ ingenic_clk_set_rate(struct clk_hw *hw, unsigned long req_rate,
 
 		/* update the hardware */
 		writel(reg, cgu->base + clk_info->div.reg);
+
+		if (clk_info->nddiv.reg)
+			writel(d_reg, cgu->base + clk_info->nddiv.reg);
 
 		/* wait for the change to take effect */
 		if (clk_info->div.busy_bit != -1)
