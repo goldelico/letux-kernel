@@ -37,6 +37,9 @@ properties:
               - ingenic,jz4770-rtc
               - ingenic,jz4780-rtc
           - const: ingenic,jz4760-rtc
+      - items:
+          - const: ingenic,x1600-rtc
+          - const: ingenic,jz4780-rtc
 
   reg:
     maxItems: 1
