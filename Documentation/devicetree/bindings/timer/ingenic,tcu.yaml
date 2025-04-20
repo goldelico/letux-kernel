@@ -157,6 +157,7 @@ patternProperties:
               - ingenic,jz4740-pwm
               - ingenic,jz4725b-pwm
               - ingenic,x1000-pwm
+              - ingenic,x1600-pwm
           - items:
               - enum:
                   - ingenic,jz4760-pwm
