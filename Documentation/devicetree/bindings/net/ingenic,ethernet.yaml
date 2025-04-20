@@ -4,10 +4,10 @@
 $id: http://devicetree.org/schemas/net/ingenic,ethernet.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Ingenic JZ4730 Ethernet Mac Controller Device Tree Bindings
+title: Ingenic JZ4730 Ethernet Mac Controller
 
 allOf:
-  - $ref: "ethernet-controller.yaml#"
+  - $ref: ethernet-controller.yaml#
 
 maintainers:
   - H. Nikolaus Schaller <hns@goldelico.com>
