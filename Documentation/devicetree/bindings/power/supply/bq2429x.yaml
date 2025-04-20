@@ -2,7 +2,7 @@
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/power/supply/bq2429x.yaml#
-$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+$schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: TI bq24296/24297 and MPS MP2624 Li-Ion Charger with OTG booster
 
@@ -23,10 +23,10 @@ allOf:
 
 properties:
   compatible:
-    oneOf:
-      - const: mps,mp2624
-      - const: ti,bq24296
-      - const: ti,bq24297
+    enum:
+      - mps,mp2624
+      - ti,bq24296
+      - ti,bq24297
 
   reg:
     const: 0x6b
@@ -72,20 +72,17 @@ properties:
     additionalProperties: false
 
   dc-det-gpios:
-    items:
 # QUESTION: how do we specify that it should be connected to a gpio?
-      - description: gpio for detecting two different DC sources
-      - default: use usb-input-current-microamp only
+      description: gpio for detecting two different DC sources
+      default: use usb-input-current-microamp only
 
   ti,usb-input-current-microamp:
-    items:
-      - description: initial current for USB source (if dc-det is 0)
-      - default: value as defined by boot loader
+      description: initial current for USB source (if dc-det is 0)
+      default: value as defined by boot loader
 
   ti,adp-input-current-microamp:
-    items:
-      - description: initial current for other source (if dc-det is 1)
-      - default: 2048000
+      description: initial current for other source (if dc-det is 1)
+      default: 2048000
 
 required:
   - compatible
