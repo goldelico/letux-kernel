@@ -13,23 +13,6 @@
 	#size-cells = <1>;
 	compatible = "ingenic,x1600";
 
-	aliases: aliases {
-		i2c0 = &i2c0;
-		i2c1 = &i2c1;
-		uart0 = &uart0;
-		uart1 = &uart1;
-		uart2 = &uart2;
-		uart3 = &uart3;
-		mac0 = &mac0;
-		spi0 = &spi0;
-		spi_slv0 = &spi_slv0;
-		pwm = &pwm;
-		can0 = &can0;
-		can1 = &can1;
-		mmc0 = &mmc0;
-		mmc1 = &mmc1;
-	};
-
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
