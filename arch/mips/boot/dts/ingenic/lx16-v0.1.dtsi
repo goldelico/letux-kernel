@@ -685,21 +685,21 @@
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 
-		wakeup {
+		wakeup-button {
 			label = "WAKEUP";
 			linux,code = <KEY_WAKEUP>;
 			gpios = <&gpc 31 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
+			wakeup-source;
 		   };
 
-		bootsel0 {
+		bootsel0-button {
 			status = "disabled";	// is not independent of bootsel1
 			label = "bootsel0";
 			linux,code = <KEY_HOME>;
 			gpios = <&gpc 27 GPIO_ACTIVE_HIGH>;
 		   };
 
-		bootsel1 {
+		bootsel1-button {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
 			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
