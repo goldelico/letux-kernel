@@ -122,7 +122,7 @@
 		uart3 = &uart3;
 		mac0 = &mac0;
 		spi0 = &spi0;
-		spi_slv0 = &spi_slv0;
+		spi-slv0 = &spi_slv0;
 		pwm = &pwm;
 		can0 = &can0;
 		can1 = &can1;
