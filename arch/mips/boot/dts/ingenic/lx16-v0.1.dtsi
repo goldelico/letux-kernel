@@ -1,0 +1,713 @@
+/dts-v1/;
+
+#include "x1600.dtsi"
+#include <dt-bindings/clock/ingenic,tcu.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+// Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
+#define SDA	PIN3
+#define SCL	PIN5
+#define IO4	PIN7
+#define TXD	PIN8
+#define RXD	PIN10
+#define IO17	PIN11
+#define PCM_CLK	PIN12
+#define IO18	PIN12
+#define IO27	PIN13
+#define IO22	PIN15
+#define IO23	PIN16
+#define IO24	PIN18
+#define MOSI	PIN19
+#define IO10	PIN19
+#define MISO	PIN21
+#define IO9	PIN21
+#define IO25	PIN22
+#define SCLK	PIN23
+#define IO11	PIN23
+#define CE0	PIN24
+#define IO8	PIN24
+#define CE1	PIN26
+#define IO7	PIN26
+#define IDSD	PIN27
+#define IDSC	PIN28
+#define IO5	PIN29
+#define IO6	PIN31
+#define IO12	PIN32
+#define IO13	PIN33
+#define IO19	PIN35
+#define IO16	PIN36
+#define IO26	PIN37
+#define IO20	PIN38
+#define IO21	PIN40
+
+// Mapping of connector pins to LX16 signals
+#define PIN3	PB31_SDA0
+#define PIN5	PB30_SCL0
+#define PIN7	PC24_PWM3_TCU5
+#define PIN8	PB8_TXD0
+#define PIN10	PB7_RXD0
+#define PIN11	PB10_RTS0_PWM7_TCU7
+#define PIN12	PB27_TXBCLK_MDC
+#define PIN13	PB4_TXD3_RTS1
+#define PIN15	PB5_TXD3_CTS1
+#define PIN16	PB24_RXLRCK_RXDV
+#define PIN18	PB23_RXBCLK_REFCLK
+#define PIN19	PA30_MOSI0_TXD2
+#define PIN21	PA29_MISO0_SDA0
+#define PIN22	PB3
+#define PIN23	PA31_SCLK0_RXD2
+#define PIN24	PA28_CE0_SCL0
+#define PIN26	PB2_CE1_TXD1
+#define PIN27	PB20_SDA1_RXD1_PWM6
+#define PIN28	PB19_SCL1_RXD0_PWM5
+#define PIN29	PC2_PWM2_TCU5
+#define PIN31	PB22_RXMCLK_PHYCLK
+#define PIN32	PC25_PWM4_TCU6
+#define PIN33	PC26_PWM5_TCU6
+#define PIN35	PB28_TXLRCLK_MDIO
+#define PIN36	PB9_CTS0_PWM6_TCU7
+#define PIN37	PB26_TXMCLK_TXEN
+#define PIN38	PB21_RXDAT_TXD0_PWM7
+#define PIN40	PB25_TXDAT_TXD1
+
+// Mapping of LX16 signals to x1600 gpios/pins
+
+#define PA28_CE0_SCL0		&gpa 28
+#define PA29_MISO0_SDA0		&gpa 29
+#define PA30_MOSI0_TXD2		&gpa 30
+#define PA31_SCLK0_RXD2		&gpa 31
+#define PB2_CE1_TXD1		&gpb 2	// rev 1 only
+#define PB3			&gpb 3	// rev 1 only
+#define PB4_TXD3_RTS1		&gpb 4	// rev 1 only
+#define PB5_TXD3_CTS1		&gpb 5	// rev 1 only
+#define PB7_RXD0		&gpb 7
+#define PB8_TXD0		&gpb 8
+#define PB9_CTS0_PWM6_TCU7	&gpb 9
+#define PB10_RTS0_PWM7_TCU7	&gpb 10
+#define PB13			&gpb 13	// rev2 only
+#define PB14			&gpb 14	// rev2 only
+#define PB15_SCK1		&gpb 15	// rev2 only
+#define PB16_CE1_SDA1		&gpb 16	// rev2 only
+#define PB17			&gpb 17	// rev3 only
+#define PB19_SCL1_RXD0_PWM5	&gpb 19
+#define PB20_SDA1_RXD1_PWM6	&gpb 20
+#define PB21_RXDAT_TXD0_PWM7	&gpb 21
+#define PB22_RXMCLK_PHYCLK	&gpb 22
+#define PB23_RXBCLK_REFCLK	&gpb 23
+#define PB24_RXLRCK_RXDV	&gpb 24
+#define PB25_TXDAT_TXD1		&gpb 25
+#define PB26_TXMCLK_TXEN	&gpb 26
+#define PB27_TXBCLK_MDC		&gpb 27
+#define PB28_TXLRCLK_MDIO	&gpb 28
+#define PB30_SCL0		&gpb 30
+#define PB31_SDA0		&gpb 31
+#define PC2_PWM2_TCU5		&gpc 2
+#define PC24_PWM3_TCU5		&gpc 24
+#define PC25_PWM4_TCU6		&gpc 25
+#define PC26_PWM5_TCU6		&gpc 26
+
+/ {
+	compatible = "goldelico,letux-x16", "ingenic,halley6_v10", "ingenic,x1600";
+
+	model = "Letux LX16v0.1";
+
+	chosen {
+		stdout-path = &uart2;
+#if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
+		bootargs = "mem=64M@0x0 rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait";
+#endif
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		reserved_memory: reserved_mem@2000000{
+		      compatible = "shared-dma-pool";
+		      reg = <0x02000000 0x20000>;
+		};
+	};
+};
+
+&pinctrl {
+	uart0_pb: uart0-pb {
+		function = "uart0";
+		groups = "uart0-data";
+		bias-pull-up;
+	};
+
+	uart0_pb_flow: uart0-pb-flow {
+		function = "uart0";
+		groups = "uart0-hwflow";
+		bias-pull-up;
+	};
+
+	uart1_pb: uart1-pb {
+		function = "uart1";
+		groups = "uart1-data";
+		bias-pull-up;
+	};
+
+	uart1_pb_flow: uart1-pb-flow {
+		function = "uart1";
+		groups = "uart1-hwflow";
+		bias-pull-up;
+	};
+
+	uart2_pb: uart2-pb {
+		function = "uart2";
+		groups = "uart2-data-b";
+		bias-pull-up;
+	};
+
+	uart3_pb: uart3-pb {
+		function = "uart3";
+		groups = "uart3-data-b";
+		bias-pull-up;
+	};
+
+	spi0_pa: spi0-pa {
+		function = "ssi";
+		groups = "ssi-dt-a", "ssi-dr-a", "ssi-clk-a", "ssi-ce0-a", "ssi-ce1-b";
+		bias-disable;
+	};
+
+	msc0_4bit_f1: msc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit-c", "mmc0-4bit-c";
+		bias-disable;
+	};
+
+	msc1_4bit: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-disable;
+	};
+
+	pwm0_pc: pwm0 {
+		function = "pwm0";
+		groups = "pwm0";
+		bias-disable;
+	};
+
+	pwm1_pc: pwm1 {
+		function = "pwm1";
+		groups = "pwm1";
+		bias-disable;
+	};
+
+	pwm2_pc: pwm2 {
+		function = "pwm2";
+		groups = "pwm2";
+		bias-disable;
+	};
+
+	pwm3_pc: pwm3 {
+		function = "pwm3";
+		groups = "pwm3";
+		bias-disable;
+	};
+
+	pwm4_pc: pwm4 {
+		function = "pwm4";
+		groups = "pwm4";
+		bias-disable;
+	};
+
+	pwm5_pb: pwm5-pb {
+		function = "pwm5-b";
+		groups = "pwm5";
+		bias-disable;
+	};
+
+	pwm5_pc: pwm5-pc {
+		function = "pwm5-c";
+		groups = "pwm5";
+		bias-disable;
+	};
+
+	pwm6_pb9: pwm6-pb9 {
+		function = "pwm6-b9";
+		groups = "pwm6";
+		bias-disable;
+	};
+
+	pwm6_pb20: pwm6-pb20 {
+		function = "pwm6-b20";
+		groups = "pwm6";
+		bias-disable;
+	};
+
+	pwm7_pb10: pwm7-pb10 {
+		function = "pwm7-b10";
+		groups = "pwm7";
+		bias-disable;
+	};
+
+	pwm7_pb21: pwm7-pb21 {
+		function = "pwm7-b21";
+		groups = "pwm7";
+		bias-disable;
+	};
+
+	i2c0_pa: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data-a";
+		bias-pull-up;
+	};
+
+	i2c0_pb: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data-b";
+		bias-pull-up;
+	};
+
+	i2c1_pb: i2c1 {
+		function = "i2c1";
+		groups = "i2c1-data-b-19";
+		bias-pull-up;
+	};
+
+// FIXME:
+	spi_slv_pa: fixme {
+		ingenic,pinmux = <&gpa 28 31>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	aic_pb: aic {
+		function = "i2s";
+		groups = "i2c-clk-rx", "i2s-clk-tx", "i2s-data-rx", "i2s-data-tx", "i2s-sysclk";
+		bias-disable;
+	};
+
+	pwm_tcu_trig_pa: fixme {
+		ingenic,pinmux = <&gpa 31 31>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION3>;
+		bias-disable;
+	};
+
+	rtc32k_enable: fixme {
+		ingenic,pinmux = <&gpc 26 26>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		bias-disable;
+	};
+
+	rtc32k_disable: fixme {
+		ingenic,pinmux = <&gpc 26 26>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTIONS>;
+		bias-disable;
+	};
+
+	can0_pd: fixme {
+		ingenic,pinmux = <&gpd 2 3>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	can1_pd: fixme {
+		ingenic,pinmux = <&gpd 4 5>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	mac0_rmii_p0_normal: fixme {
+		ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	mac0_rmii_p1_normal: fixme {
+		ingenic,pinmux = <&gpb 21 21>, <&gpb 25 28>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	mac0_rmii_p0_rst: fixme {
+		ingenic,pinmux = <&gpb 19 20>, <&gpb 23 24>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION1>;
+		bias-disable;
+	};
+
+	sfc_pc: fixme {
+		ingenic,pinmux = <&gpc 17 22>;
+//		ingenic,pinmux-funcsel = <PINCTL_FUNCTION0>;
+		bias-disable;
+	};
+};
+
+&cgu {
+	assigned-clocks = <&cgu X1600_CLK_EPLL>,
+			  <&cgu X1600_CLK_I2S0>,
+			  <&cgu X1600_CLK_I2S1>;
+
+	assigned-clock-parents = <&cgu X1600_CLK_EXCLK>,
+				 <&cgu X1600_CLK_EPLL>,
+				 <&cgu X1600_CLK_EPLL>;
+
+	assigned-clock-rates = <200000000>,
+			       <100000000>,
+			       <100000000>;
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+#if 0	/* may be used as PB7/8 and 9/10 */
+	pinctrl-0 = <&uart0_pb, /* &uart0_pb_flow */>;
+#endif
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+#if 0	/* may be used as PB2/3 and 4/5 */
+	pinctrl-0 = <&uart1_pb /* &uart1_pb_flow */>;
+#endif
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pb>;
+};
+
+&uart3 {
+	status = "okay";
+	pinctrl-names = "default";
+#if 0	/* may be used as PB4/5 */
+	pinctrl-0 = <&uart3_pb>;
+#endif
+};
+
+&cpufreq {
+	status = "okay";
+	operating-points = <
+		/*KHZ uV */
+		1200000	900000
+		750000	900000
+		600000	900000
+		500000	900000
+		400000	900000
+		375000	900000
+		300000	900000
+		200000	900000
+			>;
+
+};
+
+&dma {
+	status = "okay";
+};
+
+&tcu {
+#if 0
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm_tcu_trig_pa>;
+#endif
+};
+
+&can0 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0_pd>;
+	ingenic,clk-freq = <12000000>;
+};
+
+&can1 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&can1_pd>;
+	ingenic,clk-freq = <12000000>;
+};
+
+&cim {
+	status = "disabled";
+	memory-region=<&reserved_memory>;
+};
+
+&i2c0 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pa>;
+};
+
+&i2c1 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pb>;
+};
+
+&mmc0 {
+	status = "okay";
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc0_4bit_f1>;	// on gpc
+
+	broken-cd;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+};
+
+&mmc1 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;	// FIXME: add interrupt input?
+
+	broken-cd;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+//	uart-has-rtscts;
+};
+
+&mac0 {
+	pinctrl-names = "default", "reset";
+	pinctrl-0 = <&mac0_rmii_p0_normal>, <&mac0_rmii_p1_normal>;
+	pinctrl-1 = <&mac0_rmii_p0_rst>, <&mac0_rmii_p1_normal>;
+	status = "disabled";
+	ingenic,pwr-gpio = <&gpb 30 GPIO_ACTIVE_HIGH>;
+	ingenic,rst-gpio = <&gpb 31 GPIO_ACTIVE_LOW>;
+	ingenic,rst-ms = <10>;
+	ingenic,mac-mode = <RMII>;
+	ingenic,mode-reg = <0xb0000054>;
+	ingenic,phy-clk-freq = <50000000>;
+};
+
+&sfc {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pc>;
+	ingenic,sfc-init-frequency = <200000000>;
+	ingenic,sfc-max-frequency = <400000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+	norflash@0 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nor flash partition */
+			uboot@0 {
+				label = "uboot";
+				reg = <0x0000000 0x40000>;
+				/*read-only;*/
+			};
+
+			kernel@40000 {
+				label = "kernel";
+				reg = <0x40000 0x300000>;
+			};
+
+			rootfs@360000 {
+				label = "rootfs";
+				reg = <0x360000 0xca0000>;
+			};
+		};
+	};
+
+	nandflash@1 {
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/* spi nand flash partition */
+			partition@0 {
+				label = "uboot";
+				reg = <0x0000000 0x100000>;
+				/*read-only;*/
+			};
+
+			partition@100000 {
+				label = "kernel";
+				reg = <0x100000 0x800000>;
+			};
+
+			partition@900000 {
+				label = "rootfs";
+				reg = <0x900000 0xf700000>;
+			};
+		};
+	};
+
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pa>;
+	status = "disabled";
+};
+
+#if SPI_BITBANG
+
+#define SPI spi_gpio
+/ {
+	spi_gpio: bitbang {
+		compatible = "spi-gpio";
+		sck-gpios = <SCLK GPIO_ACTIVE_HIGH>;
+		miso-gpios = <MISO GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <MOSI GPIO_ACTIVE_HIGH>;
+		cs-gpios = <CE0 GPIO_ACTIVE_LOW>;
+		num-chipselects = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+#else
+
+#define SPI spi0
+&spi0 {
+	status = "okay";
+};
+
+#endif
+
+&spi_slv0 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi_slv_pa>;
+	ingenic,has_dma_support = <1>;
+};
+
+&dtrng {
+	status = "okay";
+};
+
+&pwm {
+#if PWM_LED
+	status = "okay";
+#else
+	status = "disabled";
+#endif
+};
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg"; // host,peripheral,otg
+	dr_mode = "peripheral"; // host,peripheral,otg
+	device-using-dma = <1>;
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
+};
+
+&aic {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&aic_pb>;
+};
+
+&efuse {
+	status = "disabled";
+};
+
+
+/ {
+	leds: leds {
+#if PWM_LED
+		compatible = "pwm-leds";
+
+		led-0 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm0_pc>;
+			linux,default-trigger = "heartbeat";
+			pwms = <&pwm 2 100000>;
+			max-brightness = <255>;
+		};
+
+		led-1 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm1_pc>;
+			linux,default-trigger = "mmc0";
+			pwms = <&pwm 3 100000>;
+			max-brightness = <255>;
+		};
+#else
+		compatible = "gpio-leds";
+
+		led-0 {
+			linux,default-trigger = "heartbeat";
+			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-1 {
+			linux,default-trigger = "mmc0";
+			gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
+		};
+#endif
+	};
+
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+
+		wakeup {
+			label = "WAKEUP";
+			linux,code = <KEY_WAKEUP>;
+			gpios = <&gpc 31 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+		   };
+
+		bootsel0 {
+			status = "disabled";	// is not independent of bootsel1
+			label = "bootsel0";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpc 27 GPIO_ACTIVE_HIGH>;
+		   };
+
+		bootsel1 {
+			label = "bootsel1";
+			linux,code = <KEY_BACK>;
+			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+#if 0
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 2 100000>; /* arg1: pwm channel id [0~15]. arg2: period in ns. */
+		brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+		default-brightness-level = <5>;
+	};
+#endif
+
+#ifdef CONFIG_LINUX_PMEM
+	linux_pmem {
+		status = "okay";
+		compatible = "linux_pmem";
+		linux_pmem,name = "pmem";
+		linux_pmem,no_allocator = <0>;
+		linux_pmem,cached       = <1>;
+		linux_pmem,start        = <0>;
+		linux_pmem,size         = CONFIG_PMEM_RESERVE_SIZE;
+    };
+#endif
+};
+
