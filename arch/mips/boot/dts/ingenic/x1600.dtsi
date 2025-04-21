@@ -116,7 +116,7 @@
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_SADC>;
 			interrupt-controller;
-			status = "ok";
+			status = "okay";
 		};
 
 		tcu: timer@10002000 {
@@ -138,7 +138,7 @@
 			clocks = <&cgu X1600_CLK_EXCLK>;
 			clock-names = "ext";
 
-			status = "ok";
+			status = "okay";
 
 			watchdog: watchdog@0 {
 				compatible = "ingenic,x1600-watchdog", "ingenic,jz4780-watchdog";
@@ -168,7 +168,7 @@
 
 			system-power-controller;
 			power-on-press-ms = <1000>;
-			status = "ok";
+			status = "okay";
 		};
 
 		pinctrl: pinctrl@10010000 {
@@ -461,7 +461,7 @@
 			reg = <0x13550000 0x10000>;
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_CDBUS>;
-			status = "ok";
+			status = "okay";
 		};
 
 		aes: aes@13430000 {
@@ -469,7 +469,7 @@
 			reg = <0x13430000 0x10000>;
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_AES>;
-			status = "ok";
+			status = "okay";
 		};
 
 		hash: hash@13470000 {
@@ -477,7 +477,7 @@
 			reg = <0x13470000 0x10000>;
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_HASH>;
-			status = "ok";
+			status = "okay";
 		};
 
 		mac0: mac@134b0000 {
