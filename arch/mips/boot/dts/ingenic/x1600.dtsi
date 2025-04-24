@@ -382,13 +382,6 @@
 			dma-names = "tx", "rx";
 
 		};
-	};
-
-	ahb2 {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
 
 		mmc0: mmc@13450000 {
 			compatible = "ingenic,jz4780-mmc";
@@ -559,21 +552,6 @@
 			reg = <0x13540000 0x10000>;
 			status = "okay";
 		};
-	};
-
-	ahb1 {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
-
-	};
-
-	ahb0 {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
 
 		cim: cim@13060000 {
 			compatible = "ingenic,x1600-cim";
