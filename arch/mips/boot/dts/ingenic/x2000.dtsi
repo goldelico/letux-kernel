@@ -38,6 +38,145 @@
 		 status = "okay";
 	};
 
-// much more to come here...
+	apb {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
 
+		cgu: clock-controller@10000000 {
+			// FIXME: why does simple-mfd fail/make problems?
+			compatible = "ingenic,x2000-cgu" /*, "simple-mfd" */;
+			reg = <0x10000000 0x100>;
+			clocks = <&ext>, <&rtc>, <&clk12m>;
+			clock-names = "ext", "rtc", "clk12m";
+			#clock-cells = <1>;
+			little-endian;	// FIXME: what is this good for?
+		};
+
+		tcu: timer@10002000 {
+			compatible = "ingenic,x1600-tcu",
+				     "simple-mfd";
+			reg = <0x10002000 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x10002000 0x1000>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+#if 0
+			interrupt-parent = <&core_intc>;
+			interrupts = <IRQ_TCU0>, <IRQ_TCU1>, <IRQ_TCU2>;
+
+			#clock-cells = <1>;
+
+			clocks = <&cgu X1600_CLK_EXCLK>;
+			clock-names = "ext";
+
+			status = "okay";
+
+			watchdog: watchdog@0 {
+				compatible = "ingenic,x1600-watchdog", "ingenic,jz4780-watchdog";
+				reg = <0 0x10>;
+
+				clocks = <&cgu X1600_CLK_RTCLK>;
+				clock-names = "wdt";
+
+			// data sheet mentiones a "half interrupt"
+			//	interrupt-parent = <&core_intc>;
+			//	interrupts = <IRQ_TCU0>;
+			};
+#endif
+		};
+
+
+		pinctrl: pinctrl@10010000 {
+			compatible = "ingenic,x2000-pinctrl";
+			reg = <0x10010000 0x1000>;
+			ingenic,num-chips = <4>;
+			ingenic,regs-offset = <0x100>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpa: gpio@0 {
+				compatible = "ingenic,x2000-gpio";
+				reg = <0>;
+
+				gpio-controller;
+				gpio-ranges = <&pinctrl 0 0 32>;
+				#gpio-cells = <2>;
+			};
+
+			// gpb, gpc, gpd
+			gpe: gpio@5 {
+				compatible = "ingenic,x2000-gpio";
+				reg = <5>;
+
+				gpio-controller;
+				gpio-ranges = <&pinctrl 0 128 32>;
+				#gpio-cells = <2>;
+			};
+		};
+
+		uart0: serial@10030000 {
+			compatible = "ingenic,x2000-uart";
+			reg = <0x10030000 0x100>;
+#if 0
+			interrupt-parent = <&core_intc>;
+			interrupts = <IRQ_UART0>;
+			clocks = <&ext>, <&cgu X1600_CLK_UART0>;
+			clock-names = "baud", "module";
+			dmas = <&dma X1600_DMA_UART0_TX 0xffffffff>,
+				   <&dma X1600_DMA_UART0_RX 0xffffffff>;
+			dma-names = "tx", "rx";
+#endif
+		};
+
+		uart1: serial@10031000 {
+			compatible = "ingenic,x2000-uart";
+			reg = <0x10031000 0x100>;
+#if 0
+			interrupt-parent = <&core_intc>;
+			interrupts = <IRQ_UART1>;
+			clocks = <&ext>, <&cgu X1600_CLK_UART1>;
+			clock-names = "baud", "module";
+			dmas = <&dma X1600_DMA_UART1_TX 0xffffffff>,
+				   <&dma X1600_DMA_UART1_RX 0xffffffff>;
+			dma-names = "tx", "rx";
+#endif
+		};
+
+		uart2: serial@10032000 {
+			compatible = "ingenic,x2000-uart";
+			reg = <0x10032000 0x100>;
+#if 0
+			interrupt-parent = <&core_intc>;
+			interrupts = <IRQ_UART2>;
+			clocks = <&ext>, <&cgu X1600_CLK_UART2>;
+			clock-names = "baud", "module";
+			dmas = <&dma X1600_DMA_UART2_TX 0xffffffff>,
+				   <&dma X1600_DMA_UART2_RX 0xffffffff>;
+			dma-names = "tx", "rx";
+#endif
+		};
+
+		uart3: serial@10033000 {
+			compatible = "ingenic,x2000-uart";
+			reg = <0x10033000 0x100>;
+#if 0
+			interrupt-parent = <&core_intc>;
+			interrupts = <IRQ_UART3>;
+			clocks = <&ext>, <&cgu X1600_CLK_UART3>;
+			clock-names = "baud", "module";
+			dmas = <&dma X1600_DMA_UART3_TX 0xffffffff>,
+				   <&dma X1600_DMA_UART3_RX 0xffffffff>;
+			dma-names = "tx", "rx";
+#endif
+		};
+		// uart 4..9
+
+// and much more: i2c, spi, dma, msc/sfc, ...
+	};
 };
