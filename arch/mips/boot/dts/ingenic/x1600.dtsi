@@ -1,12 +1,11 @@
 // FIXME: these includes should be consolidated with other Ingenic SoC
 
-#include <dt-bindings/interrupt-controller/x1600-irq.h>
-#include <dt-bindings/clock/ingenic-tcu.h>
-#include <dt-bindings/clock/ingenic-x1600.h>
+#include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/clock/ingenic,x1600-cgu.h>
-#include <dt-bindings/sound/ingenic-baic.h>
-#include <dt-bindings/net/ingenic_gmac.h>
 #include <dt-bindings/dma/x1600-dma.h>
+#include <dt-bindings/interrupt-controller/x1600-irq.h>
+#include <dt-bindings/net/ingenic_gmac.h>
+#include <dt-bindings/sound/ingenic-baic.h>
 
 / {
 	#address-cells = <1>;
