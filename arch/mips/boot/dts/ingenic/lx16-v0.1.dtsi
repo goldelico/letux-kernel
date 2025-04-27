@@ -1,7 +1,6 @@
 /dts-v1/;
 
 #include "x1600.dtsi"
-#include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
