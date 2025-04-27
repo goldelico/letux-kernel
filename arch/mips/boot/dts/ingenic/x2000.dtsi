@@ -1,14 +1,11 @@
 // FIXME: add X2000 support here
 
-// #include <dt-bindings/interrupt-controller/x1600-irq.h>
-#include <dt-bindings/clock/ingenic-tcu.h>
-#if 0
-#include <dt-bindings/clock/ingenic-x1600.h>
-#include <dt-bindings/clock/ingenic,x1600-cgu.h>
-#include <dt-bindings/sound/ingenic-baic.h>
-#include <dt-bindings/net/ingenic_gmac.h>
+#include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/dma/x2000-dma.h>
-#endif
+#include <dt-bindings/clock/ingenic,x2000-cgu.h>
+#include <dt-bindings/interrupt-controller/x2000-irq.h>
+#include <dt-bindings/net/ingenic_gmac.h>
+#include <dt-bindings/sound/ingenic-baic.h>
 
 / {
 	#address-cells = <1>;
@@ -40,4 +37,7 @@
 		 compatible = "ingenic,x2000-cpufreq";
 		 status = "okay";
 	};
+
+// much more to come here...
+
 };
