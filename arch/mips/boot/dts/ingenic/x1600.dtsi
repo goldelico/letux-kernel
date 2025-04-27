@@ -557,7 +557,7 @@
 			reg = <0x13060000 0x10000>;
 			interrupt-parent = <&core_intc>;
 			interrupts = <IRQ_CIM>;
-			clocks = <&cgu CLK_DIV_CIM>, <&cgu CLK_GATE_CIM>, <&cgu CLK_GATE_MIPI_CSI>;
+			clocks = <&cgu X1600_CLK_CIMMCLK>, <&cgu X1600_CLK_GATE_CIM>, <&cgu X1600_CLK_GATE_MIPI_CSI>;
 			clock-names = "div_cim", "gate_cim", "gate_mipi";
 			status = "disabled";
 		};
