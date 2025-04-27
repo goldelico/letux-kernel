@@ -1196,8 +1196,6 @@ ll_printk("%s: after kcsan_init\n", __func__);
 	/* Do the rest non-__init'ed, we're now alive */
 	rest_init();
 ll_printk("%s: after rest_init\n", __func__);
-	arch_call_rest_init();
-ll_printk("%s: after arch_call_rest_init\n", __func__);
 
 	/*
 	 * Avoid stack canaries in callers of boot_init_stack_canary for gcc-10
