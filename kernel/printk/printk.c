@@ -2470,7 +2470,7 @@ asmlinkage __visible void ll_printstr(char *str)
 { // send to console UART
 #define KSEG0	0x80000000
 #define KSEG1	0xa0000000
-#define UART	(KSEG1 + 0x10032000)
+#define UART	(KSEG1 + 0x10033000)	/* UART3 */
 #define UTHR	0x00
 #define ULSR	0x14
 #define TDRQ	BIT(5)
