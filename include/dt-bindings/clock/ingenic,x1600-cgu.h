@@ -35,6 +35,8 @@
 #define X1600_CLK_MSC1			20
 #define X1600_CLK_SSI0			21
 #define X1600_CLK_CIMMCLK		22
+#define X1600_CLK_GATE_CIM	(0 + 3 + 3 + 19 + 21 + 6)
+#define X1600_CLK_GATE_MIPI_CSI	(0 + 3 + 3 + 19 + 21 + 27)
 #define X1600_CLK_EXCLK_DIV512		23
 #define X1600_CLK_RTC			24
 #define X1600_CLK_OTGPHY		25
