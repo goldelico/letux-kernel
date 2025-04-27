@@ -1,3 +1,43 @@
 // FIXME: add X2000 support here
 
-#include "x1600.dtsi"	// to get current DTC compiled into a broken DTB...
+// #include <dt-bindings/interrupt-controller/x1600-irq.h>
+#include <dt-bindings/clock/ingenic-tcu.h>
+#if 0
+#include <dt-bindings/clock/ingenic-x1600.h>
+#include <dt-bindings/clock/ingenic,x1600-cgu.h>
+#include <dt-bindings/sound/ingenic-baic.h>
+#include <dt-bindings/net/ingenic_gmac.h>
+#include <dt-bindings/dma/x2000-dma.h>
+#endif
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "ingenic,x1600";
+
+	cpus: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "ingenic,xburst2";
+			reg = <0x000>;
+			clock-frequency = <1200000000>;
+
+//			clocks = <&cgu X2000_CLK_CPU>;
+			clock-names = "cpu";
+		};
+
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x08000000>;	/* default to 128 MB of the smallest X2000 */
+	};
+
+	cpufreq: cpufreq-dt {
+		 compatible = "ingenic,x2000-cpufreq";
+		 status = "okay";
+	};
+};
