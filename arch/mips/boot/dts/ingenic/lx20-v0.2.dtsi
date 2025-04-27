@@ -1,9 +1,6 @@
 /dts-v1/;
 
-// FIXME: this is LX20 with x2000.dtsi!
-
 #include "x2000.dtsi"
-#include <dt-bindings/clock/ingenic,tcu.h>	// this may be duplicate to <dt-bindings/clock/ingenic-tcu.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
