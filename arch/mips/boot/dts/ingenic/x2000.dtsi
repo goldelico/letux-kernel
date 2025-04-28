@@ -1,5 +1,5 @@
 #include <dt-bindings/clock/ingenic,tcu.h>
-#include <dt-bindings/clock/x2000-cgu.h>
+#include <dt-bindings/clock/ingenic,x2000-cgu.h>
 #include <dt-bindings/dma/x2000-dma.h>
 / {
 	#address-cells = <1>;
