@@ -1,0 +1,100 @@
+#!/bin/bash
+#
+# set up wlan connection
+#
+
+# to avoid wlan0: deauthenticating from c0:25:06:e4:8e:cc by local choice (Reason: 3=DEAUTH_LEAVING)
+# see https://bbs.archlinux.org/viewtopic.php?id=233365
+[ "$(which systemctl)" ] && systemctl disable --now NetworkManager.service wpa_supplicant.service 2>/dev/null
+
+read -t 5 WLAN OTHER < <(iwconfig 2>&1 | fgrep 'wlan')
+[ "$WLAN" ] || WLAN=wlan0
+
+OUTPUT=/dev/null
+
+function usage {
+		echo "usage: $0 [-d dev] ] -p key ] -a | [ssid]"
+		echo "  -d dev: set interface"
+		echo "  -a:     ad hoc mode"
+		echo "  -p key: Password"
+		echo "  ssid:   SSID to connect to"
+		exit;
+}
+
+while [ "$1" ]
+do
+case "$1" in
+	-D )
+		OUTPUT=/dev/stdout
+		shift
+		;;
+	-d ) # set interface
+		shift
+		WLAN="$1"
+		shift
+		;;
+	-a ) # create ad hoc network
+		iwconfig "$WLAN" mode ad-hoc essid Letux enc off channel 6 &&
+		ifconfig "$WLAN" 10.1.1.1
+		exit
+		;;
+	-p ) # set network password
+		shift
+		PASSWORD="$1"
+		shift
+		;;
+	-* )
+		echo unknown option "$1"
+		usage;
+		;;
+	* ) # simple client
+		if [ "$SSID" ]
+		then
+			echo SSID $SSID already specified
+			usage
+		fi
+		SSID="$1"
+		shift
+		;;
+esac
+done
+
+if [ ! "$SSID" ]
+then
+	echo access point mode not yet supported
+
+#	ifconfig "$WLAN" up &&
+#	iwconfig "$WLAN" essid "$SSID" &&
+#	dhclient "$WLAN"
+	usage
+fi
+
+echo restarting wpa_supplicant
+
+killall wpa_supplicant dhclient &>$OUTPUT
+sleep 0.5
+wpa_supplicant -B -i "$WLAN" -c /etc/wpa_supplicant/wpa_supplicant.conf || { echo can not start wpa_supplicant; exit 1; }
+
+echo setting up $SSID on $WLAN
+
+wpa_cli list_networks | ( read IGNORE; read IGNORE; while read NETWORK SSID OTHER; do wpa_cli remove_network $NETWORK &>$OUTPUT; done )
+wpa_cli add_network 0 &>$OUTPUT
+wpa_cli set_network 0 ssid "\"$SSID\"" &>$OUTPUT || { echo invalid network name $SSID; exit 1; }
+
+if [ "$PASSWORD" ]
+then
+	wpa_cli set_network 0 key_mgmt WPA-EAP WPA-PSK IEEE8021X NONE &>$OUTPUT
+	wpa_cli set_network 0 psk \"$PASSWORD\" &>$OUTPUT || { echo password format mismatch; exit 1; }
+else
+	wpa_cli set_network 0 key_mgmt NONE &>$OUTPUT
+fi
+wpa_cli enable_network 0 &>$OUTPUT
+
+[ "$OUTPUT" == /dev/stdout ] && wpa_cli save_config && cat /etc/wpa_supplicant/wpa_supplicant.conf
+
+sleep 0.5
+#wpa_cli
+
+echo starting dhclient on $WLAN
+
+dhclient "$WLAN" && echo $WLAN up and running || echo $WLAN failed to connect
