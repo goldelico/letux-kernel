@@ -1,6 +1,9 @@
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/clock/ingenic,x2000-cgu.h>
+#include <dt-bindings/clock/ingenic,sysost.h>
 #include <dt-bindings/dma/x2000-dma.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -52,6 +55,7 @@
 	exclk: ext {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
+		clock-frequency  = <24000000>;
 	};
 
 	rtclk: rtc {
@@ -100,6 +104,10 @@
 
 		clocks = <&cgu X2000_CLK_OST>;
 		clock-names = "ost";
+
+		/* 6 MHz for the clocksource */
+		assigned-clocks = <&ost64 OST_CLK_GLOBAL_TIMER>;
+		assigned-clock-rates = <6000000>;
 	};
 
 	ost32: timer@12100000 {
@@ -113,6 +121,10 @@
 
 		interrupt-parent = <&cpuintc>;
 		interrupts = <4>;
+
+		/* 6 MHz for the system timers */
+		assigned-clocks = <&ost32 OST_CLK_EVENT_TIMER0>, <&ost32 OST_CLK_EVENT_TIMER1>;
+		assigned-clock-rates = <6000000>, <6000000>;
 	};
 
 	tcu: timer@10002000 {
