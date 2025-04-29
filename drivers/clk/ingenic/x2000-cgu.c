@@ -93,7 +93,7 @@ static struct ingenic_cgu *cgu;
 
 static void x2000_cgu_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 		       unsigned long rate, unsigned long parent_rate,
-		       unsigned int *pm, unsigned int *pn, unsigned int *pod)
+		       unsigned int *pm, unsigned int *pn, unsigned int *pod, unsigned int *unused)
 {
 	unsigned int m, n, od;
 	unsigned int m_max = 1 << pll_info->m_bits;
@@ -130,7 +130,7 @@ static void x2000_cgu_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 
 static void x2000_i2s_calc_m_n(const struct ingenic_cgu_pll_info *pll_info,
 		       unsigned long rate, unsigned long parent_rate,
-		       unsigned int *pm, unsigned int *pn, unsigned int *pod)
+		       unsigned int *pm, unsigned int *pn, unsigned int *pod, unsigned int *unused)
 {
 	unsigned int m, n, rem;
 	u64 curr_m, curr_n, curr_rem;
@@ -155,7 +155,7 @@ static void x2000_i2s_calc_m_n(const struct ingenic_cgu_pll_info *pll_info,
 		curr_rem = do_div(curr_n, rate);
 
 		/*
-		 * When the remainer value is greater than the half
+		 * When the remainder value is greater than the half
 		 * of the divisor value, use the quotient value + 1
 		 * as the N value to obtain the smallest deviation.
 		 */
