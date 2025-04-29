@@ -671,6 +671,7 @@
 	status = "disabled";
 };
 
+#endif
 
 / {
 	leds: leds {
@@ -713,7 +714,7 @@
 		wakeup {
 			label = "WAKEUP";
 			linux,code = <KEY_WAKEUP>;
-			gpios = <&gpc 31 GPIO_ACTIVE_LOW>;
+			gpios = <&gpe 31 GPIO_ACTIVE_LOW>;
 			gpio-key,wakeup;
 		   };
 
@@ -721,14 +722,21 @@
 			status = "disabled";	// is not independent of bootsel1
 			label = "bootsel0";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpc 27 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpe 25 GPIO_ACTIVE_HIGH>;
 		   };
 
 		bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpe 26 GPIO_ACTIVE_HIGH>;
 		};
+
+		bootsel2 {
+			status = "disabled";	// hard wired
+			label = "bootsel2";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpe 27 GPIO_ACTIVE_HIGH>;
+		   };
 	};
 
 #if 0
@@ -752,5 +760,3 @@
     };
 #endif
 };
-
-#endif
