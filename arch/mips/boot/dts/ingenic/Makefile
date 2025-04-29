@@ -16,4 +16,5 @@ dtb-$(CONFIG_BUILTIN_DTB_ALL)	+= alpha400.dtb \
 					   ci20.dtb \
 					   cu1000-neo.dtb \
 					   lx16.dtb \
-					   cu1830-neo.dtb
+					   cu1830-neo.dtb \
+					   lx20.dtb
