@@ -26,6 +26,11 @@
 		};
 	};
 
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x08000000>;	/* default to 128 MB of the smallest X2000 */
+	};
+
 	cpuintc: interrupt-controller {
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
