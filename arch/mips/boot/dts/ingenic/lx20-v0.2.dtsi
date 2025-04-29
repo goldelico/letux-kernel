@@ -133,6 +133,39 @@
 	};
 };
 
+&msc2 {
+        status = "okay";
+
+        bus-width = <4>;
+        max-frequency = <25000000>;
+      //  voltage-ranges = <1800 3300>;
+        voltage-ranges = <3300>;
+
+        pinctrl-names ="default";
+        pinctrl-0 = <&pins_msc2>;
+};
+
+
+&pinctrl {
+        pins_uart2: uart2 {
+                function = "uart2";
+                groups = "uart2-data";
+                bias-pull-up;
+        };
+
+        pins_uart3: uart3 {
+                function = "uart3";
+                groups = "uart3-data-c" /*, "uart3-hwflow-c" */;
+                bias-pull-up;
+        };
+
+        pins_msc2: msc2 {
+                function = "mmc2";
+                groups = "mmc2-1bit", "mmc2-4bit";
+                bias-disable;
+        };
+};
+
 #if 0
 &pinctrl {
 	uart0_pb: uart0-pb {
