@@ -112,14 +112,12 @@
 
 	model = "Letux LX20v0.2";
 
-#if 0
 	chosen {
 		stdout-path = &uart2;
 #if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
 		bootargs = "mem=64M@0x0 rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait";
 #endif
 	};
-#endif
 
 	reserved-memory {
 		#address-cells = <1>;
