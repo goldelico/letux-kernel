@@ -10,6 +10,7 @@
 #include <linux/clk-provider.h>
 #include <linux/clockchips.h>
 #include <linux/clocksource.h>
+#include <linux/cpuhotplug.h>
 #include <linux/interrupt.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of_address.h>
