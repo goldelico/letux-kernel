@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.14.4 Kernel Configuration
+# Linux/mips 6.14.5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6007,7 +6007,6 @@ CONFIG_CRYPTO_HASH_INFO=y
 #
 # Accelerated Cryptographic Algorithms for CPU (mips)
 #
-# CONFIG_CRYPTO_POLY1305_MIPS is not set
 # end of Accelerated Cryptographic Algorithms for CPU (mips)
 
 CONFIG_CRYPTO_HW=y

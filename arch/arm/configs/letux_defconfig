@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.14.4 Kernel Configuration
+# Linux/arm 6.14.5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -8069,10 +8069,8 @@ CONFIG_CRYPTO_HASH_INFO=y
 #
 # Accelerated Cryptographic Algorithms for CPU (arm)
 #
-# CONFIG_CRYPTO_CURVE25519_NEON is not set
 # CONFIG_CRYPTO_GHASH_ARM_CE is not set
 # CONFIG_CRYPTO_NHPOLY1305_NEON is not set
-# CONFIG_CRYPTO_POLY1305_ARM is not set
 # CONFIG_CRYPTO_BLAKE2S_ARM is not set
 # CONFIG_CRYPTO_BLAKE2B_NEON is not set
 # CONFIG_CRYPTO_SHA1_ARM is not set
@@ -8084,7 +8082,6 @@ CONFIG_CRYPTO_HASH_INFO=y
 # CONFIG_CRYPTO_AES_ARM is not set
 # CONFIG_CRYPTO_AES_ARM_BS is not set
 # CONFIG_CRYPTO_AES_ARM_CE is not set
-# CONFIG_CRYPTO_CHACHA20_NEON is not set
 # end of Accelerated Cryptographic Algorithms for CPU (arm)
 
 CONFIG_CRYPTO_HW=y
