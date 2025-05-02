@@ -717,24 +717,28 @@
 		   };
 
 		bootsel0 {
-			status = "disabled";	// is not independent of bootsel1
+			status = "disabled";	// is not independent of bootsel1 and always H
 			label = "bootsel0";
 			linux,code = <KEY_HOME>;
 			gpios = <&gpe 25 GPIO_ACTIVE_HIGH>;
 		   };
 
+#if 0	// something is broken in IRQ priority handling
 		bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpe 26 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpe 26 GPIO_ACTIVE_LOW>;
 		};
+#endif
 
+#if 0	// hard wired and always H
 		bootsel2 {
-			status = "disabled";	// hard wired
+			status = "disabled";
 			label = "bootsel2";
 			linux,code = <KEY_ENTER>;
 			gpios = <&gpe 27 GPIO_ACTIVE_HIGH>;
 		   };
+#endif
 	};
 
 #if 0
