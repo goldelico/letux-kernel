@@ -167,9 +167,10 @@ static int sdhci_ingenic_probe(struct platform_device *pdev)
 	host->irq = irq;
 
 	/* Software redefinition caps */
-	host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-	host->caps = CAPABILITIES1_SW;
-	host->caps1 = CAPABILITIES2_SW;
+// does not exist in 6.15:	host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+	sdhci_read_caps(host);
+	host->caps = CAPABILITIES1_SW;	// sdhci-caps in device tree?
+	host->caps1 = CAPABILITIES2_SW;	// sdhci-caps-mask in device tree?
 
 	/* not check wp */
 	host->quirks |= SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
@@ -208,7 +209,7 @@ err_clk:
 	return ret;
 }
 
-static int sdhci_ingenic_remove(struct platform_device *pdev)
+static void sdhci_ingenic_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host =  platform_get_drvdata(pdev);
 	struct sdhci_ingenic *sdhci_ing = sdhci_priv(host);
@@ -222,8 +223,6 @@ static int sdhci_ingenic_remove(struct platform_device *pdev)
 
 	sdhci_free_host(host);
 	platform_set_drvdata(pdev, NULL);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
