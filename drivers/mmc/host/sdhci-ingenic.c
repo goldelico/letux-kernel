@@ -1,5 +1,6 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 
