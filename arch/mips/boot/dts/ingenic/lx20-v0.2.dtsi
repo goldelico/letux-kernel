@@ -112,6 +112,26 @@
 
 	model = "Letux LX20v0.2";
 
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		uart0 = &uart0;
+		uart1 = &uart1;
+		uart2 = &uart2;
+		uart3 = &uart3;
+#if 0
+		mac0 = &mac0;
+		spi0 = &ssi0;
+		spi1 = &ssi1;
+		pwm = &pwm;
+		can0 = &can0;
+		can1 = &can1;
+#endif
+		mmc0 = &msc2;
+		mmc1 = &msc1;
+	};
+
 	chosen {
 		stdout-path = &uart2;
 #if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
@@ -140,22 +160,22 @@
 
 	bus-width = <8>;
 	max-frequency = <25000000>;
-	//  voltage-ranges = <1800 3300>;
-	voltage-ranges = <3300>;
+	voltage-ranges = <1800 3300>;
 
 	broken-cd;
 
+	no-1-8-v;
 	pinctrl-names ="default";
 	pinctrl-0 = <&pins_msc0>;
 };
 
 &msc1 {	/* SDIO */
+#if 0
 	status = "okay";
-
+#endif
 	bus-width = <4>;
 	max-frequency = <25000000>;
-	//  voltage-ranges = <1800 3300>;
-	voltage-ranges = <3300>;
+	voltage-ranges = <1800 3300>;
 
 	broken-cd;
 
@@ -168,17 +188,17 @@
 };
 
 &msc2 {
-        status = "okay";
+	status = "okay";
 
-        bus-width = <4>;
-        max-frequency = <25000000>;
-      //  voltage-ranges = <1800 3300>;
-        voltage-ranges = <3300>;
+	bus-width = <4>;
+	max-frequency = <25000000>;
+	voltage-ranges = <1800 3300>;
 
 	broken-cd;
 
-        pinctrl-names ="default";
-        pinctrl-0 = <&pins_msc2>;
+	no-1-8-v;
+	pinctrl-names ="default";
+	pinctrl-0 = <&pins_msc2>;
 };
 
 &pinctrl {
