@@ -131,6 +131,42 @@
 	};
 };
 
+&pdma {
+	status = "okay";
+};
+
+&msc0 {
+	status = "disabled";
+
+	bus-width = <8>;
+	max-frequency = <25000000>;
+	//  voltage-ranges = <1800 3300>;
+	voltage-ranges = <3300>;
+
+	broken-cd;
+
+	pinctrl-names ="default";
+	pinctrl-0 = <&pins_msc0>;
+};
+
+&msc1 {	/* SDIO */
+	status = "okay";
+
+	bus-width = <4>;
+	max-frequency = <25000000>;
+	//  voltage-ranges = <1800 3300>;
+	voltage-ranges = <3300>;
+
+	broken-cd;
+
+	no-1-8-v;
+//	non-removable;
+//	wifi-host;
+
+	pinctrl-names ="default";
+	pinctrl-0 = <&pins_msc1>;
+};
+
 &msc2 {
         status = "okay";
 
@@ -139,29 +175,42 @@
       //  voltage-ranges = <1800 3300>;
         voltage-ranges = <3300>;
 
+	broken-cd;
+
         pinctrl-names ="default";
         pinctrl-0 = <&pins_msc2>;
 };
 
-
 &pinctrl {
-        pins_uart2: uart2 {
-                function = "uart2";
-                groups = "uart2-data";
-                bias-pull-up;
-        };
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data";
+		bias-pull-up;
+	};
 
-        pins_uart3: uart3 {
-                function = "uart3";
-                groups = "uart3-data-c" /*, "uart3-hwflow-c" */;
-                bias-pull-up;
-        };
+	pins_uart3: uart3 {
+		function = "uart3";
+		groups = "uart3-data-c" /*, "uart3-hwflow-c" */;
+		bias-pull-up;
+	};
 
-        pins_msc2: msc2 {
-                function = "mmc2";
-                groups = "mmc2-1bit", "mmc2-4bit";
-                bias-disable;
-        };
+	pins_msc0: msc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit", "mmc0-4bit", "mmc0-8bit";
+		bias-disable;
+	};
+
+	pins_msc1: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-disable;
+	};
+
+	pins_msc2: msc2 {
+		function = "mmc2";
+		groups = "mmc2-1bit", "mmc2-4bit";
+		bias-disable;
+	};
 };
 
 #if 0
@@ -405,23 +454,21 @@
 #endif
 };
 
+#endif
+
 &uart2 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_pb>;
+	pinctrl-0 = <&pins_uart2>;
 };
 
 &uart3 {
 	status = "okay";
 	pinctrl-names = "default";
-#if 0	/* may be used as PB4/5 */
-	pinctrl-0 = <&uart3_pb>;
-#endif
+	pinctrl-0 = <&pins_uart3>;
 };
 
-#endif
-
-#if 0
+#if 0	// from lx16-v0.1.dtsi
 
 &cpufreq {
 	status = "okay";
