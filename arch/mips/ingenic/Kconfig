@@ -35,61 +35,13 @@ config JZ4780_CI20
 	bool "MIPS Creator CI20"
 	select MACH_JZ4780
 
-config X1600_LX16
-	bool "Letux X1600 based SBC"
-	select MACH_X1600
-
-config X2000_LX20
-	bool "Letux X2000 based SBC"
-	select MACH_X2000
-
 config X1000_CU1000_NEO
 	bool "YSH & ATIL CU1000 Module with Neo backplane"
-	select MACH_X1000
-
-config X1000_NANO_EVB
-	bool "SudoMaker X1000 Nano SoM EVB"
-	select MACH_X1000
-
-config X1000_NANO_EVB_NAND
-	bool "SudoMaker X1000 Nano SoM EVB (NAND flash)"
-	select MACH_X1000
-
-config X1501_PICO_EVB
-	bool "SudoMaker X1501 Pico SoM EVB"
-	select MACH_X1000
-
-config X1000_NOTKIA_V2
-	bool "SudoMaker Notkia V2"
-	select MACH_X1000
-
-config X1501_LOSHARK_V2
-	bool "SudoMaker LoShark V2"
-	select MACH_X1000
-
-config X1000_INGENIC_JDI_V1
-	bool "Ingenic JDI v1"
-	select MACH_X1000
-
-config X1000_SUDOMAKER_CLE
-	bool "SudoMaker CLE"
-	select MACH_X1000
-
-config X1501_SUDOMAKER_CANBOX
-	bool "SudoMaker CANBOX"
 	select MACH_X1000
 
 config X1830_CU1830_NEO
 	bool "YSH & ATIL CU1830 Module with Neo backplane"
 	select MACH_X1830
-
-config X2000_CU2000_NEO
-	bool "YSH & ATIL CU2000 Module with Neo backplane"
-	select MACH_X2000
-
-config X2000_HALLEY5
-	bool "Ingenic Halley5 Development Board"
-	select MACH_X2000
 
 endchoice
 
@@ -121,14 +73,6 @@ config MACH_X1000
 
 config MACH_X1830
 	bool
+	select MIPS_CPU_SCACHE
 	select SYS_HAS_CPU_MIPS32_R2
 	select SYS_SUPPORTS_HIGHMEM
-
-config MACH_X2000
-	bool
-	select GENERIC_CLOCKEVENTS_BROADCAST if SMP
-	select SYS_SUPPORTS_HIGHMEM
-	select SYS_SUPPORTS_SMP
-	select MIPS_O32_FP64_SUPPORT
-	select WEAK_ORDERING
-	select WEAK_REORDERING_BEYOND_LLSC
