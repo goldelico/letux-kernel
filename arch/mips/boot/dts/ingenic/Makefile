@@ -18,3 +18,5 @@ dtb-$(CONFIG_BUILTIN_DTB_ALL)	+= alpha400.dtb \
 					   lx16.dtb \
 					   cu1830-neo.dtb \
 					   lx20.dtb
+
+obj-$(CONFIG_BUILTIN_DTB)       += $(addsuffix .o, $(dtb-y))
