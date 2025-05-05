@@ -418,6 +418,8 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 {
 	struct gpio_button_data *bdata = dev_id;
 
+printk("%s start\n", __func__);
+
 	BUG_ON(irq != bdata->irq);
 
 	if (bdata->button->wakeup) {
@@ -445,6 +447,8 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 				 msecs_to_jiffies(bdata->software_debounce));
 	}
 
+printk("%s done\n", __func__);
+
 	return IRQ_HANDLED;
 }
 
@@ -455,11 +459,15 @@ static enum hrtimer_restart gpio_keys_irq_timer(struct hrtimer *t)
 						      release_timer);
 	struct input_dev *input = bdata->input;
 
+printk("%s start\n", __func__);
+
 	if (bdata->key_pressed) {
 		input_event(input, EV_KEY, *bdata->code, 0);
 		input_sync(input);
 		bdata->key_pressed = false;
 	}
+
+printk("%s done\n", __func__);
 
 	return HRTIMER_NORESTART;
 }
@@ -469,6 +477,8 @@ static irqreturn_t gpio_keys_irq_isr(int irq, void *dev_id)
 	struct gpio_button_data *bdata = dev_id;
 	struct input_dev *input = bdata->input;
 	unsigned long flags;
+
+printk("%s start\n", __func__);
 
 	BUG_ON(irq != bdata->irq);
 
@@ -496,6 +506,9 @@ static irqreturn_t gpio_keys_irq_isr(int irq, void *dev_id)
 			      HRTIMER_MODE_REL_HARD);
 out:
 	spin_unlock_irqrestore(&bdata->lock, flags);
+
+printk("%s done\n", __func__);
+
 	return IRQ_HANDLED;
 }
 
@@ -513,6 +526,8 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	unsigned long irqflags;
 	int irq;
 	int error;
+
+printk("%s start\n", __func__);
 
 	bdata->input = input;
 	bdata->button = button;
@@ -674,6 +689,8 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 			bdata->irq, error);
 		return error;
 	}
+
+printk("%s done\n", __func__);
 
 	return 0;
 }
