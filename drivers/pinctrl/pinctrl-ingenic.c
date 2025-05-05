@@ -3637,6 +3637,9 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
+
+printk("%s; set X2000_GPIO_EDG = %d\n", __func__, val3);
+
 		ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else if (is_soc_or_above(jzgc->jzpc, ID_X1000)) {
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
@@ -3722,6 +3725,7 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 		 * triggered the interrupt being ACKed.
 		 */
 		high = ingenic_gpio_get_value(jzgc, irq);
+printk("%s: high=%d\n", __func__, high);
 		if (high)
 			irq_set_type(jzgc, irq, IRQ_TYPE_LEVEL_LOW);
 		else
@@ -3741,6 +3745,8 @@ static int ingenic_gpio_irq_set_type(struct irq_data *irqd, unsigned int type)
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(irqd);
 	struct ingenic_gpio_chip *jzgc = gpiochip_get_data(gc);
 	irq_hw_number_t irq = irqd_to_hwirq(irqd);
+
+printk("%s: type=%d\n", __func__, type);
 
 	switch (type) {
 	case IRQ_TYPE_EDGE_BOTH:

@@ -148,24 +148,34 @@ int arch_check_elf(void *_ehdr, bool has_interpreter, void *_interp_ehdr,
 	bool elf32;
 	u32 flags;
 
+printk("%s\n", __func__);
+
 	elf32 = ehdr->e32.e_ident[EI_CLASS] == ELFCLASS32;
 	flags = elf32 ? ehdr->e32.e_flags : ehdr->e64.e_flags;
+
+printk("%s elf32=%d\n", __func__, elf32);
+printk("%s flags=%08x\n", __func__, flags);
 
 	/*
 	 * Determine the NaN personality, reject the binary if not allowed.
 	 * Also ensure that any interpreter matches the executable.
 	 */
 	if (flags & EF_MIPS_NAN2008) {
+printk("%s 1a\n", __func__);
 		if (mips_use_nan_2008)
 			state->nan_2008 = 1;
 		else
 			return -ENOEXEC;
+printk("%s 1b\n", __func__);
 	} else {
+printk("%s 2a\n", __func__);
 		if (mips_use_nan_legacy)
 			state->nan_2008 = 0;
 		else
 			return -ENOEXEC;
+printk("%s 2b\n", __func__);
 	}
+printk("%s 3\n", __func__);
 	if (has_interpreter) {
 		bool ielf32;
 		u32 iflags;
@@ -175,10 +185,15 @@ int arch_check_elf(void *_ehdr, bool has_interpreter, void *_interp_ehdr,
 
 		if ((flags ^ iflags) & EF_MIPS_NAN2008)
 			return -ELIBBAD;
+printk("%s 4\n", __func__);
 	}
+
+printk("%s 5\n", __func__);
 
 	if (!IS_ENABLED(CONFIG_MIPS_O32_FP64_SUPPORT))
 		return 0;
+
+printk("%s 6\n", __func__);
 
 	fp_abi = state->fp_abi;
 
@@ -205,9 +220,13 @@ int arch_check_elf(void *_ehdr, bool has_interpreter, void *_interp_ehdr,
 		max_abi = MIPS_ABI_FP_SOFT;
 	}
 
+printk("%s 7\n", __func__);
+
 	if ((abi0 > max_abi && abi0 != MIPS_ABI_FP_UNKNOWN) ||
 	    (abi1 > max_abi && abi1 != MIPS_ABI_FP_UNKNOWN))
 		return -ELIBBAD;
+
+printk("%s 8\n", __func__);
 
 	/* It's time to determine the FPU mode requirements */
 	prog_req = (abi0 == MIPS_ABI_FP_UNKNOWN) ? none_req : fpu_reqs[abi0];
@@ -259,7 +278,12 @@ int arch_check_elf(void *_ehdr, bool has_interpreter, void *_interp_ehdr,
 		state->overall_fp_mode = FP_FR1;
 	else  if (!prog_req.fre && !prog_req.frdefault &&
 		  !prog_req.fr1 && !prog_req.single && !prog_req.soft)
+{
+printk("%s 9\n", __func__);
+
 		return -ELIBBAD;
+}
+printk("%s 10\n", __func__);
 
 	return 0;
 }

@@ -843,23 +843,34 @@ static int load_elf_binary(struct linux_binprm *bprm)
 	struct mm_struct *mm;
 	struct pt_regs *regs;
 
+printk("%s\n", __func__);
+
 	retval = -ENOEXEC;
 	/* First of all, some simple consistency checks */
 	if (memcmp(elf_ex->e_ident, ELFMAG, SELFMAG) != 0)
 		goto out;
 
+printk("%s 1\n", __func__);
+
 	if (elf_ex->e_type != ET_EXEC && elf_ex->e_type != ET_DYN)
 		goto out;
+printk("%s 2\n", __func__);
 	if (!elf_check_arch(elf_ex))
 		goto out;
+printk("%s 3\n", __func__);
 	if (elf_check_fdpic(elf_ex))
 		goto out;
+printk("%s 4\n", __func__);
 	if (!bprm->file->f_op->mmap)
 		goto out;
+
+printk("%s 5\n", __func__);
 
 	elf_phdata = load_elf_phdrs(elf_ex, bprm->file);
 	if (!elf_phdata)
 		goto out;
+
+printk("%s 6\n", __func__);
 
 	elf_ppnt = elf_phdata;
 	for (i = 0; i < elf_ex->e_phnum; i++, elf_ppnt++) {
@@ -926,6 +937,8 @@ out_free_interp:
 		goto out_free_ph;
 	}
 
+printk("%s 7\n", __func__);
+
 	elf_ppnt = elf_phdata;
 	for (i = 0; i < elf_ex->e_phnum; i++, elf_ppnt++)
 		switch (elf_ppnt->p_type) {
@@ -944,6 +957,8 @@ out_free_interp:
 				goto out_free_dentry;
 			break;
 		}
+
+printk("%s 8\n", __func__);
 
 	/* Some simple consistency checks for the interpreter */
 	if (interpreter) {
@@ -981,10 +996,14 @@ out_free_interp:
 			}
 	}
 
+printk("%s 9\n", __func__);
+
 	retval = parse_elf_properties(interpreter ?: bprm->file,
 				      elf_property_phdata, &arch_state);
 	if (retval)
 		goto out_free_dentry;
+
+printk("%s 10\n", __func__);
 
 	/*
 	 * Allow arch code to reject the ELF at this point, whilst it's
@@ -997,10 +1016,14 @@ out_free_interp:
 	if (retval)
 		goto out_free_dentry;
 
+printk("%s 11\n", __func__);
+
 	/* Flush all traces of the currently running executable */
 	retval = begin_new_exec(bprm);
 	if (retval)
 		goto out_free_dentry;
+
+printk("%s 12\n", __func__);
 
 	/* Do this immediately, since STACK_TOP as used in setup_arg_pages
 	   may depend on the personality.  */
@@ -1016,11 +1039,15 @@ out_free_interp:
 
 	/* Do this so that we can load the interpreter, if need be.  We will
 	   change some of these later */
+printk("%s 13\n", __func__);
+
 	retval = setup_arg_pages(bprm, randomize_stack_top(STACK_TOP),
 				 executable_stack);
 	if (retval < 0)
 		goto out_free_dentry;
 
+printk("%s 14\n", __func__);
+	
 	elf_brk = 0;
 
 	start_code = ~0UL;
@@ -1089,7 +1116,9 @@ out_free_interp:
 			 */
 			total_size = total_mapping_size(elf_phdata,
 							elf_ex->e_phnum);
+printk("%s 15\n", __func__);
 			if (!total_size) {
+printk("%s 16\n", __func__);
 				retval = -EINVAL;
 				goto out_free_dentry;
 			}
@@ -1172,6 +1201,8 @@ out_free_interp:
 		error = elf_load(bprm->file, load_bias + vaddr, elf_ppnt,
 				elf_prot, elf_flags, total_size);
 		if (BAD_ADDR(error)) {
+printk("%s 17\n", __func__);
+
 			retval = IS_ERR_VALUE(error) ?
 				PTR_ERR((void*)error) : -EINVAL;
 			goto out_free_dentry;
@@ -1211,6 +1242,7 @@ out_free_interp:
 		    elf_ppnt->p_memsz > TASK_SIZE ||
 		    TASK_SIZE - elf_ppnt->p_memsz < k) {
 			/* set_brk can never work. Avoid overflows. */
+printk("%s 18\n", __func__);
 			retval = -EINVAL;
 			goto out_free_dentry;
 		}
@@ -1234,6 +1266,8 @@ out_free_interp:
 	start_data += load_bias;
 	end_data += load_bias;
 
+printk("%s 19\n", __func__);
+
 	current->mm->start_brk = current->mm->brk = ELF_PAGEALIGN(elf_brk);
 
 	if (interpreter) {
@@ -1250,6 +1284,7 @@ out_free_interp:
 			elf_entry += interp_elf_ex->e_entry;
 		}
 		if (BAD_ADDR(elf_entry)) {
+printk("%s 22\n", __func__);
 			retval = IS_ERR_VALUE(elf_entry) ?
 					(int)elf_entry : -EINVAL;
 			goto out_free_dentry;
@@ -1264,10 +1299,13 @@ out_free_interp:
 	} else {
 		elf_entry = e_entry;
 		if (BAD_ADDR(elf_entry)) {
+printk("%s 23\n", __func__);
 			retval = -EINVAL;
 			goto out_free_dentry;
 		}
 	}
+
+printk("%s 24\n", __func__);
 
 	kfree(elf_phdata);
 
@@ -1279,10 +1317,13 @@ out_free_interp:
 		goto out;
 #endif /* ARCH_HAS_SETUP_ADDITIONAL_PAGES */
 
+printk("%s 25\n", __func__);
+
 	retval = create_elf_tables(bprm, elf_ex, interp_load_addr,
 				   e_entry, phdr_addr);
 	if (retval < 0)
 		goto out;
+printk("%s 26\n", __func__);
 
 	mm = current->mm;
 	mm->end_code = end_code;
@@ -1327,6 +1368,8 @@ out_free_interp:
 					    task_pid_nr(current), retval);
 	}
 
+printk("%s 27\n", __func__);
+
 	regs = current_pt_regs();
 #ifdef ELF_PLAT_INIT
 	/*
@@ -1345,7 +1388,11 @@ out_free_interp:
 	finalize_exec(bprm);
 	START_THREAD(elf_ex, regs, elf_entry, bprm->p);
 	retval = 0;
+
+printk("%s 28\n", __func__);
+
 out:
+printk("%s 29\n", __func__);
 	return retval;
 
 	/* error cleanup */
@@ -1357,6 +1404,7 @@ out_free_file:
 	if (interpreter)
 		fput(interpreter);
 out_free_ph:
+printk("%s 30\n", __func__);
 	kfree(elf_phdata);
 	goto out;
 }
