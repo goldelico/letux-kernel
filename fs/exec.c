@@ -1708,6 +1708,8 @@ static int search_binary_handler(struct linux_binprm *bprm)
 	struct linux_binfmt *fmt;
 	int retval;
 
+printk("%s\n", __func__);
+
 	retval = prepare_binprm(bprm);
 	if (retval < 0)
 		return retval;
@@ -1724,7 +1726,11 @@ static int search_binary_handler(struct linux_binprm *bprm)
 			continue;
 		read_unlock(&binfmt_lock);
 
+printk("%s load_binary=%pS\n", __func__, fmt->load_binary);
+
 		retval = fmt->load_binary(bprm);
+
+printk("%s 1 retval=%d\n", __func__, retval);
 
 		read_lock(&binfmt_lock);
 		put_binfmt(fmt);
@@ -1744,6 +1750,8 @@ static int search_binary_handler(struct linux_binprm *bprm)
 		need_retry = false;
 		goto retry;
 	}
+
+printk("%s 2 retval=%d\n", __func__, retval);
 
 	return retval;
 }
