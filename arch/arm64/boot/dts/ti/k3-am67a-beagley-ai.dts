@@ -190,6 +190,8 @@
 
 		led-0 {
 			gpios = <&main_gpio0 11 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "mmc1";
+			function = LED_FUNCTION_SD;
 			default-state = "off";
 		};
 
