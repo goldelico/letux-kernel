@@ -1,0 +1,41 @@
+/* RedBean module (Qualcomm) */
+
+&mmc1 {
+	status = "okay";
+	pinctrl-names ="default";
+	pinctrl-0 = <&msc1_4bit>;
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+
+	broken-cd;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ranges = <1800 3300>;	// hardware doesn't support!
+
+	max-frequency = <50000000>;
+	wlan: wlan@0 {
+		compatible = "qcom,qca9377-wlan";
+		reg = <0>;
+//		interrupt-parent = <&gpio5>;
+//		interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;	/* GPIO_139 */
+//		ref-clock-frequency = <26000000>;
+	};
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+//	uart-has-rtscts;
+
+	bluetooth: bluetooth {
+		compatible = "qcom,qca9377-bt";
+		enable-gpios = <&gpb 17 GPIO_ACTIVE_HIGH>;
+		max-speed = <200000>;
+	//	clocks = <&wifi32k>;
+	//	vdd-supply = <&bt_en>;
+	};
+};
