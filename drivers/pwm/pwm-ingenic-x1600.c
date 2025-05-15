@@ -1226,11 +1226,10 @@ static void ingenic_pwm_remove(struct platform_device *pdev)
 {
 	struct ingenic_pwm_chip *ingenic_pwm;
 	ingenic_pwm =platform_get_drvdata(pdev);
-	if (!ingenic_pwm)
-		return -ENODEV;
-
-	devm_clk_put(&pdev->dev, ingenic_pwm->clk_pwm);
-	devm_clk_put(&pdev->dev, ingenic_pwm->clk_gate);
+	if (ingenic_pwm) {
+		devm_clk_put(&pdev->dev, ingenic_pwm->clk_pwm);
+		devm_clk_put(&pdev->dev, ingenic_pwm->clk_gate);
+	}
 }
 
 static const struct of_device_id ingenic_pwm_matches[] = {
