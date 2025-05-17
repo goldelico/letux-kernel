@@ -3871,7 +3871,8 @@ CONFIG_SDIO_UART=y
 # MMC/SD/SDIO Host Controller Drivers
 #
 # CONFIG_MMC_DEBUG is not set
-# CONFIG_MMC_SDHCI is not set
+CONFIG_MMC_SDHCI=y
+# CONFIG_MMC_SDHCI_PLTFM is not set
 # CONFIG_MMC_DW is not set
 CONFIG_MMC_JZ4740=y
 # CONFIG_MMC_VUB300 is not set
