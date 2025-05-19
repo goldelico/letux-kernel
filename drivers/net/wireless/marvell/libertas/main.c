@@ -141,6 +141,11 @@ int lbs_start_iface(struct lbs_private *priv)
 	lbs_update_channel(priv);
 
 	priv->iface_running = true;
+	/* if deep sleep was enabled before
+	 * the interface was brought down, reenable it
+	 */
+	if (priv->is_auto_deep_sleep_enabled)
+		lbs_enter_auto_deep_sleep(priv);
 	return 0;
 
 err:
@@ -203,6 +208,10 @@ int lbs_stop_iface(struct lbs_private *priv)
 
 	cancel_work_sync(&priv->mcast_work);
 	timer_delete_sync(&priv->tx_lockup_timer);
+	/* autosleep should not mess with commands
+	 * when the interface is powered down
+	 */
+	timer_delete_sync(&priv->auto_deepsleep_timer);
 
 	/* Disable command processing, and wait for all commands to complete */
 	lbs_deb_main("waiting for commands to complete\n");
@@ -740,6 +749,56 @@ static void lbs_tx_lockup_handler(struct timer_list *t)
 	wake_up_interruptible(&priv->waitq);
 
 	spin_unlock_irqrestore(&priv->driver_lock, flags);
+}
+
+/**
+ * auto_deepsleep_timer_fn - put the device back to deep sleep mode when
+ * timer expires and no activity (command, event, data etc.) is detected.
+ * @t: Context from which to retrieve a &struct lbs_private pointer
+ * returns:	N/A
+ */
+static void auto_deepsleep_timer_fn(struct timer_list *t)
+{
+	struct lbs_private *priv = from_timer(priv, t, auto_deepsleep_timer);
+
+	if (priv->is_activity_detected) {
+		priv->is_activity_detected = 0;
+	} else {
+		if (priv->is_auto_deep_sleep_enabled &&
+		    (!priv->wakeup_dev_required) &&
+		    (priv->connect_status != LBS_CONNECTED) &&
+		    priv->iface_running) {
+			struct cmd_header cmd;
+
+			lbs_deb_main("Entering auto deep sleep mode...\n");
+			memset(&cmd, 0, sizeof(cmd));
+			cmd.size = cpu_to_le16(sizeof(cmd));
+			lbs_cmd_async(priv, CMD_802_11_DEEP_SLEEP, &cmd,
+					sizeof(cmd));
+		}
+	}
+	mod_timer(&priv->auto_deepsleep_timer , jiffies +
+				(priv->auto_deep_sleep_timeout * HZ)/1000);
+}
+
+int lbs_enter_auto_deep_sleep(struct lbs_private *priv)
+{
+	priv->is_auto_deep_sleep_enabled = 1;
+	if (priv->is_deep_sleep)
+		priv->wakeup_dev_required = 1;
+	mod_timer(&priv->auto_deepsleep_timer ,
+			jiffies + (priv->auto_deep_sleep_timeout * HZ)/1000);
+
+	return 0;
+}
+
+int lbs_exit_auto_deep_sleep(struct lbs_private *priv)
+{
+	priv->is_auto_deep_sleep_enabled = 0;
+	priv->auto_deep_sleep_timeout = 0;
+	timer_delete(&priv->auto_deepsleep_timer);
+
+	return 0;
 }
 
 static int lbs_init_adapter(struct lbs_private *priv)
