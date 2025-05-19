@@ -58,6 +58,9 @@ int lbs_set_mac_address(struct net_device *dev, void *addr);
 void lbs_set_multicast_list(struct net_device *dev);
 void lbs_update_mcast(struct lbs_private *priv);
 
+int lbs_enter_auto_deep_sleep(struct lbs_private *priv);
+int lbs_exit_auto_deep_sleep(struct lbs_private *priv);
+
 int lbs_suspend(struct lbs_private *priv);
 int lbs_resume(struct lbs_private *priv);
 
