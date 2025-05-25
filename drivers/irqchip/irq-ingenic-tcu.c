@@ -19,6 +19,8 @@ struct ingenic_tcu {
 	struct irq_domain *domain;
 	unsigned int nb_parent_irqs;
 	u32 parent_irqs[3];
+	bool jz4740_regs;
+	bool jz4780_affinity;
 };
 
 static void ingenic_tcu_intc_cascade(struct irq_desc *desc)
@@ -36,7 +38,7 @@ static void ingenic_tcu_intc_cascade(struct irq_desc *desc)
 
 	chained_irq_enter(irq_chip, desc);
 
-	if(IS_ENABLED(CONFIG_MACH_JZ4780) && IS_ENABLED(CONFIG_SMP)) {
+	if (IS_ENABLED(CONFIG_SMP) && tcu->jz4780_affinity) {
 		if (smp_processor_id())
 			irq_mask |= ingenic_tcu_intc_affinity[0];
 		else
@@ -107,6 +109,8 @@ static int __init ingenic_tcu_irq_init(struct device_node *np,
 	if (!tcu)
 		return -ENOMEM;
 
+	tcu->jz4740_regs = !of_device_is_compatible(np, "ingenic,jz4730-tcu");
+	tcu->jz4780_affinity = of_device_is_compatible(np, "ingenic,jz4780-tcu");
 	tcu->map = map;
 
 	irqs = of_property_count_elems_of_size(np, "interrupts", sizeof(u32));
