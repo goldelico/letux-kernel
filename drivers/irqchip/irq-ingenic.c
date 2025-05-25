@@ -101,7 +101,7 @@ static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 		}
 	}
 
-	if(IS_ENABLED(CONFIG_MACH_JZ4780))
+	if (intc->version == ID_JZ4780)
 		IF_ENABLED(CONFIG_SMP, jz4780_smp_switch_irqcpu(smp_processor_id()));
 
 	return IRQ_HANDLED;
@@ -151,7 +151,7 @@ static const struct of_device_id __maybe_unused ingenic_intc_of_matches[] __init
 	{ .compatible = "ingenic,jz4760-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,jz4770-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,jz4775-intc", .data = (void *) ID_JZ4730 },
-	{ .compatible = "ingenic,jz4780-intc", .data = (void *) ID_JZ4730 },
+	{ .compatible = "ingenic,jz4780-intc", .data = (void *) ID_JZ4780 },
 	{ .compatible = "ingenic,x1000-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,x1600-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,x1830-intc", .data = (void *) ID_JZ4730 },
