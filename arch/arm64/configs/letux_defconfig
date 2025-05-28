@@ -7125,7 +7125,7 @@ CONFIG_IIO_INPUT_BRIDGE=y
 # CONFIG_AD7192 is not set
 # CONFIG_AD7266 is not set
 # CONFIG_AD7280 is not set
-# CONFIG_AD7291 is not set
+CONFIG_AD7291=m
 # CONFIG_AD7292 is not set
 # CONFIG_AD7298 is not set
 # CONFIG_AD7380 is not set
