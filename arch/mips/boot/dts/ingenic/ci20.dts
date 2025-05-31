@@ -20,6 +20,9 @@
 
 	chosen {
 		stdout-path = &uart4;
+#if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
+		bootargs = "rootfstype=ext4 root=/dev/mmcblk0p1 rw earlycon console=ttyS4,115200 clk_ignore_unused ignore_loglevel rootwait";
+#endif
 	};
 
 	memory {
