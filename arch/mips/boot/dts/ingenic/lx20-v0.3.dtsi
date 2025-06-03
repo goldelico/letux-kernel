@@ -1,0 +1,64 @@
+/dts-v1/;
+
+#include "lx20-v0.2.dtsi"
+
+// Mapping of connector pins to LX20 signals
+#define PIN3	PC24	// LX20 signals could name secondary functions like PB19_SCL1_RXD0_PWM5 from LX16
+#define PIN5	PC23
+#define PIN7	PB14
+#define PIN8	PC12
+#define PIN10	PC11
+#define PIN11	PB8
+#define PIN12	PB24
+#define PIN13	PB10
+#define PIN15	PB12
+#define PIN16	PB21
+#define PIN18	PB20
+#define PIN19	PE17
+#define PIN21	PE18
+#define PIN22	PB9
+#define PIN23	PE16
+#define PIN24	PE21
+#define PIN26	PC22
+#define PIN27	PE20
+#define PIN29	PB1
+#define PIN31	PB19
+#define PIN32	PC20
+#define PIN33	PC21
+#define PIN35	PB25
+#define PIN36	PB2
+#define PIN37	PB23
+#define PIN38	PB18
+#define PIN40	PB13
+
+// Mapping of LX20 signals to x2000 gpios/pins
+#define PB1		&gpb 1
+#define PB2		&gpb 2
+#define PB8		&gpb 8
+#define PB9		&gpb 9
+#define PB10		&gpb 10
+#define PB12		&gpb 12
+#define PB13		&gpb 13
+#define PB14		&gpb 14
+#define PB18		&gpb 18
+#define PB19		&gpb 19
+#define PB20		&gpb 20
+#define PB21		&gpb 21
+#define PB23		&gpb 23
+#define PB24		&gpb 24
+#define PB25		&gpb 25
+#define PC11		&gpc 11
+#define PC12		&gpc 12
+#define PC20		&gpc 20
+#define PC21		&gpc 21
+#define PC22		&gpc 22
+#define PC23		&gpc 23
+#define PC24		&gpc 24
+#define PE16		&gpe 16
+#define PE17		&gpe 17
+#define PE20		&gpe 20
+#define PE21		&gpe 21
+
+/ {
+	model = "Letux LX20v0.3";
+};
