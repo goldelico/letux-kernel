@@ -42,70 +42,7 @@
 #define IO21	PIN40
 
 // Mapping of connector pins to LX20 signals
-#define PIN3	PB31_SDA0
-#define PIN5	PB30_SCL0
-#define PIN7	PC24_PWM3_TCU5
-#define PIN8	PB8_TXD0
-#define PIN10	PB7_RXD0
-#define PIN11	PB10_RTS0_PWM7_TCU7
-#define PIN12	PB27_TXBCLK_MDC
-#define PIN13	PB4_TXD3_RTS1
-#define PIN15	PB5_TXD3_CTS1
-#define PIN16	PB24_RXLRCK_RXDV
-#define PIN18	PB23_RXBCLK_REFCLK
-#define PIN19	PA30_MOSI0_TXD2
-#define PIN21	PA29_MISO0_SDA0
-#define PIN22	PB3
-#define PIN23	PA31_SCLK0_RXD2
-#define PIN24	PA28_CE0_SCL0
-#define PIN26	PB2_CE1_TXD1
-#define PIN27	PB20_SDA1_RXD1_PWM6
-#define PIN28	PB19_SCL1_RXD0_PWM5
-#define PIN29	PC2_PWM2_TCU5
-#define PIN31	PB22_RXMCLK_PHYCLK
-#define PIN32	PC25_PWM4_TCU6
-#define PIN33	PC26_PWM5_TCU6
-#define PIN35	PB28_TXLRCLK_MDIO
-#define PIN36	PB9_CTS0_PWM6_TCU7
-#define PIN37	PB26_TXMCLK_TXEN
-#define PIN38	PB21_RXDAT_TXD0_PWM7
-#define PIN40	PB25_TXDAT_TXD1
-
-// Mapping of LX20 signals to x2000 gpios/pins
-
-#define PA28_CE0_SCL0		&gpa 28
-#define PA29_MISO0_SDA0		&gpa 29
-#define PA30_MOSI0_TXD2		&gpa 30
-#define PA31_SCLK0_RXD2		&gpa 31
-#define PB2_CE1_TXD1		&gpb 2	// rev 1 only
-#define PB3			&gpb 3	// rev 1 only
-#define PB4_TXD3_RTS1		&gpb 4	// rev 1 only
-#define PB5_TXD3_CTS1		&gpb 5	// rev 1 only
-#define PB7_RXD0		&gpb 7
-#define PB8_TXD0		&gpb 8
-#define PB9_CTS0_PWM6_TCU7	&gpb 9
-#define PB10_RTS0_PWM7_TCU7	&gpb 10
-#define PB13			&gpb 13	// rev2 only
-#define PB14			&gpb 14	// rev2 only
-#define PB15_SCK1		&gpb 15	// rev2 only
-#define PB16_CE1_SDA1		&gpb 16	// rev2 only
-#define PB17			&gpb 17	// rev3 only
-#define PB19_SCL1_RXD0_PWM5	&gpb 19
-#define PB20_SDA1_RXD1_PWM6	&gpb 20
-#define PB21_RXDAT_TXD0_PWM7	&gpb 21
-#define PB22_RXMCLK_PHYCLK	&gpb 22
-#define PB23_RXBCLK_REFCLK	&gpb 23
-#define PB24_RXLRCK_RXDV	&gpb 24
-#define PB25_TXDAT_TXD1		&gpb 25
-#define PB26_TXMCLK_TXEN	&gpb 26
-#define PB27_TXBCLK_MDC		&gpb 27
-#define PB28_TXLRCLK_MDIO	&gpb 28
-#define PB30_SCL0		&gpb 30
-#define PB31_SDA0		&gpb 31
-#define PC2_PWM2_TCU5		&gpc 2
-#define PC24_PWM3_TCU5		&gpc 24
-#define PC25_PWM4_TCU6		&gpc 25
-#define PC26_PWM5_TCU6		&gpc 26
+// there are no connections to LX20 in this v0.2
 
 / {
 	compatible = "goldelico,letux-x20", "ingenic,halley5_v10", "ingenic,x2000";
