@@ -374,7 +374,7 @@ static void jz4730_i2c_remove(struct platform_device *pdev)
 
 static struct platform_driver jz4730_i2c_driver = {
 	.probe		= jz4730_i2c_probe,
-	.remove		= jz4730_i2c_remove,
+	.remove_new	= jz4730_i2c_remove,
 	.driver		= {
 		.name	= "jz4730-i2c",
 		.of_match_table = jz4730_i2c_of_matches,
