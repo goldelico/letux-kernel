@@ -2,7 +2,7 @@
 
 // NOTE: all this could be made depend on a set of some CONFIG options
 
-#define LX20_REV 	2	// main board revision
+#define LX20_REV 	3	// main board revision
 #define LX20_W		0	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
@@ -12,6 +12,8 @@
 #error v0.1 was a not working mockup
 #elif LX20_REV == 2
 #include "lx20-v0.2.dtsi"
+#elif LX20_REV == 3
+#include "lx20-v0.3.dtsi"
 #else
 #error unknown LX20_REV
 #endif
