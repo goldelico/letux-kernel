@@ -177,6 +177,7 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	 * JZ4780: 183 kHz - 1.5 GHz
 	 * X1000:  10 MHz - 50 MHz
 	 * X1600:  1 MHz - 800 MHz
+	 * X2000:  5 MHz - 200 MHz
 	 *
 	 * The highest divider yields the best resolution.
 	 */
@@ -192,6 +193,7 @@ ingenic_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	 * JZ4780: 300 MHz - 1.5 GHz
 	 * X1000:  300 MHz - 600 MHz (low-band), 500 MHz - 1 GHz (high-band)
 	 * X1600:  600 MHz - 2.4 GHz
+	 * X2000:  2.4 GHz - 4.8 GHz
 	 */
 	m = (rate / MHZ) * od * od1 * n / (parent_rate / MHZ);
 	m = min_t(unsigned int, m, 1 << pll_info->m_bits);
