@@ -92,8 +92,6 @@ static void sdhci_ingenic_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	clk_set_rate(sdhci_ing->clk_cgu, clock);
 
-	printk("%s, set clk: %d, get_clk_rate=%ld\n", __func__, clock, clk_get_rate(sdhci_ing->clk_cgu));
-
 	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200 ||
 		host->mmc->ios.timing == MMC_TIMING_UHS_SDR104)
 		sdhci_ingenic_en_msc_tuning(host, cpm_msc);
