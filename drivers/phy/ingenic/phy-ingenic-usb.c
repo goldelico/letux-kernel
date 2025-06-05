@@ -335,6 +335,10 @@ static int ingenic_usb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->base);
 	}
 
+	/* only used by x1600 phy */
+	if (priv->soc_info->usb_phy_init == x1600_usb_phy_init)
+		priv->extra = devm_platform_ioremap_resource(pdev, 1);
+
 	priv->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(priv->clk)) {
 		err = PTR_ERR(priv->clk);
