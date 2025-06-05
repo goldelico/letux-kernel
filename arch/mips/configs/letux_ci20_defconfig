@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.15.184 Kernel Configuration
+# Linux/mips 5.15.185 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -289,7 +289,9 @@ CONFIG_MACH_INGENIC_SOC=y
 # CONFIG_JZ4770_GCW0 is not set
 CONFIG_JZ4780_CI20=y
 # CONFIG_X1000_CU1000_NEO is not set
+# CONFIG_X1600_LX16 is not set
 # CONFIG_X1830_CU1830_NEO is not set
+# CONFIG_X2000_LX20 is not set
 CONFIG_MACH_JZ4780=y
 # end of Machine selection
 
