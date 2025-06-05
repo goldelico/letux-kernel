@@ -159,7 +159,7 @@ ingenic_pll_calc(const struct ingenic_cgu_clk_info *clk_info,
 	unsigned int m, n, od;
 
 	if (pll_info->calc_m_n_od)
-		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od);
+		(*pll_info->calc_m_n_od)(pll_info, rate, parent_rate, &m, &n, &od, NULL);
 	else
 		ingenic_pll_calc_m_n_od(pll_info, rate, parent_rate, &m, &n, &od);
 
