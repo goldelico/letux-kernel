@@ -668,7 +668,7 @@ CONFIG_XFRM_ALGO=m
 # CONFIG_XFRM_USER is not set
 # CONFIG_XFRM_INTERFACE is not set
 # CONFIG_XFRM_SUB_POLICY is not set
-# CONFIG_XFRM_MIGRATE is not set
+CONFIG_XFRM_MIGRATE=y
 # CONFIG_XFRM_STATISTICS is not set
 CONFIG_XFRM_ESP=m
 CONFIG_XFRM_IPCOMP=m
@@ -4179,7 +4179,7 @@ CONFIG_TRACING_SUPPORT=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
+CONFIG_CMDLINE="earlycon ieee754=emulated console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_SPINLOCK_TEST is not set
 # CONFIG_SCACHE_DEBUGFS is not set
