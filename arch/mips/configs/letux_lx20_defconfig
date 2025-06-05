@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.14.9 Kernel Configuration
+# Linux/mips 6.14.10 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4156,7 +4156,7 @@ CONFIG_TRACING_SUPPORT=y
 # mips Debugging
 #
 CONFIG_CMDLINE_BOOL=y
-CONFIG_CMDLINE="earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
+CONFIG_CMDLINE="earlycon ieee754=emulated console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait"
 # CONFIG_CMDLINE_OVERRIDE is not set
 # CONFIG_SPINLOCK_TEST is not set
 # CONFIG_SCACHE_DEBUGFS is not set
