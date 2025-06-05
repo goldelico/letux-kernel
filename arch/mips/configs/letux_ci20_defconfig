@@ -1,5 +1,5 @@
 #
-# Linux/mips 5.10.237 Kernel Configuration
+# Linux/mips 5.10.238 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 4.9.1"
 CONFIG_CC_IS_GCC=y
@@ -274,7 +274,9 @@ CONFIG_MACH_INGENIC_SOC=y
 # CONFIG_JZ4770_GCW0 is not set
 CONFIG_JZ4780_CI20=y
 # CONFIG_X1000_CU1000_NEO is not set
+# CONFIG_X1600_LX16 is not set
 # CONFIG_X1830_CU1830_NEO is not set
+# CONFIG_X2000_LX20 is not set
 CONFIG_MACH_JZ4780=y
 # end of Machine selection
 
@@ -3049,7 +3051,7 @@ CONFIG_DRM_PANEL_BRIDGE=y
 #
 # CONFIG_DRM_CDNS_DSI is not set
 # CONFIG_DRM_CHRONTEL_CH7033 is not set
-# CONFIG_DRM_DISPLAY_CONNECTOR is not set
+CONFIG_DRM_DISPLAY_CONNECTOR=m
 # CONFIG_DRM_LONTIUM_LT9611 is not set
 # CONFIG_DRM_LVDS_CODEC is not set
 # CONFIG_DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW is not set
