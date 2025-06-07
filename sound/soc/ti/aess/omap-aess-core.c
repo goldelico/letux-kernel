@@ -277,6 +277,7 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 #ifdef CHECKME	// we have no platform device any more - is component unregistration sufficient?
 // and we register two components - how do we unregister them individually?
 	snd_soc_unregister_platform(&pdev->dev);
+// it is even simpler: (devm_)snd_soc_(un)register_platform have been replaced by (devm_)snd_soc_(un)register_component in v4.17
 #endif
 
 	aess->fw_data = NULL;
