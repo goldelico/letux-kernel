@@ -1,0 +1,14 @@
+#!/bin/bash
+
+[ -x /usr/bin/pulseaudio ] || { apt-get install pulseaudio pulseaudio-module-bluetooth && echo please reboot; }
+
+# use BT scan to find a device qualifying as Headset and/or by name...
+# info $MAC -> "Icon: audio-headset" oder "Class: 0x00240404"
+
+HEADSET=74:45:CE:CD:98:E0
+
+bluetoothctl pair $HEADSET	# fails if already paired
+# here we should wait for pairing...
+bluetoothctl trust $HEADSET	# reports if already paired
+bluetoothctl connect $HEADSET	# should connect
+# here we should wait for connection...
