@@ -163,6 +163,8 @@
 
 		clocks = <&cgu X2000_CLK_RTCLK>;
 		clock-names = "rtc";
+
+		system-power-controller;
 	};
 
 	pinctrl: pin-controller@10010000 {
