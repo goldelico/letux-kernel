@@ -134,9 +134,9 @@ ingenic_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	n += pll_info->n_offset;
 
 	if (pll_info->bypass_bit >= 0) {
-		ctl = readl(cgu->base + pll_info->bypass_reg);
+		u32 ctl2 = readl(cgu->base + pll_info->bypass_reg);
 
-		bypass = !!(ctl & BIT(pll_info->bypass_bit));
+		bypass = !!(ctl2 & BIT(pll_info->bypass_bit));
 
 		if (bypass)
 			return parent_rate;
