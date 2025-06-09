@@ -57,6 +57,9 @@
 		uart1 = &uart1;
 		uart2 = &uart2;
 		uart3 = &uart3;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart2;
 #if 0
 		mac0 = &mac0;
 		spi0 = &ssi0;
