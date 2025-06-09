@@ -341,7 +341,7 @@ config PWM_JZ4730
 
 config PWM_JZ4740
 	tristate "Ingenic JZ47xx PWM support"
-	depends on MACH_INGENIC || COMPILE_TEST
+	depends on MIPS || COMPILE_TEST
 	depends on COMMON_CLK && OF
 	select MFD_SYSCON
 	help
@@ -750,6 +750,18 @@ config PWM_VT8500
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
+
+config PWM_X1600
+	tristate "Ingenic X1600 PWM support"
+	depends on MIPS || COMPILE_TEST
+	depends on COMMON_CLK && OF
+	select MFD_SYSCON
+	help
+	  Generic PWM framework driver for Ingenic/Lumissil X1600 based
+	  machines.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-x1600.
 
 config PWM_XILINX
 	tristate "Xilinx AXI Timer PWM support"

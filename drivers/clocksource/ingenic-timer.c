@@ -486,6 +486,7 @@ TIMER_OF_DECLARE(jz4725b_tcu_intc, "ingenic,jz4725b-tcu", ingenic_tcu_init);
 TIMER_OF_DECLARE(jz4760_tcu_intc,  "ingenic,jz4760-tcu",  ingenic_tcu_init);
 TIMER_OF_DECLARE(jz4770_tcu_intc,  "ingenic,jz4770-tcu",  ingenic_tcu_init);
 TIMER_OF_DECLARE(x1000_tcu_intc,  "ingenic,x1000-tcu",  ingenic_tcu_init);
+TIMER_OF_DECLARE(x1600_tcu_intc,  "ingenic,x1600-tcu",  ingenic_tcu_init);
 
 static int __init ingenic_tcu_probe(struct platform_device *pdev)
 {
