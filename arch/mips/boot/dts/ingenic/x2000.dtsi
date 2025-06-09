@@ -128,7 +128,7 @@
 	};
 
 	tcu: timer@10002000 {
-		compatible = "ingenic,x2000-tcu", "ingenic,x1000-tcu", "simple-mfd";
+		compatible = "ingenic,x2000-tcu", "ingenic,x1600-tcu", "simple-mfd";
 		reg = <0x10002000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -136,10 +136,8 @@
 
 		#clock-cells = <1>;
 
-		clocks = <&cgu X2000_CLK_RTCLK>,
-			 <&cgu X2000_CLK_EXCLK>,
-			 <&cgu X2000_CLK_PCLK>;
-		clock-names = "rtc", "ext", "pclk";
+		clocks = <&cgu X2000_CLK_EXCLK>;
+		clock-names = "ext";
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
