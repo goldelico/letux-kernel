@@ -522,6 +522,10 @@
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
 };
 
+&rtc {
+	system-power-controller;	/* can control power regulators */
+};
+
 &uart1 {
 	status = "okay";
 	pinctrl-names = "default";
