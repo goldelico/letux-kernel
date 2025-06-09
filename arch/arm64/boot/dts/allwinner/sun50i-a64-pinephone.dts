@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
-// Copyright (C) 2019 Icenowy Zheng <icenowy@aosc.xyz>
-// Copyright (C) 2020 Martijn Braam <martijn@brixit.nl>
-// Copyright (C) 2020 Ondrej Jirman <megous@megous.com>
+/*
+ * Copyright (C) 2019 Icenowy Zheng <icenowy@aosc.xyz>
+ *
+ */
+
+/dts-v1/;
 
 #include "sun50i-a64.dtsi"
 #include "sun50i-a64-cpu-opp.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-#include <dt-bindings/leds/common.h>
 #include <dt-bindings/pwm/pwm.h>
 
 / {
-	chassis-type = "handset";
+	model = "PinePhone";
+	compatible = "pine64,pinephone", "allwinner,sun50i-a64";
 
 	aliases {
-		ethernet0 = &rtl8723cs;
 		serial0 = &uart0;
+		ethernet0 = &rtl8723cs;
 	};
 
 	backlight: backlight {
@@ -25,8 +28,6 @@
 		brightness-levels = <0 10 20 30 40 50 60 70 80 90 100>;
 		default-brightness-level = <8>;
 		enable-gpios = <&pio 7 10 GPIO_ACTIVE_HIGH>; /* PH10 */
-		power-supply = <&reg_ps>;
-		/* Backlight configuration differs per PinePhone revision. */
 	};
 
 	bt_sco_codec: bt-sco-codec {
@@ -55,42 +56,20 @@
 	leds {
 		compatible = "gpio-leds";
 
-		led0: led-0 {
-			function = LED_FUNCTION_INDICATOR;
-			color = <LED_COLOR_ID_BLUE>;
+		blue {
+			label = "pinephone:blue:user";
 			gpios = <&pio 3 20 GPIO_ACTIVE_HIGH>; /* PD20 */
-			retain-state-suspended;
-			linux,default-trigger = "heartbeat";
 		};
 
-		led1: led-1 {
-			function = LED_FUNCTION_INDICATOR;
-			color = <LED_COLOR_ID_GREEN>;
+		green {
+			label = "pinephone:green:user";
 			gpios = <&pio 3 18 GPIO_ACTIVE_HIGH>; /* PD18 */
-			retain-state-suspended;
 		};
 
-		led2: led-2 {
-			function = LED_FUNCTION_INDICATOR;
-			color = <LED_COLOR_ID_RED>;
+		red {
+			label = "pinephone:red:user";
 			gpios = <&pio 3 19 GPIO_ACTIVE_HIGH>; /* PD19 */
-			retain-state-suspended;
 		};
-	};
-
-	multi-led {
-		compatible = "leds-group-multicolor";
-		color = <LED_COLOR_ID_RGB>;
-		function = LED_FUNCTION_INDICATOR;
-		leds = <&led0>, <&led1>, <&led2>;
-	};
-
-	reg_ps: ps-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "ps";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
-		regulator-boot-on;
 	};
 
 	reg_usb0_vbus: usb0-vbus {
@@ -137,17 +116,6 @@
 		enable-active-high;
 	};
 
-	sgm3140: led-controller {
-		compatible = "sgmicro,sgm3140";
-		vin-supply = <&reg_dcdc1>;
-
-		sgm3140_flash: led {
-			function = LED_FUNCTION_FLASH;
-			color = <LED_COLOR_ID_WHITE>;
-			flash-max-timeout-us = <250000>;
-		};
-	};
-
 	speaker_amp: audio-amplifier {
 		compatible = "simple-audio-amplifier";
 		enable-gpios = <&pio 2 7 GPIO_ACTIVE_HIGH>; /* PC7 */
@@ -188,42 +156,6 @@
 	cpu-supply = <&reg_dcdc2>;
 };
 
-&dai {
-	status = "okay";
-};
-
-&de {
-	status = "okay";
-};
-
-&dphy {
-	status = "okay";
-};
-
-&dsi {
-	vcc-dsi-supply = <&reg_dldo1>;
-	status = "okay";
-
-	panel@0 {
-		compatible = "xingbangda,xbd599";
-		reg = <0>;
-		reset-gpios = <&pio 3 23 GPIO_ACTIVE_LOW>; /* PD23 */
-		iovcc-supply = <&reg_dldo2>;
-		vcc-supply = <&reg_ldo_io0>;
-		backlight = <&backlight>;
-	};
-};
-
-&ehci0 {
-	/delete-property/ phys;
-	/delete-property/ phy-names;
-	status = "okay";
-};
-
-&ehci1 {
-	status = "okay";
-};
-
 &csi {
 	pinctrl-0 = <&csi_pins>, <&csi_mclk_pin>;
 	status = "okay";
@@ -242,6 +174,40 @@
 			pclk-sample = <1>;  /* Rising */
 		};
 	};
+};
+
+&dai {
+	status = "okay";
+};
+
+&de {
+	status = "okay";
+};
+
+&dphy {
+	status = "okay";
+};
+
+&dsi {
+	vcc-dsi-supply = <&reg_dldo1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "xingbangda,xbd599";
+		reg = <0>;
+		reset-gpios = <&pio 3 23 GPIO_ACTIVE_LOW>; /* PD23 */
+		backlight = <&backlight>;
+	};
+};
+
+&ehci0 {
+	status = "okay";
+};
+
+&ehci1 {
+	status = "okay";
 };
 
 &i2c_csi {
@@ -294,55 +260,36 @@
 	pinctrl-0 = <&i2c1_pins>;
 	status = "okay";
 
-	/* Alternative magnetometer */
-	af8133j: magnetometer@1c {
-		compatible = "voltafield,af8133j";
-		reg = <0x1c>;
-		reset-gpios = <&pio 1 1 GPIO_ACTIVE_LOW>;
-		avdd-supply = <&reg_dldo1>;
-		dvdd-supply = <&reg_dldo1>;
-		mount-matrix = "0", "-1", "0",
-				"-1", "0", "0",
-				"0", "0", "-1";
-
-		/* status will be fixed up in firmware */
-		status = "disabled";
-	};
-
 	/* Magnetometer */
-	lis3mdl: magnetometer@1e {
+	lis3mdl@1e {
 		compatible = "st,lis3mdl-magn";
 		reg = <0x1e>;
 		vdd-supply = <&reg_dldo1>;
 		vddio-supply = <&reg_dldo1>;
-		mount-matrix = "0", "1", "0",
-				"-1", "0", "0",
-				"0", "0", "1";
 	};
 
 	/* Light/proximity sensor */
-	light-sensor@48 {
+	stk3311@48 {
 		compatible = "sensortek,stk3311";
 		reg = <0x48>;
 		interrupt-parent = <&pio>;
 		interrupts = <1 0 IRQ_TYPE_EDGE_FALLING>; /* PB0 */
+		vdd-supply = <&reg_ldo_io0>;
+		leda-supply = <&reg_dldo1>;
 	};
 
 	/* Accelerometer/gyroscope */
-	accelerometer@68 {
+	mpu6050@68 {
 		compatible = "invensense,mpu6050";
 		reg = <0x68>;
 		interrupt-parent = <&pio>;
 		interrupts = <7 5 IRQ_TYPE_EDGE_RISING>; /* PH5 */
 		vdd-supply = <&reg_dldo1>;
 		vddio-supply = <&reg_dldo1>;
-		mount-matrix = "0", "1", "0",
-			       "-1", "0", "0",
-			       "0", "0", "1";
 	};
 };
 
-/* Connected to pogo pins (external spring based pinheader for user addons) */
+/* Connected to pogo pins */
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
@@ -351,7 +298,6 @@
 
 &lradc {
 	vref-supply = <&reg_aldo3>;
-	wakeup-source;
 	status = "okay";
 
 	button-200 {
@@ -410,8 +356,6 @@
 };
 
 &ohci0 {
-	/delete-property/ phys;
-	/delete-property/ phy-names;
 	status = "okay";
 };
 
@@ -450,19 +394,27 @@
 		compatible = "x-powers,axp803";
 		reg = <0x3a3>;
 		interrupt-parent = <&r_intc>;
-		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
 #include "axp803.dtsi"
+
+&ac_power_supply {
+	status = "okay";
+};
+
+&axp_adc {
+	x-powers,ts-as-gpadc;
+};
 
 &battery_power_supply {
 	status = "okay";
 };
 
 &reg_aldo1 {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
 	regulator-name = "dovdd-csi";
 };
 
@@ -475,8 +427,8 @@
 
 &reg_aldo3 {
 	regulator-always-on;
-	regulator-min-microvolt = <3000000>;
-	regulator-max-microvolt = <3000000>;
+	regulator-min-microvolt = <2700000>;
+	regulator-max-microvolt = <3300000>;
 	regulator-name = "vcc-pll-avcc";
 };
 
@@ -511,14 +463,16 @@
 };
 
 &reg_dldo1 {
+	regulator-always-on;
 	regulator-min-microvolt = <3300000>;
 	regulator-max-microvolt = <3300000>;
 	regulator-name = "vcc-dsi-sensor";
 };
 
 &reg_dldo2 {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
 	regulator-name = "vcc-mipi-io";
 };
 
@@ -530,7 +484,7 @@
 
 &reg_dldo4 {
 	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
+	regulator-max-microvolt = <3300000>;
 	regulator-name = "vcc-wifi-io";
 };
 
@@ -561,6 +515,7 @@
 };
 
 &reg_ldo_io0 {
+	regulator-always-on;
 	regulator-min-microvolt = <3300000>;
 	regulator-max-microvolt = <3300000>;
 	regulator-name = "vcc-lcd-ctp-stk";
@@ -580,7 +535,6 @@
 
 &sound {
 	status = "okay";
-	simple-audio-card,name = "PinePhone";
 	simple-audio-card,aux-devs = <&codec_analog>, <&speaker_amp>;
 	simple-audio-card,widgets = "Microphone", "Headset Microphone",
 				    "Microphone", "Internal Microphone",
@@ -594,10 +548,10 @@
 			"Internal Speaker", "Speaker Amp OUTR",
 			"Speaker Amp INL", "LINEOUT",
 			"Speaker Amp INR", "LINEOUT",
-			"Left DAC", "DACL",
-			"Right DAC", "DACR",
-			"ADCL", "Left ADC",
-			"ADCR", "Right ADC",
+			"Left DAC", "DAC Left",
+			"Right DAC", "DAC Right",
+			"ADC Left", "Left ADC",
+			"ADC Right", "Right ADC",
 			"Internal Microphone", "MBIAS",
 			"MIC1", "Internal Microphone",
 			"Headset Microphone", "HBIAS",
@@ -621,9 +575,11 @@
 
 	simple-audio-card,dai-link@2 {
 		format = "dsp_a";
-		frame-master = <&link2_codec>;
-		bitclock-master = <&link2_codec>;
+		frame-master = <&link2_cpu>;
+		bitclock-master = <&link2_cpu>;
 		bitclock-inversion;
+		frame-inversion;
+		codec-to-codec;
 
 		link2_cpu: cpu {
 			sound-dai = <&bt_sco_codec 0>;
@@ -631,8 +587,6 @@
 
 		link2_codec: codec {
 			sound-dai = <&codec 2>;
-			dai-tdm-slot-num = <1>;
-			dai-tdm-slot-width = <32>;
 		};
 	};
 };
@@ -650,14 +604,13 @@
 
 	bluetooth {
 		compatible = "realtek,rtl8723cs-bt";
+		reset-gpios = <&r_pio 0 4 GPIO_ACTIVE_LOW>; /* PL4 */
 		device-wake-gpios = <&pio 7 6 GPIO_ACTIVE_LOW>; /* PH6 */
-		enable-gpios = <&r_pio 0 4 GPIO_ACTIVE_HIGH>; /* PL4 */
 		host-wake-gpios = <&r_pio 0 5 GPIO_ACTIVE_HIGH>; /* PL5 */
 		firmware-postfix = "pinebook";
 	};
 };
 
-/* Connected to the modem (hardware flow control can't be used) */
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_pins>;
@@ -674,5 +627,6 @@
 };
 
 &usbphy {
+	usb1_vbus-supply = <&reg_vbat_bb>;
 	status = "okay";
 };
