@@ -1785,7 +1785,8 @@ static void handle_white_list_exports(const char *white_list)
 	buf = read_text_file(white_list);
 	p = buf;
 
-	while ((name = strsep(&p, "\n"))) {
+	/* don't use strsep here, it is not available everywhere */
+	while ((name = get_line(&p))) {
 		struct symbol *sym = find_symbol(name);
 
 		if (sym)
