@@ -28,6 +28,14 @@
 #include "modpost.h"
 #include "../../include/linux/license.h"
 
+/* define our local strchrnul, it is not available everywhere */
+static char *strchrnul(const char *s, int c)
+{
+	while (*s && *s != (char)c)
+		s++;
+	return (char *)s;
+}
+
 #define MODULE_NS_PREFIX "module:"
 
 static bool module_enabled;
