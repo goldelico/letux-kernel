@@ -19,7 +19,7 @@
 
 /* CGU register offsets */
 #define CGU_REG_CPCCR			0x00
-#define CGU_REG_LCR				0x04
+#define CGU_REG_LCR			0x04
 #define CGU_REG_CPPCR			0x0c
 #define CGU_REG_CPAPCR			0x10
 #define CGU_REG_CPMPCR			0x14
@@ -81,7 +81,7 @@
 
 /* bits within the OPCR register */
 #define OPCR_GATE_USBPHYCLK		BIT(23)
-#define OPCR_SPENDN				BIT(7)
+#define OPCR_SPENDN0				BIT(7)
 
 /* bits within the CLKGR1 register */
 #define CLKGR1_I2S0				BIT(8)
@@ -242,7 +242,7 @@ static int x2000_usb_phy_enable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr	= cgu->base + CGU_REG_OPCR;
 
-	writel((readl(reg_opcr) | OPCR_SPENDN) & ~OPCR_GATE_USBPHYCLK, reg_opcr);
+	writel((readl(reg_opcr) | OPCR_SPENDN0) & ~OPCR_GATE_USBPHYCLK, reg_opcr);
 
 	return 0;
 }
@@ -251,20 +251,27 @@ static void x2000_usb_phy_disable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr	= cgu->base + CGU_REG_OPCR;
 
-	writel((readl(reg_opcr) & ~OPCR_SPENDN) | OPCR_GATE_USBPHYCLK, reg_opcr);
+	writel((readl(reg_opcr) & ~OPCR_SPENDN0) | OPCR_GATE_USBPHYCLK, reg_opcr);
 }
 
 static int x2000_usb_phy_is_enabled(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr	= cgu->base + CGU_REG_OPCR;
 
-	return !!(readl(reg_opcr) & OPCR_SPENDN);
+	return (readl(reg_opcr) & (OPCR_SPENDN0 | OPCR_GATE_USBPHYCLK)) == OPCR_SPENDN0;
+}
+
+static u8 x2000_usb_phy_get_parent(struct clk_hw *hw)
+{
+	(void) hw;
+	return 0;
 }
 
 static const struct clk_ops x2000_otg_phy_ops = {
 	.enable = x2000_usb_phy_enable,
 	.disable = x2000_usb_phy_disable,
-	.is_enabled	= x2000_usb_phy_is_enabled,
+	.is_enabled = x2000_usb_phy_is_enabled,
+	.get_parent = x2000_usb_phy_get_parent,
 };
 
 static const s8 pll_od_encoding[64] = {
@@ -284,6 +291,7 @@ static const struct ingenic_cgu_clk_info x2000_cgu_clocks[] = {
 
 	[X2000_CLK_EXCLK] = { "ext", CGU_CLK_EXT },
 	[X2000_CLK_RTCLK] = { "rtc", CGU_CLK_EXT },
+	[X2000_CLK_12M] = { "clk12m", CGU_CLK_EXT },
 
 	/* PLLs */
 
@@ -435,8 +443,6 @@ static const struct ingenic_cgu_clk_info x2000_cgu_clocks[] = {
 		},
 	},
 
-	/* Custom (SoC-specific) OTG PHY */
-
 	[X2000_CLK_CPU] = {
 		"cpu", CGU_CLK_CUSTOM,
 		.flags = CLK_IS_CRITICAL,
@@ -444,9 +450,11 @@ static const struct ingenic_cgu_clk_info x2000_cgu_clocks[] = {
 		.custom = { &x2000_cpu_ops },
 	},
 
+	/* Custom (SoC-specific) OTG PHY */
+
 	[X2000_CLK_OTGPHY] = {
 		"otg_phy", CGU_CLK_CUSTOM,
-		.parents = { X2000_CLK_EXCLK, -1, -1, -1 },
+		.parents = { X2000_CLK_12M, -1, -1, -1 },
 		.custom = { &x2000_otg_phy_ops },
 	},
 
