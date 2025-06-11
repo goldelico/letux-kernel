@@ -760,7 +760,7 @@ static void lbs_tx_lockup_handler(struct timer_list *t)
  */
 static void auto_deepsleep_timer_fn(struct timer_list *t)
 {
-	struct lbs_private *priv = from_timer(priv, t, auto_deepsleep_timer);
+	struct lbs_private *priv = timer_container_of(priv, t, auto_deepsleep_timer);
 
 	if (priv->is_activity_detected) {
 		priv->is_activity_detected = 0;
