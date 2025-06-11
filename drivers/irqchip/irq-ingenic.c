@@ -95,7 +95,7 @@ static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 		while (pending) {
 			int bit = __fls(pending);
 
-			irq = irq_linear_revmap(intc->domain, bit + (i * 32));
+			irq = irq_find_mapping(intc->domain, bit + (i * 32));
 			generic_handle_irq(irq);
 			pending &= ~BIT(bit);
 		}
