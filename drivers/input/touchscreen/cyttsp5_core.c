@@ -2542,7 +2542,7 @@ queue_startup:
 
 static void cyttsp5_watchdog_timer(struct timer_list *t)
 {
-	struct cyttsp5_core_data *cd = from_timer(cd, t, watchdog_timer);
+	struct cyttsp5_core_data *cd = timer_container_of(cd, t, watchdog_timer);
 
 	if (!cd)
 		return;
