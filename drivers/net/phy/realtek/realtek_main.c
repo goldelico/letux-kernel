@@ -517,34 +517,6 @@ static int rtl8211c_config_init(struct phy_device *phydev)
 			    CTL1000_ENABLE_MASTER | CTL1000_AS_MASTER);
 }
 
-static int rtl8211f_set_wol(struct phy_device *phydev,
-		struct ethtool_wolinfo *wol)
-{
-	struct net_device *netdev = phydev->attached_dev;
-	const u8 *mac = (const u8 *)netdev->dev_addr;
-
-	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_UCAST))
-		return -EOPNOTSUPP;
-
-	if (wol->wolopts & WAKE_UCAST) {
-		phy_write_paged(phydev, 0xd8c, 0x10, (mac[1] << 8) | mac[0]);
-		phy_write_paged(phydev, 0xd8c, 0x11, (mac[3] << 8) | mac[2]);
-		phy_write_paged(phydev, 0xd8c, 0x12, (mac[5] << 8) | mac[4]);
-	}
-
-	if (wol->wolopts & WAKE_MAGIC) {
-		/* Set magic packet */
-		phy_write_paged(phydev, 0xd8a, 0x10, 0x1000);
-		phy_write_paged(phydev, 0xd8a, 0x11, 0x9fff);
-	} else {
-		/* Reset magic packet */
-		phy_write_paged(phydev, 0xd8a, 0x10, 0);
-		phy_modify_paged(phydev, 0xd8a, 0x11, BIT(15), 0);
-	}
-
-	return 0;
-}
-
 static int rtl8211f_config_init(struct phy_device *phydev)
 {
 	struct rtl821x_priv *priv = phydev->priv;
@@ -1650,7 +1622,6 @@ static struct phy_driver realtek_drvs[] = {
 		.get_wol	= rtl8211f_get_wol,
 		.suspend	= rtl821x_suspend,
 		.resume		= rtl821x_resume,
-		.set_wol	= rtl8211f_set_wol,
 		.read_page	= rtl821x_read_page,
 		.write_page	= rtl821x_write_page,
 		.flags		= PHY_ALWAYS_CALL_SUSPEND,
