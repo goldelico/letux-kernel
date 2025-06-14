@@ -12,7 +12,7 @@ cat >cpu-speed-core.c <<END
 #include <sys/time.h>
 #include <time.h>
 
-#define LOOPS	5000
+#define LOOPS		5000		// trim so that omap5/rk3568 needs ca. 2 - 10 seconds
 #define MAXPRIME	1000
 
 unsigned total_primes = 0;
@@ -20,7 +20,7 @@ int numthreads;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 unsigned int primes[MAXPRIME/2*LOOPS];
 
-int calculate(int first)
+void calculate(int first)
 {
 	unsigned int candidate;
 	for(candidate=first; candidate < MAXPRIME; candidate+=2*numthreads)
@@ -42,20 +42,17 @@ int calculate(int first)
 				exit(1);
 				}
 			primes[total_primes++]=candidate;
-			total_primes++;
 			pthread_mutex_unlock(&mutex);
 			}
 		}
-	return total_primes;
 }
 
 void *thread_function(void *arg)
 {
-	int num=(uintptr_t) arg;
+	int num=(uintptr_t) arg;	// 0..numthreads-1
 	int loop;
-// trim so that omap5/rk3568 needs ca. 2 - 10 seconds
 	for(loop=0; loop < LOOPS; loop++)
-		calculate(2*num+1);	// try 1 3 5 7...
+		calculate(2*num+1);	// try 1 3 5 7 for 4 threads
 }
 
 int main(int argc, char *argv[])
@@ -65,7 +62,7 @@ int main(int argc, char *argv[])
 	struct timeval start, end;
 	numthreads=argv[1] ? atoi(argv[1]) : 1;
 	printf("Number of threads: %u\n", numthreads);
-	printf("Prime numbers limit: %u\n", MAXPRIME);
+	printf("Number of loops: %u\n", LOOPS);
 	gettimeofday(&start, NULL);
 	// run $1 threads in parallel
 	for(t=0; t < numthreads; t++)
@@ -86,7 +83,8 @@ int main(int argc, char *argv[])
 		end.tv_sec-=1;
 		}
 	end.tv_sec-=start.tv_sec;
-	printf("execution time : %d.%06d\n", end.tv_sec, end.tv_usec);
+	printf("Total primes: %u in range 1..%u\n", total_primes/LOOPS+1, MAXPRIME);	// 2 is also prime but not sieved
+	printf("Execution time : %d.%06d\n", end.tv_sec, end.tv_usec);
 	exit(0);
 }
 END
