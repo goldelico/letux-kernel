@@ -56,10 +56,16 @@
 
 #elif APPLICATION >= 294
 
-&i2c1 {
-#define I2C i2c1
-// setup pinctrl
+&i2c0 {
+#define I2C i2c0
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pb>;
+	// bus frequency 400 kHz?
 	status = "ok";
+};
+
+&i2c1 {
+	status = "disabled";
 };
 
 / {
@@ -76,6 +82,15 @@
 #endif
 
 #if APPLICATION >= 293
+/ {
+	ref25: xtal {
+		compatible = "fixed-clock";
+		clock-output-names ="ref";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
 &I2C {
 	clkgen: clock-generator@60 {
 		compatible = "silabs,si5351a-msop";	// 10-MSOP package has just 3 clock outputs
@@ -85,7 +100,7 @@
 		#clock-cells = <1>;
 
 		/* Connect XTAL input to 25MHz reference */
-// tbd.		clocks = <&ref25>;
+		clocks = <&ref25>;
 		clock-names = "xtal";
 
 		/* Use XTAL input as source of PLL0 and PLL1 */
@@ -142,21 +157,23 @@
 
 #if APPLICATION >= 294
 &I2C {
-	exp_leds: tca6408-leds {
+	exp_leds: tca6408-leds@20 {
 		compatible = "ti,tca6408";
 		reg = <0x20>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		#gpio-cells = <2>;
 	};
 
-	cic: tca6408-cic {
+	cic: tca6408-cic@21 {
 		compatible = "ti,tca6408";
 		reg = <0x21>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		#gpio-cells = <2>;
 	};
 
-	// rewire ESP32 enable
+	// rewire ESP32 enable as exp_leds pin 7
 };
 #endif
 
