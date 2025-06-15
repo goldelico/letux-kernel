@@ -57,7 +57,7 @@
 	};
 
 	ost: timer@12000000 {
-		compatible = "ingenic,x1000-ost";
+		compatible = "ingenic,x1600-ost";
 		reg = <0x12000000 0x3c>;
 
 		interrupt-controller;
