@@ -90,6 +90,28 @@
 		      reg = <0x02000000 0x20000>;
 		};
 	};
+
+	vcc: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc";
+
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	vbus_en: drvvbus_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "drive-vbus";
+
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpe 22 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
 };
 
 &pdma {
@@ -658,19 +680,6 @@
 #endif
 };
 
-&otg {
-	g-use-dma;
-	dr_mode = "otg"; // host,peripheral,otg
-	dr_mode = "peripheral"; // host,peripheral,otg
-	device-using-dma = <1>;
-	status = "okay";
-};
-
-&otg_phy {
-	status = "okay";
-//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
-};
-
 &aic {
 	status = "disabled";
 	pinctrl-names = "default";
@@ -682,6 +691,22 @@
 };
 
 #endif
+
+&otg {
+	g-use-dma;
+	dr_mode = "otg"; // host,peripheral,otg
+	dr_mode = "peripheral"; // host,peripheral,otg
+	device-using-dma = <1>;
+	status = "okay";
+	vbus-supply = <&vbus_en>;
+};
+
+&otg_phy {
+	status = "okay";
+//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
+	vcc-supply = <&vcc>;
+	phy-supply = <&vcc>;
+};
 
 / {
 	leds: leds {
