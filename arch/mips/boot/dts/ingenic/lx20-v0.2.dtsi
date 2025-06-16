@@ -707,6 +707,22 @@
 	phy-supply = <&vcc>;
 };
 
+&otg {
+	g-use-dma;
+	dr_mode = "otg"; // host,peripheral,otg
+	dr_mode = "peripheral"; // host,peripheral,otg
+	device-using-dma = <1>;
+	status = "okay";
+	vbus-supply = <&vbus_en>;
+};
+
+&otg_phy {
+	status = "okay";
+//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
+	vcc-supply = <&vcc>;
+	phy-supply = <&vcc>;
+};
+
 / {
 	leds: leds {
 #if PWM_LED	// CHECKME: can the X2000 drive the LED pins by PWM?
