@@ -165,8 +165,6 @@
 				 <&cgu X1600_CLK_PCLK>;
 			clock-names = "rtc", "ext", "pclk";
 
-			system-power-controller;
-			power-on-press-ms = <1000>;
 			status = "okay";
 		};
 
