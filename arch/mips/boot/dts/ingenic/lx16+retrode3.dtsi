@@ -86,6 +86,8 @@
 
 &I2C {
 	clkgen: clock-generator@60 {
+		status = "okay";
+
 		compatible = "silabs,si5351a-msop";	// 10-MSOP package has just 3 clock outputs
 		reg = <0x60>;	// 61?
 		#address-cells = <1>;
@@ -151,6 +153,8 @@
 #if APPLICATION >= 294
 &I2C {
 	exp_leds: tca6408-leds@20 {
+		status = "okay";
+
 		compatible = "ti,tca6408";
 		reg = <0x20>;
 		#address-cells = <1>;
@@ -159,6 +163,8 @@
 	};
 
 	cic: tca6408-cic@21 {
+		status = "okay";
+
 		compatible = "ti,tca6408";
 		reg = <0x21>;
 		#address-cells = <1>;
@@ -171,43 +177,57 @@
 #endif
 
 &leds {
-	led-0 {
+	heartbeat: led-0 {
+		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_HEARTBEAT;
+#if APPLICATION < 294
+		gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_RED>;
+#else
+		gpios = <&exp_leds 0 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
+#endif
 	};
 
 #if APPLICATION >= 292
 
-	led-1 {
+	status: led-1 {
+		linux,default-trigger = "mmc0";
 		function = LED_FUNCTION_MTD;
+		function-enumerator = <0>;
+#if APPLICATION < 294
+		// FIXME: gpios = <&gpc 1 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_YELLOW>;
-	};
 #else
-	/delete-node/ led-1;
+		gpios = <&exp_leds 1 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
+#endif
+	};
 #endif
 
-#if APPLICATION >= 292
+#if APPLICATION >= 292 && APPLICATION <= 293
 
 	sd_led: led-2 {
 		linux,default-trigger = "mmc1";
-		function = LED_FUNCTION_MTD;
-		color = <LED_COLOR_ID_GREEN>;
-#if APPLICATION < 294
+		function = LED_FUNCTION_WLAN;
+		function-enumerator = <1>;
 		gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-#else
-		gpios = <&exp_leds 2 GPIO_ACTIVE_HIGH>;
-#endif
+		color = <LED_COLOR_ID_GREEN>;
 	};
+#endif
+
+#if APPLICATION >= 292
 
 	snes_led: led-3 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
-		color = <LED_COLOR_ID_GREEN>;
 		function-enumerator = <0>;	// match slot number
 #if APPLICATION < 294
 		gpios = <&gpb 9 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
 #else
 		gpios = <&exp_leds 4 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_BLUE>;
 #endif
 	};
 
@@ -215,23 +235,25 @@
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
 		function-enumerator = <1>;	// match slot number
-		color = <LED_COLOR_ID_GREEN>;
 #if APPLICATION < 294
 		gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
 #else
 		gpios = <&exp_leds 5 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_BLUE>;
 #endif
 	};
 
 	nes_led: led-5 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
-		color = <LED_COLOR_ID_GREEN>;
 		function-enumerator = <2>;	// match slot number
 #if APPLICATION < 294
 		gpios = <&gpb 8 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
 #else
 		gpios = <&exp_leds 6 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_BLUE>;
 #endif
 	};
 #endif	// APPLICATION >= 292
