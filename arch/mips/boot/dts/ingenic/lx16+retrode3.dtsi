@@ -37,21 +37,30 @@
 #endif
 };
 
+// no SPI
+#if SPI_BITBANG
+	/delete-node/ bitbang;	// may be the spi bitbang node
+#else
+&spi0 {
+	status = "disabled";
+};
+#endif
+
+// I2C setup
+&i2c1 {
+	status = "disabled";
+};
+
 #if APPLICATION == 293
 / {
 #define I2C i2c_gpio
-	/delete-node/ bitbang;	// may be the spi bitbang node
-	i2c_gpio: bitbang {
+	i2c_gpio: I2C {
 		compatible = "i2c-gpio";
 		sda-gpios = <&gpc 25 GPIO_ACTIVE_HIGH>;
 		scl-gpios = <&gpc 26 GPIO_ACTIVE_HIGH>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
-};
-
-&i2c1 {
-	status = "disabled";
 };
 
 #elif APPLICATION >= 294
@@ -62,22 +71,6 @@
 	pinctrl-0 = <&i2c0_pb>;
 	// bus frequency 400 kHz?
 	status = "ok";
-};
-
-&i2c1 {
-	status = "disabled";
-};
-
-/ {
-	/delete-node/ spi_gpio;
-};
-
-#elif APPLICATION <= 292
-&spi0 {
-	status = "disabled";
-};
-/ {
-	/delete-node/ bitbang;
 };
 #endif
 
