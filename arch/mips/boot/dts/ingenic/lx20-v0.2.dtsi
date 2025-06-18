@@ -694,8 +694,7 @@
 
 &otg {
 	g-use-dma;
-	dr_mode = "otg"; // host,peripheral,otg
-	dr_mode = "peripheral"; // host,peripheral,otg
+	dr_mode = "peripheral";
 	device-using-dma = <1>;
 	status = "okay";
 	vbus-supply = <&vbus_en>;
