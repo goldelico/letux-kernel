@@ -169,10 +169,6 @@
 
 		clocks = <&cgu X2000_CLK_RTCLK>;
 		clock-names = "rtc";
-
-		system-power-controller;
-		power-on-press-ms = <1000>;
-		status = "okay";
 	};
 
 	pinctrl: pin-controller@10010000 {
