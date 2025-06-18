@@ -200,7 +200,7 @@
 	};
 };
 
-#if 0
+#if MATERIAL	// from lx16.dts
 &pinctrl {
 	uart0_pb: uart0-pb {
 		function = "uart0";
@@ -422,9 +422,9 @@
 			       <100000000>;
 };
 
-#endif
+#endif	// old stuff from LX16
 
-#if 0
+#ifdef UART0_1	// UART0/1
 &uart0 {
 	status = "okay";
 	pinctrl-names = "default";
@@ -441,7 +441,7 @@
 #endif
 };
 
-#endif
+#endif	// UART0/1
 
 &uart2 {
 	status = "okay";
@@ -455,7 +455,7 @@
 	pinctrl-0 = <&pins_uart3>;
 };
 
-#if 0	// from lx16-v0.1.dtsi
+#ifdef MATERIAL	// old stuff from lx16-v0.1.dtsi
 
 &cpufreq {
 	status = "okay";
@@ -690,7 +690,7 @@
 	status = "disabled";
 };
 
-#endif
+#endif	// old stuff from lx16-v0.1.dtsi
 
 &otg {
 	g-use-dma;
@@ -710,7 +710,7 @@
 
 / {
 	leds: leds {
-#if PWM_LED
+#if PWM_LED	// CHECKME: can the X2000 drive the LED pins by PWM?
 		compatible = "pwm-leds";
 
 		led-0 {
