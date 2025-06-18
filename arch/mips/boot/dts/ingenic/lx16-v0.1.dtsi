@@ -371,7 +371,6 @@
 
 &rtc_dev {
 	system-power-controller;
-	power-on-press-ms = <1000>;
 };
 
 &uart0 {
