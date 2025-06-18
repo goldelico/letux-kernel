@@ -62,3 +62,7 @@
 / {
 	model = "Letux LX20v0.3";
 };
+
+&otg {
+	dr_mode = "otg"; // v0.3 has hardware for DRP/OTG mode
+};
