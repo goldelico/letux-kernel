@@ -118,6 +118,10 @@
 	status = "okay";
 };
 
+&rtc {
+	system-power-controller;	/* can control power regulators */
+};
+
 &msc0 {
 	status = "disabled";
 
