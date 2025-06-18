@@ -369,6 +369,10 @@
 			       <100000000>;
 };
 
+&rtc_dev {
+	system-power-controller;
+};
+
 &uart0 {
 	status = "okay";
 	pinctrl-names = "default";
