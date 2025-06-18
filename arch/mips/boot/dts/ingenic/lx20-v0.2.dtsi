@@ -118,6 +118,10 @@
 	status = "okay";
 };
 
+&rtc {
+	system-power-controller;	/* can control power regulators */
+};
+
 &msc0 {
 	status = "disabled";
 
@@ -543,10 +547,6 @@
 	#size-cells = <0>;
 
 	voltage-ranges = <1800 3300>;	// hardware doesn't support!
-};
-
-&rtc {
-	system-power-controller;	/* can control power regulators */
 };
 
 &uart1 {
