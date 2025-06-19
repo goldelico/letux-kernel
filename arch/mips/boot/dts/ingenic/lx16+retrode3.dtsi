@@ -26,15 +26,18 @@
 #elif APPLICATION == 294
 	compatible = "openpandora,retrode294", "ingenic,x1600";
 	model = "Openpandora Retrode-2.9.4";
-/* FIXME: this does not work because lx16+retrode.dtsi is imported too late
-#undef LX16_REV
-#define LX16_REV	2	// 1 = v0.1, 2 = v0.2, 3=v0.3
-#undef LX16_W
-#define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
-*/
 #else
 #error unknown APPLICATION revision
 #endif
+};
+
+// no OTG
+/ {
+	/delete-node/ drvvbus_regulator;	// no power driver here
+};
+
+&otg {
+	dr_mode = "peripheral"; // host,peripheral,otg
 };
 
 // no SPI
