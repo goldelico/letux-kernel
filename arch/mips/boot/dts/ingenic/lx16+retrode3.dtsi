@@ -72,7 +72,7 @@
 #define I2C i2c0
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c0_pb>;
-	// bus frequency 400 kHz?
+        clock-frequency = <400000>;
 	status = "ok";
 };
 #endif
