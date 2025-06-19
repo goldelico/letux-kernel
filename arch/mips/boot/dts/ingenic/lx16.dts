@@ -10,7 +10,7 @@
 
 /* overwrites for Retrode3 */
 #undef LX16_REV
-#define LX16_REV	2	// based on Rev 2
+#define LX16_REV	2	// Retrode is based on LX16 Rev 2
 #if APPLICATION <= 293
 #undef SPI_BITBANG
 #define SPI_BITBANG	1	// default to bitbang SPI
