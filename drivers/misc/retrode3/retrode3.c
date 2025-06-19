@@ -259,6 +259,7 @@ static int retrode3_probe(struct platform_device *pdev)
         struct retrode3_bus *bus;
         int i = 0;
 	struct device_node *slots, *child = NULL;
+#define dev_dbg dev_info
 
         dev_dbg(&pdev->dev, "%s\n", __func__);
 
@@ -271,28 +272,44 @@ static int retrode3_probe(struct platform_device *pdev)
         if (bus == NULL)
                 return -ENOMEM;
 
-// printk("%s: a\n", __func__);
+printk("%s: a\n", __func__);
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
-// if (IS_ERR(bus->addrs)) usw...
-// printk("%s: addrs=%px\n", __func__, bus->addrs);
-	bus->current_addr = EOF - 1;	// bring all address gpios in a defined state
+printk("%s: addrs=%px\n", __func__, bus->addrs);
+	if (IS_ERR(bus->addrs))
+		return PTR_ERR(bus->addrs);
+	/* bring all address gpios in a defined state */
+	bus->current_addr = EOF - 1;
 	set_address(bus, 0);
+
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-// printk("%s: datas=%px\n", __func__, bus->datas);
+printk("%s: datas=%px\n", __func__, bus->datas);
+	if (IS_ERR(bus->datas))
+		return PTR_ERR(bus-> datas);
+
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-	gpiod_set_value(bus->oe, 0);	// make inactive
 // printk("%s: oe=%px\n", __func__, bus->oe);
+	if (IS_ERR(bus->oe))
+		return PTR_ERR(bus->oe);
 	gpiod_set_value(bus->oe, 0);	// turn inactive
+
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: we=%px\n", __func__, bus->we);
+	if (IS_ERR(bus->we))
+		return PTR_ERR(bus->we);
 	gpiod_set_value(bus->we->desc[0], 0);	// make both inactive
 	gpiod_set_value(bus->we->desc[1], 0);
+
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-	gpiod_set_value(bus->time, 0);	// make inactive
 // printk("%s: time=%px\n", __func__, bus->time);
+	if (IS_ERR(bus->time))
+		return PTR_ERR(bus->time);
+	gpiod_set_value(bus->time, 0);	// make inactive
+
 	bus->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: reset=%px\n", __func__, bus->reset);
+	if (IS_ERR(bus->reset))
+		return PTR_ERR(bus->reset);
 	gpiod_set_value(bus->reset, 0);	// make inactive
 
 #if 0
