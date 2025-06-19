@@ -272,20 +272,33 @@ static int retrode3_probe(struct platform_device *pdev)
         if (bus == NULL)
                 return -ENOMEM;
 
-printk("%s: a\n", __func__);
+printk("%s: a bus=%px\n", __func__, bus);
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
 printk("%s: addrs=%px\n", __func__, bus->addrs);
 	if (IS_ERR(bus->addrs))
 		return PTR_ERR(bus->addrs);
+	if (bus->addrs->ndescs != 24) {
+		dev_err(&pdev->dev, "Invalid number of address gpios (%d != 24)\n",
+			bus->addrs->ndescs);
+		return -EINVAL;
+	}
+printk("%s: addrs 1\n", __func__);
 	/* bring all address gpios in a defined state */
 	bus->current_addr = EOF - 1;
+printk("%s: addrs 2\n", __func__);
 	set_address(bus, 0);
+printk("%s: addrs 3\n", __func__);
 
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
 printk("%s: datas=%px\n", __func__, bus->datas);
 	if (IS_ERR(bus->datas))
 		return PTR_ERR(bus-> datas);
+	if (bus->addrs->ndescs != 16) {
+		dev_err(&pdev->dev, "Invalid number of data gpios (%d != 16)\n",
+			bus->datas->ndescs);
+		return -EINVAL;
+	}
 
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 // printk("%s: oe=%px\n", __func__, bus->oe);
@@ -297,6 +310,11 @@ printk("%s: datas=%px\n", __func__, bus->datas);
 // printk("%s: we=%px\n", __func__, bus->we);
 	if (IS_ERR(bus->we))
 		return PTR_ERR(bus->we);
+	if (bus->we->ndescs != 2) {
+		dev_err(&pdev->dev, "Invalid number of we gpios (%d != 2)\n",
+			bus->we->ndescs);
+		return -EINVAL;
+	}
 	gpiod_set_value(bus->we->desc[0], 0);	// make both inactive
 	gpiod_set_value(bus->we->desc[1], 0);
 
@@ -321,13 +339,6 @@ printk("%s: gdev=%px\n", __func__, bus->addrs->desc[0]->gdev);
 printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 #endif
 
-	if (bus->addrs->ndescs != 24 ||
-	    bus->datas->ndescs != 16 ||
-	    bus->we->ndescs != 2) {
-		dev_err(&pdev->dev, "Invalid number of gpios (addr=%d, data=%d, we=%d)\n",
-			bus->addrs->ndescs, bus->datas->ndescs, bus->we->ndescs);
-		return -EINVAL;
-	}
 #if 0
 {
 	struct gpio_chip *gc = bus->addrs->desc[0]->gdev->chip;
