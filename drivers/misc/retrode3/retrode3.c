@@ -298,7 +298,7 @@ static int retrode3_probe(struct platform_device *pdev)
 // printk("%s: datas=%px\n", __func__, bus->datas);
 	if (IS_ERR(bus->datas))
 		return PTR_ERR(bus-> datas);
-	if (bus->addrs->ndescs != 16) {
+	if (bus->datas->ndescs != 16) {
 		dev_err(&pdev->dev, "Invalid number of data gpios (%d != 16)\n",
 			bus->datas->ndescs);
 		return -EINVAL;
