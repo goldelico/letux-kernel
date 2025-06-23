@@ -194,16 +194,20 @@ static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D1
 	}
 }
 
-#define CONFIG_V293 y
+#define CONFIG_RETRODE3_MDSLOT 294
 
 static int get_slot_power_mV(struct retrode3_slot *slot)
 {
 	if(!slot || IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;
-#ifdef CONFIG_V293
+#if CONFIG_RETRODE3_MDSLOT == 294
+	return gpiod_get_value_cansleep(slot->power) ? 5000 : 3300;
+#elif CONFIG_RETRODE3_MDSLOT == 293
 	return gpiod_get_value(slot->power) ? 3300 : 5000;
-#else
+#elif CONFIG_RETRODE3_MDSLOT == 292
 	return gpiod_get_direction(slot->power) ? 3300 : 5000;
+#else
+	return -EINVAL
 #endif
 }
 
@@ -216,14 +220,22 @@ printk("%s: %dmV %px\n", __func__, mV, slot->power);
 
 	switch(mV) {
 		case 5000:
+#if CONFIG_RETRODE3_MDSLOT == 294
+			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.4 board
+#else
 			gpiod_direction_output(slot->power, 0);	// switch to output and strongly pull down
+#endif
 			break;
 		case 3300:
-#ifdef CONFIG_V293
+#if CONFIG_RETRODE3_MDSLOT == 294
+			gpiod_direction_output(slot->power, 0);	// switch to active output on v2.9.4 board
+#elif CONFIG_RETRODE3_MDSLOT == 293
 			return -EINVAL;	// broken
 			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.3 board
-#else
+#elif CONFIG_RETRODE3_MDSLOT == 292
 			gpiod_direction_input(slot->power);	// floating
+#else
+			return -EINVAL;
 #endif
 			break;
 		default:
