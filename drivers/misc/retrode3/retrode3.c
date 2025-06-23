@@ -45,6 +45,11 @@ static inline void set_bus_bit(struct gpio_desc *desc, int value)
 {
 #if 1
 	struct gpio_chip *gc = desc->gdev->chip;
+	// can we use set_multiple?
+printk("%s: %px set=$pS set_rv=%pS\n", __func__, gc, gc->set, gc->set);
+if(gc->set_rv)
+	(void) gc->set_rv(gc, gpio_chip_hwgpio(desc), value);	// new - but we still ignore errors
+else
 	gc->set(gc, gpio_chip_hwgpio(desc), value);
 #else
 	gpiod_set_value(desc, value);
@@ -60,11 +65,11 @@ static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 	if (addr >= EOF)
 		return -EINVAL;
 
-// printk("%s: %08x\n", __func__, addr);
+printk("%s: %08x\n", __func__, addr);
 
 	for (a = 0; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->current_addr) & (1 << a))	{ // address bit has really changed
-// printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
+printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 		}
 	}
