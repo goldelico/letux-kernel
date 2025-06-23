@@ -332,7 +332,7 @@ static int retrode3_probe(struct platform_device *pdev)
 // printk("%s: reset=%px\n", __func__, bus->reset);
 	if (IS_ERR(bus->reset))
 		return PTR_ERR(bus->reset);
-	gpiod_set_value(bus->reset, 0);	// make inactive
+	gpiod_set_value_cansleep(bus->reset, 0);	// make inactive
 
 #if 0
 printk("%s: 1\n", __func__);
