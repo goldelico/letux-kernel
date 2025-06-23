@@ -396,17 +396,7 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&slots>;
 
-			slot1 {
-				compatible = "openpandora,retrode3-slot-snes", "openpandora,retrode3-slot";
-				cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
-				ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
-#if APPLICATION >= 292
-				status-led = <&snes_led>;
-#endif
-				address-width = <18>;
-				bus-width = <8>;
-			};
-			slot2 {
+			slot0 {
 				compatible = "openpandora,retrode3-slot-megadrive", "openpandora,retrode3-slot";
 #if APPLICATION >= 294
 				power-gpio = <&exp_leds 3 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
@@ -421,7 +411,17 @@
 				address-width = <23>;
 				bus-width = <16>;
 			};
-			slot3 {
+			slot1 {
+				compatible = "openpandora,retrode3-slot-snes", "openpandora,retrode3-slot";
+				cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
+				ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
+				status-led = <&snes_led>;
+#endif
+				address-width = <18>;
+				bus-width = <8>;
+			};
+			slot2 {
 				compatible = "openpandora,retrode3-slot-nes", "openpandora,retrode3-slot";
 				cd-gpio = <&gpb 23 GPIO_ACTIVE_LOW>;
 				ce-gpio = <&gpb 24 GPIO_ACTIVE_LOW>;
@@ -431,7 +431,7 @@
 				address-width = <15>;
 				bus-width = <8>;	// effectively 8 + 8
 			};
-			slot4 {
+			slot3 {
 				compatible = "openpandora,retrode3-gamepads", "openpandora,retrode3-controller";
 				ce-gpio = <&gpb 22 GPIO_ACTIVE_LOW>;
 				left {
