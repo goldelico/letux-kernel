@@ -11,10 +11,13 @@
 /* Application Retread 3 */
 
 / {
-#if APPLICATION == 290
+// FIXME: split into lx16+retrode2.9.2.dtsi, 2.9.3.dtsi, 2.9.4.dtsi and overwrite real changes
+// move this #if APPLICATION to LX16 and only include the right version...
+
+#if false && APPLICATION == 290
 	compatible = "openpandora,retrode290", "ingenic,x1600";
 	model = "Openpandora Retrode-2.9.0";
-#elif APPLICATION == 291
+#elif false && APPLICATION == 291
 	compatible = "openpandora,retrode291", "ingenic,x1600";
 	model = "Openpandora Retrode-2.9.1";
 #elif APPLICATION == 292
@@ -174,8 +177,6 @@
 		#size-cells = <0>;
 		#gpio-cells = <2>;
 	};
-
-	// rewire ESP32 enable as exp_leds pin 7
 };
 #endif
 
@@ -264,6 +265,7 @@
 
 &pinctrl {
 	retrode3: retrode3 {
+#if APPLICATION < 294
 		// NOTE: x1600 pins can be either pull-up or pull-down (only some PC can pull down). Or bias-disable.
 		control { /* !WE0/1, !RD, !TIME, !RESET */
 			pins = "PB2", "PB3", "PB4", "PB5", "PB7";
@@ -274,9 +276,22 @@
 			       "PA16", "PA17", "PA18", "PA19", "PA20", "PA21", "PA22", "PA23";
 			bias-pull-up;
 		};
+#else
+		// NOTE: x1600 pins can be either pull-up or pull-down (only some PC can pull down). Or bias-disable.
+		control { /* !WE0/1, !RD, !TIME, !RESET */
+			pins = "PB8", "PB9", "PB7", "PB10";
+			bias-pull-up;
+		};
+		data { /* D0 .. D15 */
+			pins = "PA8", "PA9", "PA10", "PA11", "PA12", "PA13", "PA14", "PA15",
+			       "PA16", "PA17", "PA18", "PA19", "PA20", "PA21", "PA22", "PA23";
+			bias-pull-up;
+		};
+#endif
 	};
 
 	slots: slots {
+#if APPLICATION < 294
 		cart-detect { /* Cart Detects */
 			pins = "PB23", "PB25", "PB27";
 			bias-pull-up;
@@ -290,8 +305,26 @@
 			pins = "PC24";
 			bias-disable;
 		};
+#else
+		cart-detect { /* Cart Detects */
+			pins = "PB23", "PB25", "PB27";
+			bias-pull-up;
+//			input-schmitt-enable;	// not yet supported by driver
+		};
+		cart-enable { /* Cart Enables */
+			pins = "PB22", "PB24", "PB26", "PB28";
+			bias-pull-up;
+		};
+#endif
 	};
 };
+
+#if APPLICATION >= 294
+&wlan_pwrseq {
+	reset-gpios = <&exp_leds 7 GPIO_ACTIVE_LOW>;
+};
+
+#endif
 
 / {
 	retrode3 {
@@ -352,12 +385,11 @@
 		time-gpio =  <&gpb 5 GPIO_ACTIVE_LOW>;	// TIME
 		reset-gpio = <&gpb 7 GPIO_ACTIVE_LOW>;  // RESET
 #else
-// FIXME:
-		oe-gpio =    <&gpb 4 GPIO_ACTIVE_LOW>;	// OE/RD
-		we-gpios =   <&gpb 2 GPIO_ACTIVE_LOW>,	// LDSW
-			     <&gpb 3 GPIO_ACTIVE_LOW>;	// UDSW
-		time-gpio =  <&gpb 5 GPIO_ACTIVE_LOW>;	// TIME
-		reset-gpio = <&gpb 7 GPIO_ACTIVE_LOW>;  // RESET
+		oe-gpio =    <&gpb 7 GPIO_ACTIVE_LOW>;	// OE/RD
+		we-gpios =   <&gpb 8 GPIO_ACTIVE_LOW>,	// LDSW
+			     <&gpb 9 GPIO_ACTIVE_LOW>;	// UDSW
+		time-gpio =  <&gpb 10 GPIO_ACTIVE_LOW>;	// TIME
+		reset-gpio = <&exp_leds 2 GPIO_ACTIVE_LOW>;  // RESET
 #endif
 
 		slots {
@@ -376,7 +408,9 @@
 			};
 			slot2 {
 				compatible = "openpandora,retrode3-slot-megadrive", "openpandora,retrode3-slot";
-#if APPLICATION >= 292
+#if APPLICATION >= 294
+				power-gpio = <&exp_leds 3 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
+#elif APPLICATION >= 292
 				power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
 #endif
 				cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
