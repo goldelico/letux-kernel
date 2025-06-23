@@ -43,10 +43,10 @@ static inline int get_bus_bit(struct gpio_desc *desc)
 
 static inline void set_bus_bit(struct gpio_desc *desc, int value)
 {
-#if 1
+#if 1	// speed optimized direct call
 	struct gpio_chip *gc = desc->gdev->chip;
 	// can we use set_multiple?
-printk("%s: %px set=$pS set_rv=%pS\n", __func__, gc, gc->set, gc->set);
+// printk("%s: %px set=%pS set_rv=%pS\n", __func__, gc, gc->set, gc->set_rv);
 if(gc->set_rv)
 	(void) gc->set_rv(gc, gpio_chip_hwgpio(desc), value);	// new - but we still ignore errors
 else
@@ -62,14 +62,14 @@ static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 { /* set address on all gpios */
 	int a;
 
+// printk("%s: bus %px addr %08x\n", __func__, bus, addr);
+
 	if (addr >= EOF)
 		return -EINVAL;
 
-printk("%s: %08x\n", __func__, addr);
-
 	for (a = 0; a < bus->addrs->ndescs; a++) {
 		if ((addr ^ bus->current_addr) & (1 << a))	{ // address bit has really changed
-printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
+// printk("%s: %d -> %d\n", __func__, a, (addr >> a) & 1);
 			set_bus_bit(bus->addrs->desc[a], (addr >> a) & 1);
 		}
 	}
@@ -264,7 +264,6 @@ static int retrode3_probe(struct platform_device *pdev)
         struct retrode3_bus *bus;
         int i = 0;
 	struct device_node *slots, *child = NULL;
-#define dev_dbg dev_info
 
         dev_dbg(&pdev->dev, "%s\n", __func__);
 
@@ -277,10 +276,10 @@ static int retrode3_probe(struct platform_device *pdev)
         if (bus == NULL)
                 return -ENOMEM;
 
-printk("%s: a bus=%px\n", __func__, bus);
+// printk("%s: a bus=%px\n", __func__, bus);
 
 	bus->addrs = devm_gpiod_get_array(&pdev->dev, "addr", GPIOD_OUT_HIGH);
-printk("%s: addrs=%px\n", __func__, bus->addrs);
+// printk("%s: addrs=%px\n", __func__, bus->addrs);
 	if (IS_ERR(bus->addrs))
 		return PTR_ERR(bus->addrs);
 	if (bus->addrs->ndescs != 24) {
@@ -288,15 +287,15 @@ printk("%s: addrs=%px\n", __func__, bus->addrs);
 			bus->addrs->ndescs);
 		return -EINVAL;
 	}
-printk("%s: addrs 1\n", __func__);
+// printk("%s: addrs 1\n", __func__);
 	/* bring all address gpios in a defined state */
 	bus->current_addr = EOF - 1;
-printk("%s: addrs 2\n", __func__);
+// printk("%s: addrs 2\n", __func__);
 	set_address(bus, 0);
-printk("%s: addrs 3\n", __func__);
+// printk("%s: addrs 3\n", __func__);
 
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-printk("%s: datas=%px\n", __func__, bus->datas);
+// printk("%s: datas=%px\n", __func__, bus->datas);
 	if (IS_ERR(bus->datas))
 		return PTR_ERR(bus-> datas);
 	if (bus->addrs->ndescs != 16) {
