@@ -321,7 +321,7 @@
 
 #if APPLICATION >= 294
 &wlan_pwrseq {
-	reset-gpios = <&exp_leds 7 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&exp_leds 7 GPIO_ACTIVE_LOW>;	// RESET = low
 };
 
 #endif
@@ -399,7 +399,7 @@
 			slot0 {
 				compatible = "openpandora,retrode3-slot-megadrive", "openpandora,retrode3-slot";
 #if APPLICATION >= 294
-				power-gpio = <&exp_leds 3 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
+				power-gpio = <&exp_leds 3 GPIO_ACTIVE_LOW>;	// output high for 5V, output low/input/float for 3.3V
 #elif APPLICATION >= 292
 				power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
 #endif
