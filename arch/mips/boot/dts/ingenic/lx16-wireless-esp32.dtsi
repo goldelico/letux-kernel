@@ -2,9 +2,11 @@
 
 / {
 	wlan_pwrseq: wlan_pwrseq {
-		compatible = "mmc-pwrseq-simple";
+		compatible = "mmc-pwrseq-esp32";
 		reset-gpios = <&gpb 4 GPIO_ACTIVE_LOW>;
 		post-power-on-delay-ms = <2000>;
+		flashing-uart = "/dev/ttyS1";			// the tty port for console/flashing
+		flashing-gpio = <&gpb 5 GPIO_ACTIVE_LOW>;	// a GPIO to activate flashing
 	};
 };
 
