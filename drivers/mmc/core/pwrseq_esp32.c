@@ -31,6 +31,7 @@ struct mmc_pwrseq_esp32 {
 	u32 power_off_delay_us;
 	struct clk *ext_clk;
 	struct gpio_descs *reset_gpios;
+	struct gpio_desc *flashing_gpio;
 	struct reset_control *reset_ctrl;
 };
 
@@ -120,6 +121,90 @@ static const struct of_device_id mmc_pwrseq_esp32_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mmc_pwrseq_esp32_of_match);
 
+static void mmc_delay(unsigned int ms)
+{
+	if (ms <= 20)
+		usleep_range(ms * 1000, ms * 1250);
+	else
+		msleep(ms);
+}
+
+static ssize_t enable_flashing_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct mmc_pwrseq_esp32 *pwrseq = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", gpiod_get_value_cansleep(pwrseq->flashing_gpio));
+}
+
+static ssize_t enable_flashing_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{ /* here we can control the IO0 pin of the pwrseq directly for flashing purposes */
+	struct mmc_pwrseq_esp32 *pwrseq = dev_get_drvdata(dev);
+	unsigned int value = 0;
+	int err;
+
+	err = kstrtouint(buf, 10, &value);
+	if (err < 0)
+		return err;
+
+	err = gpiod_set_value_cansleep(pwrseq->flashing_gpio, value);
+	if (err < 0)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_RW(enable_flashing);
+
+static ssize_t enable_power_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	return -EINVAL;
+}
+
+static ssize_t enable_power_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{ /* here we can control the RESET pin of the pwrseq directly for flashing purposes but circumvent mmc power management */
+	struct mmc_pwrseq *pwrseq = dev_get_drvdata(dev);
+	unsigned int value = 0;
+	int err;
+	struct mmc_host dummy = {
+		.pwrseq = pwrseq,
+		.ios.power_delay_ms = 10,
+		.ios.power_mode = MMC_POWER_UNDEFINED
+	};
+	struct mmc_host *host = &dummy;
+
+	err = kstrtouint(buf, 10, &value);
+	if (err < 0)
+		return err;
+
+	if (value) { /* power on */
+		if (pwrseq->ops->pre_power_on)
+			pwrseq->ops->pre_power_on(host);
+		mmc_delay(host->ios.power_delay_ms);
+		if (pwrseq->ops->post_power_on)
+			pwrseq->ops->post_power_on(host);
+		mmc_delay(host->ios.power_delay_ms);
+	} else {
+		if (pwrseq->ops->power_off)
+			pwrseq->ops->power_off(host);
+		mmc_delay(1);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(enable_power);
+
+static const struct attribute * esp32_attrs[] = {
+	&dev_attr_enable_flashing.attr,
+	&dev_attr_enable_power.attr,
+	NULL
+};
+
+
 static int mmc_pwrseq_esp32_probe(struct platform_device *pdev)
 {
 	struct mmc_pwrseq_esp32 *pwrseq;
@@ -156,6 +241,11 @@ static int mmc_pwrseq_esp32_probe(struct platform_device *pdev)
 		}
 	}
 
+	pwrseq->flashing_gpio = devm_gpiod_get(dev, "flashing", GPIOD_OUT_LOW);	// initially deactivated
+	if (IS_ERR(pwrseq-> flashing_gpio))
+		return dev_err_probe(dev, PTR_ERR(pwrseq->flashing_gpio),
+					     "flashing GPIO not ready\n");
+
 	device_property_read_u32(dev, "post-power-on-delay-ms",
 				 &pwrseq->post_power_on_delay_ms);
 	device_property_read_u32(dev, "power-off-delay-us",
@@ -166,12 +256,18 @@ static int mmc_pwrseq_esp32_probe(struct platform_device *pdev)
 	pwrseq->pwrseq.owner = THIS_MODULE;
 	platform_set_drvdata(pdev, pwrseq);
 
+	int ret = sysfs_create_files(&pdev->dev.kobj, esp32_attrs);
+	if (ret)
+		dev_err(&pdev->dev, "unable to create sysfs files\n");
+
 	return mmc_pwrseq_register(&pwrseq->pwrseq);
 }
 
 static void mmc_pwrseq_esp32_remove(struct platform_device *pdev)
 {
 	struct mmc_pwrseq_esp32 *pwrseq = platform_get_drvdata(pdev);
+
+	sysfs_remove_files(&pdev->dev.kobj, esp32_attrs);
 
 	mmc_pwrseq_unregister(&pwrseq->pwrseq);
 }
