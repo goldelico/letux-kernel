@@ -200,15 +200,7 @@ static int get_slot_power_mV(struct retrode3_slot *slot)
 {
 	if(!slot || IS_ERR_OR_NULL(slot->power))
 		return -ENODEV;
-#if CONFIG_RETRODE3_MDSLOT == 294
-	return gpiod_get_value_cansleep(slot->power) ? 5000 : 3300;
-#elif CONFIG_RETRODE3_MDSLOT == 293
-	return gpiod_get_value(slot->power) ? 3300 : 5000;
-#elif CONFIG_RETRODE3_MDSLOT == 292
 	return gpiod_get_direction(slot->power) ? 3300 : 5000;
-#else
-	return -EINVAL
-#endif
 }
 
 static int set_slot_power_mV(struct retrode3_slot *slot, int mV)
@@ -220,23 +212,13 @@ printk("%s: %dmV %px\n", __func__, mV, slot->power);
 
 	switch(mV) {
 		case 5000:
-#if CONFIG_RETRODE3_MDSLOT == 294
-			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.4 board
-#else
-			gpiod_direction_output(slot->power, 0);	// switch to output and strongly pull down
-#endif
+			gpiod_direction_output(slot->power, 0);	// switch to output 0
 			break;
 		case 3300:
-#if CONFIG_RETRODE3_MDSLOT == 294
-			gpiod_direction_output(slot->power, 0);	// switch to active output on v2.9.4 board
-#elif CONFIG_RETRODE3_MDSLOT == 293
+#if CONFIG_RETRODE3_MDSLOT == 293
 			return -EINVAL;	// broken
-			gpiod_direction_output(slot->power, 1);	// switch to active output on v2.9.3 board
-#elif CONFIG_RETRODE3_MDSLOT == 292
-			gpiod_direction_input(slot->power);	// floating
-#else
-			return -EINVAL;
 #endif
+			gpiod_direction_input(slot->power);	// switch to floating
 			break;
 		default:
 printk("%s: unknown voltage %dmV\n", __func__, mV);
@@ -504,7 +486,7 @@ static ssize_t vcc_store(struct device *dev,
 			   const char *buf, size_t count)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
-	int mV;
+	unsigned int mV;
 	int err;
 
 	if(IS_ERR_OR_NULL(slot->power))
