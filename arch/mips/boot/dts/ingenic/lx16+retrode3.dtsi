@@ -220,27 +220,12 @@
 	};
 #endif
 
-#if APPLICATION >= 292
-
-	snes_led: led-3 {
+	md_led: led-3 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
 		function-enumerator = <0>;	// match slot number
 #if APPLICATION < 294
-		gpios = <&gpb 9 GPIO_ACTIVE_HIGH>;
-		color = <LED_COLOR_ID_GREEN>;
-#else
-		gpios = <&exp_leds 4 GPIO_ACTIVE_HIGH>;
-		color = <LED_COLOR_ID_BLUE>;
-#endif
-	};
-
-	md_led: led-4 {
-		linux,default-trigger = "heartbeat";
-		function = LED_FUNCTION_PROGRAMMING;
-		function-enumerator = <1>;	// match slot number
-#if APPLICATION < 294
-		gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpb 8 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_GREEN>;
 #else
 		gpios = <&exp_leds 5 GPIO_ACTIVE_HIGH>;
@@ -248,18 +233,34 @@
 #endif
 	};
 
-	nes_led: led-5 {
+	nes_led: led-4 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
-		function-enumerator = <2>;	// match slot number
+		function-enumerator = <1>;	// match slot number
 #if APPLICATION < 294
-		gpios = <&gpb 8 GPIO_ACTIVE_HIGH>;
+		gpios = <&gpb 9 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_GREEN>;
 #else
 		gpios = <&exp_leds 6 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_BLUE>;
 #endif
 	};
+
+#if APPLICATION >= 292
+
+	snes_led: led-5 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		function-enumerator = <2>;	// match slot number
+#if APPLICATION < 294
+		gpios = <&gpb 10 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
+#else
+		gpios = <&exp_leds 4 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_BLUE>;
+#endif
+	};
+
 #endif	// APPLICATION >= 292
 };
 
