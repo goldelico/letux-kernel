@@ -113,6 +113,7 @@
 #define JZ_MMC_REQ_TIMEOUT_MS 5000
 
 enum jz4740_mmc_version {
+	JZ_MMC_JZ4730,
 	JZ_MMC_JZ4740,
 	JZ_MMC_JZ4725B,
 	JZ_MMC_JZ4760,
@@ -1027,6 +1028,7 @@ static const struct mmc_host_ops jz4740_mmc_ops = {
 };
 
 static const struct of_device_id jz4740_mmc_of_match[] = {
+	{ .compatible = "ingenic,jz4730-mmc", .data = (void *) JZ_MMC_JZ4730 },
 	{ .compatible = "ingenic,jz4740-mmc", .data = (void *) JZ_MMC_JZ4740 },
 	{ .compatible = "ingenic,jz4725b-mmc", .data = (void *)JZ_MMC_JZ4725B },
 	{ .compatible = "ingenic,jz4760-mmc", .data = (void *) JZ_MMC_JZ4760 },
@@ -1118,13 +1120,12 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	jz4740_mmc_clock_disable(host);
 	timer_setup(&host->timeout_timer, jz4740_mmc_timeout, 0);
 
-	ret = jz4740_mmc_acquire_dma_channels(host);
-	if (ret == -EPROBE_DEFER)
-		goto err_free_irq;
-	host->use_dma = !ret;
-#if IS_ENABLED(CONFIG_MACH_JZ4730)
-	host->use_dma = false;
-#endif
+	if (host->version > JZ_MMC_JZ4730) {
+		ret = jz4740_mmc_acquire_dma_channels(host);
+		if (ret == -EPROBE_DEFER)
+			goto err_free_irq;
+		host->use_dma = !ret;
+	}
 
 	platform_set_drvdata(pdev, host);
 	ret = mmc_add_host(mmc);
