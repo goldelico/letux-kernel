@@ -1190,10 +1190,10 @@ static void jz4740_mmc_remove(struct platform_device *pdev)
 
 	mmc_remove_host(host->mmc);
 
-	free_irq(host->irq, host);
-
 	if (host->use_dma)
 		jz4740_mmc_release_dma_channels(host);
+
+	free_irq(host->irq, host);
 }
 
 static int jz4740_mmc_suspend(struct device *dev)
