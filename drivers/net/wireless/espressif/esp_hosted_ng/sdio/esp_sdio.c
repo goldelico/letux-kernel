@@ -675,6 +675,7 @@ static int tx_process(void *data)
 		tx_skb = NULL;
 	}
 
+printk("%s exits\n", __func__);
 	do_exit(0);
 	return 0;
 }
