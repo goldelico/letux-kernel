@@ -565,6 +565,7 @@ static int tx_process(void *data)
 	struct esp_sdio_context *context = NULL;
 	struct esp_skb_cb *cb = NULL;
 	u8 retry;
+	int count = 0;
 
 	context = adapter->if_context;
 
@@ -572,10 +573,13 @@ static int tx_process(void *data)
 
 		if (atomic_read(&context->adapter->state) < ESP_CONTEXT_READY) {
 			msleep(10);
-			esp_err("not ready");
+			esp_err("not ready %d", ++count);
+			if (count >= 10)
+				msleep(500);
 			continue;
 		}
 
+		count = 0;
 		if (host_sleep) {
 			/* TODO: Use wait_event_interruptible_timeout */
 			msleep(100);
