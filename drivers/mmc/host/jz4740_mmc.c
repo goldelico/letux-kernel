@@ -1182,8 +1182,7 @@ static int jz4740_mmc_probe(struct platform_device* pdev)
 	return 0;
 
 err_release_dma:
-	if (host->use_dma)
-		jz4740_mmc_release_dma_channels(host);
+	jz4740_mmc_release_dma_channels(host);
 err_free_irq:
 	free_irq(host->irq, host);
 err_free_host:
@@ -1202,10 +1201,9 @@ static void jz4740_mmc_remove(struct platform_device *pdev)
 
 	mmc_remove_host(host->mmc);
 
-	free_irq(host->irq, host);
+	jz4740_mmc_release_dma_channels(host);
 
-	if (host->use_dma)
-		jz4740_mmc_release_dma_channels(host);
+	free_irq(host->irq, host);
 
 	mmc_free_host(host->mmc);
 }
