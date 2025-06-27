@@ -229,7 +229,7 @@
 	};
 
 	mmc: mmc@10021000 {
-		compatible = "ingenic,jz4740-mmc";
+		compatible = "ingenic,jz4730-mmc";
 		reg = <0x10021000 0x100>;
 
 		interrupt-parent = <&intc>;
