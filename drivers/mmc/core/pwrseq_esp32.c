@@ -55,7 +55,8 @@ static void mmc_pwrseq_esp32_set_gpios_value(struct mmc_pwrseq_esp32 *pwrseq,
 		else
 			bitmap_zero(values, nvalues);
 
-		gpiod_multi_set_value_cansleep(reset_gpios, values);
+		gpiod_set_array_value_cansleep(nvalues, reset_gpios->desc,
+					       reset_gpios->info, values);
 
 		bitmap_free(values);
 	}
@@ -149,9 +150,7 @@ static ssize_t enable_flashing_store(struct device *dev,
 	if (err < 0)
 		return err;
 
-	err = gpiod_set_value_cansleep(pwrseq->flashing_gpio, value);
-	if (err < 0)
-		return err;
+	gpiod_set_value_cansleep(pwrseq->flashing_gpio, value);
 
 	return count;
 }
