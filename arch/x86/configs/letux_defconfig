@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.16.0-rc3 Kernel Configuration
+# Linux/x86 6.16.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -7771,7 +7771,6 @@ CONFIG_SBITMAP=y
 CONFIG_PLDMFW=y
 CONFIG_FIRMWARE_TABLE=y
 CONFIG_UNION_FIND=y
-CONFIG_MIN_HEAP=y
 
 #
 # Kernel hacking
