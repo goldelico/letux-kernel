@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.15.3 Kernel Configuration
+# Linux/mips 6.15.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -294,6 +294,8 @@ CONFIG_MACH_INGENIC_SOC=y
 # CONFIG_JZ4740_RS90 is not set
 # CONFIG_JZ4770_GCW0 is not set
 CONFIG_JZ4780_CI20=y
+# CONFIG_X1600_LX16 is not set
+# CONFIG_X2000_LX20 is not set
 # CONFIG_X1000_CU1000_NEO is not set
 # CONFIG_X1000_NANO_EVB is not set
 # CONFIG_X1000_NANO_EVB_NAND is not set
@@ -303,11 +305,9 @@ CONFIG_JZ4780_CI20=y
 # CONFIG_X1000_INGENIC_JDI_V1 is not set
 # CONFIG_X1000_SUDOMAKER_CLE is not set
 # CONFIG_X1501_SUDOMAKER_CANBOX is not set
-# CONFIG_X1600_LX16 is not set
 # CONFIG_X1830_CU1830_NEO is not set
 # CONFIG_X2000_CU2000_NEO is not set
 # CONFIG_X2000_HALLEY5 is not set
-# CONFIG_X2000_LX20 is not set
 CONFIG_MACH_JZ4780=y
 # end of Machine selection
 
@@ -3500,7 +3500,6 @@ CONFIG_DRM_INGENIC=m
 CONFIG_DRM_INGENIC_DW_HDMI=m
 # CONFIG_DRM_ETNAVIV is not set
 # CONFIG_DRM_LOGICVC is not set
-# CONFIG_DRM_APPLETBDRM is not set
 # CONFIG_DRM_ARCPGU is not set
 # CONFIG_DRM_GM12U320 is not set
 # CONFIG_DRM_PANEL_MIPI_DBI is not set
