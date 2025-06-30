@@ -29,6 +29,17 @@
 #include <linux/uaccess.h>
 #include <linux/user_namespace.h>
 #include <linux/xarray.h>
+
+#ifdef CONFIG_ANDROID_BINDER_IPC_32BIT
+#define BINDER_IPC_32BIT 1
+#endif
+
+#include <uapi/asm-generic/errno-base.h>
+
+#ifndef CONFIG_ANDROID_BINDER_IPC_64BIT
+#define BINDER_IPC_32BIT 1
+#endif
+
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/android/binderfs.h>
 
