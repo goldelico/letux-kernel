@@ -451,6 +451,7 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	struct device *	dev = &slot->dev;
 	int id;
 	int ret;
+	const char *name = "unknown";
 
 	id = ida_simple_get(&retrode3_minors, 0, RETRODE3_MINORS, GFP_KERNEL);
 	if (id < 0)
@@ -463,7 +464,8 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	dev->class = retrode3_class;
 	dev->release = retrode3_slot_release;
 	dev_set_drvdata(dev, slot);
-	dev_set_name(dev, "slot%d", id);
+	of_property_read_string(child, "name", &name);
+	dev_set_name(dev, "slot-%s", name);
 	dev->of_node = child;
 
 	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
@@ -475,6 +477,8 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
 	of_property_read_u32_index(child, "address-width", 0, &slot->addr_width);
 	of_property_read_u32_index(child, "bus-width", 0, &slot->bus_width);
+
+	// access reference "status-led" (if available)
 
 	cdev_init(&slot->cdev, &slot_fops);
 	slot->cdev.owner = THIS_MODULE;
