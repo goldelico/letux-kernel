@@ -397,8 +397,9 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&slots>;
 
-			slot0 {
+			md {
 				compatible = "openpandora,retrode3-slot-megadrive", "openpandora,retrode3-slot";
+				name = "md";
 #if APPLICATION >= 294
 				power-gpio = <&exp_leds 3 GPIO_ACTIVE_LOW>;	// output high for 5V, output low/input/float for 3.3V
 #elif APPLICATION >= 292
@@ -412,8 +413,9 @@
 				address-width = <23>;
 				bus-width = <16>;
 			};
-			slot1 {
+			snes {
 				compatible = "openpandora,retrode3-slot-snes", "openpandora,retrode3-slot";
+				name = "snes";
 				cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
 				ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
 #if APPLICATION >= 292
@@ -422,8 +424,9 @@
 				address-width = <18>;
 				bus-width = <8>;
 			};
-			slot2 {
+			nes {
 				compatible = "openpandora,retrode3-slot-nes", "openpandora,retrode3-slot";
+				name = "nes";
 				cd-gpio = <&gpb 23 GPIO_ACTIVE_LOW>;
 				ce-gpio = <&gpb 24 GPIO_ACTIVE_LOW>;
 #if APPLICATION >= 292
