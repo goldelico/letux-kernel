@@ -23,8 +23,6 @@
 
 #include <dt-bindings/clock/ingenic,tcu.h>
 
-static DEFINE_PER_CPU(call_single_data_t, ingenic_cevt_csd);
-
 #define updateb(addr, mask, value) writeb(((readb(addr) & ~(mask)) | ((value) & (mask))), (addr))
 #define updatew(addr, mask, value) writew(((readw(addr) & ~(mask)) | ((value) & (mask))), (addr))
 #define updatel(addr, mask, value) writel(((readl(addr) & ~(mask)) | ((value) & (mask))), (addr))
@@ -42,6 +40,7 @@ struct ingenic_tcu_timer {
 	unsigned int channel;
 	struct clock_event_device cevt;
 	struct clk *clk;
+	struct ingenic_tcu *tcu;
 	char name[8];
 };
 
@@ -54,7 +53,7 @@ struct ingenic_tcu {
 	unsigned int cs_channel;
 	struct clocksource cs;
 	unsigned long pwm_channels_mask;
-	struct ingenic_tcu_timer timers[];
+	struct ingenic_tcu_timer __percpu *timers;
 };
 
 static struct ingenic_tcu *ingenic_tcu;
@@ -96,7 +95,7 @@ static u64 notrace ingenic_tcu_timer_cs_read(struct clocksource *cs)
 static inline struct ingenic_tcu *
 to_ingenic_tcu(struct ingenic_tcu_timer *timer)
 {
-	return container_of(timer, struct ingenic_tcu, timers[timer->cpu]);
+	return timer->tcu;
 }
 
 static inline struct ingenic_tcu_timer *
@@ -142,18 +141,10 @@ static int ingenic_tcu_cevt_set_next(unsigned long next,
 	return 0;
 }
 
-static void ingenic_per_cpu_event_handler(void *info)
-{
-	struct clock_event_device *cevt = (struct clock_event_device *) info;
-
-	cevt->event_handler(cevt);
-}
-
 static irqreturn_t ingenic_tcu_cevt_cb(int irq, void *dev_id)
 {
 	struct ingenic_tcu_timer *timer = dev_id;
 	struct ingenic_tcu *tcu = to_ingenic_tcu(timer);
-	call_single_data_t *csd;
 
 	if (tcu->soc_info->jz4740_regs)
 		regmap_write(tcu->map, TCU_REG_TECR, BIT(timer->channel));
@@ -161,14 +152,9 @@ static irqreturn_t ingenic_tcu_cevt_cb(int irq, void *dev_id)
 		updateb(tcu->base + TCU_JZ4730_REG_TER, BIT(timer->channel), 0);
 		/* reset underflow and IRQ */
 		updateb(tcu->base + TCU_JZ4730_REG_TCSRc(timer->channel), TCU_JZ4730_TCSR_FLAG, 0);
-		}
-
-	if (timer->cevt.event_handler) {
-		csd = &per_cpu(ingenic_cevt_csd, timer->cpu);
-		csd->info = (void *) &timer->cevt;
-		csd->func = ingenic_per_cpu_event_handler;
-		smp_call_function_single_async(timer->cpu, csd);
 	}
+
+	timer->cevt.event_handler(&timer->cevt);
 
 	return IRQ_HANDLED;
 }
@@ -187,11 +173,12 @@ static struct clk *ingenic_tcu_get_clock(struct device_node *np, int id)
 static int ingenic_tcu_setup_cevt(unsigned int cpu)
 {
 	struct ingenic_tcu *tcu = ingenic_tcu;
-	struct ingenic_tcu_timer *timer = &tcu->timers[cpu];
+	struct ingenic_tcu_timer *timer = per_cpu_ptr(tcu->timers, cpu);
 	unsigned int timer_virq;
 	unsigned long rate;
 	int err;
 
+	timer->tcu = tcu;
 	timer->clk = ingenic_tcu_get_clock(tcu->np, timer->channel);
 	if (IS_ERR(timer->clk))
 		return PTR_ERR(timer->clk);
@@ -225,8 +212,8 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 
 	snprintf(timer->name, sizeof(timer->name), "TCU%u", timer->channel);
 
-	err = request_irq(timer_virq, ingenic_tcu_cevt_cb, IRQF_TIMER,
-			  timer->name, timer);
+	err = request_percpu_irq(timer_virq, ingenic_tcu_cevt_cb,
+				 timer->name, timer);
 	if (err)
 		goto err_irq_dispose_mapping;
 
@@ -390,9 +377,12 @@ static int __init ingenic_tcu_init(struct device_node *np)
 			return PTR_ERR(map);
 	}
 
-	tcu = kzalloc(struct_size(tcu, timers, num_possible_cpus()),
-		      GFP_KERNEL);
+	tcu = kzalloc(sizeof(*tcu), GFP_KERNEL);
 	if (!tcu)
+		return -ENOMEM;
+
+	tcu->timers = alloc_percpu(struct ingenic_tcu_timer);
+	if (!tcu->timers)
 		return -ENOMEM;
 
 	if (!soc_info->jz4740_regs) {
@@ -437,7 +427,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 	ingenic_tcu = tcu;
 
 	for (cpu = 0; cpu < num_possible_cpus(); cpu++) {
-		timer = &tcu->timers[cpu];
+		timer = per_cpu_ptr(tcu->timers, cpu);
 
 		timer->cpu = cpu;
 		timer->channel = find_next_zero_bit(&tcu->pwm_channels_mask,
@@ -457,7 +447,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 	}
 
 	/* Setup clock events on each CPU core */
-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "Ingenic XBurst: online",
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ingenic-timer:online",
 				ingenic_tcu_setup_cevt, NULL);
 	if (ret < 0) {
 		pr_crit("%s: Unable to start CPU timers: %d\n", __func__, ret);
@@ -476,6 +466,7 @@ err_tcu_clocksource_cleanup:
 	clk_disable_unprepare(tcu->cs_clk);
 	clk_put(tcu->cs_clk);
 err_free_ingenic_tcu:
+	free_percpu(tcu->timers);
 	kfree(tcu);
 	return ret;
 }
@@ -503,7 +494,7 @@ static int ingenic_tcu_suspend(struct device *dev)
 	clk_disable(tcu->cs_clk);
 
 	for (cpu = 0; cpu < num_online_cpus(); cpu++)
-		clk_disable(tcu->timers[cpu].clk);
+		clk_disable(per_cpu_ptr(tcu->timers, cpu)->clk);
 
 	return 0;
 }
@@ -515,7 +506,7 @@ static int ingenic_tcu_resume(struct device *dev)
 	int ret;
 
 	for (cpu = 0; cpu < num_online_cpus(); cpu++) {
-		ret = clk_enable(tcu->timers[cpu].clk);
+		ret = clk_enable(per_cpu_ptr(tcu->timers, cpu)->clk);
 		if (ret)
 			goto err_timer_clk_disable;
 	}
@@ -528,7 +519,7 @@ static int ingenic_tcu_resume(struct device *dev)
 
 err_timer_clk_disable:
 	for (; cpu > 0; cpu--)
-		clk_disable(tcu->timers[cpu - 1].clk);
+		clk_disable(per_cpu_ptr(tcu->timers, cpu - 1)->clk);
 	return ret;
 }
 
