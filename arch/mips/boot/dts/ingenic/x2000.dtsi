@@ -43,7 +43,7 @@
 
 	intc: interrupt-controller@12300000 {
 		compatible = "ingenic,x2000-intc";
-		reg = <0x12300000 0x50>;
+		reg = <0x12300000 0x1000>;
 
 		interrupt-controller;
 		#interrupt-cells = <1>;
