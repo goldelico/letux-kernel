@@ -202,7 +202,7 @@ static int __init ingenic_intc_probe(struct device_node *np, unsigned num_chips)
 	for (cpu = 0; cpu < num_possible_cpus(); cpu++) {
 		if (intc->version >= ID_X2000) {
 			irqchip = per_cpu_ptr(intc->irqchips, cpu);
-			irqchip->base = base + 0x1000 * cpu;
+			irqchip->base = base + 0x100 * cpu;
 		} else {
 			irqchip = intc->irqchips;
 			irqchip->base = base;
@@ -263,7 +263,7 @@ static int __init ingenic_intc_of_init(struct device_node *np,
 		}
 
 		/* Setup irqchips on each CPU core */
-		ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "Ingenic XBurst: online",
+		ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "irq-ingenic:online",
 					ingenic_intc_setup_irqchip, NULL);
 		if (ret < 0) {
 			pr_crit("%s: Unable to init percpu irqchips: %x\n", __func__, ret);
