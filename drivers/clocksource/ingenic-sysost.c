@@ -709,7 +709,7 @@ static int __init ingenic_ost_init(struct device_node *np)
 		}
 
 		/* Setup clock events on each CPU core */
-		ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "Ingenic XBurst: online",
+		ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ingenic-sysost:online",
 					ingenic_ost_setup_cevt, NULL);
 		if (ret < 0) {
 			pr_crit("%s: Unable to init event timers: %d\n", __func__, ret);
