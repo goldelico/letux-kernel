@@ -4,7 +4,7 @@
 #
 
 config PHYLINK
-	tristate
+	tristate "PHY Device models link "
 	depends on NETDEVICES
 	select PHYLIB
 	select SWPHY
