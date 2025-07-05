@@ -235,6 +235,8 @@ static int ingenic_tcu_setup_cevt(unsigned int cpu)
 			TCU_JZ4730_TCSR_EN, TCU_JZ4730_TCSR_EN);
 	}
 
+	enable_percpu_irq(timer_virq, IRQ_TYPE_NONE);
+
 	return 0;
 
 err_irq_dispose_mapping:
