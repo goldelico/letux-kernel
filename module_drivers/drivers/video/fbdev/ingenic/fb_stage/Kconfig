@@ -1,0 +1,12 @@
+menuconfig FB_INGENIC_STAGE
+	tristate "Ingenic Framebuffer Driver for stage"
+	depends on FB_INGENIC
+	select FB_INGENIC_DISPLAYS_STAGE
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select V4L2_MEM2MEM_DEV
+	help
+	  Framebuffer support for the Version 12 DPU SoC.
+
+source "module_drivers/drivers/video/fbdev/ingenic/fb_stage/displays/Kconfig"

@@ -1,0 +1,41 @@
+config INGENIC_RSA
+        bool "[RSA] JZ RSA Driver"
+        depends on SOC_X2000 || SOC_X2100 || SOC_M300 || SOC_X2500
+        help
+                this driver is used to Encrypt/Decrypt by RSA.
+        default n
+
+config LINUX_PMEM
+        bool "Linux pmem allocator"
+        default n
+
+config PMEM_RESERVE_SIZE
+        string "reserve size"
+        depends on LINUX_PMEM
+        default 0M
+        help
+                set this like 16M, 4096K, 100000[B], 0x5000(B).
+
+config INGENIC_EFUSE_V2
+          bool "[Efuse] Ingenic Efuse v2 Driver"
+          depends on SOC_X1600
+          default n
+
+config INGENIC_EFUSE_V2_WRITABLE
+        bool "[Efuse] Ingenic Efuse V2 Writable"
+	depends on INGENIC_EFUSE_V2
+        default n
+
+
+config INGENIC_EFUSE_X2000
+          bool "[Efuse] Ingenic Efuse X2000 Driver"
+	  	  depends on SOC_X2000 || SOC_X2100 || SOC_M300
+          default n
+
+config BCM_4345C5_RFKILL
+	tristate "Bluetooth power control driver for BCM-4345C5 module"
+	depends on RFKILL && (MMC_SDHCI_INGENIC || INGENIC_MMC_MMC0 || INGENIC_MMC_MMC1)
+	default n
+	help
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm-xxxx chips.

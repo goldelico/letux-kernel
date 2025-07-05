@@ -1,0 +1,4 @@
+config INGENIC_BSCALER
+    bool "[BSCALER] jz bscaler driver"
+    depends on SOC_X2500
+    default n

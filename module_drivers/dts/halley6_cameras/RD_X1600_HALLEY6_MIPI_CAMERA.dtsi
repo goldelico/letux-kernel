@@ -1,0 +1,35 @@
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pa>;
+
+	sc031gs_0:sc031gs@0x30 {
+		status = "okay";
+		compatible = "sc031gs";
+		reg = <0x30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim_mipi_mclk_pc>;
+
+		resetb-gpios = <&gpa 30 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		vcc-en-gpios = <&gpb 12 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+
+		port {
+			sc031gs_ep0:endpoint {
+				remote-endpoint = <&cim_0>;
+			};
+		};
+	};
+};
+
+&cim {
+	status = "okay";
+	port {
+		cim_0: endpoint@0 {
+			remote-endpoint = <&sc031gs_ep0>;
+			data-lanes = <0 1>;
+			clk-lanes = <2>;
+		};
+	};
+};

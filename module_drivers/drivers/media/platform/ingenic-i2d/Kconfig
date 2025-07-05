@@ -1,0 +1,16 @@
+menuconfig JZ_I2D
+    bool "JZ I2D Driver"
+    default n
+    depends on SOC_X2500 && VIDEO_DEV && VIDEO_V4L2
+    select VIDEOBUF2_DMA_CONTIG_INGENIC
+    select V4L2_MEM2MEM_DEV
+    help
+        Support for Ingenic i2d Driver
+
+config INGENIC_I2D
+	tristate "Ingenic I2D Driver"
+	depends on JZ_I2D
+	default n
+	help
+	  Support for Ingenic i2d operations (image rotater).
+

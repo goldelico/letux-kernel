@@ -1,0 +1,18 @@
+menuconfig JZ_IPU
+	bool "[IPU] JZ ipu unit"
+	depends on SOC_X2500
+	default n
+
+config INGENIC_IPU
+	tristate "Ingenic IPU Driver"
+	depends on JZ_IPU
+	default n
+	help
+	  Support for Ingenic ipu operations.
+
+config INGENIC_DRAWBOX
+	tristate "Ingenic draw box Driver"
+	depends on JZ_IPU
+	default n
+	help
+	  Support for Ingenic ipu operations.

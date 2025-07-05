@@ -1,0 +1,37 @@
+if SND_ASOC_INGENIC_AS_V1
+menu "ingenic external codec Type select"
+
+config SND_SOC_WM8594
+	depends on I2C
+        tristate "WM8594 ADC/DAC"
+
+config SND_SOC_NAU8822
+	depends on I2C
+        tristate "NAU8822 ADC/DAC"
+endmenu
+
+endif
+
+if SND_ASOC_INGENIC_AS_V2
+menu "ingenic external codec Type select"
+
+config SND_SOC_WM8594
+	depends on I2C
+        tristate "WM8594 ADC/DAC"
+
+config SND_SOC_AK4458
+	depends on I2C
+        tristate "AK4458 ADC/DAC"
+
+config SND_SOC_AK5558
+	depends on I2C
+        tristate "AK5558 ADC/DAC"
+
+config SND_SOC_NAU8822
+	depends on I2C
+        tristate "NAU8822 ADC/DAC"
+
+
+endmenu
+
+endif

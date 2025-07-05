@@ -1,0 +1,75 @@
+config MFD_INGENIC_SADC_V13
+	tristate "[SADC] Support for the Ingenic SADC core"
+	select MFD_CORE
+	depends on MACH_XBURST || MACH_XBURST2
+	help
+	  Say yes here if you want support for the SADC unit in the Ingenic SoC.
+	  This driver is necessary for Ingenic_battery driver.
+
+config MFD_INGENIC_SADC_AUX
+	tristate "[SADC] Support for the Ingenic SADC AUX"
+	select MFD_CORE
+	depends on MACH_XBURST || MACH_XBURST2
+	help
+	  Say yes here if you want support for the SADC unit in the Ingenic SoC.
+	  This driver is necessary for ingenic_battery driver.
+if MFD_INGENIC_SADC_AUX
+	config SADC_AUX_VERF_3V3
+	bool "Ingenic sadc aux reference voltage 3.3V."
+	depends on SOC_X1600
+	default y
+	help
+	  Select ingenic sadc reference voltage.
+
+	config SADC_AUX_VERF_1V8
+	bool "Ingenic sadc aux reference voltage 1.8V."
+	depends on SOC_X2000_V12 || SOC_M300 || SOC_X2100 || SOC_X2500
+	default y
+	help
+	  Select ingenic sadc reference voltage.
+
+
+	config SADC_AUX_12BIT
+	bool "ingenic sadc aux 12bit"
+	depends on SOC_X2500 || SOC_X1600
+	default y
+
+	config SADC_AUX_10BIT
+	bool "ingenic sadc aux 10bit"
+	depends on SOC_X2000_V12 || SOC_M300 || SOC_X2100
+	default y
+endif
+
+config MFD_INGENIC_TCU
+	bool "[TCU] Ingenic tcu driver"
+	select MFD_CORE
+	select GENERIC_IRQ_CHIP
+	depends on SOC_X2000_V12 || SOC_X2000 || SOC_M300 || SOC_X2100 || SOC_X1600
+	help
+	  Say yes here if you want support for the TCU unit in the ingenic SoC.
+	  This driver is necessary for ingenic pwm or counter.
+
+config MFD_INGENIC_TCU_V1
+	bool "[TCU] Ingenic tcu driver v1"
+	select MFD_CORE
+	select GENERIC_IRQ_CHIP
+	depends on SOC_X2500
+	default n
+	help
+	  Say yes here if you want support for the TCU unit in the ingenic SoC.
+	  This driver is necessary for ingenic pwm or counter.
+
+
+config MFD_RICOH619
+	bool "Ricoh RC5T619 Power Management system device"
+	depends on I2C=y
+	select MFD_CORE
+	select REGMAP_I2C
+	help
+	  Select this option to get support for the RICOH619 Power
+	  Management system device.
+	  This driver provides common support for accessing the device
+	  through i2c interface. The device supports multiple sub-devices
+	  like GPIO, interrupts, RTC, LDO and DCDC regulators, onkey.
+	  Additional drivers must be enabled in order to use the
+	  different functionality of the device.

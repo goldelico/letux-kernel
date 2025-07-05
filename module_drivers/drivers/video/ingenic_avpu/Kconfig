@@ -1,0 +1,9 @@
+config INGENIC_AVPU
+	tristate "[VPU] ingenic soc avpu module"
+	depends on SOC_X2500
+	default n
+	help
+		this is ingenic avpu for x2500, support h264/h265/jpeg encoder.
+
+
+

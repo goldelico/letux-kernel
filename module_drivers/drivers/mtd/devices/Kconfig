@@ -1,0 +1,90 @@
+config INGENIC_SFC
+	tristate "Ingenic series SFC driver"
+	depends on MACH_XBURST || MACH_XBURST2
+	help
+		SFC driver for Ingenic series SoCs
+
+if INGENIC_SFC
+
+
+choice
+	prompt "Select Ingenic series SFC driver version"
+	default MTD_INGENIC_SFC_V1
+	help
+	  Select the SFC driver version
+
+config MTD_INGENIC_SFC_V1
+	bool "Use ingenic sfc driver version 1"
+	depends on INGENIC_SFC
+
+config MTD_INGENIC_SFC_V2
+	bool "Use ingenic sfc driver version 2"
+	depends on INGENIC_SFC
+
+endchoice
+
+
+choice
+	prompt "the SFC external memory (nor or nand)"
+	help
+	  Select the SFC external memory
+
+config MTD_INGENIC_SFC_NORFLASH
+	bool "Support ingenic sfc-nor"
+	depends on INGENIC_SFC
+
+config MTD_INGENIC_SFC_NANDFLASH
+	bool "Support ingenic sfc-nand"
+	depends on INGENIC_SFC
+	select MTD_NAND
+
+endchoice
+
+
+config INGENIC_SFCNAND_FMW
+	bool "ingenic SN and MAC read write support."
+	default n
+	depends on INGENIC_SFC && MTD_INGENIC_SFC_NANDFLASH
+	help
+		Say Y here if you want to use sn read write function. when in doubt , Say N here.
+
+config SN_SIZE
+	int "SN space size (MB)"
+	range 1 5
+	default 1
+	depends on INGENIC_SFCNAND_FMW
+
+config MAC_SIZE
+	int "MAC space size (MB)"
+	range 1 5
+	default 1
+	depends on INGENIC_SFCNAND_FMW
+
+config LICENSE_SIZE
+	int "LICENSE space size (MB)"
+	range 1 5
+	default 1
+	depends on INGENIC_SFCNAND_FMW
+
+
+menuconfig INGENIC_BUILTIN_PARAMS
+	bool "Use SPI Nor Flash params built in kernel"
+	depends on MTD_INGENIC_SFC_NORFLASH
+	default n
+	help
+		Say Y here to SPI Nor Flash params built in kernel.
+
+config INGENIC_GD25Q127C
+	bool "GD25Q127C 0xc84018"
+	depends on INGENIC_BUILTIN_PARAMS
+
+config INGENIC_GD25Q256C
+	bool "GD25Q256C 0xc84019"
+	depends on INGENIC_BUILTIN_PARAMS
+
+config INGENIC_GD25S512MD
+	bool "GD25S512MD 0xc84019"
+	depends on INGENIC_BUILTIN_PARAMS
+
+
+endif

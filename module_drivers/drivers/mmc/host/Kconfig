@@ -1,0 +1,40 @@
+
+config MMC_SDHCI_INGENIC
+        tristate "Ingenic(XBurst2)  MMC/SD Card Controller(MSC) support"
+	depends on SOC_X2000 || SOC_X2000_V12 || SOC_M300 || SOC_X2500 || SOC_X2100
+        select MMC_SDHCI
+        help
+          This selects the Ingenic XBurst2 SD/MMC Card Controller MSC.
+          If you have platform with a SD/Multimedia Card slot and compact
+          with this version, say Y or M here.
+          If unsure, say N.
+
+config MMC_INDEX_MATCH_CONTROLLER
+        tristate "MMC Index match Controller support."
+        depends on MMC_SDHCI_INGENIC || INGENIC_MMC
+        default n
+        help
+          This selects the MMC Index match Controller support.This option
+          will enable MMC index to match the controller number. If you want
+          mmcblk to correspond to the controller number,say Y or M here.
+
+          If unsure, say N.
+
+
+ config INGENIC_MMC
+         tristate "Ingenic(XBurst)  MMC/SD Card Controller(MSC) support"
+         depends on SOC_X1600 || SOC_X1000 || SOC_X1800 || SOC_X1021 || SOC_X1520 || SOC_X1630
+         help
+           This selects the Ingenic XBurst SD/MMC Card Controller.
+           If you have platform with a SD/Multimedia Card slot and compact
+           with this version, say Y or M here.
+           If unsure, say N.
+
+ config INGENIC_MMC_MMC0
+         bool "INGENIC_MMC MMC0"
+         depends on INGENIC_MMC
+
+ config INGENIC_MMC_MMC1
+         bool "INGENIC_MMC MMC1"
+         depends on INGENIC_MMC
+

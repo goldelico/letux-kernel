@@ -1,0 +1,56 @@
+choice
+	prompt "isp total sensor num select"
+	depends on VIDEO_INGENIC_ISP_V2
+	default INGENIC_ISP_V2_SENSOR_NUM_TWO
+	help
+	Select isp total sensor number.
+config INGENIC_ISP_V2_SENSOR_NUM_ONE
+	bool "isp total sensor num one"
+config INGENIC_ISP_V2_SENSOR_NUM_TWO
+	bool "isp total sensor num two"
+config INGENIC_ISP_V2_SENSOR_NUM_THREE
+	bool "isp total sensor num three"
+endchoice
+
+
+menuconfig HIPPO_CAMERA_BOARD
+	bool "hippo_camera_board"
+	depends on VIDEO_INGENIC_ISP_V2
+	default n
+	help
+		Say Y here to enable support for hippo_camera_boards.
+
+
+config RD_X2500_HIPPO_CAMERA_1V0
+	bool "X2500 isp camera driver for RD_X2500_HIPPO_CAMERA_1V0"
+	depends on HIPPO_CAMERA_BOARD
+	select INGENIC_ISP_V2_CAMERA_SC230AI
+	select INGENIC_ISP_V2_CAMERA_GC2155
+
+config RD_X2500_HIPPO_CAMERA_1V1
+	bool "X2500 isp camera driver for RD_X2500_HIPPO_CAMERA_1V1"
+	depends on HIPPO_CAMERA_BOARD
+	select INGENIC_ISP_V2_CAMERA_SC230AI
+
+config RD_X2000_HALLEY5_CAMERA_3V2
+	bool "X2500 isp camera driver for RD_X2000_HALLEY5_CAMERA_3V2"
+	depends on HIPPO_CAMERA_BOARD
+	select INGENIC_ISP_V2_CAMERA_OV4689
+
+config RD_X2000_HALLEY5_CAMERA_4V3
+	bool "X2500 isp camera driver for RD_X2000_HALLEY5_CAMERA_4V3"
+	depends on HIPPO_CAMERA_BOARD
+	select INGENIC_ISP_V2_CAMERA_OV2735A
+
+
+config VIC_DMA_ROUTE
+	bool "vic dma out route enable"
+	default n
+	depends on VIDEO_INGENIC_ISP_V2
+
+config MSCA_BDEV
+	bool "mscaler bdev support"
+	default n
+	depends on VIDEO_INGENIC_ISP_V2
+
+

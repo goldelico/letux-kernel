@@ -1,0 +1,70 @@
+/ {
+
+	display-dbi {
+		compatible = "simple-bus";
+		#interrupt-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+		panel_tl040wvs03ct {
+			compatible = "ingenic,tl040wvs03ct";
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&tft_lcd_pa_rgb666>;
+			ingenic,vdd-en-gpio = <&gpb 7 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+			ingenic,rst-gpio = <&gpa 29 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		//	ingenic,lcd-pwm-gpio = <&gpc 2 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-sdo-gpio = <&gpa 30 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-sck-gpio = <&gpa 31 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			ingenic,lcd-cs-gpio = <&gpa 28 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+			port {
+				panel_tl040wvs03ct_ep: endpoint {
+					   remote-endpoint = <&dpu_out_ep>;
+			   };
+			};
+		};
+	};
+
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 2 1000000>;
+	    brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15>;
+	    default-brightness-level = <4>;
+    };
+};
+
+/*
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pwm2_pc>;
+	status = "okay";
+};
+*/
+
+&dpu {
+	port {
+		dpu_out_ep: endpoint {
+		remote-endpoint = <&panel_tl040wvs03ct_ep>;
+	    };
+	};
+};
+
+&i2c0 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pb>;
+
+	focaltech@0x48{
+		compatible = "focaltech,fts"; /* do not modify */
+		reg = <0x48>; /* do not modify */
+		interrupt-parent = <&gpc>; /* INT pin */
+		interrupts = <9>;
+		focaltech,reset-gpio = <&gpb 5 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>; /* RST pin */
+		focaltech,irq-gpio = <&gpb 4 IRQ_TYPE_EDGE_FALLING INGENIC_GPIO_NOBIAS>; /* INT pin */
+		focaltech,max-touch-number = <2>;
+		focaltech,display-coords = <0 0 480 480>;   /* resolution */
+	};
+
+};
+

@@ -1,0 +1,49 @@
+comment "ingenic-isp-v2 camera sensor drivers"
+
+config INGENIC_ISP_V2_CAMERA_IMX327
+	tristate "imx327 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for IMX327
+
+config INGENIC_ISP_V2_CAMERA_GC2093
+	tristate "gc2093 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for GC2093
+
+config INGENIC_ISP_V2_CAMERA_OV2735A
+	tristate "ov2735a sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for ov2735a
+
+config INGENIC_ISP_V2_CAMERA_SC2310
+	tristate "sc2310 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for sc2310
+
+config INGENIC_ISP_V2_CAMERA_SC230AI
+	tristate "sc230ai sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for sc230ai
+
+config INGENIC_ISP_V2_CAMERA_GC2155
+	tristate "gc2155 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for gc2155
+
+config INGENIC_ISP_V2_CAMERA_OV4689
+	tristate "ov4689 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for ov4689
+
+config INGENIC_ISP_V2_CAMERA_OV7251
+	tristate "ov7251 sensor support"
+	depends on VIDEO_INGENIC_ISP_V2 && I2C
+	help
+	  This is a ingenic-isp camera driver for ov7251

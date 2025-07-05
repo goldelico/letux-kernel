@@ -1,0 +1,35 @@
+&i2c3 {
+	status = "okay";
+	clock-frequency = <100000>;
+	timeout = <1000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pa>;
+
+	ov2735_1:ov2735@0x3d {
+		status = "ok";
+		compatible = "ovti,ov2735a";
+		reg = <0x3d>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cim1_vic_mclk_pc>;
+
+		ingenic,mclk = <1>;
+		ingenic,rst-gpio = <&gpa 11 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutp-gpio = <&gpa 17 GPIO_ACTIVE_HIGH INGENIC_GPIO_NOBIAS>;
+		ingenic,ircutn-gpio = <&gpa 18 GPIO_ACTIVE_LOW INGENIC_GPIO_NOBIAS>;
+
+		port {
+			ov2735_ep0:endpoint {
+				remote-endpoint = <&isp0_ep>;
+			};
+		};
+	};
+
+};
+
+
+&isp0_ep {
+	remote-endpoint = <&ov2735_ep0>;
+	data-lanes = <0 1>;
+	clk-lanes = <2>;
+};
+

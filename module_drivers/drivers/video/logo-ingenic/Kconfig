@@ -1,0 +1,19 @@
+
+menuconfig TRUE_COLOR_LOGO
+       bool "True Color Logo for Ingenic"
+       depends on LOGO
+       default n
+
+config TRUE_COLOR_LOGO_FILE
+       string "Logo File"
+       depends on TRUE_COLOR_LOGO
+       default "module_drivers/drivers/video/logo-ingenic/logo.png"
+       help
+         set a picture file, support png, jpg, bmp.
+
+config TRUE_COLOR_LOGO_BACKGROUND
+       hex "Background Color"
+       depends on TRUE_COLOR_LOGO
+       default '0x00ffffff'
+       help
+         set default background color.
