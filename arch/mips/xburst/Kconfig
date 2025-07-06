@@ -1,0 +1,69 @@
+menuconfig SOC_TYPE
+	tristate "SOC type"
+	depends on MACH_XBURST
+	default y
+
+if SOC_TYPE
+choice
+	prompt "SOC types"
+	depends on MACH_XBURST
+	default SOC_X1600
+
+config SOC_X1000
+	bool "x1000 socs"
+	select INGENIC_INTC
+	select CLK_X1000
+	select CLKSRC_OF
+	select PINCTRL
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select PINCTRL_INGENIC
+	select CLKSRC_INGENIC_SYS_OST
+	select MMU_NOTIFIER
+
+config SOC_X1600
+	bool "x1600 socs"
+	select INGENIC_INTC
+	select CLK_X1600
+	select CLKSRC_OF
+	select PINCTRL
+	select TIMER_OF
+	select CLKDEV_LOOKUP
+	select PINCTRL_INGENIC
+	select CLKSRC_INGENIC_SYS_OST
+	select MMU_NOTIFIER
+endchoice
+
+config INGENIC_BUILTIN_DTB
+	select BUILTIN_DTB
+	depends on MACH_XBURST
+	bool "Ingenic Device Tree build into Kernel."
+	default y
+
+source "arch/mips/xburst/soc-x1000/Kconfig.DT"
+source "arch/mips/xburst/soc-x1600/Kconfig.DT"
+
+config EXTAL_CLOCK
+	depends on MACH_XBURST
+	int "extal clock in MHz"
+	default 24
+
+config INGENIC_GPT_CHECK
+	depends on MACH_XBURST
+	bool "The physical space is larger than the virtual space"
+	default y
+
+config SUSPEND_TEST
+	bool "auto suspend test"
+	default n
+
+config SUSPEND_ALARM_TIME
+	int "suspend alarm time(second)"
+	depends on SUSPEND_TEST
+	default 2
+
+config XBURST_MXUV2
+	bool
+	default n
+
+endif
