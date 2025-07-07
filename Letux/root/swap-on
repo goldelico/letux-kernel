@@ -1,0 +1,70 @@
+#!/bin/bash
+
+SWAPFILE=/swapfile
+BOOTABLE=false
+MODE=2
+
+while [ "$1" ]
+do
+	case "$1" in
+		-r )
+			swapoff -a
+			sed -i.bak '/swapfile/d' /etc/fstab
+			echo "### $SWAPFILE deactivated."
+			exit
+			;;
+		-b )
+			shift
+			BOOTABLE=true
+			;;
+		-* )
+			echo "usage: $0 [-br] [size in GB]"
+			exit
+			;;
+		*)
+			break;
+	esac
+done
+
+# FIXME: specifying an explicit GB size should create/resize the swap file
+
+GB="$1"
+# [ "$GB" ] || GB=$(ls -l --block-size=1G $SWAPFILE 2>/dev/null | cut -d ' ' -f 5)	# same as currently
+[ "$GB" ] || GB=1
+
+echo "### setting up ${GB}GB swap on $SWAPFILE"
+swapoff -a
+
+if [ ! -r "$SWAPFILE" ]
+then
+	echo "### creating $SWAPFILE with ${GB}GB"
+	case "$MODE" in
+	0 )
+		# modern kernel syscall may not be compatible with older Debian
+		# fallocate: fallocate failed: Operation not supported
+		fallocate -l ${GB}GiB $SWAPFILE || exit
+		;;
+	1 )
+		# creates holes
+		# swapon: /swapfile: skipping - it appears to have holes.
+		truncate -s $( echo | awk "{print int(($GB) * 1024 * 1024 * 1024)}") /swapfile || exit
+		;;
+	2 )
+		[ "$GB" ] && rm -rf "$SWAPFILE"	# will resize
+		# only this works reliably although slowly
+		# the awk formula allows to specify e.g. 0.1 GB because it does a floating point calculation
+		dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$( echo | awk "{print int(($GB) * 1048576)}") || exit
+		;;
+	esac
+fi
+
+chmod 0600 "$SWAPFILE"
+mkswap "$SWAPFILE"
+swapon "$SWAPFILE"
+echo "### $SWAPFILE is set up."
+
+if $BOOTABLE
+then
+	fgrep -q /swapfile /etc/fstab || echo '/swapfile swap swap defaults 0 0' >>/etc/fstab
+	echo "### $SWAPFILE activated on boot."
+fi
