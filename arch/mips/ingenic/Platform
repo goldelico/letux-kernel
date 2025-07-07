@@ -1,0 +1,2 @@
+load-$(CONFIG_MACH_X1600)	:= 0xffffffff80010000
+load-$(CONFIG_MACH_X2000)	:= 0xffffffff80010000

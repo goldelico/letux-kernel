@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/string_choices.h>
+#include <linux/etherdevice.h>
 
 #include "realtek.h"
 
@@ -362,7 +363,13 @@ static int rtl8211f_config_intr(struct phy_device *phydev)
 
 		val = RTL8211F_INER_LINK_STATUS;
 		err = phy_write_paged(phydev, 0xa42, RTL821x_INER, val);
+
+		// Pin 31 -> INTB
+		phy_modify_paged(phydev, 0xd40, 0x16, BIT(5), 0);
 	} else {
+		// Pin 31 -> PMEB
+		phy_modify_paged(phydev, 0xd40, 0x16, 0, BIT(5));
+
 		val = 0;
 		err = phy_write_paged(phydev, 0xa42, RTL821x_INER, val);
 		if (err)
