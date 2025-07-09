@@ -34,7 +34,7 @@
 #endif
 };
 
-// no OTG
+// no OTG setup
 / {
 	/delete-node/ drvvbus_regulator;	// no power driver here
 };
@@ -43,10 +43,14 @@
 	dr_mode = "peripheral"; // host,peripheral,otg
 };
 
-// no SPI
+// SPI setup
 #if SPI_BITBANG
-	/delete-node/ bitbang;	// may be the spi bitbang node
+/ {
+	/delete-node/ bitbang;	// there is some spi bitbang node
+};
+
 #else
+
 &spi0 {
 	status = "disabled";
 };
