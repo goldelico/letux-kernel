@@ -227,6 +227,12 @@ printk("%s: unknown voltage %dmV\n", __func__, mV);
 	return 0;
 }
 
+static int is_selected(struct retrode3_slot *slot)
+{
+	// errors are treated as selected...
+	return gpiod_get_value(slot->ce);
+}
+
 static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
 { /* chip select */
 	int i;
