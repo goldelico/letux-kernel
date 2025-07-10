@@ -285,7 +285,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	}
 
 	while (count > 0) {
-		int allowed;
+		// int allowed;
 		uint8_t byte;
 
 // FIXME: loop over bytes and write them to consecutive addresses
@@ -302,6 +302,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 				if (err < 0)
 					return err;
 				// write with TIME impulse
+				break;
 				;;
 			case NES_PRG:
 			case NES_MMC5_SRAM:
@@ -325,7 +326,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 				write_half(slot->bus, byte, 0);	// NES PPU bus = D8..D15 and WE8
 				break;
 			case MODE_SIMPLE_BUS:
-				dev_info(&slot->dev, "%s: write MD %08x %02x\n", __func__, addr, byte);
+				dev_info(&slot->dev, "%s: write BUS %08x %02x\n", __func__, addr, byte);
 				err = set_address(slot->bus, addr);
 				if (err < 0)
 					return err;
