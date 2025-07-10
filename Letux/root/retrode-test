@@ -1,0 +1,25 @@
+case "$1" in
+1 ) # binary counteron address pins (is slow!)
+	ADDR=0
+	while true
+	do
+		echo $ADDR
+		echo $ADDR >/sys/class/retrode3/slot-md/addr
+		ADDR=$(printf '%x' $((0x$ADDR + 2)))
+	done
+	;;
+
+2 ) # one Address pin after the other
+	while true
+	do
+		ADDR=1
+		while [ $ADDR -lt 1000000 ] 
+		do
+			echo $ADDR
+			echo $ADDR >/sys/class/retrode3/slot-md/addr
+			ADDR=$(printf '%x' $((0x$ADDR * 2)))
+		done
+	done
+	;;
+
+esac
