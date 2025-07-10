@@ -515,9 +515,133 @@ static ssize_t vcc_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(vcc);
 
+// setting an address through a slot property also selects and locks the slot
+// until we set the address to "deselect"
+// CHECKME: oder "none" oder leerer String???
+// man sollte die Adresse auch zurücklesen können incl. "none"
+
+static ssize_t addr_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	uint32_t addr;
+	int err;
+
+	if (strncmp(buf, "deselect", 8) == 0) {
+		select_slot(slot->bus, NULL);
+		return count;
+	}
+
+	if (!is_selected(slot))
+		select_slot(slot->bus, NULL);	// auto-deselect other slot
+
+	// check for 0x prefix?
+	err = kstrtouint(buf, 16, &addr);
+	if (err < 0)
+		return err;
+
+	select_slot(slot->bus, slot);
+	err = set_address(slot->bus, addr);
+	if (err < 0)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_WO(addr);
+
+static ssize_t data8_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	int byte;
+
+	if (!is_selected(slot))
+		return sprintf(buf, "unselected\n");
+
+	byte = read_byte(slot->bus);
+
+	if (byte < 0)
+		return byte;
+
+	return sprintf(buf, "%02x\n", byte);
+}
+
+static ssize_t data8_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	unsigned int mV;
+	int err;
+
+	if (!is_selected(slot))
+		return -EINVAL;
+
+return -EINVAL;
+
+	err = kstrtouint(buf, 10, &mV);
+	if (err < 0)
+		return err;
+
+// write_byte
+	err = set_slot_power_mV(slot, mV);
+	if (err < 0)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_RW(data8);
+
+static ssize_t data16_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	int word;
+
+	if (!is_selected(slot))
+		return sprintf(buf, "unselected\n");
+
+	word = read_word(slot->bus);
+
+	if (word < 0)
+		return word;
+
+	return sprintf(buf, "%04x\n", word);
+}
+
+static ssize_t data16_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+	unsigned int mV;
+	int err;
+
+	if (!is_selected(slot))
+		return -EINVAL;
+
+return -EINVAL;
+
+	err = kstrtouint(buf, 10, &mV);
+	if (err < 0)
+		return err;
+
+// write_word
+	err = set_slot_power_mV(slot, mV);
+	if (err < 0)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_RW(data16);
+
 static struct attribute *retrode3_attrs[] = {
 	&dev_attr_sense.attr,
 	&dev_attr_vcc.attr,
+	&dev_attr_addr.attr,
+	&dev_attr_data8.attr,
+	&dev_attr_data16.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(retrode3);
