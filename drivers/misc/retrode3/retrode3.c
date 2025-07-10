@@ -234,17 +234,20 @@ static int is_selected(struct retrode3_slot *slot)
 }
 
 static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
-{ /* chip select */
+{ /* control chip select */
 	int i;
 
 // printk("%s:\n", __func__);
 
-	if (slot)
-		mutex_lock(&bus->select_lock);
+	if (slot) {
+		if (is_selected(slot))
+			return;	// already selected (and locked)
+		mutex_lock(&bus->select_lock);	// lock until slot == 0
+	}
 
 	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		if (!bus->slots[i])
-			continue;
+			continue;	// avoid to match slot == NULL
 		gpiod_set_value(bus->slots[i]->ce, (bus->slots[i] == slot) ? 1:0);
 	}
 
