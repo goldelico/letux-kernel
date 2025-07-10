@@ -265,7 +265,7 @@ static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
 static int retrode3_probe(struct platform_device *pdev)
 {
         struct retrode3_bus *bus;
-        int i = 0;
+        int i;
 	struct device_node *slots, *child = NULL;
 
         dev_dbg(&pdev->dev, "%s\n", __func__);
@@ -364,6 +364,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 // FIXME: do we needs this grouping?
 
 	slots = of_get_child_by_name(pdev->dev.of_node, "slots");
+	i = 0;
 	while ((child = of_get_next_child(slots, child))) {
 		struct retrode3_slot *slot;
 		int ret;
@@ -378,7 +379,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 		if (!slot)
 			return -ENOMEM;
 
-		bus->slots[i++] = slot;
+		bus->slots[i] = slot;
 		slot->bus = bus;
 		slot->dev.parent = &pdev->dev;
 
@@ -388,7 +389,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 		if (of_property_match_string(child, "compatible", "openpandora,retrode3-slot") >= 0)
 			ret = retrode3_probe_slot(slot, child);
 		else if (of_property_match_string(child, "compatible", "openpandora,retrode3-controller") >= 0)
-			ret = retrode3_probe_controller(slot, child);
+			{ /*continue;*/ ret = retrode3_probe_controller(slot, child);}
 		else {
 			dev_err(&slot->dev, "unknown child type\n");
 			return -EINVAL;
@@ -398,6 +399,7 @@ printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 			return ret;
 
 		dev_dbg(&pdev->dev, "%s added\n", __func__);
+		i++;	// next slot
 	}
 
 	select_slot(bus, NULL);	// deselect all slots
