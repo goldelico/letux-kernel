@@ -110,6 +110,8 @@ int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*chi
 
 	device_initialize(dev);
 	dev->class = retrode3_class;
+	dev->release = NULL;
+	dev_set_drvdata(dev, slot);
 	dev_set_name(dev, "gamecontroller");
 	dev->of_node = child;
 
