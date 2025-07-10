@@ -123,5 +123,6 @@ static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
 static int retrode3_uevent(struct device *dev, struct kobj_uevent_env *env);
 
 int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child);
+int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*child);
 
 #endif
