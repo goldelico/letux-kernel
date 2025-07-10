@@ -102,7 +102,8 @@ static int get_slot_power_mV(struct retrode3_slot *slot);
 static int set_slot_power_mV(struct retrode3_slot *slot, int mV);
 
 // select this slot on the bus (mutually exclusive!)
-// FIXME: ein Slot kennt seinen bus! - aber was mit SLOT==NULL
+// FIXME: ein Slot kennt seinen bus! - aber was mit SLOT==NULL?
+static int is_selected(struct retrode3_slot *slot);
 static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot);
 
 // update cart-detect
