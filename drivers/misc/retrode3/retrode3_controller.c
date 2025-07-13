@@ -62,7 +62,7 @@ static void retrode3_polling_work(struct work_struct *work)
 		u64 changes = state ^ c->last_state;
 
 // if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
-		if (changes & BIT_ULL(56)) { // controller has been (un)plugged
+		if (!c->state_valid || (changes & BIT_ULL(56))) { // first event after boot or controller has been (un)plugged
 			char *envp[4];
 
 			envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
