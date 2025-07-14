@@ -81,22 +81,6 @@ static void dwc2_set_x1600_params(struct dwc2_hsotg *hsotg)
 		!device_property_read_bool(hsotg->dev, "disable-over-current");
 }
 
-static void dwc2_set_x2000_params(struct dwc2_hsotg *hsotg)
-{
-	struct dwc2_core_params *p = &hsotg->params;
-
-	p->otg_caps.hnp_support = false;
-	p->speed = DWC2_SPEED_PARAM_HIGH;
-	p->host_rx_fifo_size = 1024;
-	p->host_nperio_tx_fifo_size = 1024;
-	p->host_perio_tx_fifo_size = 1024;
-	p->host_channels = 16;
-	p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
-	p->phy_utmi_width = 16;
-	p->activate_ingenic_overcurrent_detection =
-		!device_property_read_bool(hsotg->dev, "disable-over-current");
-}
-
 static void dwc2_set_s3c6400_params(struct dwc2_hsotg *hsotg)
 {
 	struct dwc2_core_params *p = &hsotg->params;
@@ -312,7 +296,7 @@ const struct of_device_id dwc2_of_match_table[] = {
 	{ .compatible = "ingenic,x1600-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "ingenic,x1700-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "ingenic,x1830-otg", .data = dwc2_set_x1600_params },
-	{ .compatible = "ingenic,x2000-otg", .data = dwc2_set_x2000_params },
+	{ .compatible = "ingenic,x2000-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "rockchip,rk3066-usb", .data = dwc2_set_rk_params },
 	{ .compatible = "lantiq,danube-usb", .data = &dwc2_set_ltq_danube_params },
 	{ .compatible = "lantiq,ase-usb", .data = &dwc2_set_ltq_ase_params },

@@ -1,0 +1,17 @@
+/dts-v1/;
+
+#include "lx16-v0.1.dtsi"
+
+// Mapping of connector pins to LX16 signals
+#undef PIN13
+#define PIN13	PB14
+#undef PIN15
+#define PIN15	PB15_SCK1
+#undef PIN22
+#define PIN22	PB13
+#undef PIN26
+#define PIN26	PB16_CE1_SDA1
+
+/ {
+	model = "Letux LX16v0.2";
+};
