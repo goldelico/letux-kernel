@@ -131,7 +131,7 @@ config MACH_INGENIC
 	select GPIOLIB
 	select COMMON_CLK
 	select GENERIC_IRQ_CHIP
-	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
+	select BUILTIN_DTB if !MIPS_NO_APPENDED_DTB
 	select USE_OF
 	select CPU_SUPPORTS_CPUFREQ
 	select MIPS_EXTERNAL_TIMER
@@ -2209,7 +2209,7 @@ config CPU_R4K_FPU
 
 config CPU_R4K_CACHE_TLB
 	bool
-	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON)
+	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON || MACH_INGENIC)
 
 config MIPS_MT_SMP
 	bool "MIPS MT SMP support (1 TC on each available VPE)"
