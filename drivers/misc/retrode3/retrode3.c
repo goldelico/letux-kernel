@@ -551,7 +551,7 @@ static ssize_t data8_show(struct device *dev, struct device_attribute *attr,
 	int byte;
 
 	if (!is_selected(slot))
-		return sprintf(buf, "unselected\n");
+		return sprintf(buf, "deselected\n");
 
 	byte = read_byte(slot->bus);
 
@@ -593,7 +593,7 @@ static ssize_t data16_show(struct device *dev, struct device_attribute *attr,
 	int word;
 
 	if (!is_selected(slot))
-		return sprintf(buf, "unselected\n");
+		return sprintf(buf, "deselected\n");
 
 	word = read_word(slot->bus);
 
