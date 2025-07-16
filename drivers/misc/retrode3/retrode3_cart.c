@@ -547,6 +547,7 @@ static void retrode3_update_cd(struct retrode3_slot *slot)
 	}
 }
 
+#if 0
 static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
 {
 	struct retrode3_slot *slot = dev_id;
@@ -555,6 +556,7 @@ static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 static void retrode3_cd_work(struct work_struct *work)
 {
