@@ -968,6 +968,7 @@
 };
 
 &hdqw1w {
+	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&hdq_pins>;
 };
