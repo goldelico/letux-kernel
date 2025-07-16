@@ -460,28 +460,6 @@ static struct platform_driver retrode3_driver = {
         },
 };
 
-#if OLD
-static int retrode3_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	struct retrode3_slot *slot = container_of(dev, struct retrode3_slot, dev);
-	int ret;
-	char buf[100];
-
-        dev_info(&slot->dev, "%s\n", __func__);
-
-	ret = add_uevent_var(env, "SLOT=%s", dev_name(dev));
-	if (ret)
-		return ret;
-
-	sense_show(dev, NULL, buf);
-	// strip off \n?
-	ret = add_uevent_var(env, "STATE=%s", buf);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-#endif
 
 static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
@@ -678,11 +656,6 @@ static int __init retrode3_module_init(void)
 	}
 
 	retrode3_class->dev_groups = retrode3_groups;	// for additional /sys attributes
-
-#if OLD
-// triggers permanent sequence of uEvents...
-//	retrode3_class->dev_uevent = retrode3_uevent;
-#endif
 
 	ret = platform_driver_register(&retrode3_driver);
 
