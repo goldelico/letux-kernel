@@ -1,10 +1,19 @@
+#!/bin/bash
+
+SLOT=/sys/class/retrode3/slot-md
+
 case "$1" in
-1 ) # binary counteron address pins (is slow!)
+
+0 ) # turn off
+	echo deselect >$SLOT/addr
+	;;
+
+1 ) # binary counter on address pins (is slow!)
 	ADDR=0
 	while true
 	do
-		echo $ADDR
-		echo $ADDR >/sys/class/retrode3/slot-md/addr
+		echo addr: $ADDR
+		echo $ADDR >$SLOT/addr
 		ADDR=$(printf '%x' $((0x$ADDR + 2)))
 	done
 	;;
@@ -13,11 +22,25 @@ case "$1" in
 	while true
 	do
 		ADDR=1
-		while [ $ADDR -lt 1000000 ] 
+		while [ $ADDR -lt 1000000 ]
 		do
-			echo $ADDR
-			echo $ADDR >/sys/class/retrode3/slot-md/addr
+			echo addr: $ADDR
+			echo $ADDR >$SLOT/addr
 			ADDR=$(printf '%x' $((0x$ADDR * 2)))
+		done
+	done
+	;;
+
+3 ) # one Data pin after the other
+	echo 0 >$SLOT/addr
+	while true
+	do
+		DATA=1
+		while [ $DATA -lt 10000 ]
+		do
+			echo data: $DATA
+			echo $DATA >$SLOT/data16
+			DATA=$(printf '%x' $((0x$DATA * 2)))
 		done
 	done
 	;;
