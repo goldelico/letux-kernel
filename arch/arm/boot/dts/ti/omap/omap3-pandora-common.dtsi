@@ -508,6 +508,10 @@
 	status = "okay";
 };
 
+&hdqw1w {
+	status = "disabled";
+};
+
 &i2c2 {
 	clock-frequency = <100000>;
 	/* no clients so we should disable clock */
