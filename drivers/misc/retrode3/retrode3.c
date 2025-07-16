@@ -147,7 +147,7 @@ static inline int read_word(struct retrode3_bus *bus)
 
 // FIXME: mode should tell if 8 or 16 bit write is to be done and what a0 value should be assumed
 
-static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
+static inline void drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
 { // D0..D7 or D8..D15
 	int d;
 	/* set data bits */
@@ -163,8 +163,16 @@ static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
 			gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 		}
 	}
+	/* pulse write enable for a0 */
 	gpiod_set_value(bus->we->desc[a0], 1);
 	gpiod_set_value(bus->we->desc[a0], 0);
+}
+
+static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
+{ // D0..D7 or D8..D15
+	int d;
+	drive_half(bus, data, a0);
+	/* switch data bus back to input */
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_input(bus->datas->desc[d]);
 	}
@@ -175,7 +183,7 @@ static inline void write_byte(struct retrode3_bus *bus, uint8_t data)
 	return write_half(bus, data, bus->current_addr & 1);
 }
 
-static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 { /* write data to data lines */
 	int d;
 	/* set data bits */
@@ -185,10 +193,18 @@ static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D1
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 	}
+	/* pulse both write enables */
 	gpiod_set_value(bus->we->desc[0], 1);
 	gpiod_set_value(bus->we->desc[1], 1);
 	gpiod_set_value(bus->we->desc[0], 0);
 	gpiod_set_value(bus->we->desc[1], 0);
+}
+
+static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+{
+	int d;
+	drive_word(bus, data);
+	/* switch data bus back to input */
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_input(bus->datas->desc[d]);
 	}
@@ -572,22 +588,21 @@ static ssize_t data8_store(struct device *dev,
 			   const char *buf, size_t count)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
-	unsigned int mV;
+	unsigned int value;
 	int err;
 
 	if (!is_selected(slot))
 		return -EINVAL;
 
-return -EINVAL;
-
-	err = kstrtouint(buf, 10, &mV);
+	err = kstrtouint(buf, 16, &value);
 	if (err < 0)
 		return err;
 
-// write_byte
-	err = set_slot_power_mV(slot, mV);
-	if (err < 0)
-		return err;
+	if (value > 0x0ff)
+		return -EINVAL;
+
+	/* leave bus active */
+	drive_half(slot->bus, value, slot->bus->current_addr & 1);
 
 	return count;
 }
@@ -615,22 +630,21 @@ static ssize_t data16_store(struct device *dev,
 			   const char *buf, size_t count)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
-	unsigned int mV;
+	unsigned int value;
 	int err;
 
 	if (!is_selected(slot))
 		return -EINVAL;
 
-return -EINVAL;
-
-	err = kstrtouint(buf, 10, &mV);
+	err = kstrtouint(buf, 16, &value);
 	if (err < 0)
 		return err;
 
-// write_word
-	err = set_slot_power_mV(slot, mV);
-	if (err < 0)
-		return err;
+	if (value > 0x0ffff)
+		return -EINVAL;
+
+	/* leave bus active */
+	drive_word(slot->bus, value);
 
 	return count;
 }
