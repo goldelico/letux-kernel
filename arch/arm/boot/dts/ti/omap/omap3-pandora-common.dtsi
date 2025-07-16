@@ -501,6 +501,10 @@
 
 };
 
+&hdqw1w {
+	status = "disabled";
+};
+
 &usb_otg_hs {
 	interface-type = <0>;
 	usb-phy = <&usb2_phy>;
