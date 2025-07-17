@@ -155,8 +155,8 @@ letux/ingenic
 
 # Alpha400 / JZ4730
 letux/jz4730
+letux/alpha400
 letux/dt-alpha400
-#letux/pm-alpha400
 
 # CI20 / JZ4780
 letux/dt-ci20
