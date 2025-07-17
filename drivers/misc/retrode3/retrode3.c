@@ -145,10 +145,8 @@ static inline int read_word(struct retrode3_bus *bus)
 	return data;
 }
 
-// FIXME: mode should tell if 8 or 16 bit write is to be done and what a0 value should be assumed
-
-static inline void drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
-{ // D0..D7 or D8..D15
+static inline void set_half(struct retrode3_bus *bus, uint8_t data, int a0)
+{ // set D0..D7 or D8..D15
 	int d;
 	/* set data bits */
 
@@ -163,19 +161,28 @@ static inline void drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
 			gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 		}
 	}
+}
+
+static inline void drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
+{ // write D0..D7 or D8..D15 with WE
+	set_half(bus, data, a0);
 	/* pulse write enable for a0 */
 	gpiod_set_value(bus->we->desc[a0], 1);
 	gpiod_set_value(bus->we->desc[a0], 0);
 }
 
-static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
-{ // D0..D7 or D8..D15
+static inline void end_drive_word(struct retrode3_bus *bus)
+{ /* switch data bus back to input */
 	int d;
-	drive_half(bus, data, a0);
-	/* switch data bus back to input */
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_input(bus->datas->desc[d]);
 	}
+}
+
+static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
+{ // write D0..D7 or D8..D15 with WE and switch data bus back to input
+	drive_half(bus, data, a0);
+	end_drive_word(bus);
 }
 
 static inline void write_byte(struct retrode3_bus *bus, uint8_t data)
@@ -183,8 +190,8 @@ static inline void write_byte(struct retrode3_bus *bus, uint8_t data)
 	return write_half(bus, data, bus->current_addr & 1);
 }
 
-static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
-{ /* write data to data lines */
+static inline void set_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+{ /* set D0..D15 */
 	int d;
 	/* set data bits */
 
@@ -193,6 +200,11 @@ static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D1
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 	}
+}
+
+static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+{ /* write data to data lines */
+	set_word(bus, data);
 	/* pulse both write enables */
 	gpiod_set_value(bus->we->desc[0], 1);
 	gpiod_set_value(bus->we->desc[1], 1);
@@ -202,12 +214,8 @@ static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D1
 
 static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 {
-	int d;
 	drive_word(bus, data);
-	/* switch data bus back to input */
-	for (d = 0; d < bus->datas->ndescs; d++) {
-		gpiod_direction_input(bus->datas->desc[d]);
-	}
+	end_drive_word(bus);
 }
 
 #define CONFIG_RETRODE3_MDSLOT 294
