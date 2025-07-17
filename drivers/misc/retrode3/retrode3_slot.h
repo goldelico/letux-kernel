@@ -109,9 +109,6 @@ static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot);
 // update cart-detect
 static void retrode3_update_cd(struct retrode3_slot *slot);
 
-// cart detect interrupt handler
-static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id);
-
 // cart detect polling worker
 static void retrode3_cd_work(struct work_struct *work);
 
