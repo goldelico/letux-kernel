@@ -67,7 +67,12 @@ static struct class *retrode3_class;
  a0..a14  -> A0..A14
  a15..a23 -> ignored
  romsel   -> A15
- a13      -> inverted A16
+ ppu/a13  -> inverted A16
+ unused   -> A17..A23
+ cpu_r/w  -> WE0
+ prg/ce   -> CE-NES & !A15
+ ppurd/wr -> RD / WE8
+ cpu_m2   -> CE-NES (PHI2)
  for an example: https://www.nesdev.org/wiki/UxROM
 */
 
@@ -78,9 +83,32 @@ static struct class *retrode3_class;
 #define NES_ROMSEL	(1<<15)		// connected to A15
 #define NES_A16		(1<<16)		// PPU_/A13
 
+/* this section needs cleanup!
+ * it is a partial and modified and adapted copy of:
+ *    https://github.com/sanni/cartreader/blob/0b8ac2ec14675ae55952ddf0b4590ba8d2899664/Cart_Reader/NES.ino#L1012
+ */
+
+#define PORTK(data) (set_half(slot->bus, data, 0))		// D0..D7 := data (and output)
+
+#define ROMSEL_HI (gpiod_set_value(slot->bus->addrs->desc[15], 1))		// A15 | /CE_NES
+#define ROMSEL_LO (gpiod_set_value(slot->bus->addrs->desc[15], 0))		// A15 | /CE_NES
+#define PHI2_HI (gpiod_set_value(slot->ce, 0))			// /CE_NES = inactive
+#define PHI2_LOW (gpiod_set_value(slot->ce, 1))			// /CE_NES = active
+// PRG = CPU
+#define PRG_READ (gpiod_set_value(slot->bus->we->desc[0], 0))	// /WE0 = inactive
+#define PRG_WRITE (gpiod_set_value(slot->bus->we->desc[0], 1))	// /WE0 = active
+// CHR = PPU
+#define CHR_READ_HI PORTF (gpiod_set_value(slot->bus->oe, 1), gpiod_set_value(slot->bus->we->desc[1], 0))
+#define CHR_READ_LOW PORTF (gpiod_set_value(slot->bus->oe, 0), gpiod_set_value(slot->bus->we->desc[1], 0))
+#define CHR_WRITE_HI PORTF (gpiod_set_value(slot->bus->oe, 1), gpiod_set_value(slot->bus->we->desc[1], 1))
+#define CHR_WRITE_LOW (gpiod_set_value(slot->bus->oe, 0), gpiod_set_value(slot->bus->we->desc[1], 1))
+
+#define MODE_READ (end_drive_word(slot->bus))			// D0..D7 = input
+#define MODE_WRITE						// D0..D7 = output (done automatically)
+
 /* should depend on .compatible since it controls hardware peculiarities */
 
-#define IS_MD()		(mode >= MD_ROM && mode <= MD_EEPMODE)
+#define IS_MD()	(mode >= MD_ROM && mode <= MD_EEPMODE)
 #define IS_SNES()	(mode == SNES_REGULAR || mode == SNES_HIROM)
 #define IS_NES()	(mode >= NES_PRG && mode <= NES_WRAM)
 
@@ -101,20 +129,19 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 	unsigned int fill = 0;
 #endif
 
+// dev_info(&slot->dev, "%s: %08llx\n", __func__, *ppos);
+
 // if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 
 	if (IS_NES()) { // NES mapping to address bus
-// printk("%s: pos %08x\n", __func__, *ppos);
-// printk("%s: addr 1 %08x\n", __func__, addr);
+// printk("%s: pos %08llx\n", __func__, *ppos);
+// prints("%s: addr 1 %08x\n", __func__, addr);
 		addr &= NES_A0_A14;	// limit to 15 bit
 // printk("%s: addr 2 %08x\n", __func__, addr);
-		// manipulate A15 if needed
 		if (!(addr & NES_A13))
 			addr |= NES_A16;	// A16 (PPU_/A13) is !A13
 // printk("%s: addr 3 %08x\n", __func__, addr);
 	}
-
-//	dev_info(&slot->dev, "%s\n", __func__);
 
 	read = 0;
 
@@ -173,11 +200,20 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 				byte = err = read_byte(slot->bus);	// read half based on a0
 			}
 			else { // 8 bit bus SNES or NES
-				err = set_address(slot->bus, addr);	// includes setting physical A0
 				switch (mode) {
 					case NES_PRG:
 					case NES_MMC5_SRAM:
 						// bei A15 = 0 RAM auslesen
+
+  MODE_READ;
+  PRG_READ;
+						err = set_address(slot->bus, addr);	// includes setting physical A0
+//  PHI2_HI; // does not work on Retrode3
+  PHI2_LOW;
+						if (!(addr & NES_ROMSEL))
+							ROMSEL_LO;	// ROMSEL is A15
+						else
+							ROMSEL_HI;	// ROMSEL is A15
 						byte = err = read_half(slot->bus, 1);	// NES CPU bus = D0..D7
 						break;
 					case NES_CHR:
@@ -186,10 +222,12 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 					case NES_RAM:
 					case NES_WRAM:
 						// bei A15 = 0 RAM auslesen
+						err = set_address(slot->bus, addr);	// includes setting physical A0
 						byte = err = read_half(slot->bus, 0);	// NES PPU bus = D8..D15
 						break;
 					case MODE_SIMPLE_BUS:
 						// bei NES und A15 = 0 RAM auslesen
+						err = set_address(slot->bus, addr);	// includes setting physical A0
 						byte = err = read_half(slot->bus, 1);	// D0..D7
 						break;
 					default:
@@ -262,16 +300,19 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 	unsigned long copied;
 	int err;
 
+//	dev_info(&slot->dev, "%s\n", __func__);
+
 // if (mode) dev_warn(&slot->dev, "%s: mode = %d\n", __func__, mode);
 
 	if (IS_NES()) { // NES mapping to address bus
+ printk("%s: pos %08llx\n", __func__, *ppos);
+ printk("%s: addr 1 %08x\n", __func__, addr);
 		addr &= NES_A0_A14;	// limit to 15 bit
-		// manipulate A15 if needed
+ printk("%s: addr 2 %08x\n", __func__, addr);
 		if (!(addr & NES_A13))
 			addr |= NES_A16;	// A16 (PPU_/A13) is !A13
-// printk("%s: addr 2 %08x\n", __func__, addr);
+ printk("%s: addr 3 %08x\n", __func__, addr);
 	}
-//	dev_info(&slot->dev, "%s\n", __func__);
 
 	written = 0;
 
@@ -307,11 +348,62 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 			case NES_PRG:
 			case NES_MMC5_SRAM:
 				dev_info(&slot->dev, "%s: write NES PRG/SRAM %08x %02x\n", __func__, addr, byte);
+
+
+/*
+  PHI2_LOW;
+  ROMSEL_HI;
+  MODE_WRITE;
+  PRG_WRITE;
+  PORTK = data;
+
+  set_address(address);  // PHI2 low, ROMSEL always HIGH
+  //  _delay_us(1);
+  PHI2_HI;
+  //_delay_us(10);
+  set_romsel(address);  // ROMSEL is low if need, PHI2 high
+  _delay_us(1);         // WRITING
+  //_delay_ms(1); // WRITING
+  // PHI2 low, ROMSEL high
+  PHI2_LOW;
+  _delay_us(1);
+  ROMSEL_HI;
+  // Back to read mode
+  //  _delay_us(1);
+  PRG_READ;
+  MODE_READ;
+  set_address(0);
+  // Set phi2 to high state to keep cartridge unreseted
+  //  _delay_us(1);
+  PHI2_HI;
+*/
+
+
+  PHI2_LOW;
+  ROMSEL_HI;
+  MODE_WRITE;
+  PRG_WRITE;
 				err = set_address(slot->bus, addr);
 				if (err < 0)
 					return err;
-// CHECKME: do we have to play the WE0/WE8 differently?
-				write_half(slot->bus, byte, 1);	// NES CPU bus = D0..D7 and WE0
+  PORTK(byte);
+			//	set_byte(slot->bus, byte, 1);	// NES CPU bus = D0..D7 and WE0
+  PHI2_HI;
+  // set_romsel(address);  // ROMSEL is low if need, PHI2 high
+				if (!(addr & NES_ROMSEL))
+					ROMSEL_LO;	// ROMSEL is inverted A15
+				else
+					ROMSEL_HI;	// ROMSEL is inverted A15
+ // _delay_us(1);         // WRITING
+  PHI2_LOW;	// may activate PRG-CE if ROMSEL_LOW (A15 = HI)
+//  _delay_us(1);
+  ROMSEL_HI;
+  // Back to read mode
+  PRG_READ;
+  MODE_READ;
+  // Set phi2 to high state to keep cartridge unresetted
+  PHI2_HI;
+
 				break;
 			case NES_CHR:
 			case NES_CHR_M2:	// FIXME: what is the difference? Clocking M2 = CE-NES
@@ -331,6 +423,7 @@ static ssize_t retrode3_write(struct file *file, const char __user *buf,
 				if (err < 0)
 					return err;
 				write_half(slot->bus, byte, 1);	// D0..D7 and WE0
+// CHECKME: do we have to play the WE0/WE8 differently?
 				break;
 			default:
 				dev_err(&slot->dev, "%s: mode (%d) not implemented\n", __func__, mode);
