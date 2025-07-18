@@ -23,6 +23,7 @@
 #  -s		sequential merge
 #  -p		push --force all branches to 'origin' and archive in separate branch
 #  -r		rebase branches before merge /*(implies -s)*/
+#  -R		ignore if remote is newer than local
 #  -u		upload result
 #  -f file	use this as mergefile (default: Letux/scripts/mergefile) - use -f '' to ignore
 #  -w		fix whitespace on rebase (implies -s -r)
@@ -44,6 +45,7 @@ function usage {
 	echo "usage: $0 [ -s ] [ -p ] { branches...}"
 	echo "  -s	sequential merge"
 	echo "  -r	rebase before merge"
+	echo "  -R	ignore if origin is newer than local"
 	echo "  -p	push --force all branches to 'origin'"
 	echo "  -f file	use this as mergefile (default: Letux/scripts/mergefile)"
 	echo "  -f ''	use no mergefile"
@@ -58,6 +60,7 @@ do
 	case "$1" in
 		-p ) PUSH=true; shift ;;
 		-r ) REBASE=true; : SEQUENTIAL=true; shift ;;
+		-R ) IGNORE_ORIGIN=true; shift ;;
 		-s ) SEQUENTIAL=true; shift ;;
 		-nos ) SEQUENTIAL=false; shift ;;
 		-w ) WHITESPACE=--whitespace=fix; REBASE=true; SEQUENTIAL=true; shift ;;
@@ -76,7 +79,10 @@ then
 	exit 1
 fi
 
-git remote update origin	## someone may have updated a remote feature branch
+if [ ! "$IGNORE_ORIGIN" ]
+then
+	git remote update origin	## someone may have updated a remote feature branch
+fi
 
 if false
 then
@@ -108,7 +114,7 @@ function pushbranch { # if enabled, push and archive branch
 	REMOTE=$(commitdate "origin/$1")
 	LOCAL=$(commitdate "$1")
 # echo $1: REMOTE $REMOTE vs. LOCAL $LOCAL
-	if [ "$REMOTE" ] && [ "$REMOTE" -gt "$LOCAL" ]
+	if [ ! "$IGNORE_ORIGIN" ] && [ "$REMOTE" ] && [ "$REMOTE" -gt "$LOCAL" ]
 	then
 		echo "*** origin/$1 is newer than local copy - merge/update first ***"
 		exit 1
@@ -271,7 +277,7 @@ exit 1
 		REMOTE=$(commitdate "origin/$FEATURE")
 		LOCAL=$(commitdate "$FEATURE")
 # echo $FEATURE: REMOTE $REMOTE vs. LOCAL $LOCAL
-		if [ "$REMOTE" ] && [ "$REMOTE" -gt "$LOCAL" ]
+		if [ ! "$IGNORE_ORIGIN" ] && [ "$REMOTE" ] && [ "$REMOTE" -gt "$LOCAL" ]
 		then
 			echo "*** origin/$FEATURE is newer ($REMOTE) than local copy $FEATURE ($LOCAL) - merge/update first ***"
 echo please run:	git branch -f $FEATURE origin/$FEATURE
