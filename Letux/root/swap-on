@@ -28,13 +28,13 @@ done
 # FIXME: specifying an explicit MiB size should always create/resize the swap file
 # well, then we can't detect that it has not been changed!
 
-CURRENTSIZE=$(swapon | grep  "^$SWAPFILE " | cut -d ' ' -f 3)	# has an M suffix
-[ "$CURRENTSIZE" ] || CURRENTSIZE=0
+CURRENTSIZE=$(swapon | grep "^$SWAPFILE " | cut -d ' ' -f 3)	# has an M suffix
+CURRENTSIZE=$(printf "%.0f" ${CURRENTSIZE%M})
 
 SIZE="$1"
-[ "$SIZE" ] || SIZE=${CURRENTSIZE%M}
+[ "$SIZE" ] || SIZE=${CURRENTSIZE}
 
-if [ "$SIZE" -eq "${CURRENTSIZE%M}" ]
+if [ "$SIZE" -eq "${CURRENTSIZE}" ]
 then
 	echo "### $SWAPFILE with ${SIZE}MiB already active, nothing to do"
 	exit 0
@@ -43,7 +43,8 @@ fi
 if [ $(fgrep MemTotal: /proc/meminfo | ( read MEMTOTAL SIZE kB; echo $SIZE )) -lt 256000 ]
 then
 	echo "### we have less than 256MiB physical RAM. We can't turn off swap while e.g. running apt-get. So use a temp swap"
-	TMPSIZE=100
+	TMPSIZE=$CURRENTSIZE
+	[ "$TMPSIZE" -lt 100 ] && TMPSIZE=100
 fi
 
 if [ "$TMPSIZE" ]
