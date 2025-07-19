@@ -293,7 +293,7 @@ int omap_aess_port_open(struct omap_aess *aess, int logical_id)
 
 	port = find_logical_port(aess, logical_id);
 	if (port) {
-		dev_info(aess->dev, "Port %s is already open\n",
+		dev_dbg(aess->dev, "Port %s is already open\n",
 			 lport_name[logical_id]);
 		return 0;
 	}
@@ -338,7 +338,7 @@ void omap_aess_port_close(struct omap_aess *aess, int logical_id)
 	unsigned long flags;
 
 	if (!port) {
-		dev_info(aess->dev, "Port %s is not open, can not be closed\n",
+		dev_dbg(aess->dev, "Port %s is not open, can not be closed\n",
 			 lport_name[logical_id]);
 		return;
 	}
