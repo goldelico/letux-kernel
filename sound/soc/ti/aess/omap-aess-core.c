@@ -147,7 +147,7 @@ int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
 	if (!aess || !fw)
 		return -EINVAL;
 
-	if (aess->fw_loaded)
+	if (aess->fw == fw)	/* already loaded */
 		return 0;
 
 	if (unlikely(!fw->data)) {
@@ -156,19 +156,25 @@ int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
 		goto err;
 	}
 
+	if (aess->fw)
+		release_firmware(aess->fw);	/* replace */
+
 	aess->fw = fw;
+
+printk("%s: aess->fw = %px\n", __func__, aess->fw);
 
 	ret = snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
 		dev_err(aess->dev, "failed to register PCM %d\n", ret);
+		release_firmware(aess->fw);
 		goto err;
 	}
 
-	aess->fw_loaded = true;
 	return 0;
 err:
-	aess->fw_loaded = false;
+	aess->fw = NULL;
+
 	return ret;
 }
 EXPORT_SYMBOL(omap_aess_load_firmware);
@@ -274,7 +280,7 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 
 	aess->fw_data = NULL;
 	aess->fw_config = NULL;
-	release_firmware(aess->fw);
+	/* firmware will be released by omap_aess_pcm_remove() */
 	omap_aess_port_mgr_cleanup(aess);
 
 #ifdef CONFIG_DEBUG_FS
