@@ -468,7 +468,8 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 		dev_warn(component->dev, "AESS FW not yet loaded\n");
 		omap_aess_put_handle(aess);
 		return -EPROBE_DEFER;	/* firmware not yet loaded */
-}
+	}
+
 	snd_soc_component_set_drvdata(component, aess);
 
 	pm_runtime_enable(aess->dev);
@@ -540,6 +541,7 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 	pm_runtime_disable(aess->dev);
 	omap_aess_put_handle(aess);
 	release_firmware(aess->fw);
+	aess->fw = NULL;
 }
 
 /* TODO: map IO directly into AESS memories */
