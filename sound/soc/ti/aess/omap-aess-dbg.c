@@ -583,6 +583,8 @@ void aess_cleanup_debugfs(struct omap_aess *aess)
 {
 	if (aess->debug)
 		debugfs_remove_recursive(aess->debug->test_root);
+	if (aess->debugfs_root)
+		debugfs_remove_recursive(aess->debugfs_root);
 }
 
 #else
