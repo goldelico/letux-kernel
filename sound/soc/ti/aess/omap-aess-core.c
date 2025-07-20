@@ -168,19 +168,10 @@ int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
 	aess->fw_loaded = true;
 	return 0;
 err:
-	aess->fw = NULL;
 	aess->fw_loaded = false;
 	return ret;
 }
 EXPORT_SYMBOL(omap_aess_load_firmware);
-
-void omap_aess_unload_firmware(struct omap_aess *aess)
-{
-	release_firmware(aess->fw);
-	aess->fw = NULL;
-	aess->fw_loaded = false;
-}
-EXPORT_SYMBOL(omap_aess_unload_firmware);
 
 static int omap_aess_engine_probe(struct platform_device *pdev)
 {
