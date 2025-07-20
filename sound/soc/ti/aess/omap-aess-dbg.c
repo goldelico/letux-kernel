@@ -581,10 +581,18 @@ void aess_init_debugfs(struct omap_aess *aess)
 
 void aess_cleanup_debugfs(struct omap_aess *aess)
 {
-	if (aess->debug)
+	debugfs_lookup_and_remove("opp_level", aess->debugfs_root);
+	if (aess->debug) {
 		debugfs_remove_recursive(aess->debug->test_root);
-	if (aess->debugfs_root)
-		debugfs_remove_recursive(aess->debugfs_root);
+		if (aess->debug->d_pmem)
+			debugfs_remove_recursive(aess->debug->d_pmem);
+		if (aess->debug->d_smem)
+			debugfs_remove_recursive(aess->debug->d_smem);
+		if (aess->debug->d_dmem)
+			debugfs_remove_recursive(aess->debug->d_dmem);
+		if (aess->debug->d_cmem)
+			debugfs_remove_recursive(aess->debug->d_cmem);
+	}
 }
 
 #else
