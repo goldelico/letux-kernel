@@ -362,7 +362,6 @@ struct omap_aess {
 	struct fw_header fw_hdr;	// REVISIT: copy of first bytes of fw_data
 	struct omap_aess_mapping fw_info;	// REVISIT: never initialized?
 	u32 firmware_version_number;	// REVISIT: as loaded from header (unused) - same as fw_hdr.version */
-	bool fw_loaded;
 
 	/* from former omap_aess struct */
 	u16 MultiFrame[25][8];
