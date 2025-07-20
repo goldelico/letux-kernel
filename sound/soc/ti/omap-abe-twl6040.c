@@ -945,6 +945,7 @@ static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 		return;
 	}
 
+	/* will be unloaded by omap_aess_pcm_remove() */
 	ret = omap_aess_load_firmware(priv->aess, fw);
 	if (ret) {
 		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
@@ -957,9 +958,11 @@ static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 	if (ret < 0)
 		return;
 
-	ret = omap_abe_add_aess_dai_links(card);
-	if (ret < 0)
-		return;
+	if (priv->aess) {
+		ret = omap_abe_add_aess_dai_links(card);
+		if (ret < 0)
+			return;
+	}
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)
@@ -998,6 +1001,7 @@ static int omap_abe_load_fw(struct snd_soc_card *card)
 		return ret;
 	}
 
+	/* will be unloaded by omap_aess_pcm_remove() */
 	ret = omap_aess_load_firmware(priv->aess, fw);
 	if (ret) {
 		dev_err(card->dev, "%s firmware was not loaded.\n",
@@ -1137,11 +1141,16 @@ static int omap_abe_probe(struct platform_device *pdev)
 static void omap_abe_remove(struct platform_device *pdev)
 {
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
+	struct snd_soc_card *card = &priv->card;
 
 printk("%s\n", __func__);
 
-	omap_aess_unload_firmware(priv->aess);	/* no longer needed */
-	priv->aess = NULL;
+	if (priv->aess) {
+		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
+					ARRAY_SIZE(aess_audio_map));
+		// undo devm_snd_soc_register_card() - dev managed
+		// undo omap_abe_add_legacy_dai_links(card); - dev managed
+	}
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
