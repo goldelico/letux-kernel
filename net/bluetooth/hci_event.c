@@ -907,8 +907,7 @@ static u8 hci_cc_read_local_ext_features(struct hci_dev *hdev, void *data,
 	if (rp->status)
 		return rp->status;
 
-	if (!test_bit(HCI_QUIRK_BROKEN_LOCAL_EXT_FTR_MAX_PAGE,
-		      &hdev->quirks) &&
+	if (!hci_test_quirk(hdev, HCI_QUIRK_BROKEN_LOCAL_EXT_FTR_MAX_PAGE) &&
 	    hdev->max_page < rp->max_page)
 		hdev->max_page = rp->max_page;
 
