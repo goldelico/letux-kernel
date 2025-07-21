@@ -1511,8 +1511,7 @@ void btrtl_apply_quirks(struct hci_dev *hdev,
 		 * but it doesn't support any features from page 2 -
 		 * it either responds with garbage or with error status
 		 */
-		set_bit(HCI_QUIRK_BROKEN_LOCAL_EXT_FTR_MAX_PAGE,
-			&hdev->quirks);
+		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_LOCAL_EXT_FTR_MAX_PAGE);
 		break;
 	default:
 		break;
