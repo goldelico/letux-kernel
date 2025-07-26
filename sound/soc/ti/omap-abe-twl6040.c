@@ -39,8 +39,6 @@
 
 #define AESS_FW_NAME   "omap_aess-adfw.bin"
 
-// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n532
-
 /* legacy links with CPU (userspace visible) */
 SND_SOC_DAILINK_DEFS(link0,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()),
@@ -72,8 +70,6 @@ SND_SOC_DAILINK_DEFS(link_mcasp,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
 
-// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n566
-
 /* Frontend DAIs - i.e. userspace visible interfaces (ALSA PCMs) */
 SND_SOC_DAILINK_DEFS(link_fe_media1,
 	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1")),	/* must match with struct snd_soc_dai_driver omap_aess_dai in omap-aess-dai.c */
@@ -104,8 +100,6 @@ SND_SOC_DAILINK_DEFS(link_fe_lp,
 	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1 LP")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
-
-// CHECKME: https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82#n609
 
 /* Backend DAIs - i.e. dynamically matched interfaces, invisible to userspace */
 SND_SOC_DAILINK_DEFS(link_be_mcpdm_dl1,
