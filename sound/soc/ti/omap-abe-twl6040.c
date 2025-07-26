@@ -678,6 +678,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+/* FIXME: should this be twl6040_dl1_init? */
 static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
