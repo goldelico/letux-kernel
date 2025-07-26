@@ -163,7 +163,7 @@ int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
 
 printk("%s: aess->fw = %px\n", __func__, aess->fw);
 
-	ret = snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
+	ret = devm_snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
 		dev_err(aess->dev, "failed to register PCM %d\n", ret);
@@ -266,14 +266,15 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#if OLD
 static void omap_aess_engine_remove(struct platform_device *pdev)
 {
 	struct omap_aess *aess = dev_get_drvdata(&pdev->dev);
 
 	the_aess = NULL;
 
-	snd_soc_unregister_component(&pdev->dev);
-#ifdef CHECKME	// we have no platform device any more - is component sufficient?
+//	snd_soc_unregister_component(&pdev->dev);
+#ifdef CHECKME	// we have no platform device any more - is component unregistration sufficient?
 // and we register two components - how do we unregister them individually?
 	snd_soc_unregister_platform(&pdev->dev);
 #endif
@@ -287,6 +288,7 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 	debugfs_remove_recursive(aess->debugfs_root);
 #endif
 }
+#endif
 
 static const struct of_device_id omap_aess_of_match[] = {
 	{ .compatible = "ti,omap4-aess", },
@@ -301,7 +303,9 @@ static struct platform_driver omap_aess_driver = {
 		.of_match_table = omap_aess_of_match,
 	},
 	.probe = omap_aess_engine_probe,
+#if OLD
 	.remove = omap_aess_engine_remove,
+#endif
 };
 
 module_platform_driver(omap_aess_driver);
