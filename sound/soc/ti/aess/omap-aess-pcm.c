@@ -550,31 +550,6 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(aess->debugfs_root);
 #endif
-
-printk("%s %d:\n", __func__, __LINE__);
-
-#if NOTNEEDED	// if this module is automatically removed by modprobe -r snd_soc_omap_abe_twl6040
-	/* usually one would call snd_soc_unregister_component(aess->dev);
-	 * but this tries to take the client_mutex again:
-	 * which is already held by snd_soc_unregister_card().
-	 * So we run our own loop.
-	 */
-
-	while (1) {
-		struct snd_soc_component *component = snd_soc_lookup_component_nolocked(aess->dev, NULL);
-		/*static*/ void snd_soc_del_component_unlocked(struct snd_soc_component *component);
-
-printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component?component->name:"NULL");
-
-		if (!component)
-			break;
-
-		snd_soc_del_component_unlocked(component);
-	}
-
-printk("%s %d:\n", __func__, __LINE__);
-#endif
-
 }
 
 /* TODO: map IO directly into AESS memories */
