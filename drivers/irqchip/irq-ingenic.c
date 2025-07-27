@@ -22,12 +22,15 @@
 #include <asm/io.h>
 #include <asm/mach-ingenic/smp.h>
 
-#define JZ_REG_INTC_STATUS		0x00
-#define JZ_REG_INTC_MASK		0x04
+#define JZ_REG_INTC_STATUS	0x00
+#define JZ_REG_INTC_MASK	0x04
 #define JZ_REG_INTC_SET_MASK	0x08
 #define JZ_REG_INTC_CLEAR_MASK	0x0c
-#define JZ_REG_INTC_PENDING		0x10
-#define CHIP_SIZE				0x20
+#define JZ_REG_INTC_PENDING	0x10
+#define CHIP_SIZE		0x20
+
+#define JZ_INTC_MAX_CHIPS	2
+#define JZ_INTC_IRQS_PER_CHIP	32
 
 #define IF_ENABLED(cfg, ptr)	PTR_IF(IS_ENABLED(cfg), (ptr))
 
@@ -44,7 +47,6 @@ enum ingenic_intc_version {
 };
 
 struct ingenic_intc_irqchip {
-	struct irq_domain *domain;
 	void __iomem *base;
 	unsigned num_chips;
 
@@ -59,7 +61,7 @@ struct ingenic_intc {
 	int irq;
 };
 
-struct ingenic_intc *ingenic_intc;
+static struct ingenic_intc *ingenic_intc;
 
 asmlinkage void plat_irq_dispatch(void)
 {
@@ -80,9 +82,16 @@ asmlinkage void plat_irq_dispatch(void)
 		do_IRQ(MIPS_CPU_IRQ_BASE + __ffs(pending));
 }
 
+static struct ingenic_intc_irqchip *ingenic_intc_get_irqchip(unsigned cpu)
+{
+	if (ingenic_intc->version >= ID_X2000)
+		return per_cpu_ptr(ingenic_intc->irqchips, cpu);
+	else
+		return ingenic_intc->irqchips;
+}
+
 static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 {
-	struct ingenic_intc *intc = ingenic_intc;
 	struct ingenic_intc_irqchip *irqchip = data;
 	uint32_t pending;
 	unsigned i;
@@ -95,51 +104,110 @@ static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 		while (pending) {
 			int bit = __fls(pending);
 
-			irq = irq_linear_revmap(intc->domain, bit + (i * 32));
+			irq = irq_linear_revmap(ingenic_intc->domain,
+						bit + (i * JZ_INTC_IRQS_PER_CHIP));
 			generic_handle_irq(irq);
 			pending &= ~BIT(bit);
 		}
 	}
 
-	if (intc->version == ID_JZ4780)
+	if (ingenic_intc->version == ID_JZ4780)
 		IF_ENABLED(CONFIG_SMP, jz4780_smp_switch_irqcpu(smp_processor_id()));
 
 	return IRQ_HANDLED;
 }
 
+static void ingenic_intc_cpu_irq_op(unsigned cpu, irq_hw_number_t irq, unsigned reg)
+{
+	struct ingenic_intc_irqchip *irqchip = ingenic_intc_get_irqchip(cpu);
+	unsigned i = irq / JZ_INTC_IRQS_PER_CHIP;
+	struct irq_chip_generic *gc = irqchip->gc[i];
+
+	/* Suppress any operations on uninitialised chips associated with CPUs
+	   yet to be started. */
+
+	if (!gc)
+		return;
+
+	irq_gc_lock(gc);
+	irq_reg_writel(gc, 1UL << (irq % JZ_INTC_IRQS_PER_CHIP), reg);
+	irq_gc_unlock(gc);
+}
+
+static void ingenic_intc_mask_cpu_irq(unsigned cpu, irq_hw_number_t irq)
+{
+	ingenic_intc_cpu_irq_op(cpu, irq, JZ_REG_INTC_SET_MASK);
+}
+
+static void ingenic_intc_global_irq_op(struct irq_data *data, unsigned reg)
+{
+	irq_hw_number_t irq = irqd_to_hwirq(data);
+	const struct cpumask *affinity = irq_data_get_affinity_mask(data);
+	unsigned cpu;
+
+	for (cpu = 0; cpu < num_possible_cpus(); cpu++)
+		if (cpumask_test_cpu(cpu, affinity))
+			ingenic_intc_cpu_irq_op(cpu, irq, reg);
+}
+
+static void ingenic_intc_mask(struct irq_data *data)
+{
+	ingenic_intc_global_irq_op(data, JZ_REG_INTC_SET_MASK);
+}
+
+static void ingenic_intc_unmask(struct irq_data *data)
+{
+	ingenic_intc_global_irq_op(data, JZ_REG_INTC_CLEAR_MASK);
+}
+
+static int ingenic_intc_set_affinity(struct irq_data *data,
+                                     const struct cpumask *dest,
+                                     bool force)
+{
+	irq_hw_number_t irq = irqd_to_hwirq(data);
+	const struct cpumask *affinity = irq_data_get_affinity_mask(data);
+	unsigned cpu;
+
+	/* Mask the IRQ for CPUs that are no longer to be associated with the IRQ. */
+
+	for_each_cpu_andnot(cpu, affinity, dest)
+		ingenic_intc_mask_cpu_irq(cpu, irq);
+
+	irq_data_update_affinity(data, dest);
+	irq_data_update_effective_affinity(data, dest);
+
+	return IRQ_SET_MASK_OK;
+}
+
 static int __init ingenic_intc_setup_irqchip(unsigned int cpu)
 {
-	struct ingenic_intc *intc = ingenic_intc;
 	struct ingenic_intc_irqchip *irqchip;
 	struct irq_chip_type *ct;
 	unsigned int i;
 
-	if (intc->version >= ID_X2000)
-		irqchip = per_cpu_ptr(intc->irqchips, cpu);
-	else
-		irqchip = intc->irqchips;
+	irqchip = ingenic_intc_get_irqchip(cpu);
 
 	for (i = 0; i < irqchip->num_chips; i++) {
-		irqchip->gc[i] = irq_get_domain_generic_chip(intc->domain, i * 32);
+		irqchip->gc[i] = irq_get_domain_generic_chip(ingenic_intc->domain,
+							     i * JZ_INTC_IRQS_PER_CHIP);
 
-		irqchip->gc[i]->wake_enabled = IRQ_MSK(32);
+		irqchip->gc[i]->wake_enabled = IRQ_MSK(JZ_INTC_IRQS_PER_CHIP);
 		irqchip->gc[i]->reg_base = irqchip->base + (i * CHIP_SIZE);
 
 		ct = irqchip->gc[i]->chip_types;
 		ct->regs.enable = JZ_REG_INTC_CLEAR_MASK;
 		ct->regs.disable = JZ_REG_INTC_SET_MASK;
-		ct->chip.irq_unmask = irq_gc_unmask_enable_reg;
-		ct->chip.irq_mask = irq_gc_mask_disable_reg;
-		ct->chip.irq_mask_ack = irq_gc_mask_disable_reg;
+		ct->chip.irq_unmask = ingenic_intc_unmask;
+		ct->chip.irq_mask = ingenic_intc_mask;
+		ct->chip.irq_mask_ack = ingenic_intc_mask;
 		ct->chip.irq_set_wake = irq_gc_set_wake;
+		ct->chip.irq_set_affinity = ingenic_intc_set_affinity;
 		ct->chip.flags = IRQCHIP_MASK_ON_SUSPEND;
 
 		/* Mask all irqs */
-		irq_reg_writel(irqchip->gc[i], IRQ_MSK(32), JZ_REG_INTC_SET_MASK);
+		irq_reg_writel(irqchip->gc[i], IRQ_MSK(JZ_INTC_IRQS_PER_CHIP),
+			       JZ_REG_INTC_SET_MASK);
 	}
-
-	if (intc->version >= ID_X2000)
-		enable_percpu_irq(intc->irq, IRQ_TYPE_NONE);
 
 	return 0;
 }
@@ -241,7 +309,8 @@ static int __init ingenic_intc_of_init(struct device_node *np,
 	if (IS_ERR(intc))
 		return PTR_ERR(intc);
 
-	domain = irq_domain_add_linear(np, num_chips * 32, &irq_generic_chip_ops, NULL);
+	domain = irq_domain_add_linear(np, num_chips * JZ_INTC_IRQS_PER_CHIP,
+				       &irq_generic_chip_ops, NULL);
 	if (!domain) {
 		ret = -ENOMEM;
 		goto out_unmap_irq;
@@ -249,14 +318,14 @@ static int __init ingenic_intc_of_init(struct device_node *np,
 
 	intc->domain = domain;
 
-	ret = irq_alloc_domain_generic_chips(domain, 32, 1, "INTC",
+	ret = irq_alloc_domain_generic_chips(domain, JZ_INTC_IRQS_PER_CHIP, 1, "INTC",
 					     handle_level_irq, 0, IRQ_NOPROBE | IRQ_LEVEL, 0);
 	if (ret)
 		goto out_domain_remove;
 
 	if (intc->version >= ID_X2000) {
 		ret = request_percpu_irq(intc->irq, ingenic_intc_cascade,
-				"SoC intc cascade interrupt", intc->irqchips);
+					 "SoC intc cascade interrupt", intc->irqchips);
 		if (ret) {
 			pr_err("Failed to register SoC intc cascade interrupt\n");
 			goto out_domain_remove;
@@ -269,10 +338,9 @@ static int __init ingenic_intc_of_init(struct device_node *np,
 			pr_crit("%s: Unable to init percpu irqchips: %x\n", __func__, ret);
 			goto out_domain_remove;
 		}
-
 	} else {
 		ret = request_irq(intc->irq, ingenic_intc_cascade, IRQF_NO_SUSPEND,
-				"SoC intc cascade interrupt", intc->irqchips);
+				  "SoC intc cascade interrupt", intc->irqchips);
 		if (ret) {
 			pr_err("Failed to register SoC intc cascade interrupt\n");
 			goto out_domain_remove;
