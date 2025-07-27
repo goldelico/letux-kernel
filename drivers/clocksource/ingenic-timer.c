@@ -457,7 +457,7 @@ static int __init ingenic_tcu_init(struct device_node *np)
 	}
 
 	/* Setup clock events on each CPU core */
-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "Ingenic XBurst: online",
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ingenic-timer: online",
 				ingenic_tcu_setup_cevt, NULL);
 	if (ret < 0) {
 		pr_crit("%s: Unable to start CPU timers: %d\n", __func__, ret);
