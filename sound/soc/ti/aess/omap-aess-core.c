@@ -161,8 +161,6 @@ int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
 
 	aess->fw = fw;
 
-printk("%s: aess->fw = %px\n", __func__, aess->fw);
-
 	ret = devm_snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
