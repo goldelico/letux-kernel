@@ -1138,8 +1138,6 @@ static void omap_abe_remove(struct platform_device *pdev)
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = &priv->card;
 
-printk("%s\n", __func__);
-
 	if (priv->aess) {
 		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
