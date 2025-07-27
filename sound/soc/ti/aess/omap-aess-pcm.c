@@ -553,6 +553,7 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 
 printk("%s %d:\n", __func__, __LINE__);
 
+#if NOTNEEDED	// if this module is automatically removed by modprobe -r snd_soc_omap_abe_twl6040
 	/* usually one would call snd_soc_unregister_component(aess->dev);
 	 * but this tries to take the client_mutex again:
 	 * which is already held by snd_soc_unregister_card().
@@ -572,6 +573,7 @@ printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component?com
 	}
 
 printk("%s %d:\n", __func__, __LINE__);
+#endif
 
 }
 
