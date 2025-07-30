@@ -517,10 +517,16 @@ static ssize_t vcc_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(vcc);
 
-// setting an address through a slot property also selects and locks the slot
-// until we set the address to "deselect"
-// CHECKME: oder "none" oder leerer String???
-// man sollte die Adresse auch zurücklesen können incl. "none"
+static ssize_t addr_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct retrode3_slot *slot = dev_get_drvdata(dev);
+
+	if (!is_selected(slot))
+		return sprintf(buf, "deselected\n");
+
+	return sprintf(buf, "%08x\n", slot->bus->current_addr);
+}
 
 static ssize_t addr_store(struct device *dev,
 			   struct device_attribute *attr,
@@ -550,7 +556,7 @@ static ssize_t addr_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_WO(addr);
+static DEVICE_ATTR_RW(addr);
 
 static ssize_t data8_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
