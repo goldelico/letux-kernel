@@ -497,6 +497,8 @@ int device_bind_driver(struct device *dev)
 {
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	ret = driver_sysfs_add(dev);
 	if (!ret) {
 		device_links_force_bind(dev);
@@ -607,6 +609,8 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 	bool test_remove = IS_ENABLED(CONFIG_DEBUG_TEST_DRIVER_REMOVE) &&
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
+
+printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	if (defer_all_probes) {
 		/*
@@ -826,6 +830,8 @@ static int driver_probe_device(const struct device_driver *drv, struct device *d
 {
 	int trigger_count = atomic_read(&deferred_trigger_count);
 	int ret;
+
+printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	atomic_inc(&probe_count);
 	ret = __driver_probe_device(drv, dev);
@@ -1159,6 +1165,8 @@ static int __driver_attach(struct device *dev, void *data)
 	const struct device_driver *drv = data;
 	bool async = false;
 	int ret;
+
+// printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	/*
 	 * Lock device and try to bind to it. We drop the error
