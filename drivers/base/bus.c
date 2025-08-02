@@ -239,7 +239,12 @@ static ssize_t unbind_store(struct device_driver *drv, const char *buf,
 	struct device *dev;
 	int err = -ENODEV;
 
+printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
+
 	dev = bus_find_device_by_name(bus, NULL, buf);
+
+printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+
 	if (dev && dev->driver == drv) {
 		device_driver_detach(dev);
 		err = count;
@@ -262,7 +267,12 @@ static ssize_t bind_store(struct device_driver *drv, const char *buf,
 	struct device *dev;
 	int err = -ENODEV;
 
+printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
+
 	dev = bus_find_device_by_name(bus, NULL, buf);
+
+printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+
 	if (dev && driver_match_device(drv, dev)) {
 		err = device_driver_attach(drv, dev);
 		if (!err) {
@@ -400,6 +410,8 @@ struct device *bus_find_device(const struct bus_type *bus,
 	if (!sp)
 		return NULL;
 
+// printk("%s %d: bus=%px %s start=%px match=%pF data=%px\n", __func__, __LINE__, bus, bus->name, start, match, data);
+
 	klist_iter_init_node(&sp->klist_devices, &i,
 			     (start ? &start->p->knode_bus : NULL));
 	while ((dev = next_device(&i))) {
@@ -410,6 +422,9 @@ struct device *bus_find_device(const struct bus_type *bus,
 	}
 	klist_iter_exit(&i);
 	subsys_put(sp);
+
+// printk("%s %d: bus=%px %s dev=%px %s\n", __func__, __LINE__, bus, bus->name, dev, dev_name(dev));
+
 	return dev;
 }
 EXPORT_SYMBOL_GPL(bus_find_device);
@@ -658,6 +673,7 @@ int bus_add_driver(struct device_driver *drv)
 	 * the driver is removed from the bus
 	 */
 	pr_debug("bus: '%s': add driver %s\n", sp->bus->name, drv->name);
+printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -738,6 +754,7 @@ void bus_remove_driver(struct device_driver *drv)
 		return;
 
 	pr_debug("bus: '%s': remove driver %s\n", sp->bus->name, drv->name);
+printk("%s %d: bus: '%s': remove driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
 
 	if (!drv->suppress_bind_attrs)
 		remove_bind_files(drv);
