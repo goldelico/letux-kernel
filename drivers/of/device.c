@@ -90,15 +90,21 @@ int of_dma_configure_id(struct device *dev, struct device_node *np,
 	bool coherent, set_map = false;
 	int ret;
 
+printk("%s %d: dev=%px %s %s %s\n", __func__, __LINE__, dev, dev_name(dev), np->name, np->full_name);
+
 	if (dev->dma_range_map) {
 		dev_dbg(dev, "dma_range_map already set\n");
 		goto skip_map;
 	}
 
+if (!np || !dev->of_node) printk("%s %d:\n", __func__, __LINE__);
+
 	if (np == dev->of_node)
 		bus_np = __of_get_dma_parent(np);
 	else
 		bus_np = of_node_get(np);
+
+if (!bus_np) printk("%s %d:\n", __func__, __LINE__);
 
 	ret = of_dma_get_range(bus_np, &map);
 	of_node_put(bus_np);
@@ -115,6 +121,9 @@ int of_dma_configure_id(struct device *dev, struct device_node *np,
 		end = dma_range_map_max(map);
 		set_map = true;
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
+
 skip_map:
 	/*
 	 * If @dev is expected to be DMA-capable then the bus code that created
@@ -122,10 +131,15 @@ skip_map:
 	 * now, we'll continue the legacy behaviour of coercing it to the
 	 * coherent mask if not, but we'll no longer do so quietly.
 	 */
+
+printk("%s %d: dma_mask=%px\n", __func__, __LINE__, dev->dma_mask);
+
 	if (!dev->dma_mask) {
 		dev_warn(dev, "DMA mask not set\n");
 		dev->dma_mask = &dev->coherent_dma_mask;
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	if (!end && dev->coherent_dma_mask)
 		end = dev->coherent_dma_mask;
@@ -137,17 +151,30 @@ skip_map:
 	 * set by the driver.
 	 */
 	mask = DMA_BIT_MASK(ilog2(end) + 1);
+printk("%s %d: coherent_dma_mask=%px & mask=%llx\n", __func__, __LINE__, &dev->coherent_dma_mask, mask);
+
 	dev->coherent_dma_mask &= mask;
+
+printk("%s %d: dma_mask=%px & mask=%llx\n", __func__, __LINE__, dev->dma_mask, mask);
+
 	*dev->dma_mask &= mask;
 	/* ...but only set bus limit and range map if we found valid dma-ranges earlier */
+
+printk("%s %d: dma_mask=%px mask=%llx\n", __func__, __LINE__, dev->dma_mask);
+
 	if (set_map) {
 		dev->bus_dma_limit = end;
 		dev->dma_range_map = map;
 	}
 
+
+printk("%s %d:\n", __func__, __LINE__);
+
 	coherent = of_dma_is_coherent(np);
-	dev_dbg(dev, "device is%sdma coherent\n",
+	dev_info(dev, "device is%sdma coherent\n",
 		coherent ? " " : " not ");
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	ret = of_iommu_configure(dev, np, id);
 	if (ret == -EPROBE_DEFER) {
@@ -157,14 +184,21 @@ skip_map:
 		kfree(map);
 		return -EPROBE_DEFER;
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
+
 	/* Take all other IOMMU errors to mean we'll just carry on without it */
 	dev_dbg(dev, "device is%sbehind an iommu\n",
 		!ret ? " " : " not ");
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	arch_setup_dma_ops(dev, coherent);
 
 	if (ret)
 		of_dma_set_restricted_buffer(dev, np);
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	return 0;
 }
