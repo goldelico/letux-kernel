@@ -666,7 +666,7 @@ printk("%s %d:\n", __func__, __LINE__);
 
 	ret = call_driver_probe(dev, drv);
 
-printk("%s %d:\n", __func__, __LINE__);
+printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret) {
 		/*
