@@ -690,6 +690,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 /* FIXME: should this be twl6040_dl1_init? */
+// NOTE: This is backend initialization
 static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
@@ -744,12 +745,14 @@ static const struct snd_soc_component_driver something = {
 			return ret;
 	}
 
-#if FIXME	// can we add the aess routes here?
+	/* add the aess routes here? AFTER initializing the AESS? */
 	if (priv->aess) {
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
+		if (ret)
+			return ret;
 	}
-#endif
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	return 0;
 }
 #endif
@@ -1027,21 +1030,11 @@ printk("%s %d: priv->aess=%px\n", __func__, __LINE__, priv->aess);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
-printk("%s %d\n", __func__, __LINE__);
-
-#if FIXME
-/* can we do this in omap_abe_twl6040_aess_init()?? */
-#endif
 	if (priv->aess) {
 		ret = omap_abe_add_aess_dai_links(card);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		if (ret < 0)
 			return ret;
-
-		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
-					ARRAY_SIZE(aess_audio_map));
-
-		if (ret)
-			dev_err(&pdev->dev, "could not add AESS routes: %d\n", ret);
 	}
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
