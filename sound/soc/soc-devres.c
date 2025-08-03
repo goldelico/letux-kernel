@@ -13,6 +13,8 @@ static void devm_component_release(struct device *dev, void *res)
 {
 	const struct snd_soc_component_driver **cmpnt_drv = res;
 
+printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
+
 	snd_soc_unregister_component_by_driver(dev, *cmpnt_drv);
 }
 
@@ -32,6 +34,8 @@ int devm_snd_soc_register_component(struct device *dev,
 {
 	const struct snd_soc_component_driver **ptr;
 	int ret;
+
+printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	ptr = devres_alloc(devm_component_release, sizeof(*ptr), GFP_KERNEL);
 	if (!ptr)
