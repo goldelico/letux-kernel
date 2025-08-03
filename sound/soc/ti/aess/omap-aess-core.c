@@ -164,6 +164,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 
 #endif	/* CONFIG_PM */
 	aess->dev = &pdev->dev;
+printk("%s %d: pdev=%px aess=%px dev=%px\n", __func__, __LINE__, pdev, aess, aess->dev);
 
 	mutex_init(&aess->mutex);
 	mutex_init(&aess->opp.mutex);
@@ -184,6 +185,9 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	get_device(aess->dev);
 	aess->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 	aess->dev->dma_mask = &aess->dev->coherent_dma_mask;
+
+printk("%s %d: aess=%px dev=%px dma_mask=%px\n", __func__, __LINE__, aess, aess->dev, aess->dev->dma_mask);
+printk("%s %d: aess=%px dev=%px coherent_dma_mask=%px\n", __func__, __LINE__, aess, aess->dev, &aess->dev->coherent_dma_mask);
 
 	put_device(aess->dev);
 
