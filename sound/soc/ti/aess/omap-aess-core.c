@@ -237,6 +237,7 @@ printk("%s %d: ok\n", __func__, __LINE__);
 	ret = devm_snd_soc_register_component(&pdev->dev, &omap_aess_component, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
+		aess->dev->dma_mask = NULL;
 		dev_err(aess->dev, "failed to register AESS PCM %d\n", ret);
 #ifdef CONFIG_PM
 		pm_runtime_disable(&pdev->dev);
@@ -255,6 +256,8 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 	struct omap_aess *aess = platform_get_drvdata(pdev);
 
 printk("%s %d\n", __func__, __LINE__);
+	pdev->dev.dma_mask = NULL;
+
 #ifdef CONFIG_PM
 	pm_runtime_disable(&pdev->dev);
 #endif
@@ -265,6 +268,7 @@ printk("%s %d\n", __func__, __LINE__);
 
 	if (aess && aess->nr_users > 0)
 		dev_err(aess->dev, "there are %d aess users\n", aess->nr_users);
+
 	the_aess = NULL;
 }
 
