@@ -32,7 +32,9 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 #include "aess/omap-aess.h"
+#endif
 #include "../codecs/twl6040.h"
 #include "omap-dmic.h"
 #include "omap-mcpdm.h"
@@ -367,12 +369,16 @@ struct abe_twl6040 {
 	int	jack_detection;	/* board can detect jack events */
 	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
 	int	twl6040_power_mode;
-	struct omap_aess	*aess;
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	struct omap_aess *aess;	// can we use aess_get_handle() or platform_data(omap_aess_dev)?
+#endif
 };
 
 static struct platform_device *dmic_codec_dev;
 static struct platform_device *spdif_codec_dev;
-static struct omap_aess *aess_dev;
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+static struct platform_device *omap_aess_dev;
+#endif
 
 static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -996,16 +1002,18 @@ printk("%s %d\n", __func__, __LINE__);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
-	request_module("snd_soc_omap_aess");	/* try to load driver */
+	ret = request_module("snd_soc_omap_aess");	/* try to load driver */
+	if (ret)
+		dev_err(&pdev->dev, "request_module returned: %d\n", ret);
 
-	aess_dev = omap_aess_get_handle();
+	priv->aess = omap_aess_get_handle();
 
-printk("%s %d: aess_dev=%px\n", __func__, __LINE__, aess_dev);
+printk("%s %d: priv->aess=%px\n", __func__, __LINE__, priv->aess);
 
-	if (!aess_dev)
+	if (!priv->aess)
 		return -ENODEV;	/* or -EPROBE_DEFER? */
 #else
-	aess_dev = NULL;
+	priv->aess = NULL;
 #endif
 
 #if FIXME
@@ -1057,9 +1065,10 @@ printk("%s %d\n", __func__, __LINE__);
 	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_put_handle(aess_dev);
+printk("%s %d: priv->aess=%px aess_dev=%px\n", __func__, __LINE__, priv->aess, omap_aess_dev);
+	omap_aess_put_handle(priv->aess);
+	platform_device_unregister(omap_aess_dev);
 #endif
-
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
@@ -1101,6 +1110,20 @@ printk("%s %d\n", __func__, __LINE__);
 
 printk("%s %d\n", __func__, __LINE__);
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	omap_aess_dev = platform_device_register_simple("omap-aess", -1,
+				NULL, 0);
+printk("%s %d: aess = %px\n", __func__, __LINE__, omap_aess_dev);
+	if (IS_ERR(omap_aess_dev)) {
+		pr_err("%s: omap-aess device registration failed\n", __func__);
+		platform_device_unregister(dmic_codec_dev);
+		platform_device_unregister(dmic_codec_dev);
+		return PTR_ERR(omap_aess_dev);
+	}
+#endif
+
+printk("%s %d\n", __func__, __LINE__);
+
 	ret = platform_driver_register(&omap_abe_driver);
 	if (ret) {
 		pr_err("%s: platform driver registration failed\n", __func__);
@@ -1121,6 +1144,9 @@ static void __exit omap_abe_twl6040_module_exit(void)
 printk("%s %d:\n", __func__, __LINE__);
 
 	platform_driver_unregister(&omap_abe_driver);
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	platform_device_unregister(omap_aess_dev);
+#endif
 	platform_device_unregister(dmic_codec_dev);
 	platform_device_unregister(spdif_codec_dev);
 }
