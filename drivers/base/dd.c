@@ -642,6 +642,8 @@ re_probe:
 	if (ret)
 		goto pinctrl_bind_failed;
 
+printk("%s %d: dma_configure=%pS\n", __func__, __LINE__, dev->bus->dma_configure);
+
 	if (dev->bus->dma_configure) {
 		ret = dev->bus->dma_configure(dev);
 		if (ret)
@@ -660,7 +662,12 @@ re_probe:
 			goto probe_failed;
 	}
 
+printk("%s %d:\n", __func__, __LINE__);
+
 	ret = call_driver_probe(dev, drv);
+
+printk("%s %d:\n", __func__, __LINE__);
+
 	if (ret) {
 		/*
 		 * If fw_devlink_best_effort is active (denoted by -EAGAIN), the
