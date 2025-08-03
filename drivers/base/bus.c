@@ -374,10 +374,15 @@ int bus_for_each_dev(const struct bus_type *bus, struct device *start,
 	if (!sp)
 		return -EINVAL;
 
+// printk("%s %d: bus=%px %s start=%px match=%pS data=%px\n", __func__, __LINE__, bus, bus->name, start, fn, data);
+
 	klist_iter_init_node(&sp->klist_devices, &i,
 			     (start ? &start->p->knode_bus : NULL));
 	while (!error && (dev = next_device(&i)))
+{
+// printk("%s %d: dev=%px %s data=%px\n", __func__, __LINE__, dev, dev_name(dev), data);
 		error = fn(dev, data);
+}
 	klist_iter_exit(&i);
 	subsys_put(sp);
 	return error;
@@ -410,7 +415,8 @@ struct device *bus_find_device(const struct bus_type *bus,
 	if (!sp)
 		return NULL;
 
-// printk("%s %d: bus=%px %s start=%px match=%pF data=%px\n", __func__, __LINE__, bus, bus->name, start, match, data);
+// boot fail...
+// printk("%s %d: bus=%px %s start=%px match=%pS data=%px\n", __func__, __LINE__, bus, bus->name, start, match, data);
 
 	klist_iter_init_node(&sp->klist_devices, &i,
 			     (start ? &start->p->knode_bus : NULL));
@@ -423,6 +429,7 @@ struct device *bus_find_device(const struct bus_type *bus,
 	klist_iter_exit(&i);
 	subsys_put(sp);
 
+// boot fail...
 // printk("%s %d: bus=%px %s dev=%px %s\n", __func__, __LINE__, bus, bus->name, dev, dev_name(dev));
 
 	return dev;
@@ -493,6 +500,8 @@ int bus_add_device(struct device *dev)
 {
 	struct subsys_private *sp = bus_to_subsys(dev->bus);
 	int error;
+
+printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	if (!sp) {
 		/*
@@ -573,6 +582,8 @@ void bus_remove_device(struct device *dev)
 {
 	struct subsys_private *sp = bus_to_subsys(dev->bus);
 	struct subsys_interface *sif;
+
+printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	if (!sp)
 		return;
@@ -680,6 +691,9 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 		error = -ENOMEM;
 		goto out_put_bus;
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
+
 	klist_init(&priv->klist_devices, NULL, NULL);
 	priv->driver = drv;
 	drv->p = priv;
@@ -689,12 +703,16 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 	if (error)
 		goto out_unregister;
 
+printk("%s %d:\n", __func__, __LINE__);
+
 	klist_add_tail(&priv->knode_bus, &sp->klist_drivers);
 	if (sp->drivers_autoprobe) {
 		error = driver_attach(drv);
 		if (error)
 			goto out_del_list;
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
 	error = module_add_driver(drv->owner, drv);
 	if (error) {
 		printk(KERN_ERR "%s: failed to create module links for %s\n",
@@ -702,11 +720,15 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 		goto out_detach;
 	}
 
+printk("%s %d:\n", __func__, __LINE__);
+
 	error = driver_create_file(drv, &driver_attr_uevent);
 	if (error) {
 		printk(KERN_ERR "%s: uevent attr (%s) failed\n",
 			__func__, drv->name);
 	}
+
+printk("%s %d:\n", __func__, __LINE__);
 	error = driver_add_groups(drv, sp->bus->drv_groups);
 	if (error) {
 		/* How the hell do we get out of this pickle? Give up */
@@ -715,6 +737,7 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 	}
 
 	if (!drv->suppress_bind_attrs) {
+printk("%s %d:\n", __func__, __LINE__);
 		error = add_bind_files(drv);
 		if (error) {
 			/* Ditto */
@@ -722,6 +745,7 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 				__func__, drv->name);
 		}
 	}
+printk("%s %d:\n", __func__, __LINE__);
 
 	return 0;
 
