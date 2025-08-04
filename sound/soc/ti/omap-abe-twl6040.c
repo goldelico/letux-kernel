@@ -74,67 +74,67 @@ SND_SOC_DAILINK_DEFS(link_mcasp,
 SND_SOC_DAILINK_DEFS(link_fe_media1,
 	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1")),	/* must match with struct snd_soc_dai_driver omap_aess_dai in omap-aess-dai.c */
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-pcm-audio")));	/* code will set .of_node later */
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));	/* code will set .of_node later */
 
 SND_SOC_DAILINK_DEFS(link_fe_media2,
 	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia2")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-pcm-audio")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_fe_tones,
 	DAILINK_COMP_ARRAY(COMP_CPU("Tones")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-pcm-audio")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_fe_voice,
 	DAILINK_COMP_ARRAY(COMP_CPU("Voice")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-pcm-audio")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_fe_modem,
 	DAILINK_COMP_ARRAY(COMP_CPU("MODEM")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_fe_lp,
 	DAILINK_COMP_ARRAY(COMP_CPU("MultiMedia1 LP")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 /* Backend DAIs - i.e. dynamically matched interfaces, invisible to userspace */
 SND_SOC_DAILINK_DEFS(link_be_mcpdm_dl1,
 	DAILINK_COMP_ARRAY(COMP_CPU("mcpdm-abe")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("twl6040-codec",
 				      "twl6040-dl1")),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_be_mcpdm_ul,
 	DAILINK_COMP_ARRAY(COMP_CPU("mcpdm-abe")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("twl6040-codec",
 				      "twl6040-ul")),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_be_mcpdm_dl2,
 	DAILINK_COMP_ARRAY(COMP_CPU("mcpdm-abe")),
 	DAILINK_COMP_ARRAY(COMP_CODEC("twl6040-codec",
 				      "twl6040-dl2")),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_be_mcbsp1,
 	DAILINK_COMP_ARRAY(COMP_CPU("omap-mcbsp.1")),	// NOTE: will be overwritten by OF node
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 SND_SOC_DAILINK_DEFS(link_be_mcbsp2,
 	DAILINK_COMP_ARRAY(COMP_CPU("omap-mcbsp.2")),	// NOTE: will be overwritten by OF node
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 #if FIXME
 SND_SOC_DAILINK_DEFS(link_be_mcbsp3,
 	DAILINK_COMP_ARRAY(COMP_CPU("omap-mcbsp.3")),	// NOTE: will be overwritten by OF node
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 #endif
 
 SND_SOC_DAILINK_DEFS(link_be_dmic,
@@ -144,7 +144,7 @@ SND_SOC_DAILINK_DEFS(link_be_dmic,
 #endif
 	DAILINK_COMP_ARRAY(COMP_CODEC("dmic-codec",
 				      "dmic-hifi")),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("aess")));
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
 
 // from https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82
@@ -633,6 +633,8 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	/* DC offset cancellation computation */
 	hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
 	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
@@ -650,6 +652,8 @@ static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 
+printk("%s %d\n", __func__, __LINE__);
+
 #if FIXME	// FIXME: what should that do in modern code?
 //	card_data->abe_platform = component;
 #endif
@@ -664,6 +668,8 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int hsotrim;
 	int ret;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	/*
 	 * Configure McPDM offset cancellation based on the HSOTRIM value from
@@ -699,6 +705,8 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 	u32 hfotrim, left_offset, right_offset, step_mV;
 	int ret;
 
+printk("%s %d:\n", __func__, __LINE__);
+
 #if FIXME	// dapm.stream_event has disappeared in v5.4
 
 	card->dapm.stream_event = omap_abe_stream_event;
@@ -713,6 +721,7 @@ static const struct snd_soc_component_driver something = {
 
 	ret = devm_snd_soc_register_component(dev, &something,
 					      &some_dai, 1);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 #endif
 
@@ -741,6 +750,7 @@ static const struct snd_soc_component_driver something = {
 		/* ABE power control */
 		ret = snd_soc_add_card_controls(card, omap_abe_controls,
 						ARRAY_SIZE(omap_abe_controls));
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		if (ret)
 			return ret;
 	}
@@ -782,6 +792,7 @@ static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
 	ret = snd_soc_dapm_new_controls(dapm, dmic_dapm_widgets,
 					ARRAY_SIZE(dmic_dapm_widgets));
 	if (ret)
@@ -805,6 +816,7 @@ static int snd_soc_card_new_dai_links(struct snd_soc_card *card,
 	struct snd_soc_dai_link *links;
 	size_t bytes;
 
+printk("%s %d\n", __func__, __LINE__);
 	bytes = (count + card->num_links) * sizeof(struct snd_soc_dai_link);
 	links = devm_kzalloc(card->dev, bytes, GFP_KERNEL);
 	if (!links)
@@ -835,6 +847,7 @@ static int snd_soc_card_new_dai_links_with_nodes(struct snd_soc_card *card,
 	int ret;
 	int i;
 
+printk("%s %d\n", __func__, __LINE__);
 	ret = snd_soc_card_new_dai_links(card, new, count);
 	if (ret < 0)
 		return ret;
@@ -860,6 +873,7 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	struct device_node *dai_node;
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 	if (!dai_node) {
 		dev_err(card->dev, "McPDM node is not provided\n");
@@ -901,9 +915,12 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	struct device_node *dai_node;
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
 	aess_node = of_parse_phandle(node, "ti,aess", 0);
 
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_fe_dai, ARRAY_SIZE(abe_fe_dai), NULL, aess_node);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	if (ret < 0)
 		return ret;
 
@@ -911,25 +928,34 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 #endif
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_mcpdm_dai, ARRAY_SIZE(abe_be_mcpdm_dai), NULL, aess_node);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	if (ret < 0)
 		return ret;
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp1", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, &abe_be_mcbsp1_dai, 1, dai_node, aess_node);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	if (ret < 0)
 		return ret;
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, &abe_be_mcbsp2_dai, 1, dai_node, aess_node);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	if (ret < 0)
 		return ret;
 
 #if FIXME	// this requires a ti,dmic node and fails if it is missing rather than using an internal fallback
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_dmic_dai, ARRAY_SIZE(abe_be_dmic_dai), dai_node, aess_node);
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	if (ret < 0)
 		return ret;
 #endif
+printk("%s %d\n", __func__, __LINE__);
 
 	return 0;
 }
@@ -1012,6 +1038,8 @@ printk("%s %d\n", __func__, __LINE__);
 	priv->aess = omap_aess_get_handle();
 
 printk("%s %d: priv->aess=%px\n", __func__, __LINE__, priv->aess);
+// das hier ist NULL
+printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, platform_get_drvdata(omap_aess_dev));
 
 	if (!priv->aess)
 		return -ENODEV;	/* or -EPROBE_DEFER? */
@@ -1106,7 +1134,8 @@ printk("%s %d\n", __func__, __LINE__);
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	omap_aess_dev = platform_device_register_simple("omap-aess", -1,
 				NULL, 0);
-printk("%s %d: aess = %px\n", __func__, __LINE__, omap_aess_dev);
+printk("%s %d: omap_aess_dev %s %s\n", __func__, __LINE__, omap_aess_dev->name, dev_name(&omap_aess_dev->dev));
+printk("%s %d: omap_aess_dev=%px platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, platform_get_drvdata(omap_aess_dev));
 	if (IS_ERR(omap_aess_dev)) {
 		pr_err("%s: omap-aess device registration failed\n", __func__);
 		platform_device_unregister(dmic_codec_dev);
@@ -1138,10 +1167,14 @@ printk("%s %d:\n", __func__, __LINE__);
 
 	platform_driver_unregister(&omap_abe_driver);
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+printk("%s %d: omap_aess_dev=%px\n", __func__, __LINE__, omap_aess_dev);
 	platform_device_unregister(omap_aess_dev);
 #endif
+printk("%s %d: dmic_codec_dev=%px\n", __func__, __LINE__, dmic_codec_dev);
 	platform_device_unregister(dmic_codec_dev);
+printk("%s %d: spdif_codec_dev=%px\n", __func__, __LINE__, spdif_codec_dev);
 	platform_device_unregister(spdif_codec_dev);
+printk("%s %d:\n", __func__, __LINE__);
 }
 module_exit(omap_abe_twl6040_module_exit);
 
