@@ -735,7 +735,8 @@ pinctrl_bind_failed:
 	device_links_no_driver(dev);
 	device_unbind_cleanup(dev);
 done:
-printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
+printk("%s %d: drv=%px %s dev=%px %s ret=%d\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev), ret);
+if (ret) dump_stack();
 	return ret;
 }
 
