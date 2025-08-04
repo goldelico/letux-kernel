@@ -232,7 +232,7 @@ static struct platform_driver omap_aess_driver = {
 	.driver = {
 		.name = "omap-aess",
 		.owner = THIS_MODULE,
-//		.of_match_table = omap_aess_of_match,
+		.of_match_table = omap_aess_of_match,
 	},
 	.probe = omap_aess_engine_probe,
 	.remove = omap_aess_engine_remove,
