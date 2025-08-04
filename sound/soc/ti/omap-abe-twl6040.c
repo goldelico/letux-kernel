@@ -961,6 +961,12 @@ printk("%s %d\n", __func__, __LINE__);
 }
 #endif
 
+static int match_dev_by_name(struct device *dev, const void *data)
+{
+	const char *name = data;
+	return dev_name(dev) && strcmp(dev_name(dev), name) == 0;
+}
+
 static int omap_abe_twl6040_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -1031,18 +1037,46 @@ printk("%s %d\n", __func__, __LINE__);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
+printk("%s %d: request %s\n", __func__, __LINE__, "snd_soc_omap_aess");
+
 	ret = request_module("snd_soc_omap_aess");	/* try to load driver */
 	if (ret)
 		dev_err(&pdev->dev, "request_module returned: %d\n", ret);
 
-	priv->aess = omap_aess_get_handle();
+printk("%s %d: requested %s ret=%d\n", __func__, __LINE__, "snd_soc_omap_aess", ret);
+
+#if 1	// new
+
+	struct device *dev;
+
+// FIXME: this prevents fallback if the driver isn't bound any time later...
+
+	dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
+
+printk("%s %d: device=%px\n", __func__, __LINE__, dev);
+
+	if (!dev)
+		return -EPROBE_DEFER;	// not yet found
+
+	omap_aess_dev = to_platform_device(dev);
+
+printk("%s %d: omap_aess_dev =%px\n", __func__, __LINE__, omap_aess_dev);
+
+	if(!dev->driver)
+		return -EPROBE_DEFER;	// not yet bound to driver
+
+#endif
+
+// FIXME: we can now replace omap_aess_get_handle() by platform_get_drvdata(omap_aess_dev)
+//	priv->aess = omap_aess_get_handle();
+	priv->aess = platform_get_drvdata(omap_aess_dev);
 
 printk("%s %d: priv->aess=%px\n", __func__, __LINE__, priv->aess);
 // das hier ist NULL
-printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, platform_get_drvdata(omap_aess_dev));
+printk("%s %d: %px %s priv_aess=%px platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, priv->aess, platform_get_drvdata(omap_aess_dev));
 
-	if (!priv->aess)
-		return -ENODEV;	/* or -EPROBE_DEFER? */
+//	if (!priv->aess)
+//		return -ENODEV;	/* or -EPROBE_DEFER? */
 #else
 	priv->aess = NULL;
 #endif
@@ -1087,9 +1121,10 @@ printk("%s %d\n", __func__, __LINE__);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 printk("%s %d: priv->aess=%px aess_dev=%px\n", __func__, __LINE__, priv->aess, omap_aess_dev);
-	omap_aess_put_handle(priv->aess);
-	platform_device_unregister(omap_aess_dev);
+//	omap_aess_put_handle(priv->aess);
+//	platform_device_unregister(omap_aess_dev);
 #endif
+	put_device(&pdev->dev);  // Release reference when done -- oder später bei omap_abe_twl6040_remove()?
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
@@ -1132,16 +1167,19 @@ printk("%s %d\n", __func__, __LINE__);
 printk("%s %d\n", __func__, __LINE__);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+#if OLD
 	omap_aess_dev = platform_device_register_simple("omap-aess", -1,
 				NULL, 0);
 printk("%s %d: omap_aess_dev %s %s\n", __func__, __LINE__, omap_aess_dev->name, dev_name(&omap_aess_dev->dev));
 printk("%s %d: omap_aess_dev=%px platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, platform_get_drvdata(omap_aess_dev));
+	/* CHECKME: this can not fail because __driver_attach() voluntarily throws away all error reports... */
 	if (IS_ERR(omap_aess_dev)) {
 		pr_err("%s: omap-aess device registration failed\n", __func__);
 		platform_device_unregister(dmic_codec_dev);
 		platform_device_unregister(dmic_codec_dev);
 		return PTR_ERR(omap_aess_dev);
 	}
+#endif
 #endif
 
 printk("%s %d\n", __func__, __LINE__);
@@ -1168,7 +1206,7 @@ printk("%s %d:\n", __func__, __LINE__);
 	platform_driver_unregister(&omap_abe_driver);
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 printk("%s %d: omap_aess_dev=%px\n", __func__, __LINE__, omap_aess_dev);
-	platform_device_unregister(omap_aess_dev);
+//	platform_device_unregister(omap_aess_dev);
 #endif
 printk("%s %d: dmic_codec_dev=%px\n", __func__, __LINE__, dmic_codec_dev);
 	platform_device_unregister(dmic_codec_dev);
