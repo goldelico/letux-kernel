@@ -45,6 +45,9 @@
 #include "../../../arch/arm/mach-omap2/omap-pm.h"
 #endif
 
+#define pr_err pr_info
+#define dev_err dev_info
+
 #include "omap-aess-priv.h"
 #include "aess_port.h"
 #include "omap-aess.h"
@@ -109,6 +112,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
 		return -ENOMEM;
+printk("%s %d: platform_set_drvdata(%px, %px)\n", __func__, __LINE__, pdev, aess);
 	platform_set_drvdata(pdev, aess);
 
 	for (i = 0; i < OMAP_AESS_IO_RESOURCES; i++) {
@@ -228,7 +232,7 @@ static struct platform_driver omap_aess_driver = {
 	.driver = {
 		.name = "omap-aess",
 		.owner = THIS_MODULE,
-		.of_match_table = omap_aess_of_match,
+//		.of_match_table = omap_aess_of_match,
 	},
 	.probe = omap_aess_engine_probe,
 	.remove = omap_aess_engine_remove,
