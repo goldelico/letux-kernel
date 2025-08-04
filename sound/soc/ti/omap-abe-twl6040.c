@@ -369,9 +369,6 @@ struct abe_twl6040 {
 	int	jack_detection;	/* board can detect jack events */
 	int	mclk_freq;	/* MCLK frequency speed for twl6040 */
 	int	twl6040_power_mode;
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	struct omap_aess *aess;	// can we use aess_get_handle() or platform_data(omap_aess_dev)?
-#endif
 };
 
 static struct platform_device *dmic_codec_dev;
@@ -516,7 +513,7 @@ static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
 
 	priv->twl6040_power_mode = ucontrol->value.integer.value[0];
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_pm_set_mode(priv->aess, priv->twl6040_power_mode);
+	omap_aess_pm_set_mode(platform_get_drvdata(omap_aess_dev), priv->twl6040_power_mode);
 #endif
 
 	return 1;
@@ -620,7 +617,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	gain = twl6040_get_dl1_gain(component) * 100;
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_set_dl1_gains(priv->aess, gain, gain);
+	omap_aess_set_dl1_gains(platform_get_drvdata(omap_aess_dev), gain, gain);
 #endif
 
 	return 0;
@@ -641,7 +638,7 @@ printk("%s %d\n", __func__, __LINE__);
 	left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_dc_set_hf_offset(priv->aess, left_offset, right_offset);
+	omap_aess_dc_set_hf_offset(platform_get_drvdata(omap_aess_dev), left_offset, right_offset);
 #endif
 
 	return 0;
@@ -737,14 +734,14 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 #endif
 
 	/* DC offset cancellation computation only if ABE is enabled */
-	if (priv->aess) {
+	if (omap_aess_dev) {
 		hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
 		step_mV = twl6040_get_hs_step_size(component);
 
-		omap_aess_dc_set_hs_offset(priv->aess, left_offset,
+		omap_aess_dc_set_hs_offset(platform_get_drvdata(omap_aess_dev), left_offset,
 					   right_offset, step_mV);
 
 		/* ABE power control */
@@ -756,7 +753,7 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	}
 
 	/* add the aess routes here? AFTER initializing the AESS? */
-	if (priv->aess) {
+	if (omap_aess_dev) {
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		if (ret)
@@ -969,6 +966,7 @@ static int match_dev_by_name(struct device *dev, const void *data)
 
 static int omap_abe_twl6040_probe(struct platform_device *pdev)
 {
+	struct device *aess;
 	struct device_node *node = pdev->dev.of_node;
 	struct snd_soc_card *card;
 	struct abe_twl6040 *priv;
@@ -1045,40 +1043,23 @@ printk("%s %d: request %s\n", __func__, __LINE__, "snd_soc_omap_aess");
 
 printk("%s %d: requested %s ret=%d\n", __func__, __LINE__, "snd_soc_omap_aess", ret);
 
-#if 1	// new
+	aess = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
 
-	struct device *dev;
+printk("%s %d: device=%px\n", __func__, __LINE__, aess);
 
 // FIXME: this prevents fallback if the driver isn't bound any time later...
-
-	dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
-
-printk("%s %d: device=%px\n", __func__, __LINE__, dev);
-
-	if (!dev)
+	if (!aess)
 		return -EPROBE_DEFER;	// not yet found
 
-	omap_aess_dev = to_platform_device(dev);
+	omap_aess_dev = to_platform_device(aess);
 
 printk("%s %d: omap_aess_dev =%px\n", __func__, __LINE__, omap_aess_dev);
 
-	if(!dev->driver)
+	if(!aess->driver)
 		return -EPROBE_DEFER;	// not yet bound to driver
 
-#endif
+printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, platform_get_drvdata(omap_aess_dev));
 
-// FIXME: we can now replace omap_aess_get_handle() by platform_get_drvdata(omap_aess_dev)
-//	priv->aess = omap_aess_get_handle();
-	priv->aess = platform_get_drvdata(omap_aess_dev);
-
-printk("%s %d: priv->aess=%px\n", __func__, __LINE__, priv->aess);
-// das hier ist NULL
-printk("%s %d: %px %s priv_aess=%px platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, priv->aess, platform_get_drvdata(omap_aess_dev));
-
-//	if (!priv->aess)
-//		return -ENODEV;	/* or -EPROBE_DEFER? */
-#else
-	priv->aess = NULL;
 #endif
 
 #if FIXME
@@ -1092,7 +1073,10 @@ printk("%s %d: %px %s priv_aess=%px platform_get_drvdata=%px\n", __func__, __LIN
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
-	if (priv->aess) {
+	// FIXME: trigger firmware loading and evaluation i.e. call omap_aess_pcm_probe
+
+	if (omap_aess_dev) {
+		// this could trigger firmware load?
 		ret = omap_abe_add_aess_dai_links(card);
 printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		if (ret < 0)
@@ -1112,19 +1096,14 @@ static void omap_abe_twl6040_remove(struct platform_device *pdev)
 
 printk("%s %d\n", __func__, __LINE__);
 
-	if (priv->aess) {
+	if (omap_aess_dev) {
 		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
-		// undo devm_snd_soc_register_card() - dev managed
-		// undo omap_abe_add_legacy_dai_links(card); - dev managed
 	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-printk("%s %d: priv->aess=%px aess_dev=%px\n", __func__, __LINE__, priv->aess, omap_aess_dev);
-//	omap_aess_put_handle(priv->aess);
-//	platform_device_unregister(omap_aess_dev);
-#endif
-	put_device(&pdev->dev);  // Release reference when done -- oder später bei omap_abe_twl6040_remove()?
+	put_device(&omap_aess_dev->dev);
+#endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
@@ -1166,32 +1145,12 @@ printk("%s %d\n", __func__, __LINE__);
 
 printk("%s %d\n", __func__, __LINE__);
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-#if OLD
-	omap_aess_dev = platform_device_register_simple("omap-aess", -1,
-				NULL, 0);
-printk("%s %d: omap_aess_dev %s %s\n", __func__, __LINE__, omap_aess_dev->name, dev_name(&omap_aess_dev->dev));
-printk("%s %d: omap_aess_dev=%px platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, platform_get_drvdata(omap_aess_dev));
-	/* CHECKME: this can not fail because __driver_attach() voluntarily throws away all error reports... */
-	if (IS_ERR(omap_aess_dev)) {
-		pr_err("%s: omap-aess device registration failed\n", __func__);
-		platform_device_unregister(dmic_codec_dev);
-		platform_device_unregister(dmic_codec_dev);
-		return PTR_ERR(omap_aess_dev);
-	}
-#endif
-#endif
-
-printk("%s %d\n", __func__, __LINE__);
-
 	ret = platform_driver_register(&omap_abe_driver);
 	if (ret) {
 		pr_err("%s: platform driver registration failed\n", __func__);
 		platform_device_unregister(spdif_codec_dev);
 		platform_device_unregister(dmic_codec_dev);
 	}
-
-// FIXME: trigger firmware loading and evaluation i.e. call omap_aess_pcm_probe
 
 printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
@@ -1204,14 +1163,9 @@ static void __exit omap_abe_twl6040_module_exit(void)
 printk("%s %d:\n", __func__, __LINE__);
 
 	platform_driver_unregister(&omap_abe_driver);
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-printk("%s %d: omap_aess_dev=%px\n", __func__, __LINE__, omap_aess_dev);
-//	platform_device_unregister(omap_aess_dev);
-#endif
-printk("%s %d: dmic_codec_dev=%px\n", __func__, __LINE__, dmic_codec_dev);
 	platform_device_unregister(dmic_codec_dev);
-printk("%s %d: spdif_codec_dev=%px\n", __func__, __LINE__, spdif_codec_dev);
 	platform_device_unregister(spdif_codec_dev);
+
 printk("%s %d:\n", __func__, __LINE__);
 }
 module_exit(omap_abe_twl6040_module_exit);
