@@ -1062,15 +1062,6 @@ printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess
 
 #endif
 
-#if FIXME
-/* can we register the stream event here? */
-#endif
-	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret) {
-		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
-		return ret;
-	}
-
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
 	// FIXME: trigger firmware loading and evaluation i.e. call omap_aess_pcm_probe
@@ -1083,6 +1074,15 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 			return ret;
 	}
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+#if FIXME
+/* can we register the stream event here? */
+#endif
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
+	if (ret) {
+		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
+		return ret;
+	}
 
 printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
