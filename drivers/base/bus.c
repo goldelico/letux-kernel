@@ -239,11 +239,11 @@ static ssize_t unbind_store(struct device_driver *drv, const char *buf,
 	struct device *dev;
 	int err = -ENODEV;
 
-printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
+// printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
 
 	dev = bus_find_device_by_name(bus, NULL, buf);
 
-printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+// printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	if (dev && dev->driver == drv) {
 		device_driver_detach(dev);
@@ -267,11 +267,11 @@ static ssize_t bind_store(struct device_driver *drv, const char *buf,
 	struct device *dev;
 	int err = -ENODEV;
 
-printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
+// printk("%s %d: drv=%px %s\n", __func__, __LINE__, drv, drv->name);
 
 	dev = bus_find_device_by_name(bus, NULL, buf);
 
-printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+// printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	if (dev && driver_match_device(drv, dev)) {
 		err = device_driver_attach(drv, dev);
@@ -501,7 +501,7 @@ int bus_add_device(struct device *dev)
 	struct subsys_private *sp = bus_to_subsys(dev->bus);
 	int error;
 
-printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
+// printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	if (!sp) {
 		/*
@@ -583,7 +583,7 @@ void bus_remove_device(struct device *dev)
 	struct subsys_private *sp = bus_to_subsys(dev->bus);
 	struct subsys_interface *sif;
 
-printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
+// printk("%s %d: %px %s\n", __func__, __LINE__, dev, dev_name(dev));
 
 	if (!sp)
 		return;
@@ -684,7 +684,7 @@ int bus_add_driver(struct device_driver *drv)
 	 * the driver is removed from the bus
 	 */
 	pr_debug("bus: '%s': add driver %s\n", sp->bus->name, drv->name);
-printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
+// printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -692,7 +692,7 @@ printk("%s %d: bus: '%s': add driver %s\n", __func__, __LINE__, sp->bus->name, d
 		goto out_put_bus;
 	}
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 
 	klist_init(&priv->klist_devices, NULL, NULL);
 	priv->driver = drv;
@@ -703,7 +703,7 @@ printk("%s %d:\n", __func__, __LINE__);
 	if (error)
 		goto out_unregister;
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 
 	klist_add_tail(&priv->knode_bus, &sp->klist_drivers);
 	if (sp->drivers_autoprobe) {
@@ -712,7 +712,7 @@ printk("%s %d:\n", __func__, __LINE__);
 			goto out_del_list;
 	}
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 	error = module_add_driver(drv->owner, drv);
 	if (error) {
 		printk(KERN_ERR "%s: failed to create module links for %s\n",
@@ -720,7 +720,7 @@ printk("%s %d:\n", __func__, __LINE__);
 		goto out_detach;
 	}
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 
 	error = driver_create_file(drv, &driver_attr_uevent);
 	if (error) {
@@ -728,7 +728,7 @@ printk("%s %d:\n", __func__, __LINE__);
 			__func__, drv->name);
 	}
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 	error = driver_add_groups(drv, sp->bus->drv_groups);
 	if (error) {
 		/* How the hell do we get out of this pickle? Give up */
@@ -737,7 +737,7 @@ printk("%s %d:\n", __func__, __LINE__);
 	}
 
 	if (!drv->suppress_bind_attrs) {
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 		error = add_bind_files(drv);
 		if (error) {
 			/* Ditto */
@@ -745,7 +745,7 @@ printk("%s %d:\n", __func__, __LINE__);
 				__func__, drv->name);
 		}
 	}
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 
 	return 0;
 
@@ -778,7 +778,7 @@ void bus_remove_driver(struct device_driver *drv)
 		return;
 
 	pr_debug("bus: '%s': remove driver %s\n", sp->bus->name, drv->name);
-printk("%s %d: bus: '%s': remove driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
+// printk("%s %d: bus: '%s': remove driver %s\n", __func__, __LINE__, sp->bus->name, drv->name);
 
 	if (!drv->suppress_bind_attrs)
 		remove_bind_files(drv);
