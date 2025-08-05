@@ -64,46 +64,6 @@ static const char *aess_memory_bank[5] = {
 	"mpu"
 };
 
-static struct omap_aess *the_aess = NULL;
-
-struct omap_aess *omap_aess_get_handle(void)
-{
-	struct omap_aess *aess = the_aess;
-
-	if (!aess) {
-		pr_err("%s: AESS has not been initialized!\n", __func__);
-		return NULL;
-	}
-
-	mutex_lock(&aess->mutex);
-
-	aess->nr_users++;
-
-	mutex_unlock(&aess->mutex);
-
-	return aess;
-}
-EXPORT_SYMBOL(omap_aess_get_handle);
-
-void omap_aess_put_handle(struct omap_aess *aess)
-{
-	if (!aess)
-		return;
-
-	if (aess != the_aess)
-		pr_err("%s: AESS has been differently initialized!\n", __func__);
-
-	mutex_lock(&aess->mutex);
-
-	if (aess->nr_users == 0)
-		goto out;
-
-	aess->nr_users--;
-out:
-	mutex_unlock(&aess->mutex);
-}
-EXPORT_SYMBOL(omap_aess_put_handle);
-
 void omap_aess_pm_get(struct omap_aess *aess)
 {
 	pm_runtime_get_sync(aess->dev);
@@ -246,8 +206,6 @@ printk("%s %d: ok\n", __func__, __LINE__);
 
 printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
 
-	the_aess = aess;
-
 	return ret;
 }
 
@@ -265,11 +223,6 @@ printk("%s %d\n", __func__, __LINE__);
 	if (aess->debugfs_root)
 		debugfs_remove_recursive(aess->debugfs_root);
 #endif
-
-	if (aess && aess->nr_users > 0)
-		dev_err(aess->dev, "there are %d aess users\n", aess->nr_users);
-
-	the_aess = NULL;
 }
 
 static const struct of_device_id omap_aess_of_match[] = {
