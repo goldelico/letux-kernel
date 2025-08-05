@@ -497,7 +497,7 @@ int device_bind_driver(struct device *dev)
 {
 	int ret;
 
-printk("%s %d\n", __func__, __LINE__);
+// printk("%s %d\n", __func__, __LINE__);
 
 	ret = driver_sysfs_add(dev);
 	if (!ret) {
@@ -610,7 +610,7 @@ static int really_probe(struct device *dev, const struct device_driver *drv)
 			   !drv->suppress_bind_attrs;
 	int ret, link_ret;
 
-printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+// printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	if (defer_all_probes) {
 		/*
@@ -642,7 +642,7 @@ re_probe:
 	if (ret)
 		goto pinctrl_bind_failed;
 
-printk("%s %d: dma_configure=%pS\n", __func__, __LINE__, dev->bus->dma_configure);
+// printk("%s %d: dma_configure=%pS\n", __func__, __LINE__, dev->bus->dma_configure);
 
 	if (dev->bus->dma_configure) {
 		ret = dev->bus->dma_configure(dev);
@@ -662,11 +662,11 @@ printk("%s %d: dma_configure=%pS\n", __func__, __LINE__, dev->bus->dma_configure
 			goto probe_failed;
 	}
 
-printk("%s %d:\n", __func__, __LINE__);
+// printk("%s %d:\n", __func__, __LINE__);
 
 	ret = call_driver_probe(dev, drv);
 
-printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
+// printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret) {
 		/*
@@ -735,8 +735,8 @@ pinctrl_bind_failed:
 	device_links_no_driver(dev);
 	device_unbind_cleanup(dev);
 done:
-printk("%s %d: drv=%px %s dev=%px %s ret=%d\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev), ret);
-if (ret) dump_stack();
+// printk("%s %d: drv=%px %s dev=%px %s ret=%d\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev), ret);
+// if (ret) dump_stack();
 	return ret;
 }
 
@@ -840,7 +840,7 @@ static int driver_probe_device(const struct device_driver *drv, struct device *d
 	int trigger_count = atomic_read(&deferred_trigger_count);
 	int ret;
 
-printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
+// printk("%s %d: drv=%px %s dev=%px %s\n", __func__, __LINE__, drv, drv->name, dev, dev_name(dev));
 
 	atomic_inc(&probe_count);
 	ret = __driver_probe_device(drv, dev);
