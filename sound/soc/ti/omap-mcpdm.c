@@ -69,7 +69,10 @@ struct omap_mcpdm {
 	int active;
 	int active_dai;
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	struct device *aess_dev;
 	struct omap_aess *aess;
+#endif
 };
 
 /*
@@ -504,27 +507,42 @@ static int omap_mcpdm_prepare(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+static int match_dev_by_name(struct device *dev, const void *data)
+{
+	const char *name = data;
+	return dev_name(dev) && strcmp(dev_name(dev), name) == 0;
+}
+#endif
+
 static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 {
 	struct omap_mcpdm *mcpdm = snd_soc_dai_get_drvdata(dai);
 	int ret;
 
-	mcpdm->aess = NULL;
+printk("%s %d:\n", __func__, __LINE__);
+dump_stack();
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	mcpdm->aess = omap_aess_get_handle();
+	mcpdm->aess_dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
+	if (! mcpdm->aess_dev)
+		return -EPROBE_DEFER;	// not yet found
+
+	mcpdm->aess = dev_get_drvdata(mcpdm->aess_dev);
+
+printk("%s %d: dev=%px aess=%px\n", __func__, __LINE__, mcpdm->aess_dev, mcpdm->aess);
 
 	if (mcpdm->aess) {
 		ret = omap_aess_port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
 		if (ret) {
-			omap_aess_put_handle(mcpdm->aess);
+			put_device(mcpdm->aess_dev);
 			return ret;
 		}
 
 		ret = omap_aess_port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
 		if (ret) {
 			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
-			omap_aess_put_handle(mcpdm->aess);
+			put_device(mcpdm->aess_dev);
 			return ret;
 		}
 	}
@@ -549,7 +567,7 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 		if (mcpdm->aess) {
 			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
 			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
-			omap_aess_put_handle(mcpdm->aess);
+			put_device(mcpdm->aess_dev);
 		}
 #endif
 	}
@@ -576,7 +594,7 @@ static int omap_mcpdm_remove(struct snd_soc_dai *dai)
 	if (mcpdm->aess) {
 		omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
 		omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
-		omap_aess_put_handle(mcpdm->aess);
+		put_device(mcpdm->aess_dev);
 	}
 #endif
 	return 0;
