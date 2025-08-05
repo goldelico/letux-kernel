@@ -75,10 +75,6 @@ enum omap_aess_port_id {
 struct omap_aess;
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-/* API to get and put aess handle */
-struct omap_aess *omap_aess_get_handle(void);
-void omap_aess_put_handle(struct omap_aess *aess);
-
 int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw);
 
 int omap_aess_port_open(struct omap_aess *aess, int logical_id);
@@ -107,15 +103,6 @@ void omap_aess_dc_set_hf_offset(struct omap_aess *aess, int left, int right);
 void omap_aess_set_dl1_gains(struct omap_aess *aess, int left, int right);
 
 #else
-static inline struct omap_aess *omap_aess_get_handle(void)
-{
-	return NULL;
-}
-
-static inline void omap_aess_put_handle(struct omap_aess *aess)
-{
-}
-
 static inline int omap_aess_load_firmware(struct omap_aess *aess, char *fw_name)
 {
 	return -EINVAL;
