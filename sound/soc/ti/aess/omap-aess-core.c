@@ -54,8 +54,6 @@
 #include "aess_opp.h"
 #include "aess_gain.h"
 
-static u64 omap_aess_dmamask = DMA_BIT_MASK(32);
-
 static const char *aess_memory_bank[5] = {
 	"dmem",
 	"cmem",
@@ -188,8 +186,9 @@ printk("%s %d\n", __func__, __LINE__);
 	omap_aess_port_mgr_init(aess);
 
 	get_device(aess->dev);
-	aess->dev->dma_mask = &omap_aess_dmamask;
-	aess->dev->coherent_dma_mask = omap_aess_dmamask;
+	aess->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+	aess->dev->dma_mask = &aess->dev->coherent_dma_mask;
+
 	put_device(aess->dev);
 
 printk("%s %d: ok\n", __func__, __LINE__);
@@ -214,7 +213,6 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 	struct omap_aess *aess = platform_get_drvdata(pdev);
 
 printk("%s %d\n", __func__, __LINE__);
-	pdev->dev.dma_mask = NULL;
 
 #ifdef CONFIG_PM
 	pm_runtime_disable(&pdev->dev);
