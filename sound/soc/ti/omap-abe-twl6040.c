@@ -752,13 +752,17 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 			return ret;
 	}
 
-	/* add the aess routes here? AFTER initializing the AESS? */
+#if 0
+	/* add the aess routes here? No: AFTER initializing the AESS */
+	// this requires that the firmware has been processed!
 	if (omap_aess_dev) {
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		if (ret)
 			return ret;
 	}
+#endif
+
 printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	return 0;
 }
