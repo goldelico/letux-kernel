@@ -112,7 +112,7 @@ void omap_aess_init_mem(struct omap_aess *aess)
 
 if(!fw_header)
 {
-	dev_err(aess->dev, "Missing firmware config\n");
+	dev_err(aess->dev, "Missing firmware config (!fw_header)\n");
 	return;
 }
 	/* get mapping */
