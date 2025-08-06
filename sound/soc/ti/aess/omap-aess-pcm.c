@@ -495,6 +495,13 @@ printk("%s %d: aess=%px fw=%px\n", __func__, __LINE__, aess, fw);
 //	if (ret < 0)
 //		return ret;
 
+	ret = snd_soc_tplg_component_load(component, &soc_tplg_ops,
+					  aess->fw);
+	if (ret < 0) {
+		dev_err(component->dev, "loading toplogy from AESS FW failed %d\n", ret);
+		return ret;
+	}
+
 	ret = aess_opp_init_initial_opp(aess);
 	if (ret < 0) {
 		dev_info(component->dev, "No OPP definition\n");
