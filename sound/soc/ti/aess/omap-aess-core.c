@@ -45,7 +45,9 @@
 #include "../../../arch/arm/mach-omap2/omap-pm.h"
 #endif
 
+#undef pr_err
 #define pr_err pr_info
+#undef dev_err
 #define dev_err dev_info
 
 #include "omap-aess-priv.h"
