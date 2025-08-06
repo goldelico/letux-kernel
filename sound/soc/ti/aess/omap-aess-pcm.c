@@ -461,28 +461,6 @@ static snd_pcm_uframes_t omap_aess_pcm_pointer(struct snd_soc_component *compone
 	return offset;
 }
 
-#if 0
-static int omap_aess_firmware_fetched(struct omap_aess *aess, const struct firmware *fw)
-{
-	if (!fw)
-		return -EINVAL;
-
-	if (aess->fw == fw)	/* already loaded */
-		return 0;
-
-	if (unlikely(!fw->data)) {
-		dev_err(aess->dev, "Loaded firmware is empty\n");
-		return -EINVAL;
-	}
-
-	if (aess->fw)
-		release_firmware(aess->fw);	/* replace */
-	aess->fw = fw;
-
-	return 0;
-}
-#endif
-
 static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 {
 	struct snd_soc_component *component = context;
