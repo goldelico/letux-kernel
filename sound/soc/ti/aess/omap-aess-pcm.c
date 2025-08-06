@@ -482,6 +482,19 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 	else
 		aess->fw = fw;
 
+printk("%s %d\n", __func__, __LINE__);
+
+// FIXME: this is defined by omap-abe-twl6040.c and can't be called here!!!
+// should be done there - after loading firmware - or assuming firmware has been loaded
+//
+//	ret = omap_abe_add_legacy_dai_links(card);
+//	if (ret < 0)
+//		return ret;
+
+//	ret = omap_abe_add_aess_dai_links(card);
+//	if (ret < 0)
+//		return ret;
+
 	ret = snd_soc_tplg_component_load(component, &soc_tplg_ops,
 					  aess->fw);
 	if (ret < 0) {
@@ -495,14 +508,23 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 		ret = 0;	// ignore!???
 	}
 
+printk("%s %d\n", __func__, __LINE__);
+
 	/* aess_clk has to be enabled to access hal register.
 	 * Disable the clk after it has been used.
 	 */
 	pm_runtime_get_sync(aess->dev);
 
+printk("%s %d\n", __func__, __LINE__);
+
+	// FIXME: here, we have no aess->fw_config - it is loaded through aes_vendor_load and SND_SOC_TPLG_TYPE_VENDOR_CONFIG
 	omap_aess_init_mem(aess);
 
+printk("%s %d\n", __func__, __LINE__);
+
 	omap_aess_reset_hal(aess);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	/* ZERO_labelID should really be 0 */
 	for (i = 0; i < OMAP_AESS_ROUTES_UL + 2; i++)
@@ -512,14 +534,24 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 	/* install firmware into DSP */
 	omap_aess_load_fw(aess);
 
+printk("%s %d\n", __func__, __LINE__);
+
 	/* "tick" of the audio engine */
 	omap_aess_write_event_generator(aess, EVENT_TIMER);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	/* Stop the engine */
 	omap_aess_write_event_generator(aess, EVENT_STOP);
 	omap_aess_disable_irq(aess);
 
+printk("%s %d\n", __func__, __LINE__);
+
 	pm_runtime_put_sync(aess->dev);
+
+// send a notification to omap-abe-twl6040 that firmware is available (?)
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	return 0;
 }
@@ -538,6 +570,9 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 //	struct device_node *dai_node;
 	const struct firmware *fw;
 	int ret = 0;
+
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+// dump_stack();
 
 #if 0
 	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
@@ -567,19 +602,26 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 	 * which finally calls omap_abe_fw_ready which registers the sound card
 	 */
 
+printk("%s %d: request_firmware_nowait %s\n", __func__, __LINE__, AESS_FW_NAME);
+
+
 	ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
 			      component->dev, GFP_KERNEL, component,
 			      omap_abe_fw_ready);
 
 #else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
-	/* if we are a kernel module we can simply load the firmware here - if it exists */
+printk("%s %d: request_firmware %s\n", __func__, __LINE__, AESS_FW_NAME);
+
+	/* if we are a kernel module we can simply load the firmware here */
 
 	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
 	if (ret) {
 		dev_err(component->dev, "FW request failed: %d\n", ret);
 		return ret;
 	}
+
+printk("%s %d\n", __func__, __LINE__);
 
 	/* will be unloaded by omap_aess_pcm_remove() */
 	ret = omap_abe_fw_loaded(fw, component);
@@ -590,6 +632,8 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 	}
 
 #endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+
+printk("%s %d\n", __func__, __LINE__);
 
 	pm_runtime_enable(aess->dev);
 	pm_runtime_irq_safe(aess->dev);
