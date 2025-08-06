@@ -546,16 +546,18 @@ printk("%s %d:\n", __func__, __LINE__);
 static int omap_aess_pcm_probe(struct snd_soc_component *component)
 {
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
-	struct device_node *dai_node;
+//	struct device_node *dai_node;
 	const struct firmware *fw;
 	int ret = 0;
 
 printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
 dump_stack();
 
+#if 0
 	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
 	if (!dai_node)
 		return -ENODEV;	/* no device tree */
+#endif
 
 	// FIXME: what wm8994 does
 	// 1. initialize regmaps
