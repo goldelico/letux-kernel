@@ -29,6 +29,9 @@
 #elif APPLICATION == 294
 	compatible = "openpandora,retrode294", "ingenic,x1600";
 	model = "Openpandora Retrode-2.9.4";
+#elif APPLICATION == 295
+	compatible = "openpandora,retrode295", "ingenic,x1600";
+	model = "Openpandora Retrode-2.9.5";
 #else
 #error unknown APPLICATION revision
 #endif
@@ -266,6 +269,27 @@
 	};
 
 #endif	// APPLICATION >= 292
+
+#if APPLICATION >= 295
+	/* this setup also runs on retrode 2.9.4 - just the two new LEDs are not available in hardware */
+
+	left_controller_led: led-6 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		function-enumerator = <0>;
+		gpios = <&cic 6 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
+	};
+
+	right_controller_led: led-7 {
+		linux,default-trigger = "heartbeat";
+		function = LED_FUNCTION_PROGRAMMING;
+		function-enumerator = <1>;	// right game controller
+		gpios = <&cic 7 GPIO_ACTIVE_HIGH>;
+		color = <LED_COLOR_ID_GREEN>;
+	};
+
+#endif	// APPLICATION >= 295
 };
 
 &pinctrl {
@@ -444,9 +468,15 @@
 				ce-gpio = <&gpb 22 GPIO_ACTIVE_LOW>;
 				left {
 					data-offset = <0>;
+#if APPLICATION >= 295
+					status-led = <&left_controller_led>;
+#endif
 				};
 				right {
 					data-offset = <8>;
+#if APPLICATION >= 295
+					status-led = <&right_controller_led>;
+#endif
 				};
 			};
 		};
