@@ -96,6 +96,19 @@ static struct omap_aess *the_aess;	// should be initialized in aess_load_fw
 
 static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 {
+struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+printk("%s %d: kcontrol=%px %s, the_aess=%px\n", __func__, __LINE__, kcontrol, kcontrol?kcontrol->id.name:NULL, the_aess);
+printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component->name);
+printk("%s %d: dapm=%px\n", __func__, __LINE__, snd_soc_component_get_dapm(component));
+printk("%s %d: aess=%px %s\n", __func__, __LINE__, snd_soc_component_get_drvdata(component), snd_soc_component_get_drvdata(component) == the_aess?"ok":" MISMATCH");
+
+/* simple workaround but using the kcontrol reference would be nicer and less tied to omap */
+	return the_aess;
+
+/* ideally this would be sufficient */
+	return snd_soc_component_get_drvdata(snd_kcontrol_chip(kcontrol));
+
+#if FIXME
 #if 0
 #define VARIANT 1
 #if VARIANT == 1
@@ -164,6 +177,7 @@ int aess_mixer_enable_mono(struct omap_aess *aess, int id, int enable)
 {
 	int mixer;
 
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 	switch (id) {
 	case OMAP_AESS_MIX_DL1_MONO:
 		mixer = MIXDL1;
@@ -416,29 +430,41 @@ static int omap_aess_write_filter(struct omap_aess *aess, u32 id,
 	struct omap_aess_addr equ_addr;
 	u32 length, *src;
 
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
+
+if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
+
 	switch (id) {
 	case OMAP_AESS_CMEM_DL1_COEFS_ID:
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
+printk("%s %d: fw_info=%px\n", __func__, __LINE__, &aess->fw_info);
+printk("%s %d: map=%px\n", __func__, __LINE__, aess->fw_info.map);
+printk("%s %d: dest=%px\n", __func__, __LINE__, &aess->fw_info.map[OMAP_AESS_SMEM_DL1_M_EQ_DATA_ID]);
 		memcpy(&equ_addr,
 		       &aess->fw_info.map[OMAP_AESS_SMEM_DL1_M_EQ_DATA_ID],
 		       sizeof(struct omap_aess_addr));
 		break;
 	case OMAP_AESS_CMEM_DL2_L_COEFS_ID:
 	case OMAP_AESS_CMEM_DL2_R_COEFS_ID:
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 		memcpy(&equ_addr,
 		       &aess->fw_info.map[OMAP_AESS_SMEM_DL2_M_LR_EQ_DATA_ID],
 		       sizeof(struct omap_aess_addr));
 		break;
 	case OMAP_AESS_CMEM_SDT_COEFS_ID:
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 		memcpy(&equ_addr,
 		       &aess->fw_info.map[OMAP_AESS_SMEM_SDT_F_DATA_ID],
 		       sizeof(struct omap_aess_addr));
 		break;
 	case OMAP_AESS_CMEM_96_48_AMIC_COEFS_ID:
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 		memcpy(&equ_addr,
 		       &aess->fw_info.map[OMAP_AESS_SMEM_AMIC_96_48_DATA_ID],
 		       sizeof(struct omap_aess_addr));
 		break;
 	case OMAP_AESS_CMEM_96_48_DMIC_COEFS_ID:
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 		memcpy(&equ_addr,
 		       &aess->fw_info.map[OMAP_AESS_SMEM_DMIC0_96_48_DATA_ID],
 		       sizeof(struct omap_aess_addr));
@@ -448,16 +474,24 @@ static int omap_aess_write_filter(struct omap_aess *aess, u32 id,
 	default:
 		return -EINVAL;
 	}
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 
 	/* reset SMEM buffers before the coefficients are loaded */
 	omap_aess_mem_reset(aess, equ_addr);
+
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
 
 	length = param->equ_length;
 	src = (u32 *)((param->coef).type1);
 	omap_aess_write_map(aess, id, src);
 
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
+
 	/* reset SMEM buffers after the coefficients are loaded */
 	omap_aess_mem_reset(aess, equ_addr);
+
+printk("%s %d: aess=%px id=%u param=%px\n", __func__, __LINE__, aess, id, param);
+
 	return 0;
 }
 
@@ -467,45 +501,62 @@ int aess_mixer_set_equ_profile(struct omap_aess *aess, unsigned int id,
 	struct omap_aess_filter params;
 	void *src_coeff;
 
+if(!aess) { printk("%s: aess=%px id=%u profile=%u\n", __func__, aess, id, profile); return 0; }
+
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
+
 	switch (id) {
 	case OMAP_AESS_CMEM_DL1_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.dl1.profile = profile;
 		params.equ_length = aess->equ.dl1.profile_size;
 		src_coeff = aess->equ.dl1.coeff_data;
 		break;
 	case OMAP_AESS_CMEM_DL2_L_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.dl2l.profile = profile;
 		params.equ_length = aess->equ.dl2l.profile_size;
 		src_coeff = aess->equ.dl2l.coeff_data;
 		break;
 	case OMAP_AESS_CMEM_DL2_R_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.dl2r.profile = profile;
 		params.equ_length = aess->equ.dl2r.profile_size;
 		src_coeff = aess->equ.dl2r.coeff_data;
 		break;
 	case OMAP_AESS_CMEM_SDT_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.sdt.profile = profile;
 		params.equ_length = aess->equ.sdt.profile_size;
 		src_coeff = aess->equ.sdt.coeff_data;
 		break;
 	case OMAP_AESS_CMEM_96_48_AMIC_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.amic.profile = profile;
 		params.equ_length = aess->equ.amic.profile_size;
 		src_coeff = aess->equ.amic.coeff_data;
 		break;
 	case OMAP_AESS_CMEM_96_48_DMIC_COEFS_ID:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		aess->equ.dmic.profile = profile;
 		params.equ_length = aess->equ.dmic.profile_size;
 		src_coeff = aess->equ.dmic.coeff_data;
 		break;
 	default:
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 		return -EINVAL;
 	}
 
 	src_coeff += profile * params.equ_length;
+
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 	memcpy(params.coef.type1, src_coeff, params.equ_length);
 
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
+
 	omap_aess_write_filter(aess, id, &params);
+
+printk("%s %d: aess=%px id=%u profile=%u\n", __func__, __LINE__, aess, id, profile);
 
 	return 0;
 }
