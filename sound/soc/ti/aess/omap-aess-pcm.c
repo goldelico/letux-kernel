@@ -507,6 +507,7 @@ printk("%s %d: aess=%px fw=%px\n", __func__, __LINE__, aess, fw);
 		dev_info(component->dev, "No OPP definition\n");
 		ret = 0;	// ignore!???
 	}
+
 	/* aess_clk has to be enabled to access hal register.
 	 * Disable the clk after it has been used.
 	 */
@@ -540,14 +541,13 @@ printk("%s %d:\n", __func__, __LINE__);
 	return 0;
 }
 
-// #if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 {
 printk("%s %d:\n", __func__, __LINE__);
 	omap_abe_fw_loaded(fw, context);
 }
-
-// #endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
+#endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
 
 #if OLD
 static int omap_aess_pcm_probe(struct snd_soc_component *component)
