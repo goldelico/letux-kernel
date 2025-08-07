@@ -99,6 +99,8 @@ void omap_aess_init_mem(struct omap_aess *aess)
 	int offset = 0;
 	u32 count;
 
+printk("%s %d: fw_header=%px\n", __func__, __LINE__, fw_header);
+
 	dev_dbg(aess->dev, "DMEM bank at 0x%p\n",
 		aess->io_base[OMAP_AESS_BANK_DMEM]);
 	dev_dbg(aess->dev, "CMEM bank at 0x%p\n",
@@ -116,6 +118,7 @@ if(!fw_header)
 	return;
 }
 	/* get mapping */
+#define dev_dbg dev_info
 	count = fw_header[offset];
 	dev_dbg(aess->dev, "Map %d items of size 0x%x at offset 0x%x\n", count,
 		sizeof(struct omap_aess_addr), offset << 2);
