@@ -96,19 +96,7 @@ static struct omap_aess *the_aess;	// should be initialized in aess_load_fw
 
 static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 {
-struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-printk("%s %d: kcontrol=%px %s, the_aess=%px\n", __func__, __LINE__, kcontrol, kcontrol?kcontrol->id.name:NULL, the_aess);
-printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component->name);
-printk("%s %d: dapm=%px\n", __func__, __LINE__, snd_soc_component_get_dapm(component));
-printk("%s %d: aess=%px %s\n", __func__, __LINE__, snd_soc_component_get_drvdata(component), snd_soc_component_get_drvdata(component) == the_aess?"ok":" MISMATCH");
 
-/* simple workaround but using the kcontrol reference would be nicer and less tied to omap */
-	return the_aess;
-
-/* ideally this would be sufficient */
-	return snd_soc_component_get_drvdata(snd_kcontrol_chip(kcontrol));
-
-#if FIXME
 #if 0
 #define VARIANT 1
 #if VARIANT == 1
@@ -121,6 +109,8 @@ printk("%s %d: aess=%px %s\n", __func__, __LINE__, snd_soc_component_get_drvdata
 	struct omap_aess *aess = component?snd_soc_component_get_drvdata(component):NULL;
 #endif
 #endif
+
+/* simple workaround but using the kcontrol reference would be nicer and less tied to omap */
 	return the_aess;
 }
 
