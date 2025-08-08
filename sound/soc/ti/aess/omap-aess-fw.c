@@ -84,35 +84,35 @@ struct omap_aess_filter {
  * this ends up in different initialization of kcontrol->private_data
  * making it difficult to fetch the drvdata correctly
  * especially snd_soc_dapm_kcontrol_dapm() expects a widget list to be initialized
+ *
+ * Ideally this would be sufficient if kcontrol->private_data were set to the aess component:
+
+	return snd_soc_component_get_drvdata(snd_kcontrol_chip(kcontrol));
+
+ * but dapm_create_or_share_kcontrol() sets priv_data = NULL in call to snd_soc_cnew()
  */
 
 static struct omap_aess *the_aess;	// should be initialized in aess_load_fw
 
 static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 {
-#if FIXME
-/* simple fallback but using kcontrol would be nicer and less tied to omap */
-#endif
-	return the_aess;
-	// alternative: struct omap_aess *aess = aess = omap_aess_get_handle();
-	// omap_aess_put_handle(aess);
-	// return aess;
-#if FIXME
 #if 0
+#define VARIANT 1
+#if VARIANT == 1
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
-#else	// seems to be more robust in some cases but often returns dapm == NULL
+	struct omap_aess *aess = snd_soc_component_get_drvdata(component);	// NULL in some cases as described above
+#elif VARIANT == 2
+	/* wirft einen NULL-Pointer in dapm_kcontrol_get_wlist() aufgerufen aus snd_soc_dapm_kcontrol_dapm() weil dort data=NULL */
 	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
 	struct snd_soc_component *component = dapm?dapm->component:NULL;
-#endif
 	struct omap_aess *aess = component?snd_soc_component_get_drvdata(component):NULL;
-
-	component = snd_kcontrol_chip(kcontrol);
-	dapm = snd_soc_component_get_dapm(component);
-	aess = component?snd_soc_component_get_drvdata(component):NULL;
-
-	return aess;
 #endif
+printk("%s %d: kcontrol=%px %s\n", __func__, __LINE__, kcontrol, kcontrol?kcontrol->id.name:NULL, the_aess);
+printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component->name);
+printk("%s %d: dapm=%px\n", __func__, __LINE__, snd_soc_component_get_dapm(component));
+printk("%s %d: aess=%px the_aess=%px %s\n", __func__, __LINE__, aess, the_aess, aess == the_aess?"ok":" MISMATCH");
+#endif
+	return the_aess;
 }
 
 /* TODO: we have to use the shift value atm to represent register
