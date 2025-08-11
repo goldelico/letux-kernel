@@ -45,4 +45,37 @@ case "$1" in
 	done
 	;;
 
+4 ) # one Address and Data pin after the other
+	echo 0 >$SLOT/addr
+	while true
+	do
+		ADDR=1
+		while [ $ADDR -lt 1000000 ]
+		do
+			echo addr: $ADDR
+			echo $ADDR >$SLOT/addr
+			ADDR=$(printf '%x' $((0x$ADDR * 2)))
+		done
+		echo 0 >$SLOT/addr
+		DATA=1
+		while [ $DATA -lt 10000 ]
+		do
+			echo data: $DATA
+			echo $DATA >$SLOT/data16
+			DATA=$(printf '%x' $((0x$DATA * 2)))
+		done
+		echo 0 >$SLOT/data16
+	done
+	;;
+
+# more modes: test TIME, RESET, OE, UDSW, LDSW, Slot CE, ...
+-h | * )
+	echo "retrode-test [mode]"
+	echo "  0 turn off"
+	echo "  1 binary address counter"
+	echo "  2 address pins one after other"
+	echo "  3 data pins one after other"
+	echo "  4 address and data pins one after other"
+	exit 1
+	;;
 esac
