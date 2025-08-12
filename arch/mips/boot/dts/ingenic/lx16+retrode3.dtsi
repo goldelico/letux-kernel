@@ -276,7 +276,7 @@
 	left_controller_led: led-6 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
-		function-enumerator = <0>;
+		function-enumerator = <3>;
 		gpios = <&cic 6 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_GREEN>;
 	};
@@ -284,7 +284,7 @@
 	right_controller_led: led-7 {
 		linux,default-trigger = "heartbeat";
 		function = LED_FUNCTION_PROGRAMMING;
-		function-enumerator = <1>;	// right game controller
+		function-enumerator = <4>;	// right game controller
 		gpios = <&cic 7 GPIO_ACTIVE_HIGH>;
 		color = <LED_COLOR_ID_GREEN>;
 	};
