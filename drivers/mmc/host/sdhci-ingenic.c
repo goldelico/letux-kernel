@@ -203,7 +203,6 @@ static int sdhci_ingenic_probe(struct platform_device *pdev)
 	return 0;
 err_clk:
 	clk_disable_unprepare(sdhci_ing->clk_cgu);
-	sdhci_pltfm_free(pdev);
 	return ret;
 }
 
@@ -219,7 +218,6 @@ static void sdhci_ingenic_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(sdhci_ing->clk_cgu);
 
-	sdhci_free_host(host);
 	platform_set_drvdata(pdev, NULL);
 }
 
