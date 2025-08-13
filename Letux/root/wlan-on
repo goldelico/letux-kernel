@@ -34,7 +34,7 @@ case "$1" in
 		shift
 		;;
 	-a ) # create ad hoc network
-		iwconfig "$WLAN" mode ad-hoc essid Letux enc off channel 6 &&
+		iwconfig "$WLAN" mode ad-hoc essid $(hostname) enc off channel 6 &&
 		ifconfig "$WLAN" 10.1.1.1
 		exit
 		;;
