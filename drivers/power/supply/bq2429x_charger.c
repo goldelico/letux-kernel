@@ -1739,7 +1739,7 @@ static int bq2429x_power_supply_init(struct bq2429x_device_info *di)
 {
 	struct power_supply_config psy_cfg = {
 		.drv_data = di,
-		.of_node = di->dev->of_node,
+		.fwnode = dev_fwnode(di->dev),
 	};
 
 	di->usb = power_supply_register(di->dev,
