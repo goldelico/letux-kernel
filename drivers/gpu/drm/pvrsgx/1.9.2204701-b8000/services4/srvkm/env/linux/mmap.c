@@ -760,7 +760,11 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 #if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 	if (bMixedMap)
 	{
-            ps_vma->vm_flags |= VM_MIXEDMAP;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0))
+		vm_flags_set(ps_vma, VM_MIXEDMAP);
+#else
+           ps_vma->vm_flags |= VM_MIXEDMAP;
+#endif
 	}
 #endif
 	/* Second pass, get the page structures and insert the pages */
@@ -788,12 +792,22 @@ DoMapToUser(LinuxMemArea *psLinuxMemArea,
 #if defined(PVR_MAKE_ALL_PFNS_SPECIAL)
 		    if (bMixedMap)
 		    {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
+			pfn_t pfns = { pfn };
+			result = vmf_insert_mixed(ps_vma, ulVMAPos, pfns);
+			if (result & VM_FAULT_ERROR)
+			{
+				PVR_DPF((PVR_DBG_ERROR,"%s: Error - vmf_insert_mixed failed (%x)", __FUNCTION__, result));
+				return IMG_FALSE;
+			}
+#else
 			result = vm_insert_mixed(ps_vma, ulVMAPos, pfn);
 	                if(result != 0)
 	                {
 	                    PVR_DPF((PVR_DBG_ERROR,"%s: Error - vm_insert_mixed failed (%d)", __FUNCTION__, result));
 	                    return IMG_FALSE;
 	                }
+#endif
 		    }
 		    else
 #endif
@@ -1064,6 +1078,9 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
     PVR_DPF((PVR_DBG_MESSAGE, "%s: Mapped psLinuxMemArea 0x%p\n",
          __FUNCTION__, psOffsetStruct->psLinuxMemArea));
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6,3,0))
+		vm_flags_set(ps_vma, VM_IO | VM_DONTEXPAND | VM_DONTCOPY);
+#else
     ps_vma->vm_flags |= VM_RESERVED;
     ps_vma->vm_flags |= VM_IO;
 
@@ -1075,6 +1092,7 @@ PVRMMap(struct file* pFile, struct vm_area_struct* ps_vma)
     
     /* Don't allow mapping to be inherited across a process fork */
     ps_vma->vm_flags |= VM_DONTCOPY;
+#endif
 
     ps_vma->vm_private_data = (void *)psOffsetStruct;
     
