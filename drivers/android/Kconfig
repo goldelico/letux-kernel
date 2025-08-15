@@ -31,6 +31,8 @@ config ANDROID_BINDER_ALLOC_KUNIT_TEST
 	tristate "KUnit Tests for Android Binder Alloc" if !KUNIT_ALL_TESTS
 	depends on ANDROID_BINDER_IPC && KUNIT
 	default KUNIT_ALL_TESTS
+	help
+	  This feature builds the binder alloc KUnit tests.
 
 config ANDROID_BINDER_IPC_32BIT
 	bool "Use old (Android 4.4 and earlier) 32-bit binder API"
