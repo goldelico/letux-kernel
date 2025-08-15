@@ -1,0 +1,24 @@
+/dts-v1/;
+
+// NOTE: all this could be made depend on a set of some CONFIG options
+
+#define LX16_REV 	3	// main board revision
+#define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
+#define PWM_LED		0	// 1 = use PWM on led0 and led1
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+
+/* choose one board revision */
+#if LX16_REV == 1
+#include "lx16-v0.1.dtsi"
+#elif LX16_REV == 2
+#include "lx16-v0.2.dtsi"
+#elif LX16_REV >= 3
+#include "lx16-v0.3.dtsi"
+#endif
+
+/* choose none or one of the wireless options */
+#if LX16_W == 1
+#include "lx16-wireless-qcom.dtsi"
+#elif LX16_W == 2
+#include "lx16-wireless-esp32.dtsi"
+#endif
