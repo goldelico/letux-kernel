@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.17.0-rc1 Kernel Configuration
+# Linux/x86 6.17.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -5031,12 +5031,6 @@ CONFIG_SND_SOC=m
 # end of Freescale
 
 #
-# Generic drivers
-#
-# CONFIG_SND_SIMPLE_CARD is not set
-# end of Generic drivers
-
-#
 # Google
 #
 # CONFIG_SND_SOC_CHV3_I2S is not set
@@ -5342,6 +5336,12 @@ CONFIG_SND_SOC_HDA=m
 # CONFIG_SND_SOC_LPASS_RX_MACRO is not set
 # CONFIG_SND_SOC_LPASS_TX_MACRO is not set
 # end of CODEC drivers
+
+#
+# Generic drivers
+#
+# CONFIG_SND_SIMPLE_CARD is not set
+# end of Generic drivers
 
 CONFIG_SND_X86=y
 CONFIG_HDMI_LPE_AUDIO=m
