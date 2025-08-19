@@ -1,0 +1,22 @@
+# try to get an idea about real network speed (very unreliable, but a first hint)
+# download ca. 30 MB
+
+CMD=2
+
+case "$CMD" in
+
+1)	# this reports nothing
+	wget -nv -O /dev/null https://download.goldelico.com/letux-kernel/letux-rolling-lts/modules.tgz
+	;;
+
+2)	# this only shows progress and ends with the 100% info
+	# /dev/null        100%[==============>]  36.59M   362KB/s    in 84s
+	wget -q --show-progress -O /dev/null https://download.goldelico.com/letux-kernel/letux-rolling-lts/modules.tgz
+	;;
+
+3)	# with server in local network: iperf
+	# https://askubuntu.com/a/104779
+	# ssh $SERVER daemon iperf -s
+	# iperf -c $SERVER
+	;;
+esac

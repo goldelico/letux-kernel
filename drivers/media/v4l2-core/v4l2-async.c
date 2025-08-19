@@ -466,7 +466,8 @@ static void v4l2_async_unbind_subdev_one(struct v4l2_async_notifier *notifier,
 		v4l2_device_unregister_subdev(asc->sd);
 		asc->sd = NULL;
 	}
-	list_del(&asc->asc_subdev_entry);
+	if (asc->asc_subdev_entry.next && asc->asc_subdev_entry.prev)
+		list_del(&asc->asc_subdev_entry);
 }
 
 /* Unbind all sub-devices in the notifier tree. */
