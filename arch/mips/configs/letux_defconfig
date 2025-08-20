@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.12.41 Kernel Configuration
+# Linux/mips 6.12.42 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4586,6 +4586,7 @@ CONFIG_VIRTIO_MENU=y
 CONFIG_VHOST_MENU=y
 # CONFIG_VHOST_NET is not set
 # CONFIG_VHOST_CROSS_ENDIAN_LEGACY is not set
+CONFIG_VHOST_ENABLE_FORK_OWNER_CONTROL=y
 
 #
 # Microsoft Hyper-V guest support
