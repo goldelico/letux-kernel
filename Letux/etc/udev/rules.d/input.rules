@@ -22,9 +22,12 @@ SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*kF0,*
 # tca8418 or matrix keyboard - input:b0019v0000p0000e0000-e0,1,4,14,k77,BD,F5,1D0,ram4,lsfw
 SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*k77,*", SYMLINK+="input/keyboard"
 # twl4030 keyboard (OpenPandora)
-SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*k1D0,*", SYMLINK+="input/keyboard"
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*,k7C,*", SYMLINK+="input/keyboard"
 # gpio buttons (OpenPandora, Pyra)
-SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*k7e,*", SYMLINK+="input/keyboard2"
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,1,*,k8B,*", SYMLINK+="input/dpad"
+# left and right nub (OpenPandora)
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,3,kra0,*", ATTRS{name}=="nub0" SYMLINK+="input/nub-left"
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{modalias}=="input:*-e0,3,kra0,*", ATTRS{name}=="nub1" SYMLINK+="input/nub-right"
 
 # check with /sys/class/input/event2/device/modalias if they are unique
 # headset jack plug/unplug (GTA04a5, Pyra, Alpha 400) - input:b0000v0000p0000e0000-e0,5,kramlsfw2,4,
