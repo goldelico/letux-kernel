@@ -107,10 +107,6 @@ static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 	struct snd_soc_component *component = dapm?dapm->component:NULL;
 	struct omap_aess *aess = component?snd_soc_component_get_drvdata(component):NULL;
 #endif
-printk("%s %d: kcontrol=%px %s\n", __func__, __LINE__, kcontrol, kcontrol?kcontrol->id.name:NULL, the_aess);
-printk("%s %d: component=%px %s\n", __func__, __LINE__, component, component->name);
-printk("%s %d: dapm=%px\n", __func__, __LINE__, snd_soc_component_get_dapm(component));
-printk("%s %d: aess=%px the_aess=%px %s\n", __func__, __LINE__, aess, the_aess, aess == the_aess?"ok":" MISMATCH");
 #endif
 	return the_aess;
 }
@@ -648,9 +644,7 @@ static int aess_load_fw(struct snd_soc_component *component,
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 	const void *fw_data = snd_soc_tplg_get_data(hdr);
 
-printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
-
-the_aess = aess;	// save a pointer
+	the_aess = aess;	// save a pointer
 
 	/* get firmware and coefficients header info */
 	memcpy(&aess->fw_hdr, fw_data, sizeof(struct fw_header));
