@@ -308,6 +308,10 @@ static int aess_open_data(struct inode *inode, struct file *file)
 	struct omap_aess *aess = inode->i_private;
 	struct omap_aess_debug *debug = aess->debug;
 
+printk("%s %d: aess %px debug %px\n", __func__, __LINE__, aess, aess->debug);
+
+printk("%s %d: elem_bytes initial %d\n", __func__, __LINE__, debug->elem_bytes);
+
 	/* adjust debug word size based on any user params */
 	if (debug->format1)
 		debug->elem_bytes += OMAP_AESS_DBG_FLAG1_SIZE;
@@ -316,7 +320,12 @@ static int aess_open_data(struct inode *inode, struct file *file)
 	if (debug->format3)
 		debug->elem_bytes += OMAP_AESS_DBG_FLAG3_SIZE;
 
+printk("%s %d: elem_bytes adjusted %d\n", __func__, __LINE__, debug->elem_bytes);
+printk("%s %d: buffer_msecs %d \n", __func__, __LINE__, debug-> buffer_msecs);
+
 	debug->buffer_bytes = debug->elem_bytes * 4 * debug->buffer_msecs;
+
+printk("%s %d: buffer_bytes %d \n", __func__, __LINE__, debug-> buffer_bytes);
 
 	if (debug->buffer_bytes > 0) {
 		debug->buffer = dma_alloc_wc(aess->dev, debug->buffer_bytes,
