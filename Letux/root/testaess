@@ -9,6 +9,7 @@ do
 	echo "++++++++++++"
 	read CMD
 	case "$CMD" in
+		"" )	;;
 		1 )
 			modprobe -r snd_soc_omap_abe_twl6040
 			sleep 1
