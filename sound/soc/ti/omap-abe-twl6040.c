@@ -630,8 +630,6 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset;
 
-printk("%s %d\n", __func__, __LINE__);
-
 	/* DC offset cancellation computation */
 	hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
 	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
@@ -649,8 +647,6 @@ static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 
-printk("%s %d\n", __func__, __LINE__);
-
 #if FIXME	// FIXME: what should that do in modern code?
 //	card_data->abe_platform = component;
 #endif
@@ -665,8 +661,6 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int hsotrim;
 	int ret;
-
-printk("%s %d\n", __func__, __LINE__);
 
 	/*
 	 * Configure McPDM offset cancellation based on the HSOTRIM value from
@@ -702,8 +696,6 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 	u32 hfotrim, left_offset, right_offset, step_mV;
 	int ret;
 
-printk("%s %d:\n", __func__, __LINE__);
-
 #if FIXME	// dapm.stream_event has disappeared in v5.4
 
 	card->dapm.stream_event = omap_abe_stream_event;
@@ -718,8 +710,6 @@ static const struct snd_soc_component_driver something = {
 
 	ret = devm_snd_soc_register_component(dev, &something,
 					      &some_dai, 1);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
-
 #endif
 
 #if FIXME	// REVISIT
@@ -747,7 +737,6 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		/* ABE power control */
 		ret = snd_soc_add_card_controls(card, omap_abe_controls,
 						ARRAY_SIZE(omap_abe_controls));
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		if (ret)
 			return ret;
 	}
@@ -763,7 +752,6 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	}
 #endif
 
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	return 0;
 }
 #endif
@@ -793,7 +781,6 @@ static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
 	int ret;
 
-printk("%s %d\n", __func__, __LINE__);
 	ret = snd_soc_dapm_new_controls(dapm, dmic_dapm_widgets,
 					ARRAY_SIZE(dmic_dapm_widgets));
 	if (ret)
@@ -817,7 +804,6 @@ static int snd_soc_card_new_dai_links(struct snd_soc_card *card,
 	struct snd_soc_dai_link *links;
 	size_t bytes;
 
-printk("%s %d\n", __func__, __LINE__);
 	bytes = (count + card->num_links) * sizeof(struct snd_soc_dai_link);
 	links = devm_kzalloc(card->dev, bytes, GFP_KERNEL);
 	if (!links)
@@ -848,7 +834,6 @@ static int snd_soc_card_new_dai_links_with_nodes(struct snd_soc_card *card,
 	int ret;
 	int i;
 
-printk("%s %d\n", __func__, __LINE__);
 	ret = snd_soc_card_new_dai_links(card, new, count);
 	if (ret < 0)
 		return ret;
@@ -874,7 +859,6 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	struct device_node *dai_node;
 	int ret;
 
-printk("%s %d\n", __func__, __LINE__);
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 	if (!dai_node) {
 		dev_err(card->dev, "McPDM node is not provided\n");
@@ -916,11 +900,9 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	struct device_node *dai_node;
 	int ret;
 
-printk("%s %d\n", __func__, __LINE__);
 	aess_node = of_parse_phandle(node, "ti,aess", 0);
 
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_fe_dai, ARRAY_SIZE(abe_fe_dai), NULL, aess_node);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret < 0)
 		return ret;
@@ -929,21 +911,18 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 #endif
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_mcpdm_dai, ARRAY_SIZE(abe_be_mcpdm_dai), NULL, aess_node);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret < 0)
 		return ret;
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp1", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, &abe_be_mcbsp1_dai, 1, dai_node, aess_node);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret < 0)
 		return ret;
 
 	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, &abe_be_mcbsp2_dai, 1, dai_node, aess_node);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret < 0)
 		return ret;
@@ -951,12 +930,10 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 #if FIXME	// this requires a ti,dmic node and fails if it is missing rather than using an internal fallback
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_dmic_dai, ARRAY_SIZE(abe_be_dmic_dai), dai_node, aess_node);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 
 	if (ret < 0)
 		return ret;
 #endif
-printk("%s %d\n", __func__, __LINE__);
 
 	return 0;
 }
@@ -975,8 +952,6 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 	struct snd_soc_card *card;
 	struct abe_twl6040 *priv;
 	int ret = 0;
-
-printk("%s %d\n", __func__, __LINE__);
 
 	if (!node) {
 		dev_err(&pdev->dev, "of node is missing.\n");
@@ -1039,17 +1014,11 @@ printk("%s %d\n", __func__, __LINE__);
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
-printk("%s %d: request %s\n", __func__, __LINE__, "snd_soc_omap_aess");
-
 	ret = request_module("snd_soc_omap_aess");	/* try to load driver */
 	if (ret)
 		dev_err(&pdev->dev, "request_module returned: %d\n", ret);
 
-printk("%s %d: requested %s ret=%d\n", __func__, __LINE__, "snd_soc_omap_aess", ret);
-
 	aess = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
-
-printk("%s %d: device=%px\n", __func__, __LINE__, aess);
 
 // FIXME: this prevents fallback if the driver isn't bound any time later...
 	if (!aess)
@@ -1057,12 +1026,8 @@ printk("%s %d: device=%px\n", __func__, __LINE__, aess);
 
 	omap_aess_dev = to_platform_device(aess);
 
-printk("%s %d: omap_aess_dev =%px\n", __func__, __LINE__, omap_aess_dev);
-
 	if(!aess->driver)
 		return -EPROBE_DEFER;	// not yet bound to driver
-
-printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess_dev, omap_aess_dev?omap_aess_dev->name:NULL, platform_get_drvdata(omap_aess_dev));
 
 #endif
 
@@ -1073,7 +1038,6 @@ printk("%s %d: %px %s platform_get_drvdata=%px\n", __func__, __LINE__, omap_aess
 	if (omap_aess_dev) {
 		// this could trigger firmware load?
 		ret = omap_abe_add_aess_dai_links(card);
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		if (ret < 0)
 			return ret;
 	}
@@ -1088,8 +1052,6 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 		return ret;
 	}
 
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
-
 	return ret;
 }
 
@@ -1097,8 +1059,6 @@ static void omap_abe_twl6040_remove(struct platform_device *pdev)
 {
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = &priv->card;
-
-printk("%s %d\n", __func__, __LINE__);
 
 	if (omap_aess_dev) {
 		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
@@ -1130,8 +1090,6 @@ static int __init omap_abe_twl6040_module_init(void)
 {
 	int ret;
 
-printk("%s %d\n", __func__, __LINE__);
-
 	dmic_codec_dev = platform_device_register_simple("dmic-codec", -1, NULL,
 							 0);
 	if (IS_ERR(dmic_codec_dev)) {
@@ -1147,8 +1105,6 @@ printk("%s %d\n", __func__, __LINE__);
 		return PTR_ERR(spdif_codec_dev);
 	}
 
-printk("%s %d\n", __func__, __LINE__);
-
 	ret = platform_driver_register(&omap_abe_driver);
 	if (ret) {
 		pr_err("%s: platform driver registration failed\n", __func__);
@@ -1156,21 +1112,15 @@ printk("%s %d\n", __func__, __LINE__);
 		platform_device_unregister(dmic_codec_dev);
 	}
 
-printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
-
 	return ret;
 }
 module_init(omap_abe_twl6040_module_init);
 
 static void __exit omap_abe_twl6040_module_exit(void)
 {
-printk("%s %d:\n", __func__, __LINE__);
-
 	platform_driver_unregister(&omap_abe_driver);
 	platform_device_unregister(dmic_codec_dev);
 	platform_device_unregister(spdif_codec_dev);
-
-printk("%s %d:\n", __func__, __LINE__);
 }
 module_exit(omap_abe_twl6040_module_exit);
 
