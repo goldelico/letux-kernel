@@ -217,6 +217,7 @@ printk("%s %d\n", __func__, __LINE__);
 #ifdef CONFIG_PM
 	pm_runtime_disable(&pdev->dev);
 #endif
+	omap_aess_port_mgr_cleanup(aess);
 #ifdef CONFIG_DEBUG_FS
 	if (aess->debugfs_root)
 		debugfs_remove_recursive(aess->debugfs_root);
