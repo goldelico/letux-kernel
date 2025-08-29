@@ -467,8 +467,6 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 	int i, ret;
 
-printk("%s %d: aess=%px fw=%px\n", __func__, __LINE__, aess, fw);
-
 	if (unlikely(!fw)) {
 		dev_warn(aess->dev, "%s firmware is not loaded.\n",
 			 AESS_FW_NAME);
@@ -534,17 +532,12 @@ printk("%s %d: aess=%px fw=%px\n", __func__, __LINE__, aess, fw);
 
 	pm_runtime_put_sync(aess->dev);
 
-// send a notification to omap-abe-twl6040 that firmware is available
-
-printk("%s %d:\n", __func__, __LINE__);
-
 	return 0;
 }
 
 #if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 {
-printk("%s %d:\n", __func__, __LINE__);
 	omap_abe_fw_loaded(fw, context);
 }
 #endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
@@ -633,9 +626,6 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 	const struct firmware *fw;
 	int ret = 0;
 
-printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
-dump_stack();
-
 #if 0
 	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
 	if (!dai_node)
@@ -655,8 +645,6 @@ dump_stack();
 	// 9a. here it conditionally calls wm8958_dsp2_init() which loads a firmware
 	// 10. request another irq
 
-printk("%s %d\n", __func__, __LINE__);
-
 // FIXME: warum nicht immer mit nowait?
 
 #if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
@@ -666,20 +654,13 @@ printk("%s %d\n", __func__, __LINE__);
 	 * which finally calls omap_abe_fw_ready which registers the sound card
 	 */
 
-printk("%s %d\n", __func__, __LINE__);
-
 	ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
 			      component->dev, GFP_KERNEL, component,
 			      omap_abe_fw_ready);
 
-printk("%s %d ret=%d\n", __func__, __LINE__, ret);
-
-
 #else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
 	/* if we are a kernel module we can simply load the firmware here - if it exists */
-
-printk("%s %d\n", __func__, __LINE__);
 
 	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
 	if (ret) {
@@ -722,8 +703,6 @@ out:
 static void omap_aess_pcm_remove(struct snd_soc_component *component)
 {
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
-
-printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
 
 	free_irq(aess->irq, aess);
 	aess_cleanup_debugfs(aess);
