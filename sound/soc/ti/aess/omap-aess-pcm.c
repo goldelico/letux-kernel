@@ -45,6 +45,8 @@
 #include "port_mgr.h"
 #include "aess_opp.h"
 
+#define AESS_FW_NAME   "omap_aess-adfw.bin"
+
 /*
  * omap_aess_irq_data
  *
@@ -459,18 +461,127 @@ static snd_pcm_uframes_t omap_aess_pcm_pointer(struct snd_soc_component *compone
 	return offset;
 }
 
+static int omap_aess_firmware_fetched(struct omap_aess *aess, const struct firmware *fw)
+{
+	if (!fw)
+		return -EINVAL;
+
+	if (aess->fw == fw)	/* already loaded */
+		return 0;
+
+	if (unlikely(!fw->data)) {
+		dev_err(aess->dev, "Loaded firmware is empty\n");
+		return -EINVAL;
+	}
+
+	if (aess->fw)
+		release_firmware(aess->fw);	/* replace */
+	aess->fw = fw;
+
+	return 0;
+}
+
+#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+static void omap_abe_fw_ready(const struct firmware *fw, void *context)
+{
+	struct platform_device *pdev = (struct platform_device *)context;
+	struct omap_aess *aess = platform_get_drvdata(pdev);
+	struct snd_soc_card *card = aess->card;
+	int ret;
+
+	if (unlikely(!fw))
+		dev_warn(&pdev->dev, "%s firmware is not loaded.\n",
+			 AESS_FW_NAME);
+
+	if (!aess) {
+		dev_err(&pdev->dev, "AESS is not yet available\n");
+		return;
+	}
+
+	/* will be unloaded by omap_aess_pcm_remove() */
+	ret = omap_aess_firmware_fetched(aess, fw);
+	if (ret) {
+		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
+			AESS_FW_NAME);
+//		omap_aess_put_handle(priv->aess);
+//		priv->aess = NULL;
+	}
+
+	ret = omap_abe_add_legacy_dai_links(card);
+	if (ret < 0)
+		return;
+
+//	ret = omap_abe_add_aess_dai_links(card);
+//	if (ret < 0)
+//		return;
+
+	ret = devm_snd_soc_register_card(&pdev->dev, card);
+	if (ret)
+		dev_err(&pdev->dev, "card registration failed after successful firmware load: %d\n",
+			ret);
+
+	return;
+}
+
+#endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
+
 static int omap_aess_pcm_probe(struct snd_soc_component *component)
 {
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct device_node *dai_node;
+	const struct firmware *fw;
 	int ret = 0, i;
 
-	if (!aess->fw || !aess->fw->data) {
-		dev_warn(component->dev, "AESS FW not yet loaded\n");
-		omap_aess_put_handle(aess);
-		return -EPROBE_DEFER;	/* firmware not yet loaded */
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+dump_stack();
+
+	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
+	if (!dai_node)
+		return -ENODEV;
+
+printk("%s 3\n", __func__);
+
+#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+
+	/*
+	 * if built into kernel, so we should do the remaining stuff in a separate thread
+	 * which finally calls omap_abe_fw_ready which registers the sound card
+printk("%s 4\n", __func__);
+	 */
+	ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
+			      component->dev, GFP_KERNEL, pdev,
+			      omap_abe_fw_ready);
+	/* card is already registered after successful firmware load */
+printk("%s 5 ret=%d\n", __func__, ret);
+
+/* FIXME: block until firmware is loaded? */
+	return ret;
+
+#else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+	/* if we are a kernel module we can simply load the firmware here - if it exists */
+printk("%s 6\n", __func__);
+
+	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
+	if (ret) {
+		dev_err(component->dev, "FW request failed: %d\n", ret);
+//		omap_aess_put_handle(priv->aess);
+//		priv->aess = NULL;
+		return ret;
 	}
 
-	snd_soc_component_set_drvdata(component, aess);
+	/* will be unloaded by omap_aess_pcm_remove() */
+	ret = omap_aess_firmware_fetched(aess, fw);
+	if (ret) {
+		dev_err(component->dev, "%s firmware was not loaded.\n",
+			AESS_FW_NAME);
+//		omap_aess_put_handle(priv->aess);
+//		priv->aess = NULL;
+		return ret;
+	}
+
+// must already be defined!	snd_soc_component_set_drvdata(component, aess);
+
+#endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
 	pm_runtime_enable(aess->dev);
 	pm_runtime_irq_safe(aess->dev);
@@ -523,12 +634,11 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 	pm_runtime_put_sync(aess->dev);
 	aess_init_debugfs(aess);
 
-out:
-	if (ret) {
-		pm_runtime_disable(aess->dev);
-		omap_aess_put_handle(aess);
-	}
+	return 0;
 
+out:
+	pm_runtime_disable(aess->dev);
+	release_firmware(aess->fw);
 	return ret;
 }
 
@@ -536,20 +646,18 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 {
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+
 	free_irq(aess->irq, aess);
 	aess_cleanup_debugfs(aess);
 	pm_runtime_disable(aess->dev);
-	omap_aess_put_handle(aess);
+//	omap_aess_put_handle(aess);
 	release_firmware(aess->fw);
 	aess->fw = NULL;
 	/* code from omap_aess_engine_remove */
-//	the_aess = NULL;
 	aess->fw_data = NULL;
 	aess->fw_config = NULL;
 	omap_aess_port_mgr_cleanup(aess);
-#ifdef CONFIG_DEBUG_FS
-	debugfs_remove_recursive(aess->debugfs_root);
-#endif
 }
 
 /* TODO: map IO directly into AESS memories */
