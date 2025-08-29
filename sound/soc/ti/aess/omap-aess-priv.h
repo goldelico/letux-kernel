@@ -391,7 +391,7 @@ struct omap_aess {
 
 /* Extern variables, structures, functions */
 extern struct snd_soc_tplg_ops soc_tplg_ops;
-extern struct snd_soc_component_driver omap_aess_platform;
+extern struct snd_soc_component_driver omap_aess_component;
 extern struct snd_soc_dai_driver omap_aess_dai[6];
 
 int aess_mixer_enable_mono(struct omap_aess *aess, int id, int enable);
