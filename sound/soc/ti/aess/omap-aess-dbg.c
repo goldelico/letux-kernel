@@ -366,6 +366,8 @@ static ssize_t aess_read_mem(struct file *file, char __user *user_buf,
 	struct omap_aess *aess = file->private_data;
 	ssize_t ret = 0;
 
+printk("%s %d: mem=%px count=%d size=%d aess=%px\n", __func__, __LINE__, mem, count, size, aess);
+
 	pm_runtime_get_sync(aess->dev);
 	set_current_state(TASK_INTERRUPTIBLE);
 
