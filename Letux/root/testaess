@@ -1,0 +1,44 @@
+while true
+do
+	echo "++++++++++++"
+	echo "1) remove previous install"
+	echo "2) remove snd_soc_omap_abe_twl6040 only (leave snd_soc_omap_aess loaded)"
+	echo "3) install snd_soc_omap_abe_twl6040 (and snd_soc_omap_aess)"
+	echo "4) print status"
+	echo "++++++++++++"
+	read CMD
+	case "$CMD" in
+		1 )
+			modprobe -r snd_soc_omap_abe_twl6040
+			sleep 1
+			modprobe -r snd_soc_omap_aess
+			sleep 1
+			echo done
+			;;
+		2 )
+			modprobe -r snd_soc_omap_abe_twl6040
+			sleep 1
+			echo done
+			;;
+		3 )
+			modprobe snd_soc_omap_abe_twl6040
+			sleep 1
+			echo done
+			;;
+		4 )
+			echo /sys/kernel/debug/omap-aess:
+			ls -l /sys/kernel/debug/omap-aess
+			echo opp_level:
+			cat /sys/kernel/debug/omap-aess/opp_level
+			echo ports:
+			ls -l /sys/kernel/debug/omap-aess/ports
+			echo test:
+			cat /sys/kernel/debug/omap-aess/test/*
+			echo pmem:
+			xxd -l 32 /sys/kernel/debug/omap-aess/pmem
+			;;
+		* )
+			echo unknown command $CMD
+			;;
+	esac
+done
