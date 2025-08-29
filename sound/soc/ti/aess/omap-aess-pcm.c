@@ -461,6 +461,7 @@ static snd_pcm_uframes_t omap_aess_pcm_pointer(struct snd_soc_component *compone
 	return offset;
 }
 
+#if 0
 static int omap_aess_firmware_fetched(struct omap_aess *aess, const struct firmware *fw)
 {
 	if (!fw)
@@ -480,133 +481,46 @@ static int omap_aess_firmware_fetched(struct omap_aess *aess, const struct firmw
 
 	return 0;
 }
+#endif
 
-#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
-static void omap_abe_fw_ready(const struct firmware *fw, void *context)
+static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 {
-	struct platform_device *pdev = (struct platform_device *)context;
-	struct omap_aess *aess = platform_get_drvdata(pdev);
-	struct snd_soc_card *card = aess->card;
-	int ret;
+	struct snd_soc_component *component = context;
+	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	int i, ret;
 
-	if (unlikely(!fw))
-		dev_warn(&pdev->dev, "%s firmware is not loaded.\n",
+printk("%s %d: aess=%px fw=%px\n", __func__, __LINE__, aess, fw);
+
+	if (unlikely(!fw)) {
+		dev_warn(aess->dev, "%s firmware is not loaded.\n",
 			 AESS_FW_NAME);
-
-	if (!aess) {
-		dev_err(&pdev->dev, "AESS is not yet available\n");
-		return;
+		return -ENODEV;
 	}
 
-	/* will be unloaded by omap_aess_pcm_remove() */
-	ret = omap_aess_firmware_fetched(aess, fw);
-	if (ret) {
-		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
-			AESS_FW_NAME);
-//		omap_aess_put_handle(priv->aess);
-//		priv->aess = NULL;
+	else if (unlikely(!fw->data)) {
+		dev_err(aess->dev, "Loaded firmware is empty\n");
+		release_firmware(aess->fw);	/* replace */
+		return -EINVAL;
 	}
 
-	ret = omap_abe_add_legacy_dai_links(card);
-	if (ret < 0)
-		return;
+	else
+		aess->fw = fw;
+
+// FIXME: this is defined by omap-abe-twl6040.c and can't be called here!!!
+// should be done there - after loading firmware - or assuming firmware has been loaded
+//
+//	ret = omap_abe_add_legacy_dai_links(card);
+//	if (ret < 0)
+//		return ret;
 
 //	ret = omap_abe_add_aess_dai_links(card);
 //	if (ret < 0)
-//		return;
-
-	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret)
-		dev_err(&pdev->dev, "card registration failed after successful firmware load: %d\n",
-			ret);
-
-	return;
-}
-
-#endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
-
-static int omap_aess_pcm_probe(struct snd_soc_component *component)
-{
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
-	struct device_node *dai_node;
-	const struct firmware *fw;
-	int ret = 0, i;
-
-printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
-dump_stack();
-
-	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
-	if (!dai_node)
-		return -ENODEV;
-
-printk("%s 3\n", __func__);
-
-#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
-
-	/*
-	 * if built into kernel, so we should do the remaining stuff in a separate thread
-	 * which finally calls omap_abe_fw_ready which registers the sound card
-printk("%s 4\n", __func__);
-	 */
-	ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
-			      component->dev, GFP_KERNEL, pdev,
-			      omap_abe_fw_ready);
-	/* card is already registered after successful firmware load */
-printk("%s 5 ret=%d\n", __func__, ret);
-
-/* FIXME: block until firmware is loaded? */
-	return ret;
-
-#else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
-	/* if we are a kernel module we can simply load the firmware here - if it exists */
-printk("%s 6\n", __func__);
-
-	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
-	if (ret) {
-		dev_err(component->dev, "FW request failed: %d\n", ret);
-//		omap_aess_put_handle(priv->aess);
-//		priv->aess = NULL;
-		return ret;
-	}
-
-	/* will be unloaded by omap_aess_pcm_remove() */
-	ret = omap_aess_firmware_fetched(aess, fw);
-	if (ret) {
-		dev_err(component->dev, "%s firmware was not loaded.\n",
-			AESS_FW_NAME);
-//		omap_aess_put_handle(priv->aess);
-//		priv->aess = NULL;
-		return ret;
-	}
-
-// must already be defined!	snd_soc_component_set_drvdata(component, aess);
-
-#endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
-
-	pm_runtime_enable(aess->dev);
-	pm_runtime_irq_safe(aess->dev);
-
-	ret = snd_soc_tplg_component_load(component, &soc_tplg_ops,
-					  aess->fw);
-	if (ret < 0) {
-		dev_err(component->dev, "loading toplogy from AESS FW failed %d\n", ret);
-
-		goto out;
-	}
-
-	ret = request_threaded_irq(aess->irq, NULL,
-				   aess_irq_handler, IRQF_ONESHOT, "AESS",
-				   aess);
-	if (ret) {
-		dev_err(component->dev, "request for AESS IRQ %d failed %d\n",
-			aess->irq, ret);
-		goto out;
-	}
+//		return ret;
 
 	ret = aess_opp_init_initial_opp(aess);
 	if (ret < 0) {
 		dev_info(component->dev, "No OPP definition\n");
-		ret = 0;
+		ret = 0;	// ignore!???
 	}
 	/* aess_clk has to be enabled to access hal register.
 	 * Disable the clk after it has been used.
@@ -622,6 +536,7 @@ printk("%s 6\n", __func__);
 		aess->mixer.route_ul[i] = omap_aess_get_label_data(aess,
 						      OMAP_AESS_BUFFER_ZERO_ID);
 
+	/* install firmware into DSP */
 	omap_aess_load_fw(aess);
 
 	/* "tick" of the audio engine */
@@ -632,12 +547,111 @@ printk("%s 6\n", __func__);
 	omap_aess_disable_irq(aess);
 
 	pm_runtime_put_sync(aess->dev);
+
+// send a notification to omap-abe-twl6040 that firmware is available
+
+printk("%s %d:\n", __func__, __LINE__);
+
+	return 0;
+}
+
+// #if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+static void omap_abe_fw_ready(const struct firmware *fw, void *context)
+{
+printk("%s %d:\n", __func__, __LINE__);
+	omap_abe_fw_loaded(fw, context);
+}
+
+// #endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
+
+/* modelled after wm8994.c */
+static int omap_aess_pcm_probe(struct snd_soc_component *component)
+{
+	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+	struct device_node *dai_node;
+	const struct firmware *fw;
+	int ret = 0;
+
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+dump_stack();
+
+	dai_node = of_parse_phandle(component->dev->of_node, "ti,aess", 0);
+	if (!dai_node)
+		return -ENODEV;	/* no device tree */
+
+	// FIXME: what wm8994 does
+	// 1. initialize regmaps
+	// 2. initialize mutexes, delayed works if needed
+	// 3. init completion handlers
+	// 4. may modify dapm e.g. idle_bias_off
+	// 5. snd_soc_component_update_bits(component, ...)
+	// 6. request interrupts
+	// 7. do first gpio control through regmap
+	// 8. snd_soc_component_update_bits(component, ...)
+	// 9. add new controls and dapm
+	// 9a. here it conditionally calls wm8958_dsp2_init() which loads a firmware
+	// 10. request another irq
+
+printk("%s %d\n", __func__, __LINE__);
+
+// FIXME: warum nicht immer mit nowait?
+
+#if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+
+	/*
+	 * if built into kernel, so we should do the remaining stuff in a separate thread
+	 * which finally calls omap_abe_fw_ready which registers the sound card
+	 */
+
+printk("%s %d\n", __func__, __LINE__);
+
+	ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
+			      component->dev, GFP_KERNEL, component,
+			      omap_abe_fw_ready);
+
+printk("%s %d ret=%d\n", __func__, __LINE__, ret);
+
+
+#else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+
+	/* if we are a kernel module we can simply load the firmware here - if it exists */
+
+printk("%s %d\n", __func__, __LINE__);
+
+	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
+	if (ret) {
+		dev_err(component->dev, "FW request failed: %d\n", ret);
+		return ret;
+	}
+
+	/* will be unloaded by omap_aess_pcm_remove() */
+	ret = omap_abe_fw_loaded(fw, component);
+	if (ret) {
+		dev_err(component->dev, "%s firmware was not loaded.\n",
+			AESS_FW_NAME);
+		return ret;
+	}
+
+#endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
+
+//	pm_runtime_enable(aess->dev);
+//	pm_runtime_irq_safe(aess->dev);
+
+	ret = request_threaded_irq(aess->irq, NULL,
+				   aess_irq_handler, IRQF_ONESHOT, "AESS",
+				   aess);
+	if (ret) {
+		dev_err(component->dev, "request for AESS IRQ %d failed %d\n",
+			aess->irq, ret);
+		goto out;
+	}
+
 	aess_init_debugfs(aess);
 
 	return 0;
 
 out:
-	pm_runtime_disable(aess->dev);
+//	pm_runtime_disable(aess->dev);
 	release_firmware(aess->fw);
 	return ret;
 }
@@ -821,7 +835,7 @@ out:
 #define omap_aess_pcm_resume	NULL
 #endif
 
-struct snd_soc_component_driver omap_aess_platform = {
+struct snd_soc_component_driver omap_aess_component = {
 	.name		= "omap-aess",
 	.suspend	= omap_aess_pcm_suspend,
 	.resume		= omap_aess_pcm_resume,
