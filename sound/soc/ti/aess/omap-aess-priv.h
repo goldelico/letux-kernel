@@ -339,8 +339,10 @@ struct omap_aess {
 	u32 aess_config_l3;
 	int irq;
 	int active;
+#if 1	// CHECKME
 	int nr_users;	/* Number of external users of omap_aess struct */
 	struct mutex mutex;
+#endif
 #ifdef FIXME	// context mechanism does no longer exist since v4.18 and wasn't used anywhere else for long time
 	u32 context_lost;
 	int (*get_context_lost_count)(struct device *dev);
