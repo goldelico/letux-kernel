@@ -281,6 +281,8 @@ int omap_aess_port_open(struct omap_aess *aess, int logical_id)
 	struct aess_port *port;
 	unsigned long flags;
 
+printk("%s %d: aess=%px id=%d\n", __func__, __LINE__, aess, logical_id);
+
 	if (logical_id < 0 || logical_id >= OMAP_AESS_LAST_LOGICAL_PORT_ID) {
 		pr_err("invalid logical port %d\n", logical_id);
 		return -EINVAL;
@@ -311,6 +313,9 @@ int omap_aess_port_open(struct omap_aess *aess, int logical_id)
 	list_add(&port->list, &aess->ports);
 	spin_unlock_irqrestore(&aess->lock, flags);
 
+printk("%s %d: aess->debugfs_ports_root=%px\n", __func__, __LINE__, aess->debugfs_ports_root);
+printk("%s %d: lport_name=%s\n", __func__, __LINE__, lport_name[logical_id]);
+
 #ifdef CONFIG_DEBUG_FS
 	port->root = debugfs_create_dir(lport_name[logical_id],
 					aess->debugfs_ports_root);
@@ -336,6 +341,8 @@ void omap_aess_port_close(struct omap_aess *aess, int logical_id)
 {
 	struct aess_port *port = find_logical_port(aess, logical_id);
 	unsigned long flags;
+
+printk("%s %d: aess=%px id=%d\n", __func__, __LINE__, aess, logical_id);
 
 	if (!port) {
 		dev_dbg(aess->dev, "Port %s is not open, can not be closed\n",
@@ -391,6 +398,8 @@ struct snd_pcm_substream *omap_aess_port_get_substream(struct omap_aess *aess,
 
 void omap_aess_port_mgr_init(struct omap_aess *aess)
 {
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+
 #ifdef CONFIG_DEBUG_FS
 	aess->debugfs_ports_root = debugfs_create_dir("ports",
 						      aess->debugfs_root);
@@ -401,6 +410,7 @@ void omap_aess_port_mgr_init(struct omap_aess *aess)
 
 void omap_aess_port_mgr_cleanup(struct omap_aess *aess)
 {
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(aess->debugfs_ports_root);
 #endif
