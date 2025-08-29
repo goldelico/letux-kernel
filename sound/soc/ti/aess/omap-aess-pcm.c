@@ -716,8 +716,7 @@ static int omap_aess_pcm_suspend(struct snd_soc_component *component)
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dai *dai;
 
-#undef dev_dbg
-#define dev_dbg dev_info
+printk("%s %d: %s active %d\n", __func__, __LINE__, component->name, component->active);
 
 	dev_dbg(component->dev, "%s: %s active %d\n", __func__,
 		component->name, component->active);
@@ -760,6 +759,8 @@ static int omap_aess_pcm_resume(struct snd_soc_component *component)
 	struct snd_soc_dai *dai;
 	int ret = 0;
 	bool any = false;
+
+printk("%s %d: %s active %d\n", __func__, __LINE__, component->name, component->active);
 
 	dev_dbg(component->dev, "%s: %s active %d\n", __func__,
 		component->name, component->active);
