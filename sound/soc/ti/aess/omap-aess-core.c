@@ -111,6 +111,8 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	struct omap_aess *aess;
 	int i, ret;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
 		return -ENOMEM;
@@ -123,6 +125,7 @@ printk("%s %d: platform_set_drvdata(%px, %px)\n", __func__, __LINE__, pdev, aess
 		if (res == NULL) {
 			dev_err(&pdev->dev, "no resource: %s\n",
 				aess_memory_bank[i]);
+printk("%s %d\n", __func__, __LINE__);
 			return -ENODEV;
 		}
 		if (!devm_request_mem_region(&pdev->dev, res->start, 
@@ -197,6 +200,8 @@ printk("%s %d: aess=%px dev=%px coherent_dma_mask=%px\n", __func__, __LINE__, ae
 
 	put_device(aess->dev);
 
+printk("%s %d: ok\n", __func__, __LINE__);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &omap_aess_component, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
@@ -207,12 +212,16 @@ printk("%s %d: aess=%px dev=%px coherent_dma_mask=%px\n", __func__, __LINE__, ae
 #endif
 	}
 
+printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
+
 	return ret;
 }
 
 static void omap_aess_engine_remove(struct platform_device *pdev)
 {
 	struct omap_aess *aess = platform_get_drvdata(pdev);
+
+printk("%s %d\n", __func__, __LINE__);
 
 #ifdef CONFIG_PM
 	pm_runtime_disable(&pdev->dev);
