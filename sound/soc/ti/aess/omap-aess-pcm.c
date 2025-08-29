@@ -734,7 +734,6 @@ printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
 	/* code from omap_aess_engine_remove */
 	aess->fw_data = NULL;
 	aess->fw_config = NULL;
-	omap_aess_port_mgr_cleanup(aess);
 }
 
 /* TODO: map IO directly into AESS memories */
