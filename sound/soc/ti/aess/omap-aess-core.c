@@ -154,6 +154,7 @@ printk("%s %d\n", __func__, __LINE__);
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
 		return -ENOMEM;
+	platform_set_drvdata(pdev, aess);
 
 	for (i = 0; i < OMAP_AESS_IO_RESOURCES; i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -197,13 +198,16 @@ printk("%s %d\n", __func__, __LINE__);
 	if (aess->irq < 0)
 		return aess->irq;
 
-	platform_set_drvdata(pdev, aess);
 
 #ifdef CONFIG_PM
 #ifdef FIXME	// mechanism does no longer exist since v4.18 and wasn't used anywhere else for long time
 	aess->get_context_lost_count = omap_pm_get_dev_context_loss_count;
 #endif
 	aess->device_scale = NULL;
+
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_idle(&pdev->dev);
+
 #endif	/* CONFIG_PM */
 	aess->dev = &pdev->dev;
 
@@ -230,10 +234,13 @@ printk("%s %d\n", __func__, __LINE__);
 
 printk("%s %d: ok\n", __func__, __LINE__);
 
-	ret = devm_snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
+	ret = devm_snd_soc_register_component(&pdev->dev, &omap_aess_component, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
-		dev_err(aess->dev, "failed to register PCM %d\n", ret);
+		dev_err(aess->dev, "failed to register AESS PCM %d\n", ret);
+#ifdef CONFIG_PM
+		pm_runtime_disable(&pdev->dev);
+#endif
 	}
 
 printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
@@ -248,6 +255,9 @@ static void omap_aess_engine_remove(struct platform_device *pdev)
 	struct omap_aess *aess = platform_get_drvdata(pdev);
 
 printk("%s %d\n", __func__, __LINE__);
+#ifdef CONFIG_PM
+	pm_runtime_disable(&pdev->dev);
+#endif
 #ifdef CONFIG_DEBUG_FS
 	if (aess->debugfs_root)
 		debugfs_remove_recursive(aess->debugfs_root);
@@ -257,7 +267,6 @@ printk("%s %d\n", __func__, __LINE__);
 		dev_err(aess->dev, "there are %d aess users\n", aess->nr_users);
 	the_aess = NULL;
 }
-
 
 static const struct of_device_id omap_aess_of_match[] = {
 	{ .compatible = "ti,omap4-aess", },
