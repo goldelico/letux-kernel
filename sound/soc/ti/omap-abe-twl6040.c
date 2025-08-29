@@ -37,8 +37,6 @@
 #include "omap-dmic.h"
 #include "omap-mcpdm.h"
 
-#define AESS_FW_NAME   "omap_aess-adfw.bin"
-
 /* legacy links with CPU (userspace visible) */
 SND_SOC_DAILINK_DEFS(link0,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()),
@@ -297,6 +295,9 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 };
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+#if FIXME
+// this is not actively used but likely needed
+#endif
 static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
 	/* McBSP 1 - Bluetooth */
 	SND_SOC_DAI_CONNECT("McBSP-1", "mcbsp-1", link_be_mcbsp1),
@@ -305,6 +306,9 @@ static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
 };
 
+#if FIXME
+// this is not actively used but likely needed
+#endif
 static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
 	/* McBSP 2 - MODEM or FM */
 	SND_SOC_DAI_CONNECT("McBSP-2", "mcbsp-2", link_be_mcbsp2),
@@ -368,6 +372,7 @@ struct abe_twl6040 {
 
 static struct platform_device *dmic_codec_dev;
 static struct platform_device *spdif_codec_dev;
+static struct omap_aess *aess_dev;
 
 static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -880,8 +885,6 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 }
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-
-/* called after loading firmware */
 static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 {
 	struct device_node *node = card->dev->of_node;
@@ -921,106 +924,16 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 
 	return 0;
 }
-
-#if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
-static void omap_abe_fw_ready(const struct firmware *fw, void *context)
-{
-	struct platform_device *pdev = (struct platform_device *)context;
-	struct snd_soc_card *card = &omap_abe_card;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
-	int ret;
-
-	if (unlikely(!fw))
-		dev_warn(&pdev->dev, "%s firmware is not loaded.\n",
-			 AESS_FW_NAME);
-
-	priv->aess = omap_aess_get_handle();
-	if (!priv->aess) {
-		dev_err(&pdev->dev, "AESS is not yet available\n");
-		return;
-	}
-
-	/* will be unloaded by omap_aess_pcm_remove() */
-	ret = omap_aess_load_firmware(priv->aess, fw);
-	if (ret) {
-		dev_err(&pdev->dev, "%s firmware was not loaded.\n",
-			AESS_FW_NAME);
-		omap_aess_put_handle(priv->aess);
-		priv->aess = NULL;
-	}
-
-	ret = omap_abe_add_legacy_dai_links(card);
-	if (ret < 0)
-		return;
-
-	if (priv->aess) {
-		ret = omap_abe_add_aess_dai_links(card);
-		if (ret < 0)
-			return;
-	}
-
-	ret = devm_snd_soc_register_card(&pdev->dev, card);
-	if (ret)
-		dev_err(&pdev->dev, "card registration failed after successful firmware load: %d\n",
-			ret);
-
-#if FIXME
-// can we move that to omap_abe_twl6040_init?
 #endif
-	ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
-			ARRAY_SIZE(aess_audio_map));
-	if (ret)
-		dev_err(&pdev->dev, "could not add AESS routes: %d\n", ret);
 
-	return;
-}
-
-#else /* !IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
-static int omap_abe_load_fw(struct snd_soc_card *card)
-{
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
-	const struct firmware *fw;
-	int ret;
-
-	priv->aess = omap_aess_get_handle();
-	if (!priv->aess) {
-		dev_err(card->dev, "AESS is not yet available\n");
-		return -EPROBE_DEFER;
-	}
-
-	ret = request_firmware(&fw, AESS_FW_NAME, card->dev);
-	if (ret) {
-		dev_err(card->dev, "FW request failed: %d\n", ret);
-		omap_aess_put_handle(priv->aess);
-		priv->aess = NULL;
-		return ret;
-	}
-
-	/* will be unloaded by omap_aess_pcm_remove() */
-	ret = omap_aess_load_firmware(priv->aess, fw);
-	if (ret) {
-		dev_err(card->dev, "%s firmware was not loaded.\n",
-			AESS_FW_NAME);
-		omap_aess_put_handle(priv->aess);
-		priv->aess = NULL;
-		ret = 0;
-	}
-
-	if (priv->aess)
-		ret = omap_abe_add_aess_dai_links(card);
-
-	return ret;
-}
-#endif /* IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040) */
-#endif /* IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS) */
-
-static int omap_abe_probe(struct platform_device *pdev)
+static int omap_abe_twl6040_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct snd_soc_card *card;
-	struct device_node *dai_node;
 	struct abe_twl6040 *priv;
 	int ret = 0;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	if (!node) {
 		dev_err(&pdev->dev, "of node is missing.\n");
@@ -1077,40 +990,26 @@ static int omap_abe_probe(struct platform_device *pdev)
 	card->fully_routed = 1;
 #endif
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	dai_node = of_parse_phandle(node, "ti,aess", 0);
-
-	if (dai_node) {
-		/* When ABE is in use the AESS needs firmware */
-#if IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
-		/*
-		 * is built into kernel, so we should do the remaining stuff in a separate thread
-		 * which finally calls omap_abe_fw_ready which registers the sound card
-		 */
-		ret = request_firmware_nowait(THIS_MODULE, 1, AESS_FW_NAME,
-				      &pdev->dev, GFP_KERNEL, pdev,
-				      omap_abe_fw_ready);
-		/* card is already registered after successful firmware load */
-		return ret;
-
-#else
-		/* if we are a kernel module we can simply load the firmware here - if it exists */
-		ret = omap_abe_load_fw(card);
-		if (ret < 0)
-			/* warn only but continue */
-			dev_warn(&pdev->dev, "Failed to load firmware %s: %d\n",
-				AESS_FW_NAME, ret);
-
-	}
-#endif	// IS_BUILTIN(CONFIG_SND_OMAP_SOC_OMAP_ABE_TWL6040)
-#endif	// IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-
 	ret = omap_abe_add_legacy_dai_links(card);
 	if (ret < 0)
 		return ret;
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+	request_module("snd_soc_omap_aess");	/* try to load driver */
+
+	aess_dev = omap_aess_get_handle();
+
+printk("%s %d: aess_dev=%px\n", __func__, __LINE__, aess_dev);
+
+	if (!aess_dev)
+		return -ENODEV;	/* or -EPROBE_DEFER? */
+#else
+	aess_dev = NULL;
+#endif
+
 #if FIXME
-/* can we replace this by devm_snd_soc_register_component and register the stream event here? */
+/* can we register the stream event here? */
 #endif
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
@@ -1119,10 +1018,17 @@ static int omap_abe_probe(struct platform_device *pdev)
 	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+printk("%s %d\n", __func__, __LINE__);
+
 #if FIXME
-// can we move that to omap_abe_twl6040_init?
+/* can we do this in omap_abe_twl6040_aess_init()?? */
 #endif
 	if (priv->aess) {
+		ret = omap_abe_add_aess_dai_links(card);
+		if (ret < 0)
+			return ret;
+
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 
@@ -1130,13 +1036,18 @@ static int omap_abe_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "could not add AESS routes: %d\n", ret);
 	}
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	return ret;
 }
 
-static void omap_abe_remove(struct platform_device *pdev)
+static void omap_abe_twl6040_remove(struct platform_device *pdev)
 {
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = &priv->card;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	if (priv->aess) {
 		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
@@ -1144,6 +1055,11 @@ static void omap_abe_remove(struct platform_device *pdev)
 		// undo devm_snd_soc_register_card() - dev managed
 		// undo omap_abe_add_legacy_dai_links(card); - dev managed
 	}
+
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+	omap_aess_put_handle(aess_dev);
+#endif
+
 }
 
 static const struct of_device_id omap_abe_of_match[] = {
@@ -1158,13 +1074,15 @@ static struct platform_driver omap_abe_driver = {
 		.pm = &snd_soc_pm_ops,
 		.of_match_table = omap_abe_of_match,
 	},
-	.probe = omap_abe_probe,
-	.remove = omap_abe_remove,
+	.probe = omap_abe_twl6040_probe,
+	.remove = omap_abe_twl6040_remove,
 };
 
-static int __init omap_abe_init(void)
+static int __init omap_abe_twl6040_module_init(void)
 {
 	int ret;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	dmic_codec_dev = platform_device_register_simple("dmic-codec", -1, NULL,
 							 0);
@@ -1181,6 +1099,8 @@ static int __init omap_abe_init(void)
 		return PTR_ERR(spdif_codec_dev);
 	}
 
+printk("%s %d\n", __func__, __LINE__);
+
 	ret = platform_driver_register(&omap_abe_driver);
 	if (ret) {
 		pr_err("%s: platform driver registration failed\n", __func__);
@@ -1188,17 +1108,23 @@ static int __init omap_abe_init(void)
 		platform_device_unregister(dmic_codec_dev);
 	}
 
+// FIXME: trigger firmware loading and evaluation i.e. call omap_aess_pcm_probe
+
+printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
+
 	return ret;
 }
-module_init(omap_abe_init);
+module_init(omap_abe_twl6040_module_init);
 
-static void __exit omap_abe_exit(void)
+static void __exit omap_abe_twl6040_module_exit(void)
 {
+printk("%s %d:\n", __func__, __LINE__);
+
 	platform_driver_unregister(&omap_abe_driver);
 	platform_device_unregister(dmic_codec_dev);
 	platform_device_unregister(spdif_codec_dev);
 }
-module_exit(omap_abe_exit);
+module_exit(omap_abe_twl6040_module_exit);
 
 MODULE_AUTHOR("Misael Lopez Cruz <misael.lopez@ti.com>");
 MODULE_AUTHOR("H. Nikolaus Schaller <hns@goldelico.com>");
