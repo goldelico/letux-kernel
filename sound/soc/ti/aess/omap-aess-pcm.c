@@ -697,8 +697,8 @@ printk("%s %d\n", __func__, __LINE__);
 
 #endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
-//	pm_runtime_enable(aess->dev);
-//	pm_runtime_irq_safe(aess->dev);
+	pm_runtime_enable(aess->dev);
+	pm_runtime_irq_safe(aess->dev);
 
 	ret = request_threaded_irq(aess->irq, NULL,
 				   aess_irq_handler, IRQF_ONESHOT, "AESS",
@@ -714,7 +714,7 @@ printk("%s %d\n", __func__, __LINE__);
 	return 0;
 
 out:
-//	pm_runtime_disable(aess->dev);
+	pm_runtime_disable(aess->dev);
 	release_firmware(aess->fw);
 	return ret;
 }
