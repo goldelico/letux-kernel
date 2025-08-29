@@ -90,6 +90,9 @@ void omap_aess_put_handle(struct omap_aess *aess)
 	if (!aess)
 		return;
 
+	if (aess != the_aess)
+		pr_err("%s: AESS has been differently initialized!\n", __func__);
+
 	mutex_lock(&aess->mutex);
 
 	if (aess->nr_users == 0)
@@ -140,48 +143,13 @@ void omap_aess_pm_set_mode(struct omap_aess *aess, int mode)
 }
 EXPORT_SYMBOL(omap_aess_pm_set_mode);
 
-int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw)
-{
-	int ret;
-
-	if (!aess || !fw)
-		return -EINVAL;
-
-	if (aess->fw == fw)	/* already loaded */
-		return 0;
-
-	if (unlikely(!fw->data)) {
-		dev_err(aess->dev, "Loaded firmware is empty\n");
-		ret = -EINVAL;
-		goto err;
-	}
-
-	if (aess->fw)
-		release_firmware(aess->fw);	/* replace */
-
-	aess->fw = fw;
-
-	ret = devm_snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
-					 ARRAY_SIZE(omap_aess_dai));
-	if (ret < 0) {
-		dev_err(aess->dev, "failed to register PCM %d\n", ret);
-		release_firmware(aess->fw);
-		goto err;
-	}
-
-	return 0;
-err:
-	aess->fw = NULL;
-
-	return ret;
-}
-EXPORT_SYMBOL(omap_aess_load_firmware);
-
 static int omap_aess_engine_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct omap_aess *aess;
-	int i;
+	int i, ret;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
@@ -193,6 +161,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 		if (res == NULL) {
 			dev_err(&pdev->dev, "no resource: %s\n",
 				aess_memory_bank[i]);
+printk("%s %d\n", __func__, __LINE__);
 			return -ENODEV;
 		}
 		if (!devm_request_mem_region(&pdev->dev, res->start, 
@@ -228,14 +197,14 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	if (aess->irq < 0)
 		return aess->irq;
 
-	dev_set_drvdata(&pdev->dev, aess);
+	platform_set_drvdata(pdev, aess);
 
 #ifdef CONFIG_PM
 #ifdef FIXME	// mechanism does no longer exist since v4.18 and wasn't used anywhere else for long time
 	aess->get_context_lost_count = omap_pm_get_dev_context_loss_count;
 #endif
 	aess->device_scale = NULL;
-#endif
+#endif	/* CONFIG_PM */
 	aess->dev = &pdev->dev;
 
 	mutex_init(&aess->mutex);
@@ -254,40 +223,41 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 
 	omap_aess_port_mgr_init(aess);
 
-	the_aess = aess;
-
 	get_device(aess->dev);
 	aess->dev->dma_mask = &omap_aess_dmamask;
 	aess->dev->coherent_dma_mask = omap_aess_dmamask;
 	put_device(aess->dev);
 
-	return 0;
+printk("%s %d: ok\n", __func__, __LINE__);
+
+	ret = devm_snd_soc_register_component(aess->dev, &omap_aess_platform, omap_aess_dai,
+					 ARRAY_SIZE(omap_aess_dai));
+	if (ret < 0) {
+		dev_err(aess->dev, "failed to register PCM %d\n", ret);
+	}
+
+printk("%s %d: ret=%d\n", __func__, __LINE__, ret);
+
+	the_aess = aess;
+
+	return ret;
 }
 
-#if OLD
 static void omap_aess_engine_remove(struct platform_device *pdev)
 {
-	struct omap_aess *aess = dev_get_drvdata(&pdev->dev);
+	struct omap_aess *aess = platform_get_drvdata(pdev);
 
-	the_aess = NULL;
-
-//	snd_soc_unregister_component(&pdev->dev);
-#ifdef CHECKME	// we have no platform device any more - is component unregistration sufficient?
-// and we register two components - how do we unregister them individually?
-	snd_soc_unregister_platform(&pdev->dev);
-// it is even simpler: (devm_)snd_soc_(un)register_platform have been replaced by (devm_)snd_soc_(un)register_component in v4.17
-#endif
-
-	aess->fw_data = NULL;
-	aess->fw_config = NULL;
-	/* firmware will be released by omap_aess_pcm_remove() */
-	omap_aess_port_mgr_cleanup(aess);
-
+printk("%s %d\n", __func__, __LINE__);
 #ifdef CONFIG_DEBUG_FS
-	debugfs_remove_recursive(aess->debugfs_root);
+	if (aess->debugfs_root)
+		debugfs_remove_recursive(aess->debugfs_root);
 #endif
+
+	if (aess && aess->nr_users > 0)
+		dev_err(aess->dev, "there are %d aess users\n", aess->nr_users);
+	the_aess = NULL;
 }
-#endif
+
 
 static const struct of_device_id omap_aess_of_match[] = {
 	{ .compatible = "ti,omap4-aess", },
@@ -297,14 +267,12 @@ MODULE_DEVICE_TABLE(of, omap_aess_of_match);
 
 static struct platform_driver omap_aess_driver = {
 	.driver = {
-		.name = "aess",
+		.name = "omap-aess",
 		.owner = THIS_MODULE,
 		.of_match_table = omap_aess_of_match,
 	},
 	.probe = omap_aess_engine_probe,
-#if OLD
 	.remove = omap_aess_engine_remove,
-#endif
 };
 
 module_platform_driver(omap_aess_driver);
