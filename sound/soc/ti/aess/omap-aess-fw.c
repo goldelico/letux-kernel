@@ -77,7 +77,7 @@ struct omap_aess_filter {
 };
 
 /*
- * NOTE: this is still a hack
+ * NOTE: this is still a big hack
  * reason is that some kcontrols are initialized from firmware in snd_soc_bind_card() through
  * dapm_create_or_share_kcontrol() while others through snd_soc_component_probe() and
  * soc_tplg_add_kcontrol() [also through omap_aess_pcm_probe()]
@@ -86,12 +86,17 @@ struct omap_aess_filter {
  * especially snd_soc_dapm_kcontrol_dapm() expects a widget list to be initialized
  */
 
+static struct omap_aess *the_aess;	// should be initialized in aess_load_fw
+
 static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 {
 #if FIXME
 /* simple fallback but using kcontrol would be nicer and less tied to omap */
 #endif
-	return omap_aess_get_handle();	
+	return the_aess;
+	// alternative: struct omap_aess *aess = aess = omap_aess_get_handle();
+	// omap_aess_put_handle(aess);
+	// return aess;
 #if FIXME
 #if 0
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
@@ -643,6 +648,10 @@ static int aess_load_fw(struct snd_soc_component *component,
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 	const void *fw_data = snd_soc_tplg_get_data(hdr);
 
+printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
+
+the_aess = aess;	// save a pointer
+
 	/* get firmware and coefficients header info */
 	memcpy(&aess->fw_hdr, fw_data, sizeof(struct fw_header));
 	if (hdr->payload_size > OMAP_AESS_MAX_FW_SIZE) {
@@ -682,7 +691,7 @@ static int aess_vendor_load(struct snd_soc_component *component,
 			    int index,
 			    struct snd_soc_tplg_hdr *hdr)
 {
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
+//	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
 
 	switch (hdr->type) {
 	case SND_SOC_TPLG_TYPE_VENDOR_FW:
