@@ -32,6 +32,8 @@ do
 			cat /sys/kernel/debug/omap-aess/test/*
 			echo pmem:
 			xxd -l 32 /sys/kernel/debug/omap-aess/pmem
+			echo dmem stack:
+			xxd -l 32 -s 0x0200 /sys/kernel/debug/omap-aess/dmem
 			;;
 		q )	exit ;;
 		* )
