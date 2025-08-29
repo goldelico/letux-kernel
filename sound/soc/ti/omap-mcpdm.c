@@ -520,17 +520,12 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 	struct omap_mcpdm *mcpdm = snd_soc_dai_get_drvdata(dai);
 	int ret;
 
-// printk("%s %d:\n", __func__, __LINE__);
-// dump_stack();
-
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	mcpdm->aess_dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
 	if (! mcpdm->aess_dev)
 		return -EPROBE_DEFER;	// not yet found
 
 	mcpdm->aess = dev_get_drvdata(mcpdm->aess_dev);
-
-// printk("%s %d: dev=%px aess=%px\n", __func__, __LINE__, mcpdm->aess_dev, mcpdm->aess);
 
 	if (mcpdm->aess) {
 		ret = omap_aess_port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
