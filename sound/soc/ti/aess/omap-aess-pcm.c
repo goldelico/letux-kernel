@@ -482,17 +482,6 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 	else
 		aess->fw = fw;
 
-// FIXME: this is defined by omap-abe-twl6040.c and can't be called here!!!
-// should be done there - after loading firmware - or assuming firmware has been loaded
-//
-//	ret = omap_abe_add_legacy_dai_links(card);
-//	if (ret < 0)
-//		return ret;
-
-//	ret = omap_abe_add_aess_dai_links(card);
-//	if (ret < 0)
-//		return ret;
-
 	ret = snd_soc_tplg_component_load(component, &soc_tplg_ops,
 					  aess->fw);
 	if (ret < 0) {
