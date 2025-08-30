@@ -1566,6 +1566,7 @@ void pm_runtime_enable(struct device *dev)
 
 	if (!dev->power.disable_depth) {
 		dev_warn(dev, "Unbalanced %s!\n", __func__);
+dump_stack();
 		goto out;
 	}
 
