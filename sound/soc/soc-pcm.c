@@ -26,9 +26,6 @@
 #include <sound/soc-link.h>
 #include <sound/initval.h>
 
-#undef dev_dbg
-#define dev_dbg dev_info
-
 #define soc_pcm_ret(rtd, ret) _soc_pcm_ret(rtd, __func__, ret)
 static inline int _soc_pcm_ret(struct snd_soc_pcm_runtime *rtd,
 			       const char *func, int ret)
@@ -1418,11 +1415,9 @@ static struct snd_soc_pcm_runtime *dpcm_get_be(struct snd_soc_card *card,
 	struct snd_soc_dai *dai;
 	int i;
 
-	dev_dbg(card->dev, "ASoC: find BE for widget %p %s\n", widget, widget->name);
+	dev_dbg(card->dev, "ASoC: find BE for widget %s\n", widget->name);
 
 	for_each_card_rtds(card, be) {
-
-printk("%s %d: check be %p dai_link=%s stream=%s\n", __func__, __LINE__, be, be->dai_link->name, be->dai_link->stream_name);
 
 		if (!be->dai_link->no_pcm)
 			continue;
@@ -1431,24 +1426,17 @@ printk("%s %d: check be %p dai_link=%s stream=%s\n", __func__, __LINE__, be, be-
 			continue;
 
 		for_each_rtd_dais(be, i, dai) {
-
-printk("%s %d: check %d dai=%s\n", __func__, __LINE__, i, dai->name);
-
 			w = snd_soc_dai_get_widget(dai, stream);
 
 			dev_dbg(card->dev, "ASoC: try BE : %s\n",
 				w ? w->name : "(not set)");
 
 			if (w == widget)
-{
-printk("%s %d: found\n", __func__, __LINE__);
 				return be;
-}
 		}
 	}
 
 	/* Widget provided is not a BE */
-printk("%s %d: Widget provided is not a BE\n", __func__, __LINE__);
 	return NULL;
 }
 
