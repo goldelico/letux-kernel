@@ -686,8 +686,8 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 }
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-/* FIXME: should this be twl6040_dl1_init? */
-// NOTE: This is backend initialization
+/* FIXME: should this be called twl6040_dl1_init? */
+// NOTE: This does overall backend initialization
 static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
@@ -741,16 +741,13 @@ static const struct snd_soc_component_driver something = {
 			return ret;
 	}
 
-#if 0
-	/* add the aess routes here? No: AFTER initializing the AESS */
-	// this requires that the firmware has been processed!
+	/* add the aess rudio mapping here */
 	if (omap_aess_dev) {
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		if (ret)
 			return ret;
 	}
-#endif
 
 	return 0;
 }
