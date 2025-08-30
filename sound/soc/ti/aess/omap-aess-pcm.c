@@ -542,82 +542,6 @@ static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 }
 #endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
 
-#if OLD
-static int omap_aess_pcm_probe(struct snd_soc_component *component)
-{
-	struct omap_aess *aess = snd_soc_component_get_drvdata(component);
-	int ret = 0, i;
-
-	if (!aess->fw || !aess->fw->data) {
-		dev_warn(component->dev, "AESS FW not yet loaded\n");
-		omap_aess_put_handle(aess);
-		return -EPROBE_DEFER;	/* firmware not yet loaded */
-	}
-
-	snd_soc_component_set_drvdata(component, aess);
-
-	pm_runtime_enable(aess->dev);
-	pm_runtime_irq_safe(aess->dev);
-
-	ret = snd_soc_tplg_component_load(component, &soc_tplg_ops,
-					  aess->fw);
-	if (ret < 0) {
-		dev_err(component->dev, "loading toplogy from AESS FW failed %d\n", ret);
-
-		goto out;
-	}
-
-	ret = request_threaded_irq(aess->irq, NULL,
-				   aess_irq_handler, IRQF_ONESHOT, "AESS",
-				   aess);
-	if (ret) {
-		dev_err(component->dev, "request for AESS IRQ %d failed %d\n",
-			aess->irq, ret);
-		goto out;
-	}
-
-	ret = aess_opp_init_initial_opp(aess);
-	if (ret < 0) {
-		dev_info(component->dev, "No OPP definition\n");
-		ret = 0;
-	}
-	/* aess_clk has to be enabled to access hal register.
-	 * Disable the clk after it has been used.
-	 */
-	pm_runtime_get_sync(aess->dev);
-
-	omap_aess_init_mem(aess);
-
-	omap_aess_reset_hal(aess);
-
-	/* ZERO_labelID should really be 0 */
-	for (i = 0; i < OMAP_AESS_ROUTES_UL + 2; i++)
-		aess->mixer.route_ul[i] = omap_aess_get_label_data(aess,
-						      OMAP_AESS_BUFFER_ZERO_ID);
-
-	omap_aess_load_fw(aess);
-
-	/* "tick" of the audio engine */
-	omap_aess_write_event_generator(aess, EVENT_TIMER);
-
-	/* Stop the engine */
-	omap_aess_write_event_generator(aess, EVENT_STOP);
-	omap_aess_disable_irq(aess);
-
-	pm_runtime_put_sync(aess->dev);
-	aess_init_debugfs(aess);
-
-out:
-	if (ret) {
-		pm_runtime_disable(aess->dev);
-		omap_aess_put_handle(aess);
-	}
-
-	return ret;
-}
-
-#endif
-
 /* modelled after wm8994.c */
 static int omap_aess_pcm_probe(struct snd_soc_component *component)
 {
@@ -707,10 +631,8 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 	free_irq(aess->irq, aess);
 	aess_cleanup_debugfs(aess);
 	pm_runtime_disable(aess->dev);
-//	omap_aess_put_handle(aess);
 	release_firmware(aess->fw);
 	aess->fw = NULL;
-	/* code from omap_aess_engine_remove */
 	aess->fw_data = NULL;
 	aess->fw_config = NULL;
 }
