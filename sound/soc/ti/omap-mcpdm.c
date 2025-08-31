@@ -522,7 +522,7 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	mcpdm->aess_dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
-	if (! mcpdm->aess_dev)
+	if (!mcpdm->aess_dev)
 		return -EPROBE_DEFER;	// not yet found
 
 	mcpdm->aess = dev_get_drvdata(mcpdm->aess_dev);
