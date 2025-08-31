@@ -21,7 +21,7 @@ do
 	[ "$CARD" ] && break
 done
 
-echo "You may use 'alsamixer -c$CARD'"
+echo "You may use 'alsamixer -c$CARD' to setup mixers"
 
 ./twl -nohf -D "$DEV" $@ testmp3.mp3
 exit
