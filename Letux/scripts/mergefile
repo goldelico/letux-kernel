@@ -32,13 +32,14 @@ letux/Letux
 # Letux defconfigs
 letux/arm_defconfig
 letux/arm_lpae_defconfig
-letux/pyra_defconfig
 letux/arm64_defconfig
 letux/mips_defconfig
 letux/mips_ci20_defconfig
 letux/mips_alpha400_defconfig
 letux/mips_lx16_defconfig
 letux/mips_lx20_defconfig
+letux/pyra_defconfig
+letux/riscv_defconfig
 letux/x86_defconfig
 
 # Letux Rootfs
