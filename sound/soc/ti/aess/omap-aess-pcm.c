@@ -635,7 +635,10 @@ printk("%s %d\n", __func__, __LINE__);
 
 printk("%s %d\n", __func__, __LINE__);
 
-	pm_runtime_enable(aess->dev);
+//	pm_runtime_enable(aess->dev);
+
+printk("%s %d\n", __func__, __LINE__);
+
 	pm_runtime_irq_safe(aess->dev);
 
 	ret = request_threaded_irq(aess->irq, NULL,
@@ -652,7 +655,7 @@ printk("%s %d\n", __func__, __LINE__);
 	return 0;
 
 out:
-	pm_runtime_disable(aess->dev);
+//	pm_runtime_disable(aess->dev);
 	release_firmware(aess->fw);
 	return ret;
 }
@@ -665,7 +668,7 @@ printk("%s %d: aess=%px\n", __func__, __LINE__, aess);
 
 	free_irq(aess->irq, aess);
 	aess_cleanup_debugfs(aess);
-	pm_runtime_disable(aess->dev);
+//	pm_runtime_disable(aess->dev);
 	release_firmware(aess->fw);
 	aess->fw = NULL;
 	aess->fw_data = NULL;
