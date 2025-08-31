@@ -1045,10 +1045,6 @@ printk("%s %d\n", __func__, __LINE__);
 	card->fully_routed = 1;
 #endif
 
-	ret = omap_abe_add_legacy_dai_links(card);
-	if (ret < 0)
-		return ret;
-
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
 printk("%s %d: request %s\n", __func__, __LINE__, "snd_soc_omap_aess");
@@ -1090,6 +1086,10 @@ printk("%s %d:ret=%d\n", __func__, __LINE__, ret);
 			return ret;
 	}
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
+	ret = omap_abe_add_legacy_dai_links(card);
+	if (ret < 0)
+		return ret;
 
 #if FIXME
 /* can we register the stream event here? */
