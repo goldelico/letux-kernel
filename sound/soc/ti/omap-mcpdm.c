@@ -134,6 +134,8 @@ static void omap_mcpdm_start(struct omap_mcpdm *mcpdm)
 	u32 ctrl = omap_mcpdm_read(mcpdm, MCPDM_REG_CTRL);
 	u32 link_mask = mcpdm->config[0].link_mask | mcpdm->config[1].link_mask;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	ctrl |= (MCPDM_SW_DN_RST | MCPDM_SW_UP_RST);
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl);
 
@@ -152,6 +154,8 @@ static void omap_mcpdm_stop(struct omap_mcpdm *mcpdm)
 {
 	u32 ctrl = omap_mcpdm_read(mcpdm, MCPDM_REG_CTRL);
 	u32 link_mask = MCPDM_PDM_DN_MASK | MCPDM_PDM_UP_MASK;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	ctrl |= (MCPDM_SW_DN_RST | MCPDM_SW_UP_RST);
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl);
@@ -180,6 +184,8 @@ static inline int omap_mcpdm_active(struct omap_mcpdm *mcpdm)
 static void omap_mcpdm_open_streams(struct omap_mcpdm *mcpdm)
 {
 	u32 ctrl = omap_mcpdm_read(mcpdm, MCPDM_REG_CTRL);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl | MCPDM_WD_EN);
 
@@ -211,6 +217,8 @@ static void omap_mcpdm_open_streams(struct omap_mcpdm *mcpdm)
  */
 static void omap_mcpdm_close_streams(struct omap_mcpdm *mcpdm)
 {
+printk("%s %d\n", __func__, __LINE__);
+
 	/* Disable irq request generation for downlink */
 	omap_mcpdm_write(mcpdm, MCPDM_REG_IRQENABLE_CLR,
 			MCPDM_DN_IRQ_EMPTY | MCPDM_DN_IRQ_FULL);
@@ -267,6 +275,8 @@ static int omap_mcpdm_dai_startup(struct snd_pcm_substream *substream,
 	struct omap_mcpdm *mcpdm = snd_soc_dai_get_drvdata(dai);
 	int ret = 0;
 
+printk("%s %d: %s\n", __func__, __LINE__, mcpdm->active_dai ? "ABE mode" : "Legacy mode");
+
 	mutex_lock(&mcpdm->mutex);
 
 	if (!mcpdm->active++) {
@@ -304,6 +314,8 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 	int tx = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 	int stream1 = tx ? SNDRV_PCM_STREAM_PLAYBACK : SNDRV_PCM_STREAM_CAPTURE;
 	int stream2 = tx ? SNDRV_PCM_STREAM_CAPTURE : SNDRV_PCM_STREAM_PLAYBACK;
+
+printk("%s %d: %s\n", __func__, __LINE__, mcpdm->active_dai ? "ABE mode" : "Legacy mode");
 
 	mutex_lock(&mcpdm->mutex);
 
@@ -361,6 +373,8 @@ static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 	u32 threshold;
 	int channels, latency;
 	int link_mask = 0;
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	dma_data = snd_soc_dai_get_dma_data(dai, substream);
 
@@ -451,6 +465,8 @@ static int omap_mcpdm_prepare(struct snd_pcm_substream *substream,
 	int stream1 = tx ? SNDRV_PCM_STREAM_PLAYBACK : SNDRV_PCM_STREAM_CAPTURE;
 	int stream2 = tx ? SNDRV_PCM_STREAM_CAPTURE : SNDRV_PCM_STREAM_PLAYBACK;
 	int latency = mcpdm->latency[stream2];
+
+printk("%s %d:\n", __func__, __LINE__);
 
 	/* Prevent omap hardware from hitting off between FIFO fills */
 	if (!latency || mcpdm->latency[stream1] < latency)
