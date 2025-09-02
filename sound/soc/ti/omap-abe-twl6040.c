@@ -392,6 +392,8 @@ static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	int clk_id, freq;
 	int ret;
 
+printk("%s %d\n", __func__, __LINE__);
+
 	clk_id = twl6040_get_clk_id(codec_dai->component);
 	if (clk_id == TWL6040_SYSCLK_SEL_HPPLL)
 		freq = priv->mclk_freq;
@@ -415,6 +417,8 @@ static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 {
 	struct snd_interval *rate = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_RATE);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	rate->min = rate->max = 96000;
 
@@ -454,6 +458,8 @@ static int omap_mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	unsigned int be_id = rtd->dai_link->id;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	if (be_id == OMAP_AESS_BE_ID_MM_FM || be_id == OMAP_AESS_BE_ID_BT_VX)
 		channels->min = 2;
@@ -516,6 +522,8 @@ static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+
+printk("%s %d\n", __func__, __LINE__);
 
 	if (priv->twl6040_power_mode == ucontrol->value.integer.value[0])
 		return 0;
@@ -617,6 +625,8 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 
 	int gain;
+
+printk("%s %d\n", __func__, __LINE__);
 
 	/*
 	 * set DL1 gains dynamically according to the active output
