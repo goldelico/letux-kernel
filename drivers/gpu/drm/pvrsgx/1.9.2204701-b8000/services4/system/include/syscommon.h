@@ -56,7 +56,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvr_debug.h"
 #include "services.h"
 
+#if 0
 #include <mach/sync_write.h>
+#endif
 
 #if defined(NO_HARDWARE) && defined(__linux__) && defined(__KERNEL__)
 #include <asm/io.h>
