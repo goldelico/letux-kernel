@@ -137,5 +137,11 @@
 			compatible = "mediatek,mt6589-wdt";
 			reg = <0x10000000 0x44>;
 		};
+
+		/* FIXME: addresses and reg */
+		gpu: gpu@10000000 {
+			compatible = "mediatek,mt6589-gpu";
+			reg = <0x10000000 0x44>;
+		};
 	};
 };
