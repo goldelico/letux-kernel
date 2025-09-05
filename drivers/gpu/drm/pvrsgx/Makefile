@@ -34,11 +34,19 @@ else ifeq ($(CONFIG_PVRSGX_1_8_869593),y)
 SUBPATH=1.8.869593/eurasia_km
 else ifeq ($(CONFIG_PVRSGX_1_9_2188537),y)
 SUBPATH=1.9.2188537/eurasia_km
+else ifeq ($(CONFIG_PVRSGX_1_9_2204701_IQ451),y)
+SUBPATH=1.9.2204701-iq451
+else ifeq ($(CONFIG_PVRSGX_1_9_2204701_B8000),y)
+SUBPATH=1.9.2204701-b8000
 else ifeq ($(CONFIG_PVRSGX_1_9_2253347),y)
 SUBPATH=1.9.2253347
 else ifeq ($(CONFIG_PVRSGX_1_10_2359475),y)
 # this is partially working
 SUBPATH=1.10.2359475
+else ifeq ($(CONFIG_PVRSGX_1_12_2701748),y)
+SUBPATH=1.12.2701748
+else ifeq ($(CONFIG_PVRSGX_1_12_2824438),y)
+SUBPATH=1.12.2824438
 else ifeq ($(CONFIG_PVRSGX_1_13_3341330),y)
 SUBPATH=1.13.3341330/eurasia_km
 else ifeq ($(CONFIG_PVRSGX_1_14_3699939),y)
@@ -65,6 +73,7 @@ SOURCE=$(obj)/$(SUBPATH)
 $(obj)/pvr:
 	@rm -f $(obj)/modules.order
 	@touch $(obj)/modules.order
+
 ifneq ($(CONFIG_SGX_CEDARVIEW),)
 	@$(kecho) "  MAKE    $(obj): cedarview"
 	$(Q)SOC_VENDOR=intel SOC_FAMILY=cedarview_linux SOC=gma3600 SGX=sgx545 SGX_FLAG=SGX545 SGX_REV=10141 TARGET_TYPE=$(CONFIG_SGX_CEDARVIEW) $(MAKE) $(build)=$(SOURCE)
@@ -132,6 +141,14 @@ else # pvr_drv
 # $(Q)CONFIG_SOC=omap5 $(MAKE) $(build)=$(obj)/omap5
 endif # CONFIG_PVRSGX_1_14_3699939
 endif # CONFIG_SGX_OMAP
+
+ifneq ($(CONFIG_SGX_MEDIATEK),)
+ifneq ($(CONFIG_MACH_MT6589),)
+	@$(kecho) "  MAKE    $(obj): mt6589"
+	$(Q)SOC_VENDOR=mediatek SOC_FAMILY=mt6589 SOC=mt6589 SGX=sgx544 SGX_FLAG=SGX544 SGX_REV=116 $(MAKE) TARGET_TYPE=$(CONFIG_SGX_MEDIATEK) $(build)=$(SOURCE)
+	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
+endif	# CONFIG_MACH_MT6589
+endif # CONFIG_SGX_MEDIATEK
 
 ifneq ($(CONFIG_SGX_POULSBO),)
 	@$(kecho) "  MAKE    $(obj): poulsbo"

@@ -328,6 +328,12 @@ static const struct pvr_capabilities __maybe_unused pvr_sun8i_a83t = {
 	.sgx_revision = 115,
 };
 
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt6589 = {
+	.smp = true,
+	.sgx_version = 544,
+	.sgx_revision = 115,	/* unsure */
+};
+
 /*
  * The #ifdef are currently needed to prevent the multiple instances of
  * the driver from trying to probe.
@@ -391,6 +397,13 @@ static const struct of_device_id pvr_ids[] = {
 
 #ifdef allwinner_sun8i_a83t_sgx544_115
 	{ .compatible = "allwinner,sun8i-a83t-gpu", .data =  &pvr_sun8i_a83t, },
+#endif
+
+#ifdef mediatek_mt6589_mt6589_sgx544_115
+	{ .compatible = "mediatek,mt6589-gpu", .data =  &pvr_mediatek_mt6589, },
+	/* these appear to have different gpu clock rating */
+	{ .compatible = "mediatek,mt6589t-gpu", .data =  &pvr_mediatek_mt6589, },	/* 286MHz -> 357MHz */
+	{ .compatible = "mediatek,mt6589m-gpu", .data =  &pvr_mediatek_mt6589, },	/* 286MHz -> 156MHz */
 #endif
 
 	{ /* sentinel */ },
