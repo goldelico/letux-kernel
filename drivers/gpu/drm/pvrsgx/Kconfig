@@ -27,11 +27,23 @@ config PVRSGX_1_9_2188537
 	help
 	  This version should work on OMAP3530, AM3517
 
+config PVRSGX_1_9_2204701_B8000
+	bool "DDK 1.9.2204701 (Mediatek for b8000)"
+
+config PVRSGX_1_9_2204701_IQ451
+	bool "DDK 1.9.2204701 (Mediatek for iq451)"
+
 config PVRSGX_1_9_2253347
 	bool "DDK 1.9.2253347 (TI)"
 
 config PVRSGX_1_10_2359475
 	bool "DDK 1.10.2359475 (TI)"
+
+config PVRSGX_1_12_2701748
+	bool "DDK 1.12.2701748 (Mediatek for aquaris 5hd)"
+
+config PVRSGX_1_12_2824438
+	bool "DDK 1.12.2824438 (Mediatek for aquaris 5)"
 
 config PVRSGX_1_13_3341330
 	bool "DDK 1.13.3341330 (INGENIC)"
@@ -83,6 +95,12 @@ config SGX_OMAP
 	help
 	  Support for the PowerVR SGX 3D core inside OMAP SoC.
 
+config SGX_MEDIATEK
+	tristate "PowerVR SGX inside Mediatek MT6589"
+	depends on SGX && MACH_MT6589
+	help
+	  Support for the PowerVR SGX 3D core inside Mediatek MT6589.
+
 config SGX_POULSBO
 	tristate "PowerVR SGX inside GMA500 SoC"
 	depends on SGX && MATOM
@@ -107,3 +125,4 @@ config SGX_GENERIC
 	depends on SGX
 	help
 	  Support for the PowerVR SGX 3D core inside generic SoC.
+	  (Not working)
