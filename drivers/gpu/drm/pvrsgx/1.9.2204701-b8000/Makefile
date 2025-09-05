@@ -1,20 +1,35 @@
+MODULE := pvrsrvkm_$(SOC)_$(SGX)_$(SGX_REV)
+TARGET := $(MODULE)-$(TARGET_TYPE)
+obj-$(TARGET_TYPE) += $(MODULE).o
+
+# MTK_PATH_PLATFORM -> replace all $(MTK_PATH_PLATFORM)/drivers/gpu/pvr/ by $(SOURCE) in Makefile
+# CONFIG_PVR_BUILD_RELEASE_MT6589=y CONFIG_PVR_BUILD_DEBUG_MT6589=$(CONFIG_SGX_DEBUG) -> replace in Makefile
+TARGET_BUILD_VARIANT '', user, eng
+MTK_3D_DEBUG_FOR_USER_VERSION '', yes
+MTK_FORCE_GPU_89T - 156MHz only
+MTK_FORCE_GPU_89M - 357MHz (without suffix: 286MHz)
+CONFIG_ION_MTK
+SUPPORT_ION
+endif
+
 OPTIM = -Os
 VER:=eng
 
 ccflags-y := \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/include4 \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/include \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/system/include \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/hwdefs \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/bridged \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/bridged/sgx \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/common \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/devices/sgx \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/env/linux \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/srvkm/include \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/3rdparty/mtklfb \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/3rdparty/mtkbc \
-	-I$(MTK_PATH_PLATFORM)/drivers/gpu/pvr/services4/system/mt6589
+	-I$(srctree)/include \
+	-I$(src)/include4 \
+	-I$(src)/services4/include \
+	-I$(src)/services4/system/include \
+	-I$(src)/services4/srvkm/hwdefs \
+	-I$(src)/services4/srvkm/bridged \
+	-I$(src)/services4/srvkm/bridged/sgx \
+	-I$(src)/services4/srvkm/common \
+	-I$(src)/services4/srvkm/devices/sgx \
+	-I$(src)/services4/srvkm/env/linux \
+	-I$(src)/services4/srvkm/include \
+	-I$(src)/services4/3rdparty/mtklfb \
+	-I$(src)/services4/3rdparty/mtkbc \
+	-I$(src)/services4/system/mt6589
 
 ccflags-y += \
 	-fno-strict-aliasing \
@@ -30,6 +45,7 @@ ccflags-y += \
 	-Wno-type-limits
 
 ccflags-y += \
+	-DLINUX \
 	-D__linux__ $(OPTIM) -g
 
 ifneq ($(strip $(TARGET_BUILD_VARIANT)),)
@@ -41,9 +57,9 @@ endif
 endif
 
 ccflags-$(CONFIG_PVR_BUILD_RELEASE_MT6589) += \
-	-include $(MTK_PATH_PLATFORM)/drivers/gpu/pvr/include4/config_kernel_$(VER).h
+	-include $(src)/include4/config_kernel_$(VER).h
 ccflags-$(CONFIG_PVR_BUILD_DEBUG_MT6589) += \
-	-include $(MTK_PATH_PLATFORM)/drivers/gpu/pvr/include4/config_kernel_$(VER).h
+	-include $(src)/include4/config_kernel_$(VER).h
 
 ifeq ($(MTK_FORCE_GPU_89T), yes)
 ccflags-y += -DMTK_FORCE_T
@@ -53,7 +69,7 @@ ifeq ($(MTK_FORCE_GPU_89M), yes)
 ccflags-y += -DMTK_FORCE_M
 endif
 
-pvrsrvkm-y := \
+$(TARGET) := \
 	services4/srvkm/env/linux/osfunc.o \
 	services4/srvkm/env/linux/mutils.o \
 	services4/srvkm/env/linux/mmap.o \
@@ -100,11 +116,11 @@ pvrsrvkm-y := \
 	services4/srvkm/common/ttrace.o \
 	services4/system/mt6589/mtk_sysfreq.o
 
-pvrsrvkm-$(CONFIG_ION_MTK) += \
+$(MODULE)-$(CONFIG_ION_MTK) += \
     services4/srvkm/env/linux/ion.o
 
 ifeq ($(SUPPORT_ION),1)
-pvrsrvkm-y += \
+$(MODULE)-y += \
     services4/srvkm/env/linux/ion.o
 endif
 
@@ -113,7 +129,7 @@ mtklfb-y := \
 	services4/3rdparty/mtklfb/mtklfb_linux.o \
 	services4/3rdparty/mtklfb/mtklfb_debug.o
 
-obj-$(CONFIG_PVR_SGX_MT6589) += pvrsrvkm.o
-obj-$(CONFIG_PVR_SGX_MT6589) += mtklfb.o
+# obj-$(CONFIG_PVR_SGX_MT6589) += pvrsrvkm.o
+obj-$(CONFIG_SGX_MEDIATEK) += mtklfb.o
 
 
