@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.17.0-rc4 Kernel Configuration
+# Linux/mips 6.17.0-rc5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -2021,8 +2021,8 @@ CONFIG_PINCTRL_INGENIC=y
 #
 # end of Renesas pinctrl drivers
 
-CONFIG_GPIOLIB=y
 CONFIG_GPIOLIB_LEGACY=y
+CONFIG_GPIOLIB=y
 CONFIG_GPIOLIB_FASTPATH_LIMIT=512
 CONFIG_OF_GPIO=y
 CONFIG_GPIOLIB_IRQCHIP=y
