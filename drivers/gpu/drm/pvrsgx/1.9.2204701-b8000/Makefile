@@ -2,6 +2,7 @@ MODULE := pvrsrvkm_$(SOC)_$(SGX)_$(SGX_REV)
 TARGET := $(MODULE)-$(TARGET_TYPE)
 obj-$(TARGET_TYPE) += $(MODULE).o
 
+ifeq (night,day)
 # MTK_PATH_PLATFORM -> replace all $(MTK_PATH_PLATFORM)/drivers/gpu/pvr/ by $(SOURCE) in Makefile
 # CONFIG_PVR_BUILD_RELEASE_MT6589=y CONFIG_PVR_BUILD_DEBUG_MT6589=$(CONFIG_SGX_DEBUG) -> replace in Makefile
 TARGET_BUILD_VARIANT '', user, eng
@@ -28,8 +29,10 @@ ccflags-y := \
 	-I$(src)/services4/srvkm/env/linux \
 	-I$(src)/services4/srvkm/include \
 	-I$(src)/services4/3rdparty/mtklfb \
-	-I$(src)/services4/3rdparty/mtkbc \
 	-I$(src)/services4/system/mt6589
+
+# ccflags-y += \
+#	-I$(src)/services4/3rdparty/mtkbc
 
 ccflags-y += \
 	-fno-strict-aliasing \
