@@ -49,6 +49,7 @@ ccflags-y += \
 
 ccflags-y += \
 	-DLINUX \
+	-DPVRSRV_MODNAME="\"pvrsrvkm"\" \
 	-D__linux__ $(OPTIM) -g
 
 ifneq ($(strip $(TARGET_BUILD_VARIANT)),)
