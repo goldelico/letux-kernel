@@ -386,7 +386,6 @@ static int pvr_proc_seq_show (struct seq_file *proc_seq_file, void *v)
 }
 
 
-
 /*!
 ******************************************************************************
 
@@ -483,7 +482,6 @@ static struct proc_dir_entry* CreateProcEntryInDirSeq(
     PVR_DPF((PVR_DBG_ERROR, "CreateProcEntryInDirSeq: cannot make proc entry /proc/%s/%s: no memory", PVRProcDirRoot, name));
     return NULL;
 }
-
 
 /*!
 ******************************************************************************
@@ -812,6 +810,8 @@ static IMG_INT pvr_read_proc(IMG_CHAR *page, IMG_CHAR **start, off_t off,
 }
 
 
+#if 0
+
 /*!
 ******************************************************************************
 
@@ -905,7 +905,9 @@ IMG_INT CreateProcEntry(const IMG_CHAR * name, read_proc_t rhandler, write_proc_
 {
     return CreateProcEntryInDir(dir, name, rhandler, whandler, data);
 }
+#endif
 
+#if 0
 
 /*!
 ******************************************************************************
@@ -976,7 +978,7 @@ IMG_INT CreatePerProcessProcEntry(const IMG_CHAR * name, read_proc_t rhandler, w
 
     return CreateProcEntryInDir(psPerProc->psProcDir, name, rhandler, whandler, data);
 }
-
+#endif
 
 /*!
 ******************************************************************************
