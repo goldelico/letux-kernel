@@ -328,7 +328,37 @@ static const struct pvr_capabilities __maybe_unused pvr_sun8i_a83t = {
 	.sgx_revision = 115,
 };
 
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt5327= {
+	.smp = true,
+	.sgx_version = 543,
+	.sgx_revision = 115,	/* unsure */
+};
+
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt65x3 = {
+	.smp = true,
+	.sgx_version = 531,
+	.sgx_revision = 115,	/* unsure */
+};
+
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt65x5= {
+	.smp = true,
+	.sgx_version = 531,
+	.sgx_revision = 115,	/* unsure */
+};
+
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt65x7= {
+	.smp = true,
+	.sgx_version = 531,
+	.sgx_revision = 115,	/* unsure */
+};
+
 static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt6589 = {
+	.smp = true,
+	.sgx_version = 544,
+	.sgx_revision = 115,	/* unsure */
+};
+
+static const struct pvr_capabilities __maybe_unused pvr_mediatek_mt81xx= {
 	.smp = true,
 	.sgx_version = 544,
 	.sgx_revision = 115,	/* unsure */
@@ -399,11 +429,36 @@ static const struct of_device_id pvr_ids[] = {
 	{ .compatible = "allwinner,sun8i-a83t-gpu", .data =  &pvr_sun8i_a83t, },
 #endif
 
-#ifdef mediatek_mt6589_mt6589_sgx544_115
+#ifdef mediatek_mt5327_sgx531_115
+	{ .compatible = "mediatek,mt5327-gpu", .data =  &pvr_mediatek_mt5327, },
+#endif
+
+#ifdef mediatek_mt6513_sgx531_115
+	{ .compatible = "mediatek,mt6513-gpu", .data =  &pvr_mediatek_mt65x3, },
+	{ .compatible = "mediatek,mt6573-gpu", .data =  &pvr_mediatek_mt65x3, },
+#endif
+
+#ifdef mediatek_mt6515_sgx531_115
+	{ .compatible = "mediatek,mt6515-gpu", .data =  &pvr_mediatek_mt65x5, },
+	{ .compatible = "mediatek,mt6575-gpu", .data =  &pvr_mediatek_mt65x5, },
+#endif
+
+#ifdef mediatek_mt6517_sgx531_115
+	{ .compatible = "mediatek,mt6517-gpu", .data =  &pvr_mediatek_mt65x7, },
+	{ .compatible = "mediatek,mt6577-gpu", .data =  &pvr_mediatek_mt65x7, },
+	{ .compatible = "mediatek,mt8377-gpu", .data =  &pvr_mediatek_mt65x7, },
+#endif
+
+#ifdef mediatek_mt6589_sgx544_115
 	{ .compatible = "mediatek,mt6589-gpu", .data =  &pvr_mediatek_mt6589, },
 	/* these appear to have different gpu clock rating */
 	{ .compatible = "mediatek,mt6589t-gpu", .data =  &pvr_mediatek_mt6589, },	/* 286MHz -> 357MHz */
 	{ .compatible = "mediatek,mt6589m-gpu", .data =  &pvr_mediatek_mt6589, },	/* 286MHz -> 156MHz */
+#endif
+
+#ifdef mediatek_mt8117_sgx543_115
+	{ .compatible = "mediatek,mt8117-gpu", .data =  &pvr_mediatek_mt81xx, },
+	{ .compatible = "mediatek,mt8121-gpu", .data =  &pvr_mediatek_mt81xx, },
 #endif
 
 	{ /* sentinel */ },

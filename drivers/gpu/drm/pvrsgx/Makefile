@@ -145,9 +145,13 @@ endif # CONFIG_SGX_OMAP
 ifneq ($(CONFIG_SGX_MEDIATEK),)
 ifneq ($(CONFIG_MACH_MT6589),)
 	@$(kecho) "  MAKE    $(obj): mt6589"
-	$(Q)SOC_VENDOR=mediatek SOC_FAMILY=mt6589 SOC=mt6589 SGX=sgx544 SGX_FLAG=SGX544 SGX_REV=116 $(MAKE) TARGET_TYPE=$(CONFIG_SGX_MEDIATEK) $(build)=$(SOURCE)
+	$(Q): FIXME: SGX_REV is unsure
+	$(Q)SOC_VENDOR=mediatek SOC_FAMILY=mt6xxx SOC=mt6589 SGX=sgx544 SGX_FLAG=SGX544 SGX_REV=115 $(MAKE) TARGET_TYPE=$(CONFIG_SGX_MEDIATEK) $(build)=$(SOURCE)
 	$(Q)if [ -r $(SOURCE)/modules.order ]; then cat $(SOURCE)/modules.order >>$(obj)/modules.order; fi
 endif	# CONFIG_MACH_MT6589
+# add more SoC with SGX
+# see: https://github.com/openpvrsgx-devgroup/linux_openpvrsgx/issues/18#issuecomment-3261492394
+# and https://en.wikipedia.org/wiki/List_of_MediaTek_systems_on_chips
 endif # CONFIG_SGX_MEDIATEK
 
 ifneq ($(CONFIG_SGX_POULSBO),)
