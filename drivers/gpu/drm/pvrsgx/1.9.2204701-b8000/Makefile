@@ -50,6 +50,7 @@ ccflags-y += \
 ccflags-y += \
 	-DLINUX \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\" \
+	-D"mt65xx_reg_sync_writel(VAL, ADDR)={writel((VAL), (ADDR));wmb();}" \
 	-D__linux__ $(OPTIM) -g
 
 ifneq ($(strip $(TARGET_BUILD_VARIANT)),)
