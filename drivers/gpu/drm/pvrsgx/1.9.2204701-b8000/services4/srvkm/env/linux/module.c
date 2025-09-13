@@ -151,7 +151,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /*
  * This is all module configuration stuff required by the linux kernel.
  */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,12,0))
 MODULE_SUPPORTED_DEVICE(DEVNAME);
+#endif
 
 #if defined(PVRSRV_NEED_PVR_DPF)
 #include <linux/moduleparam.h>
