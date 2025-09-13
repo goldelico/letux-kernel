@@ -51,6 +51,8 @@ ccflags-y += \
 	-DLINUX \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\" \
 	-DPVR_SECURE_HANDLES \
+	-DPVR_BUILD_TYPE="\"release\"" \
+	-DPVR_BUILD_DIR="\"mt65xx\"" \
 	-D"mt65xx_reg_sync_writel(VAL, ADDR)={writel((VAL), (ADDR));wmb();}" \
 	-D__linux__ $(OPTIM) -g
 
