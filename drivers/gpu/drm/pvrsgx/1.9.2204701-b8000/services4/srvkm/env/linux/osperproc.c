@@ -39,6 +39,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
+#undef SUPPORT_ION // not available in mainline Linux
+
 #include "services_headers.h"
 #include "osperproc.h"
 
