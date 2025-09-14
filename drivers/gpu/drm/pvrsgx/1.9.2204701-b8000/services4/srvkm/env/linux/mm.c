@@ -51,6 +51,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define PVR_LINUX_MEM_AREA_POOL_MAX_PAGES 0
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
+#undef PVR_LINUX_MEM_AREA_POOL_ALLOW_SHRINK
+#else
+// needs different shrinker callbacks
+#endif
+
 #include <linux/kernel.h>
 #include <asm/atomic.h>
 #include <linux/list.h>
@@ -169,7 +175,7 @@ static IMG_VOID DebugMemAllocRecordRemove(DEBUG_MEM_ALLOC_TYPE eAllocType, IMG_V
 static IMG_CHAR *DebugMemAllocRecordTypeToString(DEBUG_MEM_ALLOC_TYPE eAllocType);
 
 
-static struct proc_dir_entry *g_SeqFileMemoryRecords;
+static struct pvr_proc_dir_entry *g_SeqFileMemoryRecords;
 static void* ProcSeqNextMemoryRecords(struct seq_file *sfile,void* el,loff_t off);
 static void ProcSeqShowMemoryRecords(struct seq_file *sfile,void* el);
 static void* ProcSeqOff2ElementMemoryRecords(struct seq_file * sfile, loff_t off);
