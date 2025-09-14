@@ -1,4 +1,6 @@
 ########################################################################### ###
+#@File
+#@Title         Libvncserver Pkgconfig Makefile.
 #@Copyright     Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 #@License       Dual MIT/GPLv2
 # 
@@ -37,9 +39,20 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
-ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-bufferclass_example-y += \
-	services4/3rdparty/bufferclass_example/bufferclass_example.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
+libvncserver_stubs_pkgconfig_src := libvncserver.pc
+libvncserver_stubs_pkgconfig_target := $(MODULE_OUT)/pkgconfig/$(libvncserver_stubs_pkgconfig_src)
+
+$(libvncserver_stubs_pkgconfig_target): $(THIS_DIR)/$(libvncserver_stubs_pkgconfig_src)
+	$(MKDIR) -p $(dir $@)
+	$(if $(V),,@)sed -e 's,@PREFIX@,$(abspath $(MODULE_OUT)),' \
+	    -e 's,@LIBDIR@,$(abspath $(MODULE_OUT)),' \
+	    -e 's,@INCLUDEDIR@,$(abspath $(libvncserver_stubs_header_incdir)),' \
+		< $< > $@
+
+.PHONY: libvncserver_stubs_pkgconfig
+libvncserver_stubs_pkgconfig: $(libvncserver_stubs_pkgconfig_target)
+
+$(libvncserver_stubs_pkgconfig_target): \
+ $(libvncserver_stubs_header_target) \
+ $(TARGET_OUT)/$(libvncserver_stubs_target)

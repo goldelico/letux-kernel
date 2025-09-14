@@ -1,4 +1,6 @@
 ########################################################################### ###
+#@File
+#@Title         Libnl-genl stub library Makefile.
 #@Copyright     Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 #@License       Dual MIT/GPLv2
 # 
@@ -37,9 +39,22 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
-ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-bufferclass_example-y += \
-	services4/3rdparty/bufferclass_example/bufferclass_example.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
+
+libnl-genl_stubs_pkgconfig_src := libnl-genl-3.0.pc
+libnl-genl_stubs_pkgconfig_dstdir := $(MODULE_OUT)/pkgconfig
+libnl-genl_stubs_pkgconfig_target := $(libnl-genl_stubs_pkgconfig_dstdir)/$(libnl-genl_stubs_pkgconfig_src)
+
+$(libnl-genl_stubs_pkgconfig_target): $(THIS_DIR)/$(libnl-genl_stubs_pkgconfig_src)
+	$(MKDIR) -p $(dir $@)
+	$(if $(V),,@)sed -e 's,@PREFIX@,$(abspath $(MODULE_OUT)),' \
+	    -e 's,@LIBDIR@,$(abspath $(MODULE_OUT)),' \
+	    -e 's,@INCLUDEDIR@,$(abspath $(libnl-genl_stubs_headers_dstdir)),' \
+		< $< > $@
+
+.PHONY: libnl-genl_stubs_pkgconfig
+libnl-genl_stubs_pkgconfig: $(libnl-genl_stubs_pkgconfig_target)
+
+$(libnl-genl_stubs_pkgconfig_target): \
+ $(libnl-genl_stubs_headers_targets) \
+ $(MODULE_OUT)/$(libnl-genl_stubs_target)
