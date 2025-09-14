@@ -1,4 +1,6 @@
 ########################################################################### ###
+#@File          
+#@Title         Libvncserver stub library Makefile.
 #@Copyright     Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 #@License       Dual MIT/GPLv2
 # 
@@ -37,9 +39,26 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
-ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-bufferclass_example-y += \
-	services4/3rdparty/bufferclass_example/bufferclass_example.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
+ifeq ($(SUPPORT_ANDROID_PLATFORM),)
+
+modules := libvncserver_stubs libvncserver_stubs_header libvncserver_stubs_pkgconfig
+
+libvncserver_stubs_type := shared_library
+libvncserver_stubs_target := libvncserver.so
+libvncserver_stubs_src := libvncserver_stubs.c
+libvncserver_stubs_cflags := -Wno-unused-parameter
+libvncserver_stubs_soname := $(libvncserver_stubs_target).0
+
+libvncserver_stubs_header_type := arch_custom
+libvncserver_stubs_header_archmake := libvncserver_header.mk
+
+libvncserver_stubs_pkgconfig_type := arch_custom
+libvncserver_stubs_pkgconfig_archmake := libvncserver_pkgconfig.mk
+
+else
+
+modules := libvncserver_stubs_dummy
+libvncserver_stubs_dummy_type := custom
+
+endif

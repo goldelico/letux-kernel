@@ -1,4 +1,6 @@
 ########################################################################### ###
+#@File
+#@Title         Libvncserver_header Makefile.
 #@Copyright     Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 #@License       Dual MIT/GPLv2
 # 
@@ -37,9 +39,16 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
-ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-bufferclass_example-y += \
-	services4/3rdparty/bufferclass_example/bufferclass_example.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
+libvncserver_stubs_header_src := rfb.h
+libvncserver_stubs_header_incdir := $(MODULE_OUT)/include
+libvncserver_stubs_header_dstdir := $(libvncserver_stubs_header_incdir)/rfb
+libvncserver_stubs_header_target := $(libvncserver_stubs_header_dstdir)/$(libvncserver_stubs_header_src)
+$(libvncserver_stubs_header_dstdir):
+	$(call make-directory,$@)
+
+$(libvncserver_stubs_header_target): $(THIS_DIR)/$(libvncserver_stubs_header_src) | $(libvncserver_stubs_header_dstdir)
+	$(CP) -f $< $@
+
+.PHONY: libvncserver_stubs_header
+libvncserver_stubs_header: $(libvncserver_stubs_header_target)

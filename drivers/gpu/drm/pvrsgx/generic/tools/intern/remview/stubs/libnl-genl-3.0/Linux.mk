@@ -1,4 +1,6 @@
 ########################################################################### ###
+#@File          
+#@Title         Libnl-genl stub library Makefile.
 #@Copyright     Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 #@License       Dual MIT/GPLv2
 # 
@@ -37,9 +39,19 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
-ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-bufferclass_example-y += \
-	services4/3rdparty/bufferclass_example/bufferclass_example.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
-	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
+ifneq ($(SUPPORT_BUILD_LWS),)
+modules := libnl-genl_stubs libnl-genl_stubs_headers libnl-genl_stubs_pkgconfig
+endif
+
+libnl-genl_stubs_type := shared_library
+libnl-genl_stubs_target := libnl-genl-3.so
+libnl-genl_stubs_src := libnl-genl_stubs.c
+libnl-genl_stubs_cflags := -I$(THIS_DIR) -Wno-unused-parameter
+libnl-genl_stubs_soname := $(libnl-genl_stubs_target).200
+
+libnl-genl_stubs_headers_type := arch_custom
+libnl-genl_stubs_headers_archmake := libnl-genl_headers.mk
+
+libnl-genl_stubs_pkgconfig_type := arch_custom
+libnl-genl_stubs_pkgconfig_archmake := libnl-genl_pkgconfig.mk
