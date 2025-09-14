@@ -42,7 +42,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef __IMG_LINUX_ION_H__
 #define __IMG_LINUX_ION_H__
 
+#if 0	// not available in mainline Linux
 #include <linux/ion.h>
+#endif
+
 #if defined (CONFIG_ION_OMAP)
 #include <linux/omap_ion.h>
 #endif
