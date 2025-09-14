@@ -1,5 +1,5 @@
 /*************************************************************************/ /*!
-@Title          IOCTL implementations for debug device.
+@Title          Bufferclass example internal interfaces.
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 @License        Dual MIT/GPLv2
 
@@ -39,19 +39,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-#ifndef _IOCTL_
-#define _IOCTL_
+#ifndef _BUFFERCLASS_EXAMPLE_PRIVATE_H_
+#define _BUFFERCLASS_EXAMPLE_PRIVATE_H_
 
-/*****************************************************************************
- Global vars
-*****************************************************************************/
+int FillBuffer(unsigned int uiBufferIndex);
+int GetBufferCount(unsigned int *puiBufferCount);
+int ReconfigureBuffer(unsigned int *uiSucceed);
 
-#define MAX_DBGVXD_W32_API 25
-
-extern IMG_UINT32 (*g_DBGDrivProc[MAX_DBGVXD_W32_API])(IMG_VOID *, IMG_VOID *);
-
-#endif
-
-/*****************************************************************************
- End of file (IOCTL.H)
-*****************************************************************************/
+#endif /* _BUFFERCLASS_EXAMPLE_PRIVATE_H_ */

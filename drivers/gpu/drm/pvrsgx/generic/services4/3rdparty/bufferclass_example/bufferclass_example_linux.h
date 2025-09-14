@@ -1,5 +1,5 @@
 /*************************************************************************/ /*!
-@Title          IOCTL implementations for debug device.
+@Title          bufferclass_example kernel driver interface
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 @License        Dual MIT/GPLv2
 
@@ -38,20 +38,30 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
+#ifndef __BC_EXAMPLE_LINUX_H__
+#define __BC_EXAMPLE_LINUX_H__
 
-#ifndef _IOCTL_
-#define _IOCTL_
+#include <linux/ioctl.h>
 
-/*****************************************************************************
- Global vars
-*****************************************************************************/
+typedef struct BC_Example_ioctl_package_TAG
+{
+	int inputparam;
+	int outputparam;
 
-#define MAX_DBGVXD_W32_API 25
+}BC_Example_ioctl_package;
 
-extern IMG_UINT32 (*g_DBGDrivProc[MAX_DBGVXD_W32_API])(IMG_VOID *, IMG_VOID *);
+/*!< Nov 2006: according to ioctl-number.txt 'g' wasn't in use. */
+#define BC_EXAMPLE_IOC_GID      'g'
 
-#endif
+#define BC_EXAMPLE_IOWR(INDEX)  _IOWR(BC_EXAMPLE_IOC_GID, INDEX, BC_Example_ioctl_package)
 
-/*****************************************************************************
- End of file (IOCTL.H)
-*****************************************************************************/
+#define BC_Example_ioctl_fill_buffer		BC_EXAMPLE_IOWR(0)
+#define BC_Example_ioctl_get_buffer_count	BC_EXAMPLE_IOWR(1)
+#define BC_Example_ioctl_reconfigure_buffer BC_EXAMPLE_IOWR(2)
+
+#endif /* __BC_EXAMPLE_H__ */
+
+/******************************************************************************
+ End of file (bufferclass_example.h)
+******************************************************************************/
+

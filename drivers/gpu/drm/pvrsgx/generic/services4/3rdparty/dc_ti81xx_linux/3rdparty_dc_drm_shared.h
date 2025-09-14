@@ -1,6 +1,8 @@
 /*************************************************************************/ /*!
-@Title          IOCTL implementations for debug device.
+@Title          OMAP Linux display driver shared DRM structures
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
+@Description    OMAP Linux display driver DRM structures shared between
+                kernel and user space.
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -37,21 +39,27 @@ PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  
 */ /**************************************************************************/
+#ifndef __3RDPARTY_DC_DRM_SHARED_H__
+#define __3RDPARTY_DC_DRM_SHARED_H__
+#if defined(SUPPORT_DRI_DRM)
 
-#ifndef _IOCTL_
-#define _IOCTL_
+#define	PVR_DRM_DISP_CMD_ENTER_VT	1
+#define	PVR_DRM_DISP_CMD_LEAVE_VT	2
 
-/*****************************************************************************
- Global vars
-*****************************************************************************/
+#define	PVR_DRM_DISP_CMD_ON		3
+#define	PVR_DRM_DISP_CMD_STANDBY	4
+#define	PVR_DRM_DISP_CMD_SUSPEND	5
+#define	PVR_DRM_DISP_CMD_OFF		6
 
-#define MAX_DBGVXD_W32_API 25
+#define	PVR_DRM_DISP_ARG_CMD		0
+#define	PVR_DRM_DISP_ARG_DEV		1
+#define	PVR_DRM_DISP_NUM_ARGS		2
 
-extern IMG_UINT32 (*g_DBGDrivProc[MAX_DBGVXD_W32_API])(IMG_VOID *, IMG_VOID *);
+#endif	/* defined(SUPPORT_DRI_DRM) */
+#endif /* __3RDPARTY_DC_DRM_SHARED_H__ */
 
-#endif
-
-/*****************************************************************************
- End of file (IOCTL.H)
-*****************************************************************************/
+/******************************************************************************
+ End of file (3rdparty_dc_drm_shared.h)
+******************************************************************************/
