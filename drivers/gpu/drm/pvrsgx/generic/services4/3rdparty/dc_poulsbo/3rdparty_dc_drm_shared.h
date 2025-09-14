@@ -1,7 +1,7 @@
 /*************************************************************************/ /*!
-@Title          OMAP Linux display driver shared DRM structures
+@Title          Poulsbo Linux display driver shared DRM structures
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    OMAP Linux display driver DRM structures shared between
+@Description    Poulsbo Linux display driver DRM structures shared between
                 kernel and user space.
 @License        Dual MIT/GPLv2
 
@@ -40,25 +40,34 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
-#ifndef __3RDPARTY_DC_DRM_SHARED_H__
+#if !defined(__3RDPARTY_DC_DRM_SHARED_H__)
 #define __3RDPARTY_DC_DRM_SHARED_H__
-#if defined(SUPPORT_DRI_DRM)
 
-typedef struct drm_pvr_display_cmd_tag
+#if defined(PVR_DISPLAY_CONTROLLER_DRM_IOCTL) || defined(PVR_USE_DISPLAY_CONTROLLER_DRM_IOCTL)
+#define	PVR_DRM_DISP_CMD_ENTER_VT		1
+#define	PVR_DRM_DISP_CMD_LEAVE_VT		2
+#define	PVR_DRM_DISP_CMD_CURSOR_LOAD		3
+
+
+struct pvr_drm_cursor_load_data
 {
-    uint32_t cmd;
-    uint32_t dev;
-} drm_pvr_display_cmd;
+	uint32_t ui32ByteSize;
+	uint64_t ui64CursorData;
+};
 
-#define	PVR_DRM_DISP_CMD_ENTER_VT	1
-#define	PVR_DRM_DISP_CMD_LEAVE_VT	2
+struct pvr_drm_display_args
+{
+	uint32_t ui32Cmd;
+	uint32_t ui32DevId;
+	union
+	{
+		struct pvr_drm_cursor_load_data sCursorLoad;
+	};
+};
 
-#define	PVR_DRM_DISP_CMD_ON		3
-#define	PVR_DRM_DISP_CMD_STANDBY	4
-#define	PVR_DRM_DISP_CMD_SUSPEND	5
-#define	PVR_DRM_DISP_CMD_OFF		6
+typedef struct pvr_drm_display_args drm_pvr_display_cmd;
+#endif	/* defined(PVR_DISPLAY_CONTROLLER_DRM_IOCTL) || defined(PVR_USE_DISPLAY_CONTROLLER_DRM_IOCTL) */
 
-#endif	/* defined(SUPPORT_DRI_DRM) */
 #endif /* __3RDPARTY_DC_DRM_SHARED_H__ */
 
 /******************************************************************************

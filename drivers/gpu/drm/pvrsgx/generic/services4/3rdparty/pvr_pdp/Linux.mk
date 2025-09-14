@@ -38,10 +38,8 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-ccflags-y += \
- -I$(TOP)/services4/3rdparty/dc_nohw \
- -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+modules := pvrpdp
 
-dcnohw-y += \
-	services4/3rdparty/dc_nohw/dc_nohw_displayclass.o \
-	services4/3rdparty/dc_nohw/dc_nohw_linux.o
+pvrpdp_type := kernel_module
+pvrpdp_target := pvrpdp.ko
+pvrpdp_makefile := $(THIS_DIR)/Kbuild.mk
