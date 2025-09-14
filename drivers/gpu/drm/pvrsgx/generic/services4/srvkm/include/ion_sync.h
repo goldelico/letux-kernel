@@ -1,9 +1,6 @@
 /*************************************************************************/ /*!
-@Title          PVR Bridge Support
+@Title          Services Ion synchronisation integration
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    User/kernel mode bridge support.  The functions in here
-                may be used beyond the bridge code proper (e.g. Linux
-                mmap interface).
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -42,31 +39,35 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-#ifndef __BRIDGED_SUPPORT_H__
-#define __BRIDGED_SUPPORT_H__
+#include "img_defs.h"
+#include "img_types.h"
+#include "servicesint.h"
 
-#include "handle.h"
+#ifndef __ION_SYNC_H__
+#define __ION_SYNC_H__
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+typedef struct _PVRSRV_ION_SYNC_INFO_ {
+	PVRSRV_KERNEL_SYNC_INFO *psSyncInfo;
+	IMG_HANDLE				hUnique;
+	IMG_UINT32				ui32RefCount;
+	IMG_UINT64				ui64Stamp;
+} PVRSRV_ION_SYNC_INFO;
 
-/*
- * Derive the internal OS specific memory handle from a secure
- * handle.
- */
-#if defined (SUPPORT_SID_INTERFACE)
-PVRSRV_ERROR PVRSRVLookupOSMemHandle(PVRSRV_HANDLE_BASE *psBase, IMG_HANDLE *phOSMemHandle, IMG_SID hMHandle);
-#else
-PVRSRV_ERROR PVRSRVLookupOSMemHandle(PVRSRV_HANDLE_BASE *psBase, IMG_HANDLE *phOSMemHandle, IMG_HANDLE hMHandle);
-#endif
+PVRSRV_ERROR PVRSRVIonBufferSyncAcquire(IMG_HANDLE hUnique,
+										IMG_HANDLE hDevCookie,
+										IMG_HANDLE hDevMemContext,
+										PVRSRV_ION_SYNC_INFO **ppsIonSyncInfo);
 
-#if defined (__cplusplus)
+IMG_VOID PVRSRVIonBufferSyncRelease(PVRSRV_ION_SYNC_INFO *psIonSyncInfo);
+
+static INLINE PVRSRV_KERNEL_SYNC_INFO *IonBufferSyncGetKernelSyncInfo(PVRSRV_ION_SYNC_INFO *psIonSyncInfo)
+{
+	return psIonSyncInfo->psSyncInfo;
 }
-#endif
 
-#endif /* __BRIDGED_SUPPORT_H__ */
+static INLINE IMG_UINT64 IonBufferSyncGetStamp(PVRSRV_ION_SYNC_INFO *psIonSyncInfo)
+{
+	return psIonSyncInfo->ui64Stamp;
+}
 
-/******************************************************************************
- End of file (bridged_support.h)
-******************************************************************************/
+#endif /* __ION_SYNC_H__ */

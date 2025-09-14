@@ -354,7 +354,11 @@ typedef struct _PVRSRV_CONNECTION_
 typedef struct _PVRSRV_DEV_DATA_
 {
 	IMG_CONST PVRSRV_CONNECTION	 *psConnection;	/*!< Services connection info */
+#if defined (SUPPORT_SID_INTERFACE)
+	IMG_SID			hDevCookie;				/*!< Dev cookie */
+#else
 	IMG_HANDLE			hDevCookie;				/*!< Dev cookie */
+#endif
 
 } PVRSRV_DEV_DATA;
 
@@ -423,6 +427,16 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 	/* ptr to associated client sync info - NULL if no sync */
 	struct _PVRSRV_CLIENT_SYNC_INFO_	*psClientSyncInfo;
 
+#if defined (SUPPORT_SID_INTERFACE)
+	/* handle to client mapping data (OS specific) */
+	IMG_SID								hMappingInfo;
+
+	/* handle to kernel mem info */
+	IMG_SID								hKernelMemInfo;
+
+	/* resman handle for UM mapping clean-up */
+	IMG_SID								hResItem;
+#else
 	/* handle to client mapping data (OS specific) */
 	IMG_HANDLE							hMappingInfo;
 
@@ -431,6 +445,7 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 
 	/* resman handle for UM mapping clean-up */
 	IMG_HANDLE							hResItem;
+#endif
 
 #if defined(SUPPORT_MEMINFO_IDS)
 	#if !defined(USE_CODE)
@@ -441,9 +456,9 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 	IMG_UINT32							dummy2;
 	#endif /* !defined(USE_CODE) */
 #endif /* defined(SUPPORT_MEMINFO_IDS) */
-#if defined(SUPPORT_ION)
-	IMG_SIZE_T							uiIonBufferSize;
-#endif /* defined(SUPPORT_ION) */
+#if 1 //#if defined (CONFIG_ION_MTK)    
+        int share_ionFd ;
+#endif
 
 	/*
 		ptr to next mem info
@@ -462,7 +477,11 @@ typedef struct _PVRSRV_CLIENT_MEM_INFO_
 typedef struct _PVRSRV_HEAP_INFO_
 {
 	IMG_UINT32			ui32HeapID;
+#if defined (SUPPORT_SID_INTERFACE)
+	IMG_SID 			hDevMemHeap;
+#else
 	IMG_HANDLE 			hDevMemHeap;
+#endif
 	IMG_DEV_VIRTADDR	sDevVAddrBase;
 	IMG_UINT32			ui32HeapByteSize;
 	IMG_UINT32			ui32Attribs;
@@ -480,7 +499,11 @@ typedef struct _PVRSRV_EVENTOBJECT_
 	/* globally unique name of the event object */
 	IMG_CHAR	szName[EVENTOBJNAME_MAXLENGTH];
 	/* kernel specific handle for the event object */
+#if defined (SUPPORT_SID_INTERFACE)
+	IMG_SID     hOSEventKM;
+#else
 	IMG_HANDLE	hOSEventKM;
+#endif
 
 } PVRSRV_EVENTOBJECT;
 
@@ -506,8 +529,13 @@ typedef struct _PVRSRV_MISC_INFO_
 	/*!< SOC Timer register */
 	IMG_VOID	*pvSOCTimerRegisterKM;
 	IMG_VOID	*pvSOCTimerRegisterUM;
+#if defined (SUPPORT_SID_INTERFACE)
+	IMG_SID		hSOCTimerRegisterOSMemHandle;
+	IMG_SID		hSOCTimerRegisterMappingInfo;
+#else
 	IMG_HANDLE	hSOCTimerRegisterOSMemHandle;
 	IMG_HANDLE	hSOCTimerRegisterMappingInfo;
+#endif
 
 	/*!< SOC Clock Gating registers */
 	IMG_VOID	*pvSOCClockGateRegs;
@@ -519,7 +547,11 @@ typedef struct _PVRSRV_MISC_INFO_
 
 	/* global event object */
 	PVRSRV_EVENTOBJECT	sGlobalEventObject;//FIXME: should be private to services
+#if defined (SUPPORT_SID_INTERFACE)
+	IMG_EVENTSID		hOSGlobalEvent;
+#else
 	IMG_HANDLE			hOSGlobalEvent;
+#endif
 
 	/* Note: add misc. items as required */
 	IMG_UINT32	aui32DDKVersion[4];
@@ -537,6 +569,7 @@ typedef struct _PVRSRV_MISC_INFO_
 		 * directly in the srvclient PVRSRVGetMiscInfo code, and then convert it
 		 * to a kernel meminfo if required. Try to not waste space.
 		 */
+#if !defined (SUPPORT_SID_INTERFACE)
 		union
 		{
 			/*!< Input client meminfo (UM side) */
@@ -545,6 +578,7 @@ typedef struct _PVRSRV_MISC_INFO_
 			/*!< Output kernel meminfo (Bridge+KM side) */
 			struct _PVRSRV_KERNEL_MEM_INFO_ *psKernelMemInfo;
 		} u;
+#endif
 
 		/*!< Offset in MemInfo to start cache op */
 		IMG_VOID *pvBaseVAddr;
@@ -560,6 +594,7 @@ typedef struct _PVRSRV_MISC_INFO_
 		 * directly in the srvclient PVRSRVGetMiscInfo code, and then convert it
 		 * to a kernel meminfo if required. Try to not waste space.
 		 */
+#if !defined(SUPPORT_SID_INTERFACE)
 		union
 		{
 			/*!< Input client meminfo (UM side) */
@@ -568,6 +603,7 @@ typedef struct _PVRSRV_MISC_INFO_
 			/*!< Output kernel meminfo (Bridge+KM side) */
 			struct _PVRSRV_KERNEL_MEM_INFO_ *psKernelMemInfo;
 		} u;
+#endif
 
 		/*!< Resulting refcount */
 		IMG_UINT32 ui32RefCount;
@@ -587,7 +623,11 @@ typedef struct _PVRSRV_SYNC_TOKEN_
 	   The fields are hidden in sPrivate in order to reinforce this. */
 	struct
 	{
+#if defined (SUPPORT_SID_INTERFACE)
+		IMG_SID    hKernelSyncInfo;
+#else
 		IMG_HANDLE hKernelSyncInfo;
+#endif
 		IMG_UINT32 ui32ReadOpsPendingSnapshot;
 		IMG_UINT32 ui32WriteOpsPendingSnapshot;
 		IMG_UINT32 ui32ReadOps2PendingSnapshot;
@@ -636,7 +676,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVReleaseMiscInfo (IMG_CONST PVRSRV_CONNECTION *ps
 
 IMG_IMPORT
 PVRSRV_ERROR PVRSRVPollForValue ( const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+							IMG_SID    hOSEvent,
+#else
 							IMG_HANDLE hOSEvent,
+#endif
 							volatile IMG_UINT32 *pui32LinMemAddr,
 							IMG_UINT32 ui32Value,
 							IMG_UINT32 ui32Mask,
@@ -646,18 +690,30 @@ PVRSRV_ERROR PVRSRVPollForValue ( const PVRSRV_CONNECTION *psConnection,
 /* memory APIs */
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateDeviceMemContext(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID    *phDevMemContext,
+#else
 											IMG_HANDLE *phDevMemContext,
+#endif
 											IMG_UINT32 *pui32SharedHeapCount,
 											PVRSRV_HEAP_INFO *psHeapInfo);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyDeviceMemContext(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID 			hDevMemContext
+#else
 											IMG_HANDLE 			hDevMemContext
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDeviceMemHeapInfo(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID     hDevMemContext,
+#else
 											IMG_HANDLE hDevMemContext,
+#endif
 											IMG_UINT32 *pui32SharedHeapCount,
 											PVRSRV_HEAP_INFO *psHeapInfo);
 
@@ -674,7 +730,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDeviceMemHeapInfo(IMG_CONST PVRSRV_DEV_DATA *
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMem2(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+									IMG_SID			hDevMemHeap,
+#else
 									IMG_HANDLE		hDevMemHeap,
+#endif
 									IMG_UINT32		ui32Attribs,
 									IMG_SIZE_T		ui32Size,
 									IMG_SIZE_T		ui32Alignment,
@@ -684,7 +744,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMem2(IMG_CONST PVRSRV_DEV_DATA	*psDev
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMem(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+									IMG_SID			hDevMemHeap,
+#else
 									IMG_HANDLE		hDevMemHeap,
+#endif
 									IMG_UINT32		ui32Attribs,
 									IMG_SIZE_T		ui32Size,
 									IMG_SIZE_T		ui32Alignment,
@@ -697,12 +761,20 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeDeviceMem(IMG_CONST PVRSRV_DEV_DATA	*psDevDa
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVExportDeviceMem(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
 												PVRSRV_CLIENT_MEM_INFO		*psMemInfo,
+#if defined (SUPPORT_SID_INTERFACE)
+												IMG_SID						*phMemInfo
+#else
 												IMG_HANDLE					*phMemInfo
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVReserveDeviceVirtualMem(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID				hDevMemHeap,
+#else
 											IMG_HANDLE			hDevMemHeap,
+#endif
 											IMG_DEV_VIRTADDR	*psDevVAddr,
 											IMG_SIZE_T			ui32Size,
 											IMG_SIZE_T			ui32Alignment,
@@ -713,8 +785,13 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFreeDeviceVirtualMem(IMG_CONST PVRSRV_DEV_DATA *
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVMapDeviceMemory (IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+									IMG_SID hKernelMemInfo,
+									IMG_SID hDstDevMemHeap,
+#else
 									IMG_HANDLE hKernelMemInfo,
 									IMG_HANDLE hDstDevMemHeap,
+#endif
 									PVRSRV_CLIENT_MEM_INFO **ppsDstMemInfo);
 
 IMG_IMPORT
@@ -733,7 +810,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVUnmapExtMemory (IMG_CONST PVRSRV_DEV_DATA *psDev
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVWrapExtMemory(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+												IMG_SID					hDevMemContext,
+#else
 												IMG_HANDLE				hDevMemContext,
+#endif
 												IMG_SIZE_T 				ui32ByteSize,
 												IMG_SIZE_T				ui32PageOffset,
 												IMG_BOOL				bPhysContig,
@@ -751,8 +832,13 @@ PVRSRV_ERROR PVRSRVChangeDeviceMemoryAttributes(IMG_CONST PVRSRV_DEV_DATA			*psD
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVMapDeviceClassMemory (IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID hDevMemContext,
+										IMG_SID hDeviceClassBuffer,
+#else
 										IMG_HANDLE hDevMemContext,
 										IMG_HANDLE hDeviceClassBuffer,
+#endif
 										PVRSRV_CLIENT_MEM_INFO **ppsMemInfo);
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVUnmapDeviceClassMemory (IMG_CONST PVRSRV_DEV_DATA *psDevData,
@@ -780,18 +866,23 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVExportDeviceMem2(IMG_CONST PVRSRV_DEV_DATA	*psDe
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVMapDeviceMemory2(IMG_CONST PVRSRV_DEV_DATA	*psDevData,
 												 IMG_INT					iFd,
+#if defined (SUPPORT_SID_INTERFACE)
+												 IMG_SID					hDstDevMemHeap,
+#else
 												 IMG_HANDLE					hDstDevMemHeap,
+#endif
 												 PVRSRV_CLIENT_MEM_INFO		**ppsDstMemInfo);
 #endif /* defined(LINUX) */
 
 #if defined(SUPPORT_ION)
 PVRSRV_ERROR PVRSRVMapIonHandle(const PVRSRV_DEV_DATA *psDevData,
-								IMG_HANDLE hDevMemHeap,
-								IMG_UINT32 ui32NumFDs,
-								IMG_INT    *paiBufferFDs,
-								IMG_UINT32 ui32ChunkCount,
-								IMG_SIZE_T *pauiOffset,
-								IMG_SIZE_T *pauiSize,
+#if defined (SUPPORT_SID_INTERFACE)
+								 IMG_SID    hDevMemContext,
+#else
+								 IMG_HANDLE hDevMemContext,
+#endif
+								IMG_INT32 uiFD,
+								IMG_UINT32 uiSize,
 								IMG_UINT32 ui32Attribs,
 								PVRSRV_CLIENT_MEM_INFO **ppsMemInfo);
 
@@ -802,7 +893,11 @@ PVRSRV_ERROR PVRSRVUnmapIonHandle(const PVRSRV_DEV_DATA *psDevData,
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVAllocDeviceMemSparse(const PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+													IMG_SID	 hDevMemHeap,
+#else
 													IMG_HANDLE hDevMemHeap,
+#endif
 													IMG_UINT32 ui32Attribs,
 													IMG_SIZE_T uAlignment,
 													IMG_UINT32 ui32ChunkSize,
@@ -878,7 +973,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVEnumDCDims (IMG_HANDLE hDevice,
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDCSystemBuffer(IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID *phBuffer
+#else
 										IMG_HANDLE *phBuffer
+#endif
 	);
 
 IMG_IMPORT
@@ -893,69 +992,117 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateDCSwapChain (IMG_HANDLE				hDevice,
 													IMG_UINT32				ui32BufferCount,
 													IMG_UINT32				ui32OEMFlags,
 													IMG_UINT32				*pui32SwapChainID,
+#if defined (SUPPORT_SID_INTERFACE)
+													IMG_SID					*phSwapChain
+#else
 													IMG_HANDLE				*phSwapChain
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyDCSwapChain (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID hSwapChain
+#else
 											IMG_HANDLE		hSwapChain
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSetDCDstRect (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID		hSwapChain,
+#else
 										IMG_HANDLE	hSwapChain,
+#endif
 										IMG_RECT	*psDstRect);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSetDCSrcRect (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID		hSwapChain,
+#else
 										IMG_HANDLE	hSwapChain,
+#endif
 										IMG_RECT	*psSrcRect);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSetDCDstColourKey (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID		hSwapChain,
+#else
 											IMG_HANDLE	hSwapChain,
+#endif
 											IMG_UINT32	ui32CKColour);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSetDCSrcColourKey (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID		hSwapChain,
+#else
 											IMG_HANDLE	hSwapChain,
+#endif
 											IMG_UINT32	ui32CKColour);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDCBuffers(IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+									IMG_SID     hSwapChain,
+									IMG_SID    *phBuffer
+#else
 									IMG_HANDLE hSwapChain,
 									IMG_HANDLE *phBuffer
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetDCBuffers2(IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+											  IMG_SID    hSwapChain,
+											  IMG_SID   *phBuffer,
+#else
 											  IMG_HANDLE hSwapChain,
 											  IMG_HANDLE *phBuffer,
+#endif
 											  IMG_SYS_PHYADDR *psPhyAddr);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSwapToDCBuffer (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID    hBuffer,
+#else
 										IMG_HANDLE hBuffer,
+#endif
 										IMG_UINT32 ui32ClipRectCount,
 										IMG_RECT  *psClipRect,
 										IMG_UINT32 ui32SwapInterval,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID hPrivateTag
+#else
 										IMG_HANDLE hPrivateTag
+#endif
 	);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSwapToDCBuffer2 (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID    hBuffer,
+#else
 										IMG_HANDLE hBuffer,
+#endif
 										IMG_UINT32 ui32SwapInterval,
 										PVRSRV_CLIENT_MEM_INFO **ppsMemInfos,
-										PVRSRV_CLIENT_SYNC_INFO **ppsSyncInfos,
-										IMG_UINT32 ui32NumMemSyncInfos,
+										IMG_UINT32 ui32NumMemInfos,
 										IMG_PVOID  pvPrivData,
-										IMG_UINT32 ui32PrivDataLength,
-										IMG_HANDLE *phFence);
+										IMG_UINT32 ui32PrivDataLength);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSwapToDCSystem (IMG_HANDLE hDevice,
+#if defined (SUPPORT_SID_INTERFACE)
+										IMG_SID hSwapChain
+#else
 										IMG_HANDLE hSwapChain
+#endif
 	);
 
 /******************************************************************************
@@ -976,7 +1123,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetBCBufferInfo(IMG_HANDLE hDevice,
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVGetBCBuffer(IMG_HANDLE hDevice,
 												IMG_UINT32 ui32BufferIndex,
+#if defined (SUPPORT_SID_INTERFACE)
+												IMG_SID   *phBuffer
+#else
 												IMG_HANDLE *phBuffer
+#endif
 	);
 
 
@@ -994,7 +1145,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpStopInitPhase(IMG_CONST PVRSRV_CONNECTION *
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpMemPol(IMG_CONST PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+										  IMG_SID    hKernelMemInfo,
+#else
 										  PVRSRV_CLIENT_MEM_INFO *psMemInfo,
+#endif										  
 										  IMG_UINT32 ui32Offset,
 										  IMG_UINT32 ui32Value,
 										  IMG_UINT32 ui32Mask,
@@ -1003,14 +1158,22 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpMemPol(IMG_CONST PVRSRV_CONNECTION *psConne
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpSyncPol(IMG_CONST PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+											 IMG_SID    hKernelSyncInfo,
+#else
 											 PVRSRV_CLIENT_SYNC_INFO *psClientSyncInfo,
+#endif
 											 IMG_BOOL   bIsRead,
 											 IMG_UINT32 ui32Value,
 											 IMG_UINT32 ui32Mask);
 
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpSyncPol2(IMG_CONST PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+											 IMG_SID  hKernelSyncInfo,
+#else
 											 PVRSRV_CLIENT_SYNC_INFO *psClientSyncInfo,
+#endif
 											 IMG_BOOL bIsRead);
 
 IMG_IMPORT
@@ -1062,7 +1225,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpPDDevPAddr(IMG_CONST PVRSRV_CONNECTION *psC
 #if !defined(USE_CODE)
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpMemPages(IMG_CONST PVRSRV_DEV_DATA *psDevData,
+#if defined (SUPPORT_SID_INTERFACE)
+														   IMG_SID				hKernelMemInfo,
+#else
 														   IMG_HANDLE			hKernelMemInfo,
+#endif
 														   IMG_DEV_PHYADDR		*pPages,
 														   IMG_UINT32			ui32NumPages,
 												   		   IMG_DEV_VIRTADDR		sDevVAddr,
@@ -1115,7 +1282,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVPDumpBitmap(IMG_CONST PVRSRV_DEV_DATA *psDevData
 											IMG_UINT32 ui32Height,
 											IMG_UINT32 ui32StrideInBytes,
 											IMG_DEV_VIRTADDR sDevBaseAddr,
+#if defined (SUPPORT_SID_INTERFACE)
+											IMG_SID    hDevMemContext,
+#else
 											IMG_HANDLE hDevMemContext,
+#endif
 											IMG_UINT32 ui32Size,
 											PDUMP_PIXEL_FORMAT ePixelFormat,
 											PDUMP_MEM_FORMAT eMemFormat,
@@ -1170,12 +1341,12 @@ IMG_IMPORT IMG_BOOL IMG_CALLCONV PVRSRVGetAppHint(IMG_VOID			*pvHintState,
  *****************************************************************************/
 
 /* Exported APIs */
-IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVAllocUserModeMem (IMG_SIZE_T uiSize);
-IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVCallocUserModeMem (IMG_SIZE_T uiSize);
-IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVReallocUserModeMem (IMG_PVOID pvBase, IMG_SIZE_T uiNewSize);
+IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVAllocUserModeMem (IMG_SIZE_T ui32Size);
+IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVCallocUserModeMem (IMG_SIZE_T ui32Size);
+IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVReallocUserModeMem (IMG_PVOID pvBase, IMG_SIZE_T uNewSize);
 IMG_IMPORT IMG_VOID  IMG_CALLCONV PVRSRVFreeUserModeMem (IMG_PVOID pvMem);
-IMG_IMPORT IMG_VOID PVRSRVMemCopy(IMG_VOID *pvDst, const IMG_VOID *pvSrc, IMG_SIZE_T uiSize);
-IMG_IMPORT IMG_VOID PVRSRVMemSet(IMG_VOID *pvDest, IMG_UINT8 ui8Value, IMG_SIZE_T uiSize);
+IMG_IMPORT IMG_VOID PVRSRVMemCopy(IMG_VOID *pvDst, const IMG_VOID *pvSrc, IMG_SIZE_T ui32Size);
+IMG_IMPORT IMG_VOID PVRSRVMemSet(IMG_VOID *pvDest, IMG_UINT8 ui8Value, IMG_SIZE_T ui32Size);
 
 struct _PVRSRV_MUTEX_OPAQUE_STRUCT_;
 typedef	struct  _PVRSRV_MUTEX_OPAQUE_STRUCT_ *PVRSRV_MUTEX_HANDLE;
@@ -1324,7 +1495,11 @@ IMG_IMPORT IMG_PVOID IMG_CALLCONV PVRSRVReallocUserModeMemTracking(IMG_VOID *pvM
  *****************************************************************************/
 
 IMG_IMPORT PVRSRV_ERROR PVRSRVEventObjectWait(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+									IMG_EVENTSID hOSEvent
+#else
 									IMG_HANDLE hOSEvent
+#endif
 	);
 
 /*!
@@ -1337,7 +1512,11 @@ IMG_IMPORT PVRSRV_ERROR PVRSRVEventObjectWait(const PVRSRV_CONNECTION *psConnect
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateSyncInfoModObj(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													 IMG_SID *phKernelSyncInfoModObj
+#else
 													 IMG_HANDLE *phKernelSyncInfoModObj
+#endif
 	);
 
 /*!
@@ -1350,7 +1529,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVCreateSyncInfoModObj(const PVRSRV_CONNECTION *ps
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroySyncInfoModObj(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													  IMG_SID hKernelSyncInfoModObj
+#else
 													  IMG_HANDLE hKernelSyncInfoModObj
+#endif
 	);
 
 
@@ -1385,7 +1568,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroySyncInfoModObj(const PVRSRV_CONNECTION *p
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyPendingSyncOps(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													  IMG_SID    hKernelSyncInfoModObj,
+#else
 													  IMG_HANDLE hKernelSyncInfoModObj,
+#endif
 													  PVRSRV_CLIENT_SYNC_INFO *psSyncInfo,
 													  IMG_UINT32 ui32ModifyFlags,
 													  IMG_UINT32 *pui32ReadOpsPending,
@@ -1406,7 +1593,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyPendingSyncOps(const PVRSRV_CONNECTION *ps
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyCompleteSyncOps(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													  IMG_SID hKernelSyncInfoModObj
+#else
 													  IMG_HANDLE hKernelSyncInfoModObj
+#endif
 	);
 
 /*!
@@ -1432,7 +1623,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVModifyCompleteSyncOps(const PVRSRV_CONNECTION *p
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSyncOpsTakeToken(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+												 const IMG_SID      hKernelSyncInfo,
+#else
 												 const PVRSRV_CLIENT_SYNC_INFO *psSyncInfo,
+#endif
 												 PVRSRV_SYNC_TOKEN *psSyncToken);
 /*!
  ******************************************************************************
@@ -1452,7 +1647,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVSyncOpsTakeToken(const PVRSRV_CONNECTION *psConn
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSyncOpsFlushToToken(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													const IMG_SID            hKernelSyncInfo,
+#else
 													const PVRSRV_CLIENT_SYNC_INFO *psSyncInfo,
+#endif
 													const PVRSRV_SYNC_TOKEN *psSyncToken,
 													IMG_BOOL bWait);
 /*!
@@ -1475,7 +1674,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVSyncOpsFlushToToken(const PVRSRV_CONNECTION *psC
  ******************************************************************************/
 IMG_IMPORT
 PVRSRV_ERROR IMG_CALLCONV PVRSRVSyncOpsFlushToModObj(const PVRSRV_CONNECTION *psConnection,
+#if defined (SUPPORT_SID_INTERFACE)
+													 IMG_SID  hKernelSyncInfoModObj,
+#else
 													 IMG_HANDLE hKernelSyncInfoModObj,
+#endif
 													 IMG_BOOL bWait);
 
 /*!
