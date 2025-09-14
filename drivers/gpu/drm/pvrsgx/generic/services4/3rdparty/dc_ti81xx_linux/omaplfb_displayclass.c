@@ -1494,7 +1494,7 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 	{
 		goto ErrorFreeDevInfo;
 	}
-
+#ifdef FBDEV_PRESENT
 	/* Save private fbdev information structure in the dev. info. */
 	if(OMAPLFBInitFBDev(psDevInfo) != OMAPLFB_OK)
 	{
@@ -1534,6 +1534,18 @@ static OMAPLFB_DEVINFO *OMAPLFBInitDev(unsigned uiFBDevID)
 	psDevInfo->sSystemBuffer.psDevInfo = psDevInfo;
 
 	OMAPLFBInitBufferForSwap(&psDevInfo->sSystemBuffer);
+#else
+psDevInfo->sSystemBuffer.sCPUVAddr = 0x100;
+//                psDevInfo->sSystemBuffer.ulBufferSize = 600*3200;
+
+                psDevInfo->sDisplayFormat.pixelformat = 20;
+                psDevInfo->sFBInfo.ulWidth      =  800;
+                psDevInfo->sFBInfo.ulHeight     =  600;
+                psDevInfo->sFBInfo.ulByteStride =  3200;
+                psDevInfo->sFBInfo.ulFBSize     =  8388608;
+                psDevInfo->sFBInfo.ulBufferSize = 600*3200;
+#endif
+
 
 	/*
 		Setup the DC Jtable so SRVKM can call into this driver

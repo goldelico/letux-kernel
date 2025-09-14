@@ -1,5 +1,5 @@
 /*************************************************************************/ /*!
-@Title          IOCTL implementations for debug device.
+@Title          DRM stub functions
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
 @License        Dual MIT/GPLv2
 
@@ -39,19 +39,11 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-#ifndef _IOCTL_
-#define _IOCTL_
+#ifndef	__PVR_DRM_MOD_H__
+#define	__PVR_DRM_MOD_H__
 
-/*****************************************************************************
- Global vars
-*****************************************************************************/
+int drm_pvr_dev_add(void);
 
-#define MAX_DBGVXD_W32_API 25
+void drm_pvr_dev_remove(void);
 
-extern IMG_UINT32 (*g_DBGDrivProc[MAX_DBGVXD_W32_API])(IMG_VOID *, IMG_VOID *);
-
-#endif
-
-/*****************************************************************************
- End of file (IOCTL.H)
-*****************************************************************************/
+#endif	/* __PVR_DRM_MOD_H__ */

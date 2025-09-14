@@ -93,6 +93,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/omapfb.h>
 #include <linux/mutex.h>
 
+#include <video/da8xx-fb.h>
 #if defined(PVR_OMAPLFB_DRM_FB)
 #include <plat/display.h>
 #include <linux/omap_gpu.h>
@@ -108,10 +109,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #if defined(PVR_OMAPFB3_NEEDS_PLAT_VRFB_H)
+#ifdef FBDEV_PRESENT
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0))
 #include <plat/vrfb.h>
 #else
 #include <video/omapvrfb.h>
+#endif
 #endif
 #else
 #if defined(PVR_OMAPFB3_NEEDS_MACH_VRFB_H)
@@ -123,7 +126,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define	PVR_DEBUG DEBUG
 #undef DEBUG
 #endif
+#ifdef FBDEV_PRESENT
 #include <omapfb/omapfb.h>
+#endif
 #if defined(DEBUG)
 #undef DEBUG
 #endif
@@ -160,7 +165,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
 #define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->manager : NULL
 #else
-#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->src->manager : NULL
+#define OMAP_DSS_MANAGER(man, dev) struct omap_overlay_manager *man = (dev) != NULL ? (dev)->output->manager : NULL
 #endif
 #define	WAIT_FOR_VSYNC(man)	((man)->wait_for_vsync)
 #else
@@ -289,9 +294,9 @@ OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 	 * resources longer than it needs to.
 	 */
 #if (LINUX_VERSION_CODE == KERNEL_VERSION(2,6,37))
-        psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZEABLE | WQ_MEM_RECLAIM);
+	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZEABLE | WQ_MEM_RECLAIM);
 #else
-        psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZABLE | WQ_MEM_RECLAIM);
+	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZABLE | WQ_MEM_RECLAIM);
 #endif
 
 #else
@@ -428,6 +433,7 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 
 	OMAPLFB_CONSOLE_UNLOCK();
 }
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 #if !defined(PVR_OMAPLFB_DRM_FB) || defined(DEBUG)
 static OMAPLFB_BOOL OMAPLFBValidateDSSUpdateMode(enum omap_dss_update_mode eMode)
@@ -462,7 +468,9 @@ static OMAPLFB_UPDATE_MODE OMAPLFBFromDSSUpdateMode(enum omap_dss_update_mode eM
 	return OMAPLFB_UPDATE_MODE_UNDEFINED;
 }
 #endif
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 {
 	switch(eMode)
@@ -477,7 +485,8 @@ static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 
 	return OMAPLFB_FALSE;
 }
-
+#endif
+#if 0
 static enum omap_dss_update_mode OMAPLFBToDSSUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 {
 	switch(eMode)
@@ -494,10 +503,8 @@ static enum omap_dss_update_mode OMAPLFBToDSSUpdateMode(OMAPLFB_UPDATE_MODE eMod
 
 	return -1;
 }
-
 #endif
 #if defined(DEBUG)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 {
 	switch(eMode)
@@ -516,9 +523,10 @@ static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 
 	return "Unknown Update Mode";
 }
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
 static const char *OMAPLFBDSSUpdateModeToString(enum omap_dss_update_mode eMode)
 {
+
 	if (!OMAPLFBValidateDSSUpdateMode(eMode))
 	{
 		return "Unknown Update Mode";
@@ -562,7 +570,7 @@ void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 
 	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: non-DRM framebuffer\n", psDevInfo->uiFBDevID));
 
-//	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: %s\n", psDevInfo->uiFBDevID, OMAPLFBUpdateModeToString(eMode)));
+	DEBUG_PRINTK((KERN_INFO DRIVER_PREFIX ": Device %u: %s\n", psDevInfo->uiFBDevID, OMAPLFBUpdateModeToString(eMode)));
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 }
 #endif	/* defined(DEBUG) */
@@ -573,7 +581,7 @@ void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
  */
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 	OMAPLFB_UPDATE_MODE eMode = OMAPLFB_UPDATE_MODE_UNDEFINED;
@@ -611,6 +619,7 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 	return eMode;
 #else	/* defined(PVR_OMAPLFB_DRM_FB) */
+
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 
@@ -641,15 +650,14 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 	return OMAPLFBFromDSSUpdateMode(eMode);
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#else
-	return OMAPLFB_UPDATE_MODE_AUTO;
 #endif
+return OMAPLFB_UPDATE_MODE_AUTO;
 }
 
 /* Set display update mode */
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,1,0)
+#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 	enum omap_dss_update_mode eDSSMode;
@@ -726,14 +734,14 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 	return (res == 0);
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
-#else
-return 1;
 #endif
+return 1;
 }
 
 /* Wait for VSync */
 OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 {
+#if 0
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 
@@ -760,6 +768,41 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 
 	return OMAPLFB_TRUE;
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
+#endif
+
+#if FBDEV_PRESENT
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0))
+      int r;
+
+      void grpx_irq_wait_handler(void *data)
+      {
+	if (data != NULL)
+        complete((struct completion *)data);
+//      do_gettimeofday(&tv);
+  //      curtime=tv.tv_usec;
+//printk("The time in handler is %ld\n",curtime);
+      }
+      DECLARE_COMPLETION_ONSTACK(completion);
+
+      if (register_vsync_cb((vsync_callback_t)grpx_irq_wait_handler, &completion, psDevInfo->uiFBDevID) != 0)
+      {
+          printk (KERN_WARNING DRIVER_PREFIX ": Failed to register for vsync call back\n");
+          return OMAPLFB_FALSE;
+      }
+//do_gettimeofday(&tv);
+//curtime=tv.tv_usec;
+//printk("The time is %ld\n",curtime);
+//    timeout = wait_for_completion_interruptible_timeout(&completion, timeout);
+      r = wait_for_completion_interruptible(&completion);
+      if (unregister_vsync_cb((vsync_callback_t)grpx_irq_wait_handler , &completion, psDevInfo->uiFBDevID) != 0)
+      {
+          printk (KERN_WARNING DRIVER_PREFIX ": Failed to un-register for vsync call back\n");
+          return OMAPLFB_FALSE;
+      }
+#endif
+#endif
+      return OMAPLFB_TRUE;
+
 }
 
 /*
@@ -800,7 +843,7 @@ OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 	return OMAPLFB_TRUE;
 #endif	/* defined(PVR_OMAPLFB_DRM_FB) */
 #endif
-	return OMAPLFB_TRUE;
+return OMAPLFB_TRUE;
 }
 
 /*
@@ -872,6 +915,7 @@ static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
 /* Unblank the screen */
 OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
+#ifdef FBDEV_PRESENT
 	int res;
 
 	OMAPLFB_CONSOLE_LOCK();
@@ -883,7 +927,7 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 			": %s: Device %u: fb_blank failed (%d)\n", __FUNCTION__, psDevInfo->uiFBDevID, res);
 		return (OMAPLFB_ERROR_GENERIC);
 	}
-
+#endif
 	return (OMAPLFB_OK);
 }
 

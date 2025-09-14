@@ -36,11 +36,10 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#   
 ### ###########################################################################
+ccflags-y += -I$(TOP)/services4/3rdparty/bufferclass_example
 
-modules := dc_omapfb3_linux
-
-dc_omapfb3_linux_type := kernel_module
-dc_omapfb3_linux_target := omaplfb.ko
-dc_omapfb3_linux_makefile := $(THIS_DIR)/Kbuild.mk
+bc_example-y += \
+	services4/3rdparty/bufferclass_example/bufferclass_example.o \
+	services4/3rdparty/bufferclass_example/bufferclass_example_linux.o \
+	services4/3rdparty/bufferclass_example/bufferclass_example_private.o
