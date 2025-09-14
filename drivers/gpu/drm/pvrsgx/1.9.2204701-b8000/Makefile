@@ -10,7 +10,6 @@ MTK_3D_DEBUG_FOR_USER_VERSION '', yes
 MTK_FORCE_GPU_89T - 156MHz only
 MTK_FORCE_GPU_89M - 357MHz (without suffix: 286MHz)
 CONFIG_ION_MTK
-SUPPORT_ION
 endif
 
 OPTIM = -Os
@@ -49,6 +48,7 @@ ccflags-y += \
 
 ccflags-y += \
 	-DLINUX \
+	-I$(srctree)/include/linux \
 	-DPVRSRV_MODNAME="\"pvrsrvkm"\" \
 	-DPVR_SECURE_HANDLES \
 	-DPVR_BUILD_TYPE="\"release\"" \
@@ -64,10 +64,14 @@ endif
 endif
 endif
 
-ccflags-$(CONFIG_PVR_BUILD_RELEASE_MT6589) += \
+ifeq ($(CONFIG_SGX_DEBUG),)
+ccflags-y += \
+	-g -Os \
 	-include $(src)/include4/config_kernel_$(VER).h
-ccflags-$(CONFIG_PVR_BUILD_DEBUG_MT6589) += \
+else
+ccflags-y += \
 	-include $(src)/include4/config_kernel_$(VER).h
+endif
 
 ifeq ($(MTK_FORCE_GPU_89T), yes)
 ccflags-y += -DMTK_FORCE_T
@@ -81,7 +85,6 @@ $(TARGET) := \
 	services4/srvkm/env/linux/osfunc.o \
 	services4/srvkm/env/linux/mutils.o \
 	services4/srvkm/env/linux/mmap.o \
-	services4/srvkm/env/linux/module.o \
 	services4/srvkm/env/linux/pdump.o \
 	services4/srvkm/env/linux/proc.o \
 	services4/srvkm/env/linux/pvr_bridge_k.o \
