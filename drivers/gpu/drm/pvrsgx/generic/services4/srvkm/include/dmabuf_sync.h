@@ -1,8 +1,6 @@
 /*************************************************************************/ /*!
-@Title          Command queues and synchronisation
+@Title          Services dma_buf synchronisation integration
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    Internal structures and definitions for command queues and 
-                synchronisation
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -41,33 +39,35 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-
-#ifndef SERVICES_HEADERS_H
-#define SERVICES_HEADERS_H
-
-#ifdef DEBUG_RELEASE_BUILD
-#pragma optimize( "", off )
-#define DEBUG		1
-#endif
-#if defined(__linux__) && defined(__KERNEL__)
-#undef MIN
-#undef MAX
-#include <linux/minmax.h>
-#endif
-
 #include "img_defs.h"
-#include "services.h"
+#include "img_types.h"
 #include "servicesint.h"
-#include "power.h"
-#include "resman.h"
-#include "queue.h"
-#include "srvkm.h"
-#include "kerneldisplay.h"
-#include "syscommon.h"
-#include "pvr_debug.h"
-#include "metrics.h"
-#include "osfunc.h"
-#include "refcount.h"
 
-#endif /* SERVICES_HEADERS_H */
+#ifndef __DMABUF_SYNC_H__
+#define __DMABUF_SYNC_H__
 
+typedef struct _PVRSRV_DMABUF_SYNC_INFO_ {
+	PVRSRV_KERNEL_SYNC_INFO *psSyncInfo;
+	IMG_HANDLE				hUnique;
+	IMG_UINT32				ui32RefCount;
+	IMG_UINT64				ui64Stamp;
+} PVRSRV_DMABUF_SYNC_INFO;
+
+PVRSRV_ERROR PVRSRVDmaBufSyncAcquire(IMG_HANDLE hUnique,
+										IMG_HANDLE hDevCookie,
+										IMG_HANDLE hDevMemContext,
+										PVRSRV_DMABUF_SYNC_INFO **ppsDmaBufSyncInfo);
+
+IMG_VOID PVRSRVDmaBufSyncRelease(PVRSRV_DMABUF_SYNC_INFO *psDmaBufSyncInfo);
+
+static INLINE PVRSRV_KERNEL_SYNC_INFO *DmaBufSyncGetKernelSyncInfo(PVRSRV_DMABUF_SYNC_INFO *psDmaBufSyncInfo)
+{
+	return psDmaBufSyncInfo->psSyncInfo;
+}
+
+static INLINE IMG_UINT64 DmaBufSyncGetStamp(PVRSRV_DMABUF_SYNC_INFO *psDmaBufSyncInfo)
+{
+	return psDmaBufSyncInfo->ui64Stamp;
+}
+
+#endif /* __DMABUF_SYNC_H__ */
