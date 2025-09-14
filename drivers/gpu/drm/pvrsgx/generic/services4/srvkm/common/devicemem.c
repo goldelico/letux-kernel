@@ -621,6 +621,9 @@ static PVRSRV_ERROR AllocDeviceMem(IMG_HANDLE		hDevCookie,
 							ui32NumVirtChunks,
 							ui32NumPhysChunks,
 							pabMapChunk,
+							#if defined (PVRSRV_DEVMEM_TIME_STATS)
+							&psMemInfo->ui32TimeToDevMap,
+							#endif
 							&hBuffer);
 
 	if (!bBMError)
@@ -681,7 +684,12 @@ static PVRSRV_ERROR FreeDeviceMem2(PVRSRV_KERNEL_MEM_INFO *psMemInfo, PVRSRV_FRE
 	switch(eCallbackOrigin)
 	{
 		case PVRSRV_FREE_CALLBACK_ORIGIN_ALLOCATOR:
-			BM_Free(hBuffer, psMemInfo->ui32Flags);
+			BM_Free(hBuffer,
+					psMemInfo->ui32Flags
+					#if defined(PVRSRV_DEVMEM_TIME_STATS)
+					,psMemInfo->pui32TimeToDevUnmap
+					#endif
+					);
 			break;
 		case PVRSRV_FREE_CALLBACK_ORIGIN_IMPORTER:
 			BM_FreeExport(hBuffer, psMemInfo->ui32Flags);
@@ -714,7 +722,11 @@ static PVRSRV_ERROR FreeDeviceMem(PVRSRV_KERNEL_MEM_INFO *psMemInfo)
 
 	hBuffer = psMemInfo->sMemBlk.hBuffer;
 
-	BM_Free(hBuffer, psMemInfo->ui32Flags);
+	BM_Free(hBuffer, psMemInfo->ui32Flags
+				#if defined(PVRSRV_DEVMEM_TIME_STATS)
+				, IMG_NULL
+				#endif
+				);
 
 	if(psMemInfo->pvSysBackupBuffer)
 	{
@@ -1071,8 +1083,6 @@ PVRSRV_ERROR FreeMemCallBackCommon(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 			case PVRSRV_MEMTYPE_ION:
 			case PVRSRV_MEMTYPE_DMABUF:
 				freeExternal(psMemInfo);
-				/* Fall through */
-				fallthrough;
 			case PVRSRV_MEMTYPE_DEVICE:
 			case PVRSRV_MEMTYPE_DEVICECLASS:
 #if defined(SUPPORT_ION)
@@ -1732,7 +1742,11 @@ exitFailedResman:
 		PVRSRVIonBufferSyncInfoDecRef(psNewKernelMemInfo->hIonSyncInfo, psNewKernelMemInfo);
 	}
 exitFailedSync:
-	BM_Free(hBuffer, ui32Flags);
+	BM_Free(hBuffer, ui32Flags
+				#if defined (PVRSRV_DEVMEM_TIME_STATS)
+					, IMG_NULL
+				#endif
+				);
 exitFailedWrap:
 	OSFreeMem(PVRSRV_PAGEABLE_SELECT,
 			  sizeof(IMG_SYS_PHYADDR) * uiAdjustOffset,
@@ -1901,6 +1915,7 @@ PVRSRV_ERROR PVRSRVMapDmaBufKM(PVRSRV_PER_PROCESS_DATA *psPerProc,
 								  PVRSRV_KERNEL_MEM_INFO **ppsKernelMemInfo,
 								  IMG_UINT64 *pui64Stamp)
 {
+	PVRSRV_DEVICE_NODE *psDeviceNode; 
 	PVRSRV_KERNEL_MEM_INFO *psNewKernelMemInfo;
 	IMG_SYS_PHYADDR *pasSysPhysAddr;
 	PVRSRV_MEMBLK *psMemBlock;
@@ -1918,6 +1933,8 @@ PVRSRV_ERROR PVRSRVMapDmaBufKM(PVRSRV_PER_PROCESS_DATA *psPerProc,
 		PVR_DPF((PVR_DBG_ERROR, "%s: Invalid params", __FUNCTION__));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
+
+	psDeviceNode = (PVRSRV_DEVICE_NODE *)hDevCookie;
 
 	if (OSAllocMem(PVRSRV_PAGEABLE_SELECT,
 					sizeof(PVRSRV_KERNEL_MEM_INFO),
@@ -2025,7 +2042,12 @@ exitFailedResman:
 		PVRSRVDmaBufSyncInfoDecRef(psNewKernelMemInfo->hDmaBufSyncInfo, psNewKernelMemInfo);
 	}
 exitFailedSync:
-	BM_Free(hBuffer, ui32Flags);
+	BM_Free(hBuffer, ui32Flags
+				#if defined (PVRSRV_DEVMEM_TIME_STATS)
+					, IMG_NULL
+				#endif
+				);
+
 exitFailedWrap:
 	DmaBufUnimportAndReleasePhysAddr(hPriv);
 exitFailedImport:
@@ -2416,7 +2438,9 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVWrapExtMemoryKM(IMG_HANDLE				hDevCookie,
 									&psMemInfo->psKernelSyncInfo);
 	if(eError != PVRSRV_OK)
 	{
-		goto ErrorExitPhase4;
+		FreeDeviceMem(psMemInfo);
+		/*  FreeDeviceMem will free the meminfo so jump straight to ErrorExitPhase2 */
+		goto ErrorExitPhase2;
 	}
 
 	/* increment the refcount */
@@ -2459,27 +2483,12 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVWrapExtMemoryKM(IMG_HANDLE				hDevCookie,
 	return PVRSRV_OK;
 
 	/* error handling: */
-
-ErrorExitPhase4:
-	if(psMemInfo)
-	{
-		FreeDeviceMem(psMemInfo);
-		/*
-			FreeDeviceMem will free the meminfo so set
-			it to NULL to avoid double free below
-		*/
-		psMemInfo = IMG_NULL;
-	}
-
 ErrorExitPhase3:
-	if(psMemInfo)
-	{
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(PVRSRV_KERNEL_MEM_INFO), psMemInfo, IMG_NULL);
-		/*not nulling pointer, out of scope*/
-	}
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(PVRSRV_KERNEL_MEM_INFO), psMemInfo, IMG_NULL);
+	/*not nulling pointer, out of scope*/
 
 ErrorExitPhase2:
-	if(psIntSysPAddr)
+	if(hOSWrapMem)
 	{
 		OSReleasePhysPageAddr(hOSWrapMem);
 	}
@@ -3128,7 +3137,15 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVMapDeviceClassMemoryKM(PVRSRV_PER_PROCESS_DATA	*
 		if (eError != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR,"PVRSRVMapDeviceClassMemoryKM: AllocMemTilingRange failed"));
-			goto ErrorExitPhase3;
+
+			if (psMemInfo->psKernelSyncInfo)
+			{
+				PVRSRVKernelSyncInfoDecRef(psMemInfo->psKernelSyncInfo, psMemInfo);
+			}
+			FreeDeviceMem(psMemInfo);
+
+			/* FreeDeviceMem will free the meminfo so jump straight to the final exit */
+			goto ErrorExitPhase1;
 		}
 	}
 #endif
@@ -3190,36 +3207,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVMapDeviceClassMemoryKM(PVRSRV_PER_PROCESS_DATA	*
 #endif
 	return PVRSRV_OK;
 
-#if defined(SUPPORT_MEMORY_TILING)
-ErrorExitPhase3:
-	if(psMemInfo)
-	{
-		if (psMemInfo->psKernelSyncInfo)
-		{
-			PVRSRVKernelSyncInfoDecRef(psMemInfo->psKernelSyncInfo, psMemInfo);
-		}
-
-		FreeDeviceMem(psMemInfo);
-		/*
-			FreeDeviceMem will free the meminfo so set
-			it to NULL to avoid double free below
-		*/
-		psMemInfo = IMG_NULL;
-	}
-#endif
-
 ErrorExitPhase2:
-	if(psMemInfo)
-	{
-		OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(PVRSRV_KERNEL_MEM_INFO), psMemInfo, IMG_NULL);
-	}
+	OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(PVRSRV_KERNEL_MEM_INFO), psMemInfo, IMG_NULL);
 
 ErrorExitPhase1:
-	if(psDCMapInfo)
-	{
-		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(PVRSRV_KERNEL_MEM_INFO), psDCMapInfo, IMG_NULL);
-	}
-
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(PVRSRV_DC_MAPINFO), psDCMapInfo, IMG_NULL);
 	return eError;
 }
 
