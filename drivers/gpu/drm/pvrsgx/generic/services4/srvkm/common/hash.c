@@ -180,7 +180,7 @@ _Resize (HASH_TABLE *pHash, IMG_UINT32 uNewSize)
 	if (uNewSize != pHash->uSize)
     {
 		BUCKET **ppNewTable;
-		IMG_UINT32 uIndex;
+        IMG_UINT32 uIndex;
 
 		PVR_DPF ((PVR_DBG_MESSAGE,
                   "HASH_Resize: oldsize=0x%x  newsize=0x%x  count=0x%x",
@@ -191,14 +191,13 @@ _Resize (HASH_TABLE *pHash, IMG_UINT32 uNewSize)
                       (IMG_PVOID*)&ppNewTable, IMG_NULL,
 					  "Hash Table Buckets");
 		if (ppNewTable == IMG_NULL)
-			return IMG_FALSE;
+            return IMG_FALSE;
 
         for (uIndex=0; uIndex<uNewSize; uIndex++)
             ppNewTable[uIndex] = IMG_NULL;
 
         if (_Rehash (pHash, pHash->ppBucketTable, pHash->uSize, ppNewTable, uNewSize) != PVRSRV_OK)
 		{
-			OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(BUCKET*) * uNewSize, ppNewTable, IMG_NULL);
 			return IMG_FALSE;
 		}
 
@@ -355,7 +354,7 @@ HASH_Remove_Extended(HASH_TABLE *pHash, IMG_VOID *pKey)
 
 	uIndex = KEY_TO_INDEX(pHash, pKey, pHash->uSize);
 
-	for (ppBucket = &(pHash->ppBucketTable[uIndex]); ppBucket && *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
+	for (ppBucket = &(pHash->ppBucketTable[uIndex]); *ppBucket != IMG_NULL; ppBucket = &((*ppBucket)->pNext))
 	{
 		 
 		if (KEY_COMPARE(pHash, (*ppBucket)->k, pKey))

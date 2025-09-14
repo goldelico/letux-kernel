@@ -32,9 +32,13 @@
 #include "pdump_km.h"
 #include "deviceid.h"
 #include "ra.h"
+#if defined(__linux__)
+#include "sysfs.h"
+#endif
 #if defined(TTRACE)
 #include "ttrace.h"
 #endif
+#include "perfkm.h"
 
 #include "pvrversion.h"
 
@@ -201,11 +205,13 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 {
 	PVRSRV_ERROR	eError;
 
-	eError = BM_XProcWorkaroundShareInit();
+#if defined(__linux__)
+	eError = PVRSRVCreateSysfsEntry();
 	if (eError != PVRSRV_OK)
 	{
 		goto Error;
 	}
+#endif
 	
 	eError = ResManInit();
 	if (eError != PVRSRV_OK)
@@ -268,6 +274,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInit(PSYS_DATA psSysData)
 	PDUMPINIT();
 	g_ui32InitFlags |= INIT_DATA_ENABLE_PDUMPINIT;
 
+	PERFINIT();
 	return eError;
 
 Error:
@@ -288,6 +295,9 @@ IMG_VOID IMG_CALLCONV PVRSRVDeInit(PSYS_DATA psSysData)
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeInit: PVRSRVHandleDeInit failed - invalid param"));
 		return;
 	}
+
+	PERFDEINIT();
+
 #if defined(TTRACE)
 	
 	if ((g_ui32InitFlags & INIT_DATA_ENABLE_TTARCE) > 0)
@@ -325,8 +335,6 @@ IMG_VOID IMG_CALLCONV PVRSRVDeInit(PSYS_DATA psSysData)
 	}
 
 	ResManDeInit();
-
-	BM_XProcWorkaroundShareDestroy();
 }
 
 
@@ -432,13 +440,22 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVInitialiseDevice (IMG_UINT32 ui32DevIndex)
 static PVRSRV_ERROR PVRSRVFinaliseSystem_SetPowerState_AnyCb(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
+
+	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVFinaliseSystem: Failed PVRSRVPowerLock call (device index: %d)", psDeviceNode->sDevId.ui32DeviceIndex));
+		return eError;
+	}
+
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-										 PVRSRV_DEV_POWER_STATE_DEFAULT,
-										 KERNEL_ID, IMG_FALSE);
+										 PVRSRV_DEV_POWER_STATE_DEFAULT);
+	PVRSRVPowerUnlock(KERNEL_ID);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVFinaliseSystem: Failed PVRSRVSetDevicePowerStateKM call (device index: %d)", psDeviceNode->sDevId.ui32DeviceIndex));
 	}
+
 	return eError;
 }
 
@@ -493,9 +510,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVFinaliseSystem(IMG_BOOL bInitSuccessful)
 
 
 
-#if !defined(__QNXNTO__)
 	PDUMPENDINITPHASE();
-#endif
 
 	return PVRSRV_OK;
 }
@@ -589,12 +604,16 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDeinitialiseDevice(IMG_UINT32 ui32DevIndex)
 		return PVRSRV_ERROR_DEVICEID_NOT_FOUND;
 	}
 
-	
+	eError = PVRSRVPowerLock(KERNEL_ID, IMG_FALSE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeinitialiseDevice: Failed PVRSRVPowerLock call"));
+		return eError;
+	}
 
 	eError = PVRSRVSetDevicePowerStateKM(ui32DevIndex,
-										 PVRSRV_DEV_POWER_STATE_OFF,
-										 KERNEL_ID,
-										 IMG_FALSE);
+										 PVRSRV_DEV_POWER_STATE_OFF);
+	PVRSRVPowerUnlock(KERNEL_ID);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVDeinitialiseDevice: Failed PVRSRVSetDevicePowerStateKM call"));
@@ -843,7 +862,11 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 										|PVRSRV_MISC_INFO_DDKVERSION_PRESENT
 										|PVRSRV_MISC_INFO_CPUCACHEOP_PRESENT
 										|PVRSRV_MISC_INFO_RESET_PRESENT
-										|PVRSRV_MISC_INFO_FREEMEM_PRESENT))
+										|PVRSRV_MISC_INFO_FREEMEM_PRESENT
+										|PVRSRV_MISC_INFO_GET_REF_COUNT_PRESENT
+										|PVRSRV_MISC_INFO_GET_PAGE_SIZE_PRESENT
+										|PVRSRV_MISC_INFO_FORCE_SWAP_TO_SYSTEM_PRESENT))
+//SUPPORT_FORCE_FLIP_WORKAROUND
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVGetMiscInfoKM: invalid state request flags"));
 		return PVRSRV_ERROR_INVALID_PARAMS;
@@ -965,8 +988,8 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		
 		psMiscInfo->aui32DDKVersion[0] = PVRVERSION_MAJ;
 		psMiscInfo->aui32DDKVersion[1] = PVRVERSION_MIN;
-		psMiscInfo->aui32DDKVersion[2] = PVRVERSION_BRANCH;
-		psMiscInfo->aui32DDKVersion[3] = PVRVERSION_BUILD;
+		psMiscInfo->aui32DDKVersion[2] = PVRVERSION_BUILD_HI;
+		psMiscInfo->aui32DDKVersion[3] = PVRVERSION_BUILD_LO;
 
 		pszStr = psMiscInfo->pszMemoryStr;
 		ui32StrLen = psMiscInfo->ui32MemoryStrLen;
@@ -1050,14 +1073,69 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 			}
 			else if(psMiscInfo->sCacheOpCtl.eCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_CLEAN)
 			{
-				if(!OSCleanCPUCacheRangeKM(psKernelMemInfo->sMemBlk.hOSMemHandle,
-										   psMiscInfo->sCacheOpCtl.pvBaseVAddr,
-										   psMiscInfo->sCacheOpCtl.ui32Length))
+				if(psMiscInfo->sCacheOpCtl.bStridedCacheOp == IMG_TRUE)
 				{
-					return PVRSRV_ERROR_CACHEOP_FAILED;
+					IMG_BYTE *pbRowStart, *pbRowEnd, *pbRowThresh;
+					IMG_UINT32 ui32Stride;
+					pbRowStart  = psMiscInfo->sCacheOpCtl.pbRowStart;
+					pbRowEnd    = psMiscInfo->sCacheOpCtl.pbRowEnd;
+					pbRowThresh = psMiscInfo->sCacheOpCtl.pbRowThresh;
+					ui32Stride  = psMiscInfo->sCacheOpCtl.ui32Stride;
+
+					do
+					{
+						if(!OSCleanCPUCacheRangeKM(psKernelMemInfo->sMemBlk.hOSMemHandle,
+								(IMG_VOID *)pbRowStart,
+								(IMG_UINT32)(pbRowEnd - pbRowStart)))
+						{
+							return PVRSRV_ERROR_CACHEOP_FAILED;
+						}
+
+						pbRowStart += ui32Stride;
+						pbRowEnd   += ui32Stride;
+					}
+					while(pbRowEnd <= pbRowThresh);
+				}
+				else
+				{
+					if(!OSCleanCPUCacheRangeKM(psKernelMemInfo->sMemBlk.hOSMemHandle,
+							psMiscInfo->sCacheOpCtl.pvBaseVAddr,
+							psMiscInfo->sCacheOpCtl.ui32Length))
+					{
+						return PVRSRV_ERROR_CACHEOP_FAILED;
+					}
 				}
 			}
 		}
+	}
+
+	if((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_GET_REF_COUNT_PRESENT) != 0UL)
+	{
+#if !defined (SUPPORT_SID_INTERFACE)
+		PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;
+		PVRSRV_PER_PROCESS_DATA *psPerProc;
+#endif
+
+		psMiscInfo->ui32StatePresent |= PVRSRV_MISC_INFO_GET_REF_COUNT_PRESENT;
+
+#if defined (SUPPORT_SID_INTERFACE)
+		PVR_DBG_BREAK
+#else
+		
+		psPerProc = PVRSRVFindPerProcessData();
+
+		if(PVRSRVLookupHandle(psPerProc->psHandleBase,
+							  (IMG_PVOID *)&psKernelMemInfo,
+							  psMiscInfo->sGetRefCountCtl.u.psKernelMemInfo,
+							  PVRSRV_HANDLE_TYPE_MEM_INFO) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "PVRSRVGetMiscInfoKM: "
+									"Can't find kernel meminfo"));
+			return PVRSRV_ERROR_INVALID_PARAMS;
+		}
+
+		psMiscInfo->sGetRefCountCtl.ui32RefCount = psKernelMemInfo->ui32RefCount;
+#endif
 	}
 
 #if defined(PVRSRV_RESET_ON_HWTIMEOUT)
@@ -1067,6 +1145,14 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVGetMiscInfoKM(PVRSRV_MISC_INFO *psMiscInfo)
 		OSPanic();
 	}
 #endif 
+//SUPPORT_FORCE_FLIP_WORKAROUND
+
+	if ((psMiscInfo->ui32StateRequest & PVRSRV_MISC_INFO_FORCE_SWAP_TO_SYSTEM_PRESENT) != 0UL)
+	{
+		PVRSRVSetDCState(DC_STATE_FORCE_SWAP_TO_SYSTEM);
+		psMiscInfo->ui32StatePresent |= PVRSRV_MISC_INFO_FORCE_SWAP_TO_SYSTEM_PRESENT;
+	}
+//SUPPORT_FORCE_FLIP_WORKAROUND
 
 	return PVRSRV_OK;
 }

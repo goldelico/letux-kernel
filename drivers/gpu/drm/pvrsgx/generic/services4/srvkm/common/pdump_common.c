@@ -1368,9 +1368,6 @@ PVRSRV_ERROR PDumpPDDevPAddrKM(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 	return PVRSRV_OK;
 }
 
-
-
-
 PVRSRV_ERROR PDumpCommentKM(IMG_CHAR *pszComment, IMG_UINT32 ui32Flags)
 {
 	PVRSRV_ERROR eErr;
@@ -1446,7 +1443,6 @@ PVRSRV_ERROR PDumpCommentKM(IMG_CHAR *pszComment, IMG_UINT32 ui32Flags)
 	PDumpOSWriteString2(hScript, ui32Flags);
 	return PVRSRV_OK;
 }
-
 
 PVRSRV_ERROR PDumpCommentWithFlags(IMG_UINT32 ui32Flags, IMG_CHAR * pszFormat, ...)
 {
@@ -2015,6 +2011,7 @@ PVRSRV_ERROR PDumpMemUM(PVRSRV_PER_PROCESS_DATA *psPerProc,
 			{
 				PVR_DPF((PVR_DBG_ERROR, "PDumpMemUM: PDumpMemKM failed (%d)", eError));
 			}
+			PVR_ASSERT(ui32BytesDumped == 0);
 			return eError;
 		}
 

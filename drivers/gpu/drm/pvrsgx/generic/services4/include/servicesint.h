@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 #include "services.h"
-#include "cdv_sysinfo.h"
+#include "sysinfo.h"
 
 #define HWREC_DEFAULT_TIMEOUT	(500)
 
@@ -98,9 +98,10 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 
 	PVRSRV_MEMTYPE				memType;
 
-    
+	IMG_VOID *bvmap_handle;
 
-
+	/* Device Virtual Address Offsets for the additional MM planes */
+	IMG_UINT32 planeOffsets[PVRSRV_MAX_NUMBER_OF_MM_BUFFER_PLANES];
 
 
 
@@ -137,11 +138,14 @@ typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 	IMG_DEV_VIRTADDR		sReadOpsCompleteDevVAddr;
 
 	
+	IMG_DEV_VIRTADDR		sReadOps2CompleteDevVAddr;
+
+	
 	PVRSRV_KERNEL_MEM_INFO	*psSyncDataMemInfoKM;
 
 	
 	
-	IMG_UINT32              ui32RefCount;
+	IMG_PVOID              pvRefCount;
 
 	
 	IMG_HANDLE hResItem;
@@ -157,6 +161,8 @@ typedef struct _PVRSRV_DEVICE_SYNC_OBJECT_
 	IMG_DEV_VIRTADDR	sReadOpsCompleteDevVAddr;
 	IMG_UINT32			ui32WriteOpsPendingVal;
 	IMG_DEV_VIRTADDR	sWriteOpsCompleteDevVAddr;
+	IMG_UINT32			ui32ReadOps2PendingVal;
+	IMG_DEV_VIRTADDR	sReadOps2CompleteDevVAddr;
 } PVRSRV_DEVICE_SYNC_OBJECT;
 
 typedef struct _PVRSRV_SYNC_OBJECT
@@ -164,6 +170,7 @@ typedef struct _PVRSRV_SYNC_OBJECT
 	PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfoKM;
 	IMG_UINT32				ui32WriteOpsPending;
 	IMG_UINT32				ui32ReadOpsPending;
+	IMG_UINT32				ui32ReadOps2Pending;
 
 }PVRSRV_SYNC_OBJECT, *PPVRSRV_SYNC_OBJECT;
 
@@ -179,6 +186,8 @@ typedef struct _PVRSRV_COMMAND
 	IMG_SIZE_T			uDataSize;		
 	IMG_UINT32			ui32ProcessID;		
 	IMG_VOID			*pvData;			
+	PFN_QUEUE_COMMAND_COMPLETE  pfnCommandComplete;	
+	IMG_HANDLE					hCallbackData;		
 }PVRSRV_COMMAND, *PPVRSRV_COMMAND;
 
 
@@ -257,6 +266,7 @@ typedef struct _PVRSRV_MISC_INFO_KM_
 		
 		PVRSRV_MISC_INFO_CPUCACHEOP_TYPE eCacheOpType;
 
+		
 		PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;
 
 		
@@ -265,6 +275,16 @@ typedef struct _PVRSRV_MISC_INFO_KM_
 		
 		IMG_UINT32	ui32Length;
 	} sCacheOpCtl;
+
+	
+	struct
+	{
+		
+		PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;
+
+		
+		IMG_UINT32 ui32RefCount;
+	} sGetRefCountCtl;
 } PVRSRV_MISC_INFO_KM;
 
 
@@ -302,48 +322,20 @@ typedef struct PVRSRV_CLIENT_DEVICECLASS_INFO_TAG
 } PVRSRV_CLIENT_DEVICECLASS_INFO;
 
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVGetWriteOpsPending)
-#endif
-static INLINE
-IMG_UINT32 PVRSRVGetWriteOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL bIsReadOp)
+typedef enum
 {
-	IMG_UINT32 ui32WriteOpsPending;
-
-	if(bIsReadOp)
-	{
-		ui32WriteOpsPending = psSyncInfo->psSyncData->ui32WriteOpsPending;
-	}
-	else
-	{
-		
-
-
-		ui32WriteOpsPending = psSyncInfo->psSyncData->ui32WriteOpsPending++;
-	}
-
-	return ui32WriteOpsPending;
+	PVRSRV_FREE_CALLBACK_ORIGIN_ALLOCATOR,
+	PVRSRV_FREE_CALLBACK_ORIGIN_IMPORTER,
+	PVRSRV_FREE_CALLBACK_ORIGIN_EXTERNAL,
 }
+PVRSRV_FREE_CALLBACK_ORIGIN;
 
-#ifdef INLINE_IS_PRAGMA
-#pragma inline(PVRSRVGetReadOpsPending)
-#endif
-static INLINE
-IMG_UINT32 PVRSRVGetReadOpsPending(PVRSRV_KERNEL_SYNC_INFO *psSyncInfo, IMG_BOOL bIsReadOp)
-{
-	IMG_UINT32 ui32ReadOpsPending;
 
-	if(bIsReadOp)
-	{
-		ui32ReadOpsPending = psSyncInfo->psSyncData->ui32ReadOpsPending++;
-	}
-	else
-	{
-		ui32ReadOpsPending = psSyncInfo->psSyncData->ui32ReadOpsPending;
-	}
+IMG_IMPORT
+PVRSRV_ERROR FreeMemCallBackCommon(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
+                                   IMG_UINT32 ui32Param,
+                                   PVRSRV_FREE_CALLBACK_ORIGIN eCallbackOrigin);
 
-	return ui32ReadOpsPending;
-}
 
 IMG_IMPORT
 PVRSRV_ERROR PVRSRVQueueCommand(IMG_HANDLE hQueueInfo,

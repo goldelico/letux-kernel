@@ -94,6 +94,7 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 	
 	IMG_UINT32				ui32CoreClockSpeed;
 	IMG_UINT32				ui32uKernelTimerClock;
+	IMG_BOOL				bSGXIdle;
 
 	PVRSRV_STUB_PBDESC		*psStubPBDescListKM;
 
@@ -101,6 +102,7 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 	
 	IMG_DEV_PHYADDR			sKernelPDDevPAddr;
 
+	IMG_UINT32				ui32HeapCount;			
 	IMG_VOID				*pvDeviceMemoryHeap;
 	PPVRSRV_KERNEL_MEM_INFO	psKernelCCBMemInfo;			
 	PVRSRV_SGX_KERNEL_CCB	*psKernelCCB;			
@@ -536,6 +538,9 @@ PVRSRV_ERROR SGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
 									 PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
 
 IMG_VOID SGXPanic(PVRSRV_SGXDEV_INFO	*psDevInfo);
+
+IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
+						   IMG_BOOL				bDumpSGXRegs);
 
 PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode);
 
