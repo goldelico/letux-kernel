@@ -1276,6 +1276,8 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 {
 	IMG_UINT32	ui32CoreNum;
 
+	MDWP_REGISTER;
+
 	PVR_LOG_MDWP(("SGX debug (%s)", PVRVERSION_STRING));
 
 	if (bDumpSGXRegs)
@@ -1554,6 +1556,8 @@ IMG_VOID SGXDumpDebugInfo (PVRSRV_SGXDEV_INFO	*psDevInfo,
 	PVRSRVDumpTimeTraceBuffers();
 	#endif
 
+	MDWP_UNREGISTER;
+
 }
 
 
@@ -1792,9 +1796,7 @@ SGX_NoUKernel_LockUp:
 		psSGXHostCtl->ui32HostDetectedLockups ++;
 
 		/* Reset the chip and process the queues. */
-		MDWP_REGISTER;
 		HWRecoveryResetSGX(psDeviceNode, 0, ISR_ID);
-		MDWP_UNREGISTER;
 	}
 }
 #endif /* defined(SUPPORT_HW_RECOVERY) */
