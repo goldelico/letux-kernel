@@ -38,10 +38,36 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-ccflags-y += \
- -I$(TOP)/services4/3rdparty/dc_nohw \
- -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+ifdef SUPPORT_DRI_DRM
+KERNEL_VERSION_MIN := 3
+KERNEL_PATCHLEVEL_MIN := 2
+KERNEL_SUBLEVEL_MIN := 0
 
-dcnohw-y += \
-	services4/3rdparty/dc_nohw/dc_nohw_displayclass.o \
-	services4/3rdparty/dc_nohw/dc_nohw_linux.o
+define kernel-version-at-least
+$(shell set -- $; $(VERSION) $(PATCHLEVEL) $(SUBLEVEL); \
+	Y=true; \
+	for D in $1 $2 $3; \
+	do \
+		[ $$1 ] || break; \
+		[ $$1 -eq $$D ] && { shift; continue; };\
+		[ $$1 -lt $$D ] && Y=; \
+		break; \
+	done; \
+	echo $$Y)
+endef
+
+$(if $(call kernel-version-at-least,$(KERNEL_VERSION_MIN),$(KERNEL_PATCHLEVEL_MIN),$(KERNEL_SUBLEVEL_MIN)),, \
+	$(error Found kernel version $(VERSION).$(PATCHLEVEL).$(SUBLEVEL) but need kernel >= $(KERNEL_VERSION_MIN).$(KERNEL_PATCHLEVEL_MIN).$(KERNEL_SUBLEVEL_MIN). \
+		Please upgrade your kernel and rebuild the driver))
+endif
+
+
+ccflags-y += \
+ -I$(TOP)/services4/3rdparty/dc_poulsbo
+
+dc_poulsbo-y += \
+	services4/3rdparty/dc_poulsbo/poulsbo_displayclass.o \
+	services4/3rdparty/dc_poulsbo/poulsbo_linux.o \
+	services4/3rdparty/dc_poulsbo/poulsbo_linux_sdvo.o \
+	services4/3rdparty/dc_poulsbo/poulsbo_linux_lvds.o \
+	services4/3rdparty/dc_poulsbo/poulsbo_linux_crt.o

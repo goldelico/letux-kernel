@@ -38,10 +38,8 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-ccflags-y += \
- -I$(TOP)/services4/3rdparty/dc_nohw \
- -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+modules := dc_poulsbo
 
-dcnohw-y += \
-	services4/3rdparty/dc_nohw/dc_nohw_displayclass.o \
-	services4/3rdparty/dc_nohw/dc_nohw_linux.o
+dc_poulsbo_type := kernel_module
+dc_poulsbo_target := dc_poulsbo.ko
+dc_poulsbo_makefile := $(THIS_DIR)/Kbuild.mk

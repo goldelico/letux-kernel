@@ -38,10 +38,19 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ### ###########################################################################
 
-ccflags-y += \
- -I$(TOP)/services4/3rdparty/dc_nohw \
- -DDC_NOHW_DISCONTIG_BUFFERS -DDC_NOHW_GET_BUFFER_DIMENSIONS
+ifdef CONFIG_X86_64
+MSSE2 := -msse2
+endif
 
-dcnohw-y += \
-	services4/3rdparty/dc_nohw/dc_nohw_displayclass.o \
-	services4/3rdparty/dc_nohw/dc_nohw_linux.o
+ccflags-y += \
+ -mno-soft-float \
+ -I$(TOP)/services4/3rdparty/pvr_pdp $(MSSE2)
+
+pvrpdp-y += \
+ services4/3rdparty/pvr_pdp/pvrpdp_displayclass.o \
+ services4/3rdparty/pvr_pdp/pvrpdp_linux.o
+
+ifeq ($(SUPPORT_DYNAMIC_GTF_TIMING),1)
+pvrpdp-y += \
+ services4/3rdparty/pvr_pdp/vesagtf.o
+endif
