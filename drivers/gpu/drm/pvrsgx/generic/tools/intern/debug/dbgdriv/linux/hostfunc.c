@@ -233,7 +233,7 @@ typedef	struct semaphore	MUTEX;
 #define UP(m)			up(m)
 #endif
 
-IMG_VOID * HostCreateMutex(IMG_VOID)
+IMG_VOID *HostCreateMutex(IMG_VOID)
 {
 	MUTEX *psMutex;
 
