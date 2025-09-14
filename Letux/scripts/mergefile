@@ -126,6 +126,8 @@ letux/pvrsrvkm-1.14.3759903
 letux/pvrsrvkm-1.14.3841212
 letux/pvrsrvkm-1.15.4564147
 letux/pvrsrvkm-1.17.4948957
+letux/pvrsrvkm-ddk-core
+letux/pvrsrvkm-generic
 letux/pvrsrvkm-defconfig	# for omap2plus_defconfig und ci20_defconfig
 letux/pvr-demo
 
