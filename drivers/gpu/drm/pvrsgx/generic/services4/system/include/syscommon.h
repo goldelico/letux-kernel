@@ -28,7 +28,7 @@
 #define _SYSCOMMON_H
 
 #include "sysconfig.h"      
-#include "cdv_sysinfo.h"		
+#include "sysinfo.h"		
 #include "servicesint.h"
 #include "queue.h"
 #include "power.h"
@@ -102,6 +102,10 @@ typedef struct _SYS_DATA_TAG_
 
 
 
+#if defined (CUSTOM_DISPLAY_SEGMENT)
+PVRSRV_ERROR SysGetDisplaySegmentAddress (IMG_VOID *pvDevInfo, IMG_VOID *pvPhysicalAddress, IMG_UINT32 *pui32Length);
+#endif
+
 PVRSRV_ERROR SysInitialise(IMG_VOID);
 PVRSRV_ERROR SysFinalise(IMG_VOID);
 
@@ -127,6 +131,10 @@ PVRSRV_ERROR SysDevicePrePowerState(IMG_UINT32 ui32DeviceIndex,
 PVRSRV_ERROR SysDevicePostPowerState(IMG_UINT32 ui32DeviceIndex,
 									 PVRSRV_DEV_POWER_STATE eNewPowerState,
 									 PVRSRV_DEV_POWER_STATE eCurrentPowerState);
+
+#if defined(SYS_SUPPORTS_SGX_IDLE_CALLBACK)
+IMG_VOID SysSGXIdleTransition(IMG_BOOL bSGXIdle);
+#endif 
 
 #if defined(SYS_CUSTOM_POWERLOCK_WRAP)
 PVRSRV_ERROR SysPowerLockWrap(IMG_BOOL bTryLock);

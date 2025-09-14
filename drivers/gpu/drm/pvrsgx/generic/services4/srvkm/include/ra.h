@@ -67,6 +67,9 @@ struct _RA_STATISTICS_
 
     
     IMG_SIZE_T uExportCount;
+
+    IMG_SIZE_T uFailedAllocCount;
+
 };
 typedef struct _RA_STATISTICS_ RA_STATISTICS;
 
@@ -89,6 +92,8 @@ RA_Create (IMG_CHAR *name,
                                 IMG_SIZE_T *pActualSize,
                                 BM_MAPPING **ppsMapping,
                                 IMG_UINT32 uFlags,
+								IMG_PVOID pvPrivData,
+								IMG_UINT32 ui32PrivDataLength,
                                 IMG_UINTPTR_T *pBase),
            IMG_VOID (*imp_free) (IMG_VOID *,
                                 IMG_UINTPTR_T,
@@ -116,6 +121,8 @@ RA_Alloc (RA_ARENA *pArena,
           IMG_UINT32 uFlags,
           IMG_UINT32 uAlignment,
 		  IMG_UINT32 uAlignmentOffset,
+		  IMG_PVOID pvPrivData,
+		  IMG_UINT32 ui32PrivDataLength,
           IMG_UINTPTR_T *pBase);
 
 IMG_VOID 

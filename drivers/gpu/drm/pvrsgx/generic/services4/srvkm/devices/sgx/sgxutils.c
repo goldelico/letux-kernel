@@ -69,7 +69,7 @@ static IMG_VOID SGXPostActivePowerEvent(PVRSRV_DEVICE_NODE	* psDeviceNode,
 	{
 		
 
-
+		PVR_DPF((PVR_DBG_WARNING, "SGXPostActivePowerEvent: SGX microkernel requests restart"));
 		if (ui32CallerID == ISR_ID)
 		{
 			psDeviceNode->bReProcessDeviceCommandComplete = IMG_TRUE;
@@ -89,10 +89,51 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 	PVRSRV_SGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	SGXMKIF_HOST_CTL	*psSGXHostCtl = psDevInfo->psSGXHostCtl;
 
-	if (((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0) &&
-		((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0))
+#if defined(SYS_SUPPORTS_SGX_IDLE_CALLBACK)
+	if (!psDevInfo->bSGXIdle &&
+		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) != 0))
 	{
-		
+		psDevInfo->bSGXIdle = IMG_TRUE;
+		SysSGXIdleTransition(psDevInfo->bSGXIdle);
+	}
+	else if (psDevInfo->bSGXIdle &&
+			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_IDLE) == 0))
+	{
+		psDevInfo->bSGXIdle = IMG_FALSE;
+		SysSGXIdleTransition(psDevInfo->bSGXIdle);
+	}
+#endif 
+
+	/**
+	 * Quickly check (without lock) if there is an APM event we should handle.
+	 * This check fails most of the time so we don't want to incur lock overhead.
+	 * Check the flags in the reverse order that microkernel clears them to prevent
+	 * us from seeing an inconsistent state.
+	*/
+	if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0) &&
+		((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0))
+	{
+		eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
+		if (eError == PVRSRV_ERROR_RETRY)
+			return;
+		if (eError != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,"SGXTestActivePowerEvent failed to acquire lock - "
+					 "ui32CallerID:%d eError:%u", ui32CallerID, eError));
+			return;
+		}
+
+		/**
+		 * Check again (with lock) if APM event has been cleared or handled. A race
+		 * condition may allow multiple threads to pass the quick check.
+		*/
+		if (((psSGXHostCtl->ui32InterruptClearFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) != 0) ||
+			((psSGXHostCtl->ui32InterruptFlags & PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER) == 0))
+		{
+			PVRSRVPowerUnlock(ui32CallerID);
+			return;
+		}
+
 		psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
 
 		
@@ -105,22 +146,14 @@ IMG_VOID SGXTestActivePowerEvent (PVRSRV_DEVICE_NODE	*psDeviceNode,
 		eError = SysPowerDownMISR(psDeviceNode, ui32CallerID);
 #else
 		eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-											 PVRSRV_DEV_POWER_STATE_OFF,
-											 ui32CallerID, IMG_FALSE);
+											 PVRSRV_DEV_POWER_STATE_OFF);
 		if (eError == PVRSRV_OK)
 		{
 			SGXPostActivePowerEvent(psDeviceNode, ui32CallerID);
 		}
 #endif
-		if (eError == PVRSRV_ERROR_RETRY)
-		{
-			
+		PVRSRVPowerUnlock(ui32CallerID);
 
-			psSGXHostCtl->ui32InterruptClearFlags &= ~PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
-			eError = PVRSRV_OK;
-		}
-
-		
 		PDUMPRESUME();
 	}
 
@@ -162,6 +195,7 @@ PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_DEVICE_NODE	*psDeviceNode,
 	PVRSRV_ERROR eError = PVRSRV_OK;
 	SGXMKIF_COMMAND *psSGXCommand;
 	PVRSRV_SGXDEV_INFO 	*psDevInfo = psDeviceNode->pvDevice;
+	SGXMKIF_HOST_CTL	*psSGXHostCtl = psDevInfo->psSGXHostCtl;
 #if defined(FIX_HW_BRN_31620)
 	IMG_UINT32 ui32CacheMasks[4];
 	IMG_UINT32 i;
@@ -350,7 +384,9 @@ PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_DEVICE_NODE	*psDeviceNode,
 		goto Exit;
 	}
 
-	if ((eCmdType == SGXMKIF_CMD_TA) && bLastInScene)
+	if (eCmdType == SGXMKIF_CMD_2D ||
+		eCmdType == SGXMKIF_CMD_TRANSFER ||
+		((eCmdType == SGXMKIF_CMD_TA) && bLastInScene))
 	{
 		SYS_DATA *psSysData;
 
@@ -482,6 +518,13 @@ PVRSRV_ERROR SGXScheduleCCBCommand(PVRSRV_DEVICE_NODE	*psDeviceNode,
 
 	*psDevInfo->pui32KernelCCBEventKicker = (*psDevInfo->pui32KernelCCBEventKicker + 1) & 0xFF;
 
+	/**
+	 * New command submission is considered a proper handling of any pending APM
+	 * event, so mark it as handled to prevent other host threads from taking
+	 * action.
+	*/
+	psSGXHostCtl->ui32InterruptClearFlags |= PVRSRV_USSE_EDM_INTERRUPT_ACTIVE_POWER;
+
 	OSWriteMemoryBarrier();
 
 	
@@ -528,11 +571,30 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 	
 	PDUMPSUSPEND();
 
-	
+	eError = PVRSRVPowerLock(ui32CallerID, IMG_FALSE);
+	if (eError == PVRSRV_ERROR_RETRY)
+	{
+		if (ui32CallerID == ISR_ID)
+		{
+			SYS_DATA *psSysData;
+
+			psDeviceNode->bReProcessDeviceCommandComplete = IMG_TRUE;
+			SysAcquireData(&psSysData);
+			OSScheduleMISR(psSysData);
+
+			return PVRSRV_OK;
+		}
+		return eError;
+	}
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,"SGXScheduleCCBCommandKM failed to acquire lock - "
+				"ui32CallerID:%d eError:%u", ui32CallerID, eError));
+		return eError;
+	}
+
 	eError = PVRSRVSetDevicePowerStateKM(psDeviceNode->sDevId.ui32DeviceIndex,
-										 PVRSRV_DEV_POWER_STATE_ON,
-										 ui32CallerID,
-										 IMG_TRUE);
+						PVRSRV_DEV_POWER_STATE_ON);
 
 	PDUMPRESUME();
 
@@ -542,32 +604,9 @@ PVRSRV_ERROR SGXScheduleCCBCommandKM(PVRSRV_DEVICE_NODE		*psDeviceNode,
 	}
 	else
 	{
-		if (eError == PVRSRV_ERROR_RETRY)
-		{
-			if (ui32CallerID == ISR_ID)
-			{
-				SYS_DATA *psSysData;
-				
-				
-
-
-				psDeviceNode->bReProcessDeviceCommandComplete = IMG_TRUE;
-				eError = PVRSRV_OK;
-
-				SysAcquireData(&psSysData);
-				OSScheduleMISR(psSysData);
-			}
-			else
-			{
-				
-
-			}
-		}
-		else
-		{
-			PVR_DPF((PVR_DBG_ERROR,"SGXScheduleCCBCommandKM failed to acquire lock - "
-					 "ui32CallerID:%d eError:%u", ui32CallerID, eError));
-		}
+		PVRSRVPowerUnlock(ui32CallerID);
+		PVR_DPF((PVR_DBG_ERROR,"SGXScheduleCCBCommandKM failed to set power state - "
+				"ui32CallerID:%d eError:%u", ui32CallerID, eError));
 
 		return eError;
 	}
@@ -654,6 +693,7 @@ PVRSRV_ERROR SGXCleanupRequest(PVRSRV_DEVICE_NODE *psDeviceNode,
 		if (eError != PVRSRV_OK)
 		{
 				PVR_DPF((PVR_DBG_ERROR,"SGXCleanupRequest: Failed to submit clean-up command"));
+				SGXDumpDebugInfo(psDevInfo, IMG_FALSE);
 				PVR_DBG_BREAK;
 				return eError;
 		}
@@ -669,6 +709,7 @@ PVRSRV_ERROR SGXCleanupRequest(PVRSRV_DEVICE_NODE *psDeviceNode,
 		{
 			PVR_DPF((PVR_DBG_ERROR,"SGXCleanupRequest: Wait for uKernel to clean up (%u) failed", ui32CleanupType));
 			eError = PVRSRV_ERROR_TIMEOUT;
+			SGXDumpDebugInfo(psDevInfo, IMG_FALSE);
 			PVR_DBG_BREAK;
 		}
 		#endif
@@ -824,6 +865,8 @@ IMG_HANDLE SGXRegisterHWRenderContextKM(IMG_HANDLE				hDeviceNode,
                                  | PVRSRV_MEM_CACHE_CONSISTENT,
                                ui32HWRenderContextSize,
                                32,
+                               IMG_NULL,
+                               0,
                                &psCleanup->psHWRenderContextMemInfo,
                                "HW Render Context");
 
@@ -998,6 +1041,8 @@ IMG_HANDLE SGXRegisterHWTransferContextKM(IMG_HANDLE				hDeviceNode,
                                  | PVRSRV_MEM_CACHE_CONSISTENT,
                                ui32HWTransferContextSize,
                                32,
+                               IMG_NULL,
+                               0,
                                &psCleanup->psHWTransferContextMemInfo,
                                "HW Render Context");
 
@@ -1294,6 +1339,8 @@ IMG_HANDLE SGXRegisterHW2DContextKM(IMG_HANDLE				hDeviceNode,
                                  | PVRSRV_MEM_CACHE_CONSISTENT,
                                ui32HW2DContextSize,
                                32,
+                               IMG_NULL,
+                               0,
                                &psCleanup->psHW2DContextMemInfo,
                                "HW 2D Context");
 

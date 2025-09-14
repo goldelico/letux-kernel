@@ -114,8 +114,6 @@ extern IMG_UINT32 g_ui32EveryLineCounter;
 	PVRSRV_ERROR PDumpStopInitPhaseKM(IMG_VOID);
 	IMG_IMPORT PVRSRV_ERROR PDumpSetFrameKM(IMG_UINT32 ui32Frame);
 	IMG_IMPORT PVRSRV_ERROR PDumpCommentKM(IMG_CHAR *pszComment, IMG_UINT32 ui32Flags);
-
-
 	IMG_IMPORT PVRSRV_ERROR PDumpDriverInfoKM(IMG_CHAR *pszString, IMG_UINT32 ui32Flags);
 
 	PVRSRV_ERROR PDumpRegWithFlagsKM(IMG_CHAR *pszPDumpRegName,
@@ -356,7 +354,7 @@ extern IMG_UINT32 g_ui32EveryLineCounter;
 	#define PDUMPRESUME				PDumpResumeKM
 
 #else
-        #if (((defined(LINUX) || defined(__QNXNTO__)) || defined(GCC_IA32)) || defined(GCC_ARM))
+		#if ((defined(LINUX) || defined(GCC_IA32)) || defined(GCC_ARM))
 			#define PDUMPMEMPOL(args...)
 			#define PDUMPMEM(args...)
 			#define PDUMPMEMPTENTRIES(args...)
