@@ -1,45 +1,28 @@
-/*************************************************************************/ /*!
-@Title          Buffer management functions for Linux
-@Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    Manages buffers mapped into two memory spaces - cpu and device,
-                either of which can be virtual or physical.
-@License        Dual MIT/GPLv2
-
-The contents of this file are subject to the MIT license as set out below.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-Alternatively, the contents of this file may be used under the terms of
-the GNU General Public License Version 2 ("GPL") in which case the provisions
-of GPL are applicable instead of those above.
-
-If you wish to allow use of your version of this file only under the terms of
-GPL, and not to allow others to use your version of this file under the terms
-of the MIT license, indicate your decision by deleting the provisions above
-and replace them with the notice and other provisions required by GPL as set
-out in the file called "GPL-COPYING" included in this distribution. If you do
-not delete the provisions above, a recipient may use your version of this file
-under the terms of either the MIT license or GPL.
-
-This License is also included in this distribution in the file called
-"MIT-COPYING".
-
-EXCEPT AS OTHERWISE STATED IN A NEGOTIATED AGREEMENT: (A) THE SOFTWARE IS
-PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
-BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/ /**************************************************************************/
+/**********************************************************************
+ *
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
+ * 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
+ * See the GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+ * 
+ * The full GNU General Public License is included in this distribution in
+ * the file called "COPYING".
+ *
+ * Contact Information:
+ * Imagination Technologies Ltd. <gpl-support@imgtec.com>
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ *
+ ******************************************************************************/
 
 #include "services_headers.h"
 
@@ -47,25 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "hash.h"
 #include "ra.h"
 #include "pdump_km.h"
-
-#define MIN(a,b)       (a > b ? b : a)
-
-
 #include "lists.h"
-
-DECLARE_LIST_ANY_VA(BM_HEAP);
-DECLARE_LIST_ANY_2(BM_HEAP, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_ANY_VA_2(BM_HEAP, PVRSRV_ERROR, PVRSRV_OK);
-DECLARE_LIST_FOR_EACH_VA(BM_HEAP);
-DECLARE_LIST_INSERT(BM_HEAP);
-DECLARE_LIST_REMOVE(BM_HEAP);
-
-DECLARE_LIST_FOR_EACH(BM_CONTEXT);
-DECLARE_LIST_ANY_VA(BM_CONTEXT);
-DECLARE_LIST_ANY_VA_2(BM_CONTEXT, IMG_HANDLE, IMG_NULL);
-DECLARE_LIST_INSERT(BM_CONTEXT);
-DECLARE_LIST_REMOVE(BM_CONTEXT);
-
 
 static IMG_BOOL
 ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui32Flags);
@@ -86,39 +51,6 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 static IMG_VOID
 DevMemoryFree (BM_MAPPING *pMapping);
 
-/*!
-******************************************************************************
-
-	@Function   AllocMemory
-
-	@Description	Allocate a buffer mapped into both cpu and device virtual
-				address spaces.  This is now quite simple:
-
-				1. Choose whence to get the memory;
-				2. Obtain memory from that source;
-				3. Work out the actual buffer addresses in other spaces.
-
-				In choosing whence to get the memory we work like this:
-
-				1. If an import arena exists, use unless BP_CONTIGUOUS is set;
-				2. Use a contiguous pool.
-
-	@Input      pBMContext - BM context
-	@Input      psBMHeap - BM heap
-	@Input      psDevVAddr - device virtual address (optional)
-	@Input      uSize - requested buffer size in bytes.
-	@Input      uFlags - property flags for the buffer.
-    @Input      uDevVAddrAlignment - required device virtual address
-					 alignment, or 0.
-    @Input      pvPrivData - opaque private data passed through to allocator
-    @Input      ui32PrivDataLength - length of opaque private data
-
-	@Output     pBuf - receives a pointer to a descriptor of the allocated
-					 buffer.
-	@Return 	IMG_TRUE - Success
-				IMG_FALSE - Failed.
-
- *****************************************************************************/
 static IMG_BOOL
 AllocMemory (BM_CONTEXT				*pBMContext,
 				BM_HEAP				*psBMHeap,
@@ -133,30 +65,31 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 	RA_ARENA			*pArena = IMG_NULL;
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "AllocMemory (pBMContext=%08X, uSize=0x%x, uFlags=0x%x, align=0x%x, pBuf=%08X)",
-			  pBMContext, uSize, uFlags, uDevVAddrAlignment, pBuf));
+			  "AllocMemory (uSize=0x%x, uFlags=0x%x, align=0x%x)",
+			  uSize, uFlags, uDevVAddrAlignment));
 
-
+	
 
 
 	if(uFlags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
 	{
 		if(uFlags & PVRSRV_MEM_USER_SUPPLIED_DEVVADDR)
 		{
-
+			
 			PVR_DPF ((PVR_DBG_ERROR, "AllocMemory: combination of DevVAddr management and RAM backing mode unsupported"));
 			return IMG_FALSE;
 		}
 
-		/* BM supplied DevVAddr, RAM Backing */
+		
 
-		/* check heap attributes */
+		
 		if(psBMHeap->ui32Attribs
 		   &	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 		   |PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
 		{
-			/* specify arena (VM+RAM)*/
+			
 			pArena = psBMHeap->pImportArena;
+			PVR_ASSERT(psBMHeap->sDevArena.psDeviceMemoryHeapInfo->ui32Attribs & PVRSRV_MEM_RAM_BACKED_ALLOCATION);
 		}
 		else
 		{
@@ -164,7 +97,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 			return IMG_FALSE;
 		}
 
-
+		
 		if (!RA_Alloc(pArena,
 					  uSize,
 					  IMG_NULL,
@@ -205,8 +138,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 			}
 		}
 
-		/* for hm_contiguous and hm_wrapped memory, the pMapping
-		 * will have a physical address, else 0 */
+		
 		pBuf->CpuPAddr.uiAddr = pMapping->CpuPAddr.uiAddr + uOffset;
 
 		if(uFlags & PVRSRV_MEM_ZERO)
@@ -221,7 +153,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 	{
 		if(uFlags & PVRSRV_MEM_USER_SUPPLIED_DEVVADDR)
 		{
-			/* user supplied DevVAddr, no RAM backing */
+			
 			PVR_ASSERT(psDevVAddr != IMG_NULL);
 
 			if (psDevVAddr == IMG_NULL)
@@ -230,7 +162,7 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 				return IMG_FALSE;
 			}
 
-			/* just make space in the pagetables */
+			
 			pBMContext->psDeviceNode->pfnMMUAlloc (psBMHeap->pMMUHeap,
 													uSize,
 													IMG_NULL,
@@ -238,14 +170,14 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 													uDevVAddrAlignment,
 													psDevVAddr);
 
-			/* setup buf */
+			
 			pBuf->DevVAddr = *psDevVAddr;
 		}
 		else
 		{
+			
 
-
-
+			
 			pBMContext->psDeviceNode->pfnMMUAlloc (psBMHeap->pMMUHeap,
 													uSize,
 													IMG_NULL,
@@ -254,22 +186,22 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 													&pBuf->DevVAddr);
 		}
 
-		/* allocate a mocked-up mapping */
+		
 		if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 							sizeof (struct _BM_MAPPING_),
 							(IMG_PVOID *)&pMapping, IMG_NULL,
 							"Buffer Manager Mapping") != PVRSRV_OK)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "AllocMemory: OSAllocMem(0x%x) FAILED"));
+			PVR_DPF((PVR_DBG_ERROR, "AllocMemory: OSAllocMem(0x%x) FAILED", sizeof(*pMapping)));
 			return IMG_FALSE;
 		}
 
-		/* setup buf */
+		
 		pBuf->CpuVAddr = IMG_NULL;
 		pBuf->hOSMemHandle = 0;
 		pBuf->CpuPAddr.uiAddr = 0;
 
-		/* setup mapping */
+		
 		pMapping->CpuVAddr = IMG_NULL;
 		pMapping->CpuPAddr.uiAddr = 0;
 		pMapping->DevVAddr = pBuf->DevVAddr;
@@ -278,58 +210,37 @@ AllocMemory (BM_CONTEXT				*pBMContext,
 		pMapping->hOSMemHandle = 0;
 	}
 
-	/* Record the arena pointer in the mapping. */
+	
 	pMapping->pArena = pArena;
 
-	/* record the heap */
+	
 	pMapping->pBMHeap = psBMHeap;
 	pBuf->pMapping = pMapping;
 
-	/* output some stats */
+	
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"AllocMemory: pMapping=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pMapping,
+				"AllocMemory: pMapping=%08x: DevV=%08X CpuV=%08x CpuP=%08X uSize=0x%x",
+				(IMG_UINTPTR_T)pMapping,
 				pMapping->DevVAddr.uiAddr,
-				pMapping->CpuVAddr,
+				(IMG_UINTPTR_T)pMapping->CpuVAddr,
 				pMapping->CpuPAddr.uiAddr,
 				pMapping->uSize));
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"AllocMemory: pBuf=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pBuf,
+				"AllocMemory: pBuf=%08x: DevV=%08X CpuV=%08x CpuP=%08X uSize=0x%x",
+				(IMG_UINTPTR_T)pBuf,
 				pBuf->DevVAddr.uiAddr,
-				pBuf->CpuVAddr,
+				(IMG_UINTPTR_T)pBuf->CpuVAddr,
 				pBuf->CpuPAddr.uiAddr,
 				uSize));
 
-
+	
 	PVR_ASSERT(((pBuf->DevVAddr.uiAddr) & (uDevVAddrAlignment - 1)) == 0);
 
 	return IMG_TRUE;
 }
 
 
-/*!
-******************************************************************************
-
-	@Function	WrapMemory
-
-	@Description Allocate a buffer mapped into both cpu and device virtual
-				address spaces.
-
-	@Input      psBMHeap - BM heap
-	@Input      uSize - requested buffer size in bytes.
-	@Input      ui32BaseOffset - Offset from page of wrap.
-	@Input      bPhysContig - Is the wrap physically contiguous.
-	@Input      psAddr - List of pages to wrap.
-	@Input      pvCPUVAddr - Optional CPU Kernel virtual address (page aligned) of memory to wrap
-	@Input      uFlags - property flags for the buffer.
-	@Output     Buf - receives a pointer to a descriptor of the allocated
-					 buffer.
-	@Return 	IMG_TRUE - Success
-				IMG_FALSE - Failed.
-
- *****************************************************************************/
 static IMG_BOOL
 WrapMemory (BM_HEAP *psBMHeap,
 			IMG_SIZE_T uSize,
@@ -346,17 +257,17 @@ WrapMemory (BM_HEAP *psBMHeap,
 	IMG_SIZE_T const ui32PageSize = HOST_PAGESIZE();
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "WrapMemory(psBMHeap=%08X, size=0x%x, offset=0x%x, bPhysContig=0x%x, pvCPUVAddr = 0x%x, flags=0x%x, pBuf=%08X)",
-			  psBMHeap, uSize, ui32BaseOffset, bPhysContig, pvCPUVAddr, uFlags, pBuf));
+			  "WrapMemory(psBMHeap=%08X, size=0x%x, offset=0x%x, bPhysContig=0x%x, pvCPUVAddr = 0x%08x, flags=0x%x)",
+			  (IMG_UINTPTR_T)psBMHeap, uSize, ui32BaseOffset, bPhysContig, (IMG_UINTPTR_T)pvCPUVAddr, uFlags));
 
 	PVR_ASSERT((psAddr->uiAddr & (ui32PageSize - 1)) == 0);
-
+	
 	PVR_ASSERT(((IMG_UINTPTR_T)pvCPUVAddr & (ui32PageSize - 1)) == 0);
 
 	uSize += ui32BaseOffset;
 	uSize = HOST_PAGEALIGN (uSize);
 
-
+	
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof(*pMapping),
 						(IMG_PVOID *)&pMapping, IMG_NULL,
@@ -386,8 +297,8 @@ WrapMemory (BM_HEAP *psBMHeap,
 							uFlags,
 							&pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
-				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterMem Phys=0x%08X, CpuVAddr = 0x%08X, Size=%d) failed",
-					pMapping->CpuPAddr, pMapping->CpuVAddr, pMapping->uSize));
+				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterMem Phys=0x%08X, Size=%d) failed",
+					pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -402,8 +313,8 @@ WrapMemory (BM_HEAP *psBMHeap,
 							uFlags,
 							&pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
-				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterDiscontigMem CpuVAddr = 0x%08X, Size=%d) failed",
-					pMapping->CpuVAddr, pMapping->uSize));
+				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSRegisterDiscontigMem Size=%d) failed",
+					pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -422,7 +333,7 @@ WrapMemory (BM_HEAP *psBMHeap,
 							 &pMapping->hOSMemHandle) != PVRSRV_OK)
 			{
 				PVR_DPF((PVR_DBG_ERROR,	"WrapMemory: OSReservePhys Phys=0x%08X, Size=%d) failed",
-					pMapping->CpuPAddr, pMapping->uSize));
+					pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 				goto fail_cleanup;
 			}
 		}
@@ -444,9 +355,7 @@ WrapMemory (BM_HEAP *psBMHeap,
 		}
 	}
 
-	/*
-	 * Allocate device memory for this buffer. Map wrapped pages as read/write
-	 */
+	
 	bResult = DevMemoryAlloc(psBMHeap->pBMContext,
 							 pMapping,
 							 IMG_NULL,
@@ -461,12 +370,7 @@ WrapMemory (BM_HEAP *psBMHeap,
 		goto fail_cleanup;
 	}
 
-	/*
-	 * Determine the offset of this allocation within the underlying
-	 * dual mapped chunk of memory, we can assume that all three
-	 * addresses associated with this allocation are placed at the same
-	 * offset within the underlying chunk.
-	 */
+	
 	pBuf->CpuPAddr.uiAddr = pMapping->CpuPAddr.uiAddr + ui32BaseOffset;
 	if(!ui32BaseOffset)
 	{
@@ -500,13 +404,11 @@ WrapMemory (BM_HEAP *psBMHeap,
 
 	PVR_DPF ((PVR_DBG_MESSAGE, "DevVaddr.uiAddr=%08X", DevVAddr.uiAddr));
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"WrapMemory: pMapping=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pMapping, pMapping->DevVAddr.uiAddr,
-				pMapping->CpuVAddr, pMapping->CpuPAddr.uiAddr, pMapping->uSize));
+				"WrapMemory: DevV=%08X CpuP=%08X uSize=0x%x",
+				pMapping->DevVAddr.uiAddr, pMapping->CpuPAddr.uiAddr, pMapping->uSize));
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"WrapMemory: pBuf=%08X: DevV=%08X CpuV=%08X CpuP=%08X uSize=0x%x",
-				pBuf, pBuf->DevVAddr.uiAddr,
-				pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr, uSize));
+				"WrapMemory: DevV=%08X CpuP=%08X uSize=0x%x",
+				pBuf->DevVAddr.uiAddr, pBuf->CpuPAddr.uiAddr, uSize));
 
 	pBuf->pMapping = pMapping;
 	return IMG_TRUE;
@@ -540,7 +442,7 @@ fail_cleanup:
 	}
 
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-	/*not nulling pointer, out of scope*/
+	
 
 	return IMG_FALSE;
 }
@@ -581,22 +483,18 @@ ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui3
 		IMG_SIZE_T ui32CurrentOffset = 0;
 		IMG_CPU_PHYADDR CpuPAddr;
 
-		/* Walk through the pBuf one page at a time and use
-		 * transient mappings to zero the memory */
-
+		
 		PVR_ASSERT(pBuf->hOSMemHandle);
 
 		while(ui32BytesRemaining > 0)
 		{
 			IMG_SIZE_T ui32BlockBytes = MIN(ui32BytesRemaining, HOST_PAGESIZE());
 			CpuPAddr = OSMemHandleToCpuPAddr(pBuf->hOSMemHandle, ui32CurrentOffset);
-			/* If the CpuPAddr isn't page aligned then start by writing up to the next page
-			 * boundary (or ui32BytesRemaining if less), so that subsequent iterations can
-			 * copy full physical pages. */
+			
 			if(CpuPAddr.uiAddr & (HOST_PAGESIZE() -1))
 			{
 				ui32BlockBytes =
-					MIN(ui32BytesRemaining, HOST_PAGEALIGN(CpuPAddr.uiAddr) - CpuPAddr.uiAddr);
+					MIN(ui32BytesRemaining, (IMG_UINT32)(HOST_PAGEALIGN(CpuPAddr.uiAddr) - CpuPAddr.uiAddr));
 			}
 
 			pvCpuVAddr = OSMapPhysToLin(CpuPAddr,
@@ -624,78 +522,73 @@ ZeroBuf(BM_BUF *pBuf, BM_MAPPING *pMapping, IMG_SIZE_T ui32Bytes, IMG_UINT32 ui3
 	return IMG_TRUE;
 }
 
-/*!
-******************************************************************************
-
-	@Function	FreeBuf
-
-	@Description	Free a buffer previously allocated with BM_Alloc() or unwrap
-				one previous wrapped with BM_Wrap().
-				The buffer is identified by the buffer descriptor pBuf
-				returned at allocation. Note the double indirection when
-				passing the buffer.
-
-	
-	@Input      pBuf - buffer descriptor to free.
-	@Input      ui32Flags - flags
-	@Input      bFromAllocator - Is this being called by the
-					                 allocator?
-
-	@Return 	None.
-
- *****************************************************************************/
 static IMG_VOID
 FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags, IMG_BOOL bFromAllocator)
 {
 	BM_MAPPING *pMapping;
+	/* PVRSRV_DEVICE_NODE *psDeviceNode; */
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			"FreeBuf: pBuf=%08X: DevVAddr=%08X CpuVAddr=%08X CpuPAddr=%08X",
-			pBuf, pBuf->DevVAddr.uiAddr, pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr));
+			"FreeBuf: pBuf=0x%x: DevVAddr=%08X CpuVAddr=0x%x CpuPAddr=%08X",
+			(IMG_UINTPTR_T)pBuf, pBuf->DevVAddr.uiAddr,
+			(IMG_UINTPTR_T)pBuf->CpuVAddr, pBuf->CpuPAddr.uiAddr));
 
-	/* record mapping */
+	
 	pMapping = pBuf->pMapping;
+
+	/* XXX even below cache invalidate op is noop on SGX545, be better
+	 * to check why under high GPU/mem load, below object reference could
+	 * go madness.
+	 */
+#if 0
+	psDeviceNode = pMapping->pBMHeap->pBMContext->psDeviceNode;
+	if (psDeviceNode->pfnCacheInvalidate)
+	{
+		psDeviceNode->pfnCacheInvalidate(psDeviceNode);
+	}
+#endif
 
 	if(ui32Flags & PVRSRV_MEM_USER_SUPPLIED_DEVVADDR)
 	{
-		/* Submemhandle is required by exported mappings */
+		
 		if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 		{
-			/* user supplied Device Virtual Address */
+			
 			if(ui32Flags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
 			{
-				/* RAM backed allocation */
+				
 				PVR_DPF ((PVR_DBG_ERROR, "FreeBuf: combination of DevVAddr management and RAM backing mode unsupported"));
 			}
 			else
 			{
-				/* free the mocked-up mapping */
+				
 				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-				pBuf->pMapping = IMG_NULL;
+				pBuf->pMapping = IMG_NULL; 
 			}
 		}
 	}
 	else
 	{
-		/* BM supplied Device Virtual Address */
+		
 		if(pBuf->hOSMemHandle != pMapping->hOSMemHandle)
 		{
-			/* Submemhandle is required by exported mappings */
+            
 			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 			{
-
+				
 				OSReleaseSubMemHandle(pBuf->hOSMemHandle, ui32Flags);
 			}
 		}
 		if(ui32Flags & PVRSRV_MEM_RAM_BACKED_ALLOCATION)
 		{
-
+			
+            
 			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 			{
+				
 
 
-
-				PVR_ASSERT(pBuf->ui32ExportCount == 0);
+				PVR_ASSERT(pBuf->ui32ExportCount == 0)
 				RA_Free (pBuf->pMapping->pArena, pBuf->DevVAddr.uiAddr, IMG_FALSE);
 			}
 		}
@@ -721,39 +614,27 @@ FreeBuf (BM_BUF *pBuf, IMG_UINT32 ui32Flags, IMG_BOOL bFromAllocator)
 						break;
 				}
 			}
-
 			if (bFromAllocator)
 				DevMemoryFree (pMapping);
 
 			if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
 			{
-				/* free the mocked-up mapping */
+				
 				OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-				pBuf->pMapping = IMG_NULL; /*nulling pointer alias*/
+				pBuf->pMapping = IMG_NULL; 
 			}
 		}
+	}
 
-		if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
-		{
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_BUF), pBuf, IMG_NULL);
 
-		}
+	if ((pBuf->ui32ExportCount == 0) && (pBuf->ui32RefCount == 0))
+	{
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_BUF), pBuf, IMG_NULL);
+		
 	}
 }
 
-/*!
-******************************************************************************
-
-	@Function	BM_DestroyContext_AnyCb
-
-	@Description	Destroy a buffer manager heap.
-
-	@Input      psBMHeap
-
-	@Return 	PVRSRV_ERROR
-
- *****************************************************************************/
-PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
+static PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
 {
 	if(psBMHeap->ui32Attribs
 	& 	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
@@ -765,7 +646,7 @@ PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
 			if (!bTestDelete)
 			{
 				PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext_AnyCb: RA_TestDelete failed"));
-				return PVRSRV_ERROR_GENERIC;
+				return PVRSRV_ERROR_UNABLE_TO_DESTROY_BM_HEAP;
 			}
 		}
 	}
@@ -773,20 +654,6 @@ PVRSRV_ERROR BM_DestroyContext_AnyCb(BM_HEAP *psBMHeap)
 }
 
 
-/*!
-******************************************************************************
-
-	@Function	BM_DestroyContext
-
-	@Description	Destroy a buffer manager context. All allocated buffers must be
-				free'd before calling this function.  This function is called
-				also to perform cleanup during aborted initialisations so it's
-				fairly careful not to assume any given resource has really been
-				created/allocated.
-
-	@Return 	PVRSRV_ERROR
-
- *****************************************************************************/
 PVRSRV_ERROR
 BM_DestroyContext(IMG_HANDLE	hBMContext,
 				  IMG_BOOL		*pbDestroyed)
@@ -801,9 +668,8 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 		*pbDestroyed = IMG_FALSE;
 	}
 
-	/*
-		Exit straight away if it's an invalid context handle
-	*/
+	
+
 	if (pBMContext == IMG_NULL)
 	{
 		PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: Invalid handle"));
@@ -814,42 +680,42 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 
 	if (pBMContext->ui32RefCount > 0)
 	{
-		/* Just return if there are more references to this context */
+		
 		return PVRSRV_OK;
 	}
 
+	
 
 
-
-	eError = List_BM_HEAP_PVRSRV_ERROR_Any(pBMContext->psBMHeap, BM_DestroyContext_AnyCb);
+	eError = List_BM_HEAP_PVRSRV_ERROR_Any(pBMContext->psBMHeap, &BM_DestroyContext_AnyCb);
 	if(eError != PVRSRV_OK)
 	{
 		PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: List_BM_HEAP_PVRSRV_ERROR_Any failed"));
 #if 0
-
-
-
-
+		
+		
+		
+		
 		PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: Cleaning up with ResManFreeSpecial"));
 		if(ResManFreeSpecial() != PVRSRV_OK)
 		{
 			PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: ResManFreeSpecial failed %d",eError));
 		}
-
+		
 #endif
 		return eError;
 	}
 	else
 	{
-
-		eError = ResManFreeResByPtr(pBMContext->hResItem);
+		
+		eError = ResManFreeResByPtr(pBMContext->hResItem, CLEANUP_WITH_POLL);
 		if(eError != PVRSRV_OK)
 		{
 			PVR_DPF ((PVR_DBG_ERROR, "BM_DestroyContext: ResManFreeResByPtr failed %d",eError));
 			return eError;
 		}
 
-
+		
 		if (pbDestroyed != IMG_NULL)
 		{
 			*pbDestroyed = IMG_TRUE;
@@ -860,12 +726,12 @@ BM_DestroyContext(IMG_HANDLE	hBMContext,
 }
 
 
-PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
+static PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	psDeviceNode = va_arg(va, PVRSRV_DEVICE_NODE*);
 
-	/* Free up the import arenas */
+	
 	if(psBMHeap->ui32Attribs
 	& 	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 		|PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
@@ -878,48 +744,51 @@ PVRSRV_ERROR BM_DestroyContextCallBack_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 	else
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_DestroyContext: backing store type unsupported"));
-		return PVRSRV_ERROR_GENERIC;
+		return PVRSRV_ERROR_UNSUPPORTED_BACKING_STORE;
 	}
 
-	/* Free up the MMU Heaps */
+	
 	psDeviceNode->pfnMMUDelete(psBMHeap->pMMUHeap);
 
-	/* Free Heap memory */
+	
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_HEAP), psBMHeap, IMG_NULL);
-	/*not nulling pointer, copy on stack*/
+	
 
 	return PVRSRV_OK;
 }
 
 
-static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
-											  IMG_UINT32	ui32Param)
+static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID   pvParam,
+											  IMG_UINT32  ui32Param,
+											  IMG_BOOL    bDummy)
 {
 	BM_CONTEXT *pBMContext = pvParam;
 	PVRSRV_DEVICE_NODE *psDeviceNode;
+	PVRSRV_ERROR eError;
 	PVR_UNREFERENCED_PARAMETER(ui32Param);
+	PVR_UNREFERENCED_PARAMETER(bDummy);
 
-	/*
-		Get DeviceNode from BMcontext
-	*/
+	
+
 	psDeviceNode = pBMContext->psDeviceNode;
 
+	
 
-
-	if(List_BM_HEAP_PVRSRV_ERROR_Any_va(pBMContext->psBMHeap,
-										BM_DestroyContextCallBack_AnyVaCb,
-										psDeviceNode) != PVRSRV_OK)
+	eError = List_BM_HEAP_PVRSRV_ERROR_Any_va(pBMContext->psBMHeap,
+										&BM_DestroyContextCallBack_AnyVaCb,
+										psDeviceNode);
+	if (eError != PVRSRV_OK)
 	{
-		return PVRSRV_ERROR_GENERIC;
+		return eError;
 	}
-
+	
 
 	if (pBMContext->psMMUContext)
 	{
 		psDeviceNode->pfnMMUFinalise(pBMContext->psMMUContext);
 	}
 
-
+	
 
 	if (pBMContext->pBufferHash)
 	{
@@ -928,36 +797,39 @@ static PVRSRV_ERROR BM_DestroyContextCallBack(IMG_PVOID		pvParam,
 
 	if (pBMContext == psDeviceNode->sDevMemoryInfo.pBMKernelContext)
 	{
-
+		
 		psDeviceNode->sDevMemoryInfo.pBMKernelContext = IMG_NULL;
 	}
 	else
 	{
-
-		List_BM_CONTEXT_Remove(pBMContext);
+	    if (pBMContext->ppsThis != IMG_NULL)
+	    {
+		    
+		    List_BM_CONTEXT_Remove(pBMContext);
+		}
 	}
 
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_CONTEXT), pBMContext, IMG_NULL);
-
+	
 
 	return PVRSRV_OK;
 }
 
 
-IMG_HANDLE BM_CreateContext_IncRefCount_AnyVaCb(BM_CONTEXT *pBMContext, va_list va)
+static IMG_HANDLE BM_CreateContext_IncRefCount_AnyVaCb(BM_CONTEXT *pBMContext, va_list va)
 {
 	PRESMAN_CONTEXT	hResManContext;
 	hResManContext = va_arg(va, PRESMAN_CONTEXT);
 	if(ResManFindResourceByPtr(hResManContext, pBMContext->hResItem) == PVRSRV_OK)
 	{
-
+		
 		pBMContext->ui32RefCount++;
 		return pBMContext;
 	}
 	return IMG_NULL;
 }
 
-IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
+static IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 	BM_CONTEXT *pBMContext;
@@ -968,25 +840,13 @@ IMG_VOID BM_CreateContext_InsertHeap_ForEachVaCb(BM_HEAP *psBMHeap, va_list va)
 		case DEVICE_MEMORY_HEAP_SHARED:
 		case DEVICE_MEMORY_HEAP_SHARED_EXPORTED:
 		{
-
+			
 			psDeviceNode->pfnMMUInsertHeap(pBMContext->psMMUContext, psBMHeap->pMMUHeap);
 			break;
 		}
 	}
 }
 
-/*!
-******************************************************************************
-
-	@Function	BM_CreateContext
-
-	@Description	Creates and initialises a buffer manager context. This function must be called
-				before any other buffer manager functions.
-
-	@Return 	valid BM context handle - Success
-				IMG_NULL - Failed
-
- *****************************************************************************/
 IMG_HANDLE
 BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 				 IMG_DEV_PHYADDR			*psPDDevPAddr,
@@ -1016,7 +876,7 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 		*pbCreated = IMG_FALSE;
 	}
 
-	/* setup the device memory info. */
+	
 	psDevMemoryInfo = &psDeviceNode->sDevMemoryInfo;
 
 	if (bKernelContext == IMG_FALSE)
@@ -1030,7 +890,7 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 		}
 	}
 
-	/* allocate a BM context */
+	
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					 sizeof (struct _BM_CONTEXT_),
 					 (IMG_PVOID *)&pBMContext, IMG_NULL,
@@ -1041,11 +901,11 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 	}
 	OSMemSet(pBMContext, 0, sizeof (BM_CONTEXT));
 
-	/* store the associated devicenode */
+	
 	pBMContext->psDeviceNode = psDeviceNode;
 
-	/* This hash table is used to store BM_Wraps in a global way */
-	/* INTEGRATION_POINT: 32 is an abitrary limit on the number of hashed BM_wraps */
+	
+	
 	pBMContext->pBufferHash = HASH_Create(32);
 	if (pBMContext->pBufferHash==IMG_NULL)
 	{
@@ -1053,9 +913,9 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 		goto cleanup;
 	}
 
-	if(psDeviceNode->pfnMMUInitialise(psDeviceNode,
-										&pBMContext->psMMUContext,
-										psPDDevPAddr) != PVRSRV_OK)
+	if((IMG_NULL == psDeviceNode->pfnMMUInitialise) || (psDeviceNode->pfnMMUInitialise(psDeviceNode,
+											&pBMContext->psMMUContext,
+											psPDDevPAddr) != PVRSRV_OK))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_CreateContext: MMUInitialise failed"));
 		goto cleanup;
@@ -1063,18 +923,17 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 
 	if(bKernelContext)
 	{
-
+		
 		PVR_ASSERT(psDevMemoryInfo->pBMKernelContext == IMG_NULL);
 		psDevMemoryInfo->pBMKernelContext = pBMContext;
 	}
 	else
 	{
-		/*
-			On the creation of each new context we must
-			insert the kernel context's 'shared' and 'shared_exported'
-			heaps into the new context
-			 - check the kernel context and heaps exist
-		*/
+		
+
+
+
+
 		PVR_ASSERT(psDevMemoryInfo->pBMKernelContext);
 
 		if (psDevMemoryInfo->pBMKernelContext == IMG_NULL)
@@ -1085,30 +944,28 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 
 		PVR_ASSERT(psDevMemoryInfo->pBMKernelContext->psBMHeap);
 
-		/*
-			insert the kernel heaps structures into the new context's shared heap list
-			Note. this will include the kernel only heaps but these will not actually
-			be imported into the context nor returned to the client
-		 */
+		
+
+
+
 		pBMContext->psBMSharedHeap = psDevMemoryInfo->pBMKernelContext->psBMHeap;
 
-		/*
-			insert the shared heaps into the MMU page directory/table
-			for the new context
-		*/
+		
+
+
 		List_BM_HEAP_ForEach_va(pBMContext->psBMSharedHeap,
-								BM_CreateContext_InsertHeap_ForEachVaCb,
+								&BM_CreateContext_InsertHeap_ForEachVaCb,
 								psDeviceNode,
 								pBMContext);
 
-		/* Finally, insert the new context into the list of BM contexts	*/
+		
 		List_BM_CONTEXT_Insert(&psDevMemoryInfo->pBMContext, pBMContext);
 	}
 
-	/* Increment the refcount, as creation is successful */
+	
 	pBMContext->ui32RefCount++;
 
-	/* register with resman */
+	
 	pBMContext->hResItem = ResManRegisterRes(hResManContext,
 											RESMAN_TYPE_DEVICEMEM_CONTEXT,
 											pBMContext,
@@ -1127,19 +984,19 @@ BM_CreateContext(PVRSRV_DEVICE_NODE			*psDeviceNode,
 	return (IMG_HANDLE)pBMContext;
 
 cleanup:
-	(IMG_VOID)BM_DestroyContextCallBack(pBMContext, 0);
+	(IMG_VOID)BM_DestroyContextCallBack(pBMContext, 0, CLEANUP_WITH_POLL);
 
 	return IMG_NULL;
 }
 
 
-IMG_VOID *BM_CreateHeap_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
+static IMG_VOID *BM_CreateHeap_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 {
 	DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo;
 	psDevMemHeapInfo = va_arg(va, DEVICE_MEMORY_HEAP_INFO*);
 	if (psBMHeap->sDevArena.ui32HeapID ==  psDevMemHeapInfo->ui32HeapID)
 	{
-		/* Match - just return already created heap */
+		
 		return psBMHeap;
 	}
 	else
@@ -1148,19 +1005,6 @@ IMG_VOID *BM_CreateHeap_AnyVaCb(BM_HEAP *psBMHeap, va_list va)
 	}
 }
 
-/*!
-******************************************************************************
-
-	@Function	BM_CreateHeap
-
-	@Description	Creates and initialises a BM heap for a given BM context.
-
-	@Return 
-		valid heap handle - success
-		IMG_NULL - failure
-
-
- *****************************************************************************/
 IMG_HANDLE
 BM_CreateHeap (IMG_HANDLE hBMContext,
 			   DEVICE_MEMORY_HEAP_INFO *psDevMemHeapInfo)
@@ -1173,22 +1017,26 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 
 	if(!pBMContext)
 	{
+		PVR_DPF((PVR_DBG_ERROR, "BM_CreateHeap: BM_CONTEXT null"));
 		return IMG_NULL;
 	}
 
 	psDeviceNode = pBMContext->psDeviceNode;
 
+	
+ 
+	PVR_ASSERT((psDevMemHeapInfo->ui32HeapSize & (psDevMemHeapInfo->ui32DataPageSize - 1)) == 0);
+	PVR_ASSERT(psDevMemHeapInfo->ui32HeapSize > 0);
 
-	/*
-		We may be being asked to create a heap in a context which already has one.
-		Test for refcount > 0 because PVRSRVGetDeviceMemHeapInfoKM doesn't increment the refcount.
-		This does mean that the first call to PVRSRVCreateDeviceMemContextKM will first try to find
-		heaps that we already know don't exist
-	*/
+	
+
+
+
+
 	if(pBMContext->ui32RefCount > 0)
 	{
 		psBMHeap = (BM_HEAP*)List_BM_HEAP_Any_va(pBMContext->psBMHeap,
-												 BM_CreateHeap_AnyVaCb,
+												 &BM_CreateHeap_AnyVaCb,
 												 psDevMemHeapInfo);
 
 		if (psBMHeap)
@@ -1218,24 +1066,25 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 	psBMHeap->sDevArena.psDeviceMemoryHeapInfo = psDevMemHeapInfo;
 	psBMHeap->ui32Attribs = psDevMemHeapInfo->ui32Attribs;
 
-	/* tie the heap to the context */
+	
 	psBMHeap->pBMContext = pBMContext;
 
 	psBMHeap->pMMUHeap = psDeviceNode->pfnMMUCreate (pBMContext->psMMUContext,
 													&psBMHeap->sDevArena,
-													&psBMHeap->pVMArena);
+													&psBMHeap->pVMArena,
+													&psBMHeap->psMMUAttrib);
 	if (!psBMHeap->pMMUHeap)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_CreateHeap: MMUCreate failed"));
 		goto ErrorExit;
 	}
 
-	/* memory is allocated from the OS as required */
+	
 	psBMHeap->pImportArena = RA_Create (psDevMemHeapInfo->pszBSName,
 										0, 0, IMG_NULL,
-										psBMHeap->sDevArena.ui32DataPageSize,
-										BM_ImportMemory,
-										BM_FreeMemory,
+										MAX(HOST_PAGESIZE(), psBMHeap->sDevArena.ui32DataPageSize),
+										&BM_ImportMemory,
+										&BM_FreeMemory,
 										IMG_NULL,
 										psBMHeap);
 	if(psBMHeap->pImportArena == IMG_NULL)
@@ -1246,7 +1095,7 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 
 	if(psBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG)
 	{
-
+		
 
 
 
@@ -1258,41 +1107,28 @@ BM_CreateHeap (IMG_HANDLE hBMContext,
 		}
 	}
 
-	/* insert heap into head of the heap list */
+	
 	List_BM_HEAP_Insert(&pBMContext->psBMHeap, psBMHeap);
 
 	return (IMG_HANDLE)psBMHeap;
 
-	/* handle error case */
+	
 ErrorExit:
 
-	/* Free up the MMU if we created one */
+	
 	if (psBMHeap->pMMUHeap != IMG_NULL)
 	{
 		psDeviceNode->pfnMMUDelete (psBMHeap->pMMUHeap);
-		psDeviceNode->pfnMMUFinalise (pBMContext->psMMUContext);
+		
 	}
 
-	/* Free the Heap memory */
+	
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_HEAP), psBMHeap, IMG_NULL);
-	/*not nulling pointer, out of scope*/
+	
 
 	return IMG_NULL;
 }
 
-/*!
-******************************************************************************
-
-	@Function	BM_DestroyHeap
-
-	@Description	Destroys a BM heap
-
-	@Return 
-		valid heap handle - success
-		IMG_NULL - failure
-
-
- *****************************************************************************/
 IMG_VOID
 BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 {
@@ -1303,7 +1139,7 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 
 	if(psBMHeap)
 	{
-		/* Free up the import arenas */
+		
 		if(psBMHeap->ui32Attribs
 		&	(PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG
 			|PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG))
@@ -1319,14 +1155,14 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 			return;
 		}
 
-		/* Free up the MMU Heap */
+		
 		psDeviceNode->pfnMMUDelete (psBMHeap->pMMUHeap);
 
-		/* remove from the heap list */
+		
 		List_BM_HEAP_Remove(psBMHeap);
-
+		
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_HEAP), psBMHeap, IMG_NULL);
-
+		
 	}
 	else
 	{
@@ -1335,17 +1171,6 @@ BM_DestroyHeap (IMG_HANDLE hDevMemHeap)
 }
 
 
-/*!
-******************************************************************************
-
-	@Function	BM_Reinitialise
-
-	@Description	Reinitialise the buffer manager after a power down event.
-
-	@Return 	IMG_TRUE - Success
-				IMG_FALSE - Failed
-
- *****************************************************************************/
 IMG_BOOL
 BM_Reinitialise (PVRSRV_DEVICE_NODE *psDeviceNode)
 {
@@ -1353,36 +1178,10 @@ BM_Reinitialise (PVRSRV_DEVICE_NODE *psDeviceNode)
 	PVR_DPF((PVR_DBG_MESSAGE, "BM_Reinitialise"));
 	PVR_UNREFERENCED_PARAMETER(psDeviceNode);
 
-        /* FIXME: Need to reenable all contexts
-	  List_BM_CONTEXT_ForEach(psDeviceNode->sDevMemoryInfo.pBMContext, MMU_Enable);
-        */
 
 	return IMG_TRUE;
 }
 
-/*!
-******************************************************************************
-
-	@Function   BM_Alloc
-
-	@Description	Allocate a buffer mapped into both cpu and device virtual
-				memory maps.
-
-	@Input      hDevMemHeap
-	@Input      psDevVAddr - device virtual address specified by caller (optional)
-	@Input      uSize - require size in bytes of the buffer.
-	@Input      pui32Flags - bit mask of buffer property flags.
-    @Input      uDevVAddrAlignment - required alignment in bytes, or 0.
-    @Input      pvPrivData - opaque private data passed through to allocator
-    @Input      ui32PrivDataLength - length of opaque private data
-
-	@Output     phBuf - receives buffer handle
-	@Output     pui32Flags - bit mask of heap property flags.
-
-	@Return 	IMG_TRUE - Success
-				IMG_FALSE - Failure
-
- *****************************************************************************/
 IMG_BOOL
 BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 			IMG_DEV_VIRTADDR	*psDevVAddr,
@@ -1420,9 +1219,7 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 		uDevVAddrAlignment = 1;
 	}
 
-	/*
-	 * Allocate something in which to record the allocation's details.
-	 */
+	
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 				   sizeof (BM_BUF),
 				   (IMG_PVOID *)&pBuf, IMG_NULL,
@@ -1433,9 +1230,7 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 	}
 	OSMemSet(pBuf, 0, sizeof (BM_BUF));
 
-	/*
-	 * Allocate the memory itself now.
-	 */
+	
 	if (AllocMemory(pBMContext,
 					psBMHeap,
 					psDevVAddr,
@@ -1445,26 +1240,21 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 					pBuf) != IMG_TRUE)
 	{
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof (BM_BUF), pBuf, IMG_NULL);
-		/* not nulling pointer, out of scope */
+		
 		PVR_DPF((PVR_DBG_ERROR, "BM_Alloc: AllocMemory FAILED"));
 		return IMG_FALSE;
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-		  "BM_Alloc (uSize=0x%x, uFlags=0x%x)=%08X",
-		  uSize, uFlags, pBuf));
+		  "BM_Alloc (uSize=0x%x, uFlags=0x%x)",
+		  uSize, uFlags));
 
-	/*
-	 * Assign the handle and return.
-	 */
+	
 	pBuf->ui32RefCount = 1;
 	*phBuf = (BM_HANDLE)pBuf;
 	*pui32Flags = uFlags | psBMHeap->ui32Attribs;
 
-	/*
-	 * If the user has specified heap CACHETYPE flags themselves,
-	 * override any CACHETYPE flags inherited from the heap.
-	 */
+	
 	if(uFlags & PVRSRV_HAP_CACHETYPE_MASK)
 	{
 		*pui32Flags &= ~PVRSRV_HAP_CACHETYPE_MASK;
@@ -1477,21 +1267,6 @@ BM_Alloc (  IMG_HANDLE			hDevMemHeap,
 
 
 #if defined(PVR_LMA)
-/*!
-******************************************************************************
-
-	@Function   ValidSysPAddrArrayForDev
-
-	@Description    Verify the array of system address is accessible
-                    by the given device.
-
-	@Input      psDeviceNode
-    @Input      psSysPAddr - system address array
-    @Input      ui32PageSize - size of address array
-    
-	@Return     IMG_BOOL
-
- *****************************************************************************/
 static IMG_BOOL
 ValidSysPAddrArrayForDev(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_SYS_PHYADDR *psSysPAddr, IMG_UINT32 ui32PageCount, IMG_SIZE_T ui32PageSize)
 {
@@ -1518,21 +1293,6 @@ ValidSysPAddrArrayForDev(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_SYS_PHYADDR *psSy
 	return IMG_TRUE;
 }
 
-/*!
-******************************************************************************
-
-	@Function  ValidSysPAddrRangeForDev
-
-	@Description   Verify a system address range is accessible
-		   by the given device.
-
-	@Input      psDeviceNode
-    @Input      sStartSysPAddr - starting system address
-    @Input      ui32Range - length of address range
-
-	@Return     IMG_BOOL
-
- *****************************************************************************/
 static IMG_BOOL
 ValidSysPAddrRangeForDev(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_SYS_PHYADDR sStartSysPAddr, IMG_SIZE_T ui32Range)
 {
@@ -1560,28 +1320,6 @@ ValidSysPAddrRangeForDev(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_SYS_PHYADDR sStar
 #endif
 
 
-/*!
-******************************************************************************
-
-	@Function   BM_Wrap
-
-	@Description	Create a buffer which wraps user provided system physical
-				memory.
-				The wrapped memory must be page aligned. BM_Wrap will
-				roundup the size to a multiple of cpu pages.
-
-	@Input      ui32Size - size of memory to wrap.
-	@Input      ui32Offset - Offset into page of memory to wrap.
-	@Input      bPhysContig - Is the wrap physically contiguous.
-	@Input      psSysAddr - list of system physical page addresses of memory to wrap.
-	@Input      pvCPUVAddr - optional CPU kernel virtual address (Page aligned) of memory to wrap.
-    @Input      uFlags - bit mask of buffer property flags.
-    @output     phBuf - receives the buffer handle.
-
-	@Return 	IMG_TRUE - Success.
-				IMG_FALSE - Failed
-
- *****************************************************************************/
 IMG_BOOL
 BM_Wrap (	IMG_HANDLE hDevMemHeap,
 			IMG_SIZE_T ui32Size,
@@ -1612,7 +1350,7 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
 		  "BM_Wrap (uSize=0x%x, uOffset=0x%x, bPhysContig=0x%x, pvCPUVAddr=0x%x, uFlags=0x%x)",
-			ui32Size, ui32Offset, bPhysContig, pvCPUVAddr, uFlags));
+			ui32Size, ui32Offset, bPhysContig, (IMG_UINTPTR_T)pvCPUVAddr, uFlags));
 
 	SysAcquireData(&psSysData);
 
@@ -1636,23 +1374,20 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 		}
 	}
 #endif
-	/*
-	 * Insert the System Physical Address of the first page into the hash so we can optimise multiple wraps of the
-	 * same memory.
-	 */
+	
 	sHashAddress = psSysAddr[0];
 
-	/* Add the in-page offset to ensure a unique hash */
+	
 	sHashAddress.uiAddr += ui32Offset;
 
-
-	pBuf = (BM_BUF *)HASH_Retrieve(psBMContext->pBufferHash, (IMG_UINTPTR_T) sHashAddress.uiAddr);
+	
+	pBuf = (BM_BUF *)HASH_Retrieve(psBMContext->pBufferHash, sHashAddress.uiAddr);
 
 	if(pBuf)
 	{
 		IMG_SIZE_T ui32MappingSize = HOST_PAGEALIGN (ui32Size + ui32Offset);
 
-		/* Check base address, size and contiguity type match */
+		
 		if(pBuf->pMapping->uSize == ui32MappingSize && (pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped ||
 														pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_virtaddr))
 		{
@@ -1667,11 +1402,14 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 
 			return IMG_TRUE;
 		}
+		else
+		{
+		  
+			HASH_Remove(psBMContext->pBufferHash, (IMG_UINTPTR_T)sHashAddress.uiAddr);
+		}	
 	}
 
-	/*
-	 * Allocate something in which to record the allocation's details.
-	 */
+	
 	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 						sizeof (BM_BUF),
 						(IMG_PVOID *)&pBuf, IMG_NULL,
@@ -1682,26 +1420,22 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 	}
 	OSMemSet(pBuf, 0, sizeof (BM_BUF));
 
-	/*
-	 * Actually perform the memory wrap.
-	 */
+	
 	if (WrapMemory (psBMHeap, ui32Size, ui32Offset, bPhysContig, psSysAddr, pvCPUVAddr, uFlags, pBuf) != IMG_TRUE)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "BM_Wrap: WrapMemory FAILED"));
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof (BM_BUF), pBuf, IMG_NULL);
-		/*not nulling pointer, out of scope*/
+		
 		return IMG_FALSE;
 	}
 
-	/* Only insert the buffer in the hash table if it is contiguous - allows for optimisation of multiple wraps
-	 * of the same contiguous buffer.
-	 */
+	
 	if(pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped || pBuf->pMapping->eCpuMemoryOrigin == hm_wrapped_virtaddr)
 	{
-		/* Have we calculated the right Hash key ? */
+		
 		PVR_ASSERT(SysSysPAddrToCpuPAddr(sHashAddress).uiAddr == pBuf->CpuPAddr.uiAddr);
 
-		if (!HASH_Insert (psBMContext->pBufferHash, (IMG_UINTPTR_T) sHashAddress.uiAddr, (IMG_UINTPTR_T)pBuf))
+		if (!HASH_Insert (psBMContext->pBufferHash, sHashAddress.uiAddr, (IMG_UINTPTR_T)pBuf))
 		{
 			FreeBuf (pBuf, uFlags, IMG_TRUE);
 			PVR_DPF((PVR_DBG_ERROR, "BM_Wrap: HASH_Insert FAILED"));
@@ -1710,45 +1444,32 @@ BM_Wrap (	IMG_HANDLE hDevMemHeap,
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			"BM_Wrap (uSize=0x%x, uFlags=0x%x)=%08X(devVAddr=%08X)",
-			ui32Size, uFlags, pBuf, pBuf->DevVAddr.uiAddr));
+			"BM_Wrap (uSize=0x%x, uFlags=0x%x, devVAddr=%08X)",
+			ui32Size, uFlags, pBuf->DevVAddr.uiAddr));
 
-	/*
-	 * Assign the handle and return.
-	 */
+	
 	pBuf->ui32RefCount = 1;
 	*phBuf = (BM_HANDLE)pBuf;
 	if(pui32Flags)
 	{
-		/* need to override the heap attributes SINGLE PROC to MULT_PROC. */
+		
 		*pui32Flags = (uFlags & ~PVRSRV_HAP_MAPTYPE_MASK) | PVRSRV_HAP_MULTI_PROCESS;
 	}
 
 	return IMG_TRUE;
 }
 
-/*!
-******************************************************************************
-
-	@Function   BM_Export
-
-	@Description	Export a buffer previously allocated via BM_Alloc.
-
-	@Input      hBuf - buffer handle.
-	@Input      ui32Flags - flags
-
-	@Return 	None.
-
- *****************************************************************************/
-
-IMG_VOID BM_Export (BM_HANDLE hBuf)
+IMG_VOID
+BM_Export (BM_HANDLE hBuf)
 {
 	BM_BUF *pBuf = (BM_BUF *)hBuf;
 
 	pBuf->ui32ExportCount++;
 }
 
-IMG_VOID BM_FreeExport (BM_HANDLE hBuf, IMG_UINT32 ui32Flags)
+IMG_VOID
+BM_FreeExport(BM_HANDLE hBuf,
+		IMG_UINT32 ui32Flags)
 {
 	BM_BUF *pBuf = (BM_BUF *)hBuf;
 
@@ -1756,17 +1477,6 @@ IMG_VOID BM_FreeExport (BM_HANDLE hBuf, IMG_UINT32 ui32Flags)
 	FreeBuf (pBuf, ui32Flags, IMG_FALSE);
 }
 
-/*!
-******************************************************************************
- @Function	 	BM_FreeExport
-
- @Description	Free a buffer previously exported via BM_Export.
-
- @Input         hBuf - buffer handle.
- @Input         ui32Flags - flags
-
- @Return   		None.
-**************************************************************************/
 IMG_VOID
 BM_Free (BM_HANDLE hBuf,
 		IMG_UINT32 ui32Flags)
@@ -1775,7 +1485,7 @@ BM_Free (BM_HANDLE hBuf,
 	SYS_DATA *psSysData;
 	IMG_SYS_PHYADDR sHashAddr;
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_Free (h=%08X)", hBuf));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_Free (h=0x%x)", (IMG_UINTPTR_T)hBuf));
 	PVR_ASSERT (pBuf!=IMG_NULL);
 
 	if (pBuf == IMG_NULL)
@@ -1814,24 +1524,12 @@ BM_HandleToCpuVaddr (BM_HANDLE hBuf)
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"BM_HandleToCpuVaddr(h=%08X)=%08X",
-				hBuf, pBuf->CpuVAddr));
+				"BM_HandleToCpuVaddr(h=0x%x)=0x%x",
+				(IMG_UINTPTR_T)hBuf, (IMG_UINTPTR_T)pBuf->CpuVAddr));
 	return pBuf->CpuVAddr;
 }
 
 
-/*!
-******************************************************************************
-
-	@Function   BM_HandleToDevVaddr
-
-	@Description	Retreive the device virtual address associated with a buffer.
-
-	@Input      hBuf - buffer handle.
-
-	@Return 	buffers device virtual address.
-
- *****************************************************************************/
 IMG_DEV_VIRTADDR
 BM_HandleToDevVaddr (BM_HANDLE hBuf)
 {
@@ -1845,23 +1543,11 @@ BM_HandleToDevVaddr (BM_HANDLE hBuf)
 		return DevVAddr;
 	}
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToDevVaddr(h=%08X)=%08X", hBuf, pBuf->DevVAddr));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToDevVaddr(h=0x%x)=%08X", (IMG_UINTPTR_T)hBuf, pBuf->DevVAddr.uiAddr));
 	return pBuf->DevVAddr;
 }
 
 
-/*!
-******************************************************************************
-
-	@Function   BM_HandleToSysPaddr
-
-	@Description	Retreive the system physical address associated with a buffer.
-
-	@Input      hBuf - buffer handle.
-
-	@Return 	buffers device virtual address.
-
- *****************************************************************************/
 IMG_SYS_PHYADDR
 BM_HandleToSysPaddr (BM_HANDLE hBuf)
 {
@@ -1876,22 +1562,10 @@ BM_HandleToSysPaddr (BM_HANDLE hBuf)
 		return PhysAddr;
 	}
 
-	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToSysPaddr(h=%08X)=%08X", hBuf, pBuf->CpuPAddr.uiAddr));
+	PVR_DPF ((PVR_DBG_MESSAGE, "BM_HandleToSysPaddr(h=0x%x)=%08X", (IMG_UINTPTR_T)hBuf, pBuf->CpuPAddr.uiAddr));
 	return SysCpuPAddrToSysPAddr (pBuf->CpuPAddr);
 }
 
-/*!
-******************************************************************************
-
-	@Function   BM_HandleToMemOSHandle
-
-	@Description	Retreive the underlying memory handle associated with a buffer.
-
-	@Input      hBuf - buffer handle.
-
-	@Return 	OS Specific memory handle.
-
- *****************************************************************************/
 IMG_HANDLE
 BM_HandleToOSMemHandle(BM_HANDLE hBuf)
 {
@@ -1906,37 +1580,10 @@ BM_HandleToOSMemHandle(BM_HANDLE hBuf)
 	}
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-				"BM_HandleToOSMemHandle(h=%08X)=%08X",
-				hBuf, pBuf->hOSMemHandle));
+				"BM_HandleToOSMemHandle(h=0x%x)=0x%x",
+				(IMG_UINTPTR_T)hBuf, (IMG_UINTPTR_T)pBuf->hOSMemHandle));
 	return pBuf->hOSMemHandle;
 }
-
-
-/*----------------------------------------------------------------------------
-<function>
-	FUNCTION:   BM_UnmapFromDev
-
-	PURPOSE:	Unmaps a buffer from GPU virtual address space, but otherwise
-				leaves buffer intact (ie. not changing any CPU virtual space
-				mappings, etc).  This in conjunction with BM_RemapToDev() can
-				be used to migrate buffers in and out of GPU virtual address
-				space to deal with fragmentation and/or limited size of GPU
-				MMU.
-
-	PARAMETERS: In:  hBuf - buffer handle.
-	RETURNS:	IMG_TRUE - Success
-				IMG_FALSE - Failure
-</function>
------------------------------------------------------------------------------*/
-IMG_BOOL
-BM_ContiguousStatistics (IMG_UINT32 uFlags,
-						 IMG_UINT32 *pTotalBytes,
-						 IMG_UINT32 *pAvailableBytes)
-{
-	if (pAvailableBytes || pTotalBytes || uFlags);
-	return IMG_FALSE;
-}
-
 
 static IMG_BOOL
 DevMemoryAlloc (BM_CONTEXT *pBMContext,
@@ -1948,27 +1595,26 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
 #ifdef PDUMP
-	IMG_UINT32 ui32PDumpSize = pMapping->uSize;
+	IMG_UINT32 ui32PDumpSize = (IMG_UINT32)pMapping->uSize;
 #endif
 
 	psDeviceNode = pBMContext->psDeviceNode;
 
 	if(uFlags & PVRSRV_MEM_INTERLEAVED)
 	{
-
+		
 		pMapping->uSize *= 2;
 	}
 
 #ifdef PDUMP
 	if(uFlags & PVRSRV_MEM_DUMMY)
 	{
-		/* only one page behind a dummy allocation */
+		
 		ui32PDumpSize = pMapping->pBMHeap->sDevArena.ui32DataPageSize;
 	}
 #endif
 
-
-	/* allocate device linear space */
+	
 	if (!psDeviceNode->pfnMMUAlloc (pMapping->pBMHeap->pMMUHeap,
 									pMapping->uSize,
 									pActualSize,
@@ -1984,9 +1630,21 @@ DevMemoryAlloc (BM_CONTEXT *pBMContext,
 	EnableHostAccess(pBMContext->psMMUContext);
 #endif
 
-
-
-	PDUMPMALLOCPAGES(psDeviceNode->sDevId.eDeviceType, pMapping->DevVAddr.uiAddr, pMapping->CpuVAddr, pMapping->hOSMemHandle, ui32PDumpSize, pMapping->pBMHeap->sDevArena.ui32DataPageSize, (IMG_HANDLE)pMapping);
+#if defined(PDUMP)
+	
+	PDUMPMALLOCPAGES(&psDeviceNode->sDevId,
+					 pMapping->DevVAddr.uiAddr,
+					 pMapping->CpuVAddr,
+					 pMapping->hOSMemHandle,
+					 ui32PDumpSize,
+					 pMapping->pBMHeap->sDevArena.ui32DataPageSize,
+#if defined(SUPPORT_PDUMP_MULTI_PROCESS)
+					 psDeviceNode->pfnMMUIsHeapShared(pMapping->pBMHeap->pMMUHeap),
+#else
+					 IMG_FALSE, 
+#endif 
+					 (IMG_HANDLE)pMapping);
+#endif
 
 	switch (pMapping->eCpuMemoryOrigin)
 	{
@@ -2047,34 +1705,377 @@ static IMG_VOID
 DevMemoryFree (BM_MAPPING *pMapping)
 {
 	PVRSRV_DEVICE_NODE *psDeviceNode;
+	IMG_DEV_PHYADDR     sDevPAddr;
 #ifdef PDUMP
 	IMG_UINT32 ui32PSize;
 #endif
 
-#ifdef PDUMP
+	psDeviceNode = pMapping->pBMHeap->pBMContext->psDeviceNode;
+	sDevPAddr = psDeviceNode->pfnMMUGetPhysPageAddr(pMapping->pBMHeap->pMMUHeap, pMapping->DevVAddr);
 
-	if(pMapping->ui32Flags & PVRSRV_MEM_DUMMY)
+	if (sDevPAddr.uiAddr != 0)
 	{
+#ifdef PDUMP
+		
+		if(pMapping->ui32Flags & PVRSRV_MEM_DUMMY)
+		{
+			
+			ui32PSize = pMapping->pBMHeap->sDevArena.ui32DataPageSize;
+		}
+		else
+		{
+			ui32PSize = (IMG_UINT32)pMapping->uSize;
+		}
+	
+		PDUMPFREEPAGES(pMapping->pBMHeap,
+	                    pMapping->DevVAddr,
+	                    ui32PSize,
+	                    pMapping->pBMHeap->sDevArena.ui32DataPageSize,
+	                    (IMG_HANDLE)pMapping,
+	                    (pMapping->ui32Flags & PVRSRV_MEM_INTERLEAVED) ? IMG_TRUE : IMG_FALSE);
+#endif
+	}
+	psDeviceNode->pfnMMUFree (pMapping->pBMHeap->pMMUHeap, pMapping->DevVAddr, IMG_CAST_TO_DEVVADDR_UINT(pMapping->uSize));
+}
 
-		ui32PSize = pMapping->pBMHeap->sDevArena.ui32DataPageSize;
+#ifndef XPROC_WORKAROUND_NUM_SHAREABLES
+#define XPROC_WORKAROUND_NUM_SHAREABLES 4096
+#endif
+
+#define XPROC_WORKAROUND_BAD_SHAREINDEX 0773407734
+
+static IMG_UINT32 gXProcWorkaroundShareIndex = XPROC_WORKAROUND_BAD_SHAREINDEX;
+
+ 
+static struct BM_XProcWorkaround {
+	IMG_UINT32 ui32RefCount;
+	IMG_UINT32 ui32AllocFlags;
+	IMG_UINT32 ui32Size;
+	IMG_UINT32 ui32PageSize;
+	RA_ARENA *psArena;
+	IMG_SYS_PHYADDR sSysPAddr;
+	IMG_VOID *pvCpuVAddr;
+	IMG_HANDLE hOSMemHandle;
+} *gXProcWorkaroundShareData;
+
+static IMG_UINT32 gXProcWorkaroundShareSize;
+static IMG_UINT32 gXProcWorkaroundShareCount;
+
+PVRSRV_ERROR BM_XProcWorkaroundShareInit(void)
+{
+	if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
+		       XPROC_WORKAROUND_NUM_SHAREABLES * sizeof(struct BM_XProcWorkaround),
+		       (IMG_PVOID *)&gXProcWorkaroundShareData, IMG_NULL,
+		       "XProc Workaround") != PVRSRV_OK)
+		return PVRSRV_ERROR_OUT_OF_MEMORY;
+
+	gXProcWorkaroundShareSize = XPROC_WORKAROUND_NUM_SHAREABLES;
+	gXProcWorkaroundShareCount = 0;
+	return PVRSRV_OK;
+}
+
+void BM_XProcWorkaroundShareDestroy(void)
+{
+	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, gXProcWorkaroundShareSize * sizeof(struct BM_XProcWorkaround),
+		  gXProcWorkaroundShareData, IMG_NULL);
+}
+
+void XProcWorkaroundShareCheck(void)
+{
+	if (gXProcWorkaroundShareCount == gXProcWorkaroundShareSize) {
+		struct BM_XProcWorkaround *temp, *p;
+		IMG_UINT32 new_size = gXProcWorkaroundShareSize + gXProcWorkaroundShareSize / 2;
+
+		if (OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
+			       new_size * sizeof(struct BM_XProcWorkaround),
+			       (IMG_PVOID *)&p, IMG_NULL,
+			       "XProc Workaround") != PVRSRV_OK)
+			return;
+		memset(p, 0, new_size * sizeof(struct BM_XProcWorkaround));
+
+		memcpy(p, gXProcWorkaroundShareData, gXProcWorkaroundShareSize * sizeof(struct BM_XProcWorkaround));
+
+		temp = gXProcWorkaroundShareData;
+		gXProcWorkaroundShareData = p;
+
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, gXProcWorkaroundShareSize * sizeof(struct BM_XProcWorkaround),
+				temp, IMG_NULL);
+
+		gXProcWorkaroundShareSize = new_size;
+	}
+}
+
+PVRSRV_ERROR BM_XProcWorkaroundSetShareIndex(IMG_UINT32 ui32Index)
+{
+	
+
+
+	if (gXProcWorkaroundShareIndex != XPROC_WORKAROUND_BAD_SHAREINDEX)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "No, it's already set!"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	gXProcWorkaroundShareIndex = ui32Index;
+
+	return PVRSRV_OK;
+}
+
+PVRSRV_ERROR BM_XProcWorkaroundUnsetShareIndex(IMG_UINT32 ui32Index)
+{
+	
+
+
+	if (gXProcWorkaroundShareIndex == XPROC_WORKAROUND_BAD_SHAREINDEX)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "huh?   how can it be bad??"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+	if (gXProcWorkaroundShareIndex != ui32Index)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "gXProcWorkaroundShareIndex == 0x%08x != 0x%08x == ui32Index", gXProcWorkaroundShareIndex, ui32Index));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	gXProcWorkaroundShareIndex = XPROC_WORKAROUND_BAD_SHAREINDEX;
+
+	return PVRSRV_OK;
+}
+
+PVRSRV_ERROR BM_XProcWorkaroundFindNewBufferAndSetShareIndex(IMG_UINT32 *pui32Index)
+{
+	
+
+
+	if (gXProcWorkaroundShareIndex != XPROC_WORKAROUND_BAD_SHAREINDEX)
+	{
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	for (*pui32Index = 0; *pui32Index < gXProcWorkaroundShareSize; (*pui32Index)++)
+	{
+		if (gXProcWorkaroundShareData[*pui32Index].ui32RefCount == 0)
+		{
+			gXProcWorkaroundShareIndex = *pui32Index;
+			return PVRSRV_OK;
+		}
+	}
+
+	PVR_DPF((PVR_DBG_ERROR, "ran out of shared buffers"));
+	return PVRSRV_ERROR_OUT_OF_MEMORY;
+}
+
+IMG_UINT32 BM_XProcWorkaroundGetRefCount(IMG_UINT32 ui32Index)
+{
+	return gXProcWorkaroundShareData[ui32Index].ui32RefCount;
+}
+
+static PVRSRV_ERROR
+XProcWorkaroundAllocShareable(RA_ARENA *psArena,
+                              IMG_UINT32 ui32AllocFlags,
+                              IMG_UINT32 ui32Size,
+                              IMG_UINT32 ui32PageSize,
+                              IMG_VOID **ppvCpuVAddr,
+                              IMG_HANDLE *phOSMemHandle)
+{
+	if ((ui32AllocFlags & PVRSRV_MEM_XPROC) == 0)
+	{
+		PVR_DPF((PVR_DBG_VERBOSE, "XProcWorkaroundAllocShareable: bad flags"));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+
+	if (gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32RefCount > 0)
+	{
+		PVR_DPF((PVR_DBG_VERBOSE,
+				 "XProcWorkaroundAllocShareable: re-using previously allocated pages"));
+
+		ui32AllocFlags &= ~PVRSRV_HAP_MAPTYPE_MASK;
+		ui32AllocFlags |= PVRSRV_HAP_SINGLE_PROCESS;
+
+		if (ui32AllocFlags != gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32AllocFlags)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					 "Can't!  Flags don't match! (I had 0x%08x, you gave 0x%08x)",
+					 gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32AllocFlags,
+					 ui32AllocFlags));
+			return PVRSRV_ERROR_INVALID_PARAMS;
+		}
+
+		if (ui32Size != gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32Size)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					 "Can't!  Size doesn't match!"));
+			return PVRSRV_ERROR_INVALID_PARAMS;
+		}
+
+		if (ui32PageSize != gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32PageSize)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					 "Can't!  Page Size doesn't match!"));
+			return PVRSRV_ERROR_INVALID_PARAMS;
+		}
+
+		*ppvCpuVAddr = gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].pvCpuVAddr;
+		*phOSMemHandle = gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].hOSMemHandle;
+
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32RefCount ++;
+
+		return PVRSRV_OK;
 	}
 	else
 	{
-		ui32PSize = pMapping->uSize;
+		if (psArena != IMG_NULL)
+		{
+			IMG_CPU_PHYADDR sCpuPAddr;
+			IMG_SYS_PHYADDR sSysPAddr;
+
+			PVR_DPF((PVR_DBG_VERBOSE,
+					 "XProcWorkaroundAllocShareable: making a NEW allocation from local mem"));
+
+			if (!RA_Alloc (psArena,
+						   ui32Size,
+						   IMG_NULL,
+						   IMG_NULL,
+						   0,
+						   ui32PageSize,
+						   0,
+						   (IMG_UINTPTR_T *)&sSysPAddr.uiAddr))
+			{
+				PVR_DPF((PVR_DBG_ERROR, "XProcWorkaroundAllocShareable: RA_Alloc(0x%x) FAILED", ui32Size));
+				return PVRSRV_ERROR_OUT_OF_MEMORY;
+			}
+
+			sCpuPAddr = SysSysPAddrToCpuPAddr(sSysPAddr);
+			if(OSReservePhys(sCpuPAddr,
+							 ui32Size,
+							 ui32AllocFlags,
+							 (IMG_VOID **)&gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].pvCpuVAddr,
+                             &gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].hOSMemHandle) != PVRSRV_OK)
+			{
+				PVR_DPF((PVR_DBG_ERROR,	"XProcWorkaroundAllocShareable: OSReservePhys failed"));
+				return PVRSRV_ERROR_OUT_OF_MEMORY;
+			}
+			gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].sSysPAddr = sSysPAddr;
+		}
+		else
+		{
+			PVR_DPF((PVR_DBG_VERBOSE, "XProcWorkaroundAllocShareable: making a NEW allocation from OS"));
+
+			ui32AllocFlags &= ~PVRSRV_HAP_MAPTYPE_MASK;
+			ui32AllocFlags |= PVRSRV_HAP_SINGLE_PROCESS;
+
+            
+			if (OSAllocPages(ui32AllocFlags,
+					 ui32Size,
+					 ui32PageSize,
+					 (IMG_VOID **)&gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].pvCpuVAddr,
+					 &gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].hOSMemHandle) != PVRSRV_OK)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "XProcWorkaroundAllocShareable: OSAllocPages(0x%x) failed",
+							ui32PageSize));
+				return PVRSRV_ERROR_OUT_OF_MEMORY;
+			}
+		}
+
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].psArena = psArena;
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32AllocFlags = ui32AllocFlags;
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32Size = ui32Size;
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32PageSize = ui32PageSize;
+
+		*ppvCpuVAddr = gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].pvCpuVAddr;
+		*phOSMemHandle = gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].hOSMemHandle;
+
+		gXProcWorkaroundShareData[gXProcWorkaroundShareIndex].ui32RefCount ++;
+
+		gXProcWorkaroundShareCount++;
+
+		XProcWorkaroundShareCheck();
+
+		return PVRSRV_OK;
+	}
+}
+
+static PVRSRV_ERROR XProcWorkaroundHandleToSI(IMG_HANDLE hOSMemHandle, IMG_UINT32 *pui32SI)
+{
+	
+	IMG_UINT32 ui32SI;
+	IMG_BOOL bFound;
+	IMG_BOOL bErrorDups;
+
+	bFound = IMG_FALSE;
+	bErrorDups = IMG_FALSE;
+
+	for (ui32SI = 0; ui32SI < gXProcWorkaroundShareSize; ui32SI++)
+	{
+		if (gXProcWorkaroundShareData[ui32SI].ui32RefCount>0 && gXProcWorkaroundShareData[ui32SI].hOSMemHandle == hOSMemHandle)
+		{
+			if (bFound)
+			{
+				bErrorDups = IMG_TRUE;
+			}
+			else
+			{
+				*pui32SI = ui32SI;
+				bFound = IMG_TRUE;
+			}
+		}
 	}
 
-	PDUMPFREEPAGES(pMapping->pBMHeap,
-                    pMapping->DevVAddr,
-                    ui32PSize,
-                    pMapping->pBMHeap->sDevArena.ui32DataPageSize,
-                    (IMG_HANDLE)pMapping,
-                    (pMapping->ui32Flags & PVRSRV_MEM_INTERLEAVED) ? IMG_TRUE : IMG_FALSE);
-#endif
+	if (bErrorDups || !bFound)
+	{
+		return PVRSRV_ERROR_BM_BAD_SHAREMEM_HANDLE;
+	}
 
-	psDeviceNode = pMapping->pBMHeap->pBMContext->psDeviceNode;
-
-	psDeviceNode->pfnMMUFree (pMapping->pBMHeap->pMMUHeap, pMapping->DevVAddr, IMG_CAST_TO_DEVVADDR_UINT(pMapping->uSize));
+	return PVRSRV_OK;
 }
+
+static IMG_VOID XProcWorkaroundFreeShareable(IMG_HANDLE hOSMemHandle)
+{
+	IMG_UINT32 ui32SI = (IMG_UINT32)((IMG_UINTPTR_T)hOSMemHandle & 0xffffU);
+	PVRSRV_ERROR eError;
+
+	eError = XProcWorkaroundHandleToSI(hOSMemHandle, &ui32SI);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "bad handle"));
+		return;
+	}
+
+	gXProcWorkaroundShareData[ui32SI].ui32RefCount --;
+
+	PVR_DPF((PVR_DBG_VERBOSE, "Reduced refcount of SI[%d] from %d to %d",
+			 ui32SI, gXProcWorkaroundShareData[ui32SI].ui32RefCount+1, gXProcWorkaroundShareData[ui32SI].ui32RefCount));
+
+	if (gXProcWorkaroundShareData[ui32SI].ui32RefCount == 0)
+	{
+		if (gXProcWorkaroundShareData[ui32SI].psArena != IMG_NULL)
+		{
+			IMG_SYS_PHYADDR sSysPAddr;
+
+			if (gXProcWorkaroundShareData[ui32SI].pvCpuVAddr != IMG_NULL)
+			{
+				OSUnReservePhys(gXProcWorkaroundShareData[ui32SI].pvCpuVAddr,
+								gXProcWorkaroundShareData[ui32SI].ui32Size,
+								gXProcWorkaroundShareData[ui32SI].ui32AllocFlags,
+								gXProcWorkaroundShareData[ui32SI].hOSMemHandle);
+			}
+			sSysPAddr = gXProcWorkaroundShareData[ui32SI].sSysPAddr;
+			RA_Free (gXProcWorkaroundShareData[ui32SI].psArena,
+					 sSysPAddr.uiAddr,
+					 IMG_FALSE);
+		}
+		else
+		{
+			PVR_DPF((PVR_DBG_VERBOSE, "freeing OS memory"));
+			OSFreePages(gXProcWorkaroundShareData[ui32SI].ui32AllocFlags,
+						gXProcWorkaroundShareData[ui32SI].ui32PageSize,
+						gXProcWorkaroundShareData[ui32SI].pvCpuVAddr,
+						gXProcWorkaroundShareData[ui32SI].hOSMemHandle);
+		}
+		gXProcWorkaroundShareCount--;
+	}
+}
+
 
 static IMG_BOOL
 BM_ImportMemory (IMG_VOID *pH,
@@ -2090,11 +2091,11 @@ BM_ImportMemory (IMG_VOID *pH,
 	IMG_BOOL bResult;
 	IMG_SIZE_T uSize;
 	IMG_SIZE_T uPSize;
-	IMG_UINT32 uDevVAddrAlignment = 0;
+	IMG_SIZE_T uDevVAddrAlignment = 0; 
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "BM_ImportMemory (pBMContext=%08X, uRequestSize=0x%x, uFlags=0x%x, uAlign=0x%x)",
-			  pBMContext, uRequestSize, uFlags, uDevVAddrAlignment));
+			  "BM_ImportMemory (pBMContext=0x%x, uRequestSize=0x%x, uFlags=0x%x, uAlign=0x%x)",
+			  (IMG_UINTPTR_T)pBMContext, uRequestSize, uFlags, uDevVAddrAlignment));
 
 	PVR_ASSERT (ppsMapping != IMG_NULL);
 	PVR_ASSERT (pBMContext != IMG_NULL);
@@ -2125,17 +2126,13 @@ BM_ImportMemory (IMG_VOID *pH,
 	pMapping->pBMHeap = pBMHeap;
 	pMapping->ui32Flags = uFlags;
 
-	/*
-	 * If anyone want's to know, pass back the actual size of our allocation.
-	 * There could be up to an extra page's worth of memory which will be marked
-	 * as free in the RA.
-	 */
+	
 	if (pActualSize)
 	{
 		*pActualSize = uSize;
 	}
 
-	/* if it's a dummy allocation only use one physical page */
+	
 	if(pMapping->ui32Flags & PVRSRV_MEM_DUMMY)
 	{
 		uPSize = pBMHeap->sDevArena.ui32DataPageSize;
@@ -2145,20 +2142,117 @@ BM_ImportMemory (IMG_VOID *pH,
 		uPSize = pMapping->uSize;
 	}
 
-
-
-	if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
+	if (uFlags & PVRSRV_MEM_XPROC)
 	{
-		IMG_UINT32 ui32Attribs = pBMHeap->ui32Attribs;
+		IMG_UINT32 ui32Attribs = pBMHeap->ui32Attribs | PVRSRV_MEM_XPROC;
+        IMG_BOOL bBadBackingStoreType;
+
+        bBadBackingStoreType = IMG_TRUE; 
+
+		if ((ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG) != 0)
+        {
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+		uDevVAddrAlignment = MAX(pBMHeap->sDevArena.ui32DataPageSize, HOST_PAGESIZE());
 
 
+		if (uPSize % uDevVAddrAlignment != 0)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "Cannot use use this memory sharing workaround with allocations that might be suballocated"));
+			goto fail_mapping_alloc;
+		}
+		uDevVAddrAlignment = 0; 
+
+		
 		if (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK)
 		{
 			ui32Attribs &= ~PVRSRV_HAP_CACHETYPE_MASK;
 			ui32Attribs |= (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK);
 		}
 
+		
+		if (XProcWorkaroundAllocShareable(IMG_NULL,
+                                          ui32Attribs,
+							   (IMG_UINT32)uPSize,
+                                          pBMHeap->sDevArena.ui32DataPageSize,
+                                          (IMG_VOID **)&pMapping->CpuVAddr,
+                                          &pMapping->hOSMemHandle) != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+					"BM_ImportMemory: XProcWorkaroundAllocShareable(0x%x) failed",
+					uPSize));
+			goto fail_mapping_alloc;
+		}
 
+		
+		
+
+		pMapping->eCpuMemoryOrigin = hm_env;
+        bBadBackingStoreType = IMG_FALSE;
+        }
+
+		if ((ui32Attribs & PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG) != 0)
+        {
+			uDevVAddrAlignment = pBMHeap->sDevArena.ui32DataPageSize;
+
+            if (uPSize % uDevVAddrAlignment != 0)
+            {
+                PVR_DPF((PVR_DBG_ERROR, "Cannot use use this memory sharing workaround with allocations that might be suballocated"));
+                goto fail_mapping_alloc;
+            }
+            uDevVAddrAlignment = 0; 
+
+            
+            if (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK)
+            {
+                ui32Attribs &= ~PVRSRV_HAP_CACHETYPE_MASK;
+                ui32Attribs |= (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK);
+            }
+
+            
+            if (XProcWorkaroundAllocShareable(pBMHeap->pLocalDevMemArena,
+                                              ui32Attribs,
+                                              (IMG_UINT32)uPSize,
+                                              pBMHeap->sDevArena.ui32DataPageSize,
+                                              (IMG_VOID **)&pMapping->CpuVAddr,
+                                              &pMapping->hOSMemHandle) != PVRSRV_OK)
+            {
+                PVR_DPF((PVR_DBG_ERROR,
+                         "BM_ImportMemory: XProcWorkaroundAllocShareable(0x%x) failed",
+                         uPSize));
+                goto fail_mapping_alloc;
+            }
+
+            
+            
+
+            pMapping->eCpuMemoryOrigin = hm_env;
+            bBadBackingStoreType = IMG_FALSE;
+        }
+
+        if (bBadBackingStoreType)
+		{
+			PVR_DPF((PVR_DBG_ERROR, "Cannot use this memory sharing workaround with this type of backing store"));
+			goto fail_mapping_alloc;
+		}
+	}
+	else
+
+	
+
+	if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
+	{
+		IMG_UINT32 ui32Attribs = pBMHeap->ui32Attribs;
+
+		
+		if (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK)
+		{
+			ui32Attribs &= ~PVRSRV_HAP_CACHETYPE_MASK;
+			ui32Attribs |= (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK);
+		}
+
+		
 		if (OSAllocPages(ui32Attribs,
 						 uPSize,
 						 pBMHeap->sDevArena.ui32DataPageSize,
@@ -2171,7 +2265,7 @@ BM_ImportMemory (IMG_VOID *pH,
 			goto fail_mapping_alloc;
 		}
 
-		/* specify how page addresses are derived */
+		
 		pMapping->eCpuMemoryOrigin = hm_env;
 	}
 	else if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_LOCALMEM_CONTIG)
@@ -2179,15 +2273,15 @@ BM_ImportMemory (IMG_VOID *pH,
 		IMG_SYS_PHYADDR sSysPAddr;
 		IMG_UINT32 ui32Attribs = pBMHeap->ui32Attribs;
 
+		
+		PVR_ASSERT(pBMHeap->pLocalDevMemArena != IMG_NULL);
 
+		
 		if (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK)
 		{
 			ui32Attribs &= ~PVRSRV_HAP_CACHETYPE_MASK;
 			ui32Attribs |= (pMapping->ui32Flags & PVRSRV_HAP_CACHETYPE_MASK);
 		}
-
-
-		PVR_ASSERT(pBMHeap->pLocalDevMemArena != IMG_NULL);
 
 		if (!RA_Alloc (pBMHeap->pLocalDevMemArena,
 					   uPSize,
@@ -2202,7 +2296,7 @@ BM_ImportMemory (IMG_VOID *pH,
 			goto fail_mapping_alloc;
 		}
 
-		/* derive the CPU virtual address */
+		
 		pMapping->CpuPAddr = SysSysPAddrToCpuPAddr(sSysPAddr);
 		if(OSReservePhys(pMapping->CpuPAddr,
 						 uPSize,
@@ -2214,7 +2308,7 @@ BM_ImportMemory (IMG_VOID *pH,
 			goto fail_dev_mem_alloc;
 		}
 
-		/* specify how page addresses are derived */
+		
 		pMapping->eCpuMemoryOrigin = hm_contiguous;
 	}
 	else
@@ -2223,12 +2317,12 @@ BM_ImportMemory (IMG_VOID *pH,
 		goto fail_mapping_alloc;
 	}
 
-
+	
 	bResult = DevMemoryAlloc (pBMContext,
 								pMapping,
 								IMG_NULL,
 								uFlags,
-								uDevVAddrAlignment,
+								(IMG_UINT32)uDevVAddrAlignment,
 								&pMapping->DevVAddr);
 	if (!bResult)
 	{
@@ -2238,8 +2332,8 @@ BM_ImportMemory (IMG_VOID *pH,
 		goto fail_dev_mem_alloc;
 	}
 
-
-
+	
+	
 	PVR_ASSERT (uDevVAddrAlignment>1?(pMapping->DevVAddr.uiAddr%uDevVAddrAlignment)==0:1);
 
 	*pBase = pMapping->DevVAddr.uiAddr;
@@ -2251,7 +2345,7 @@ BM_ImportMemory (IMG_VOID *pH,
 fail_dev_mem_alloc:
 	if (pMapping && (pMapping->CpuVAddr || pMapping->hOSMemHandle))
 	{
-
+		
 		if(pMapping->ui32Flags & PVRSRV_MEM_INTERLEAVED)
 		{
 			pMapping->uSize /= 2;
@@ -2266,7 +2360,12 @@ fail_dev_mem_alloc:
 			uPSize = pMapping->uSize;
 		}
 
-		if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
+		if (uFlags & PVRSRV_MEM_XPROC)
+		{
+			XProcWorkaroundFreeShareable(pMapping->hOSMemHandle);
+		}
+		else
+        if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
 		{
 			OSFreePages(pBMHeap->ui32Attribs,
 						  uPSize,
@@ -2290,28 +2389,12 @@ fail_dev_mem_alloc:
 	}
 fail_mapping_alloc:
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), pMapping, IMG_NULL);
-
+	
 fail_exit:
 	return IMG_FALSE;
 }
 
 
-/*!
-******************************************************************************
-
-	@Function   BM_FreeMemory
-
-	@Description	Free a block of pages previously allocated via
-				BM_ImportMemory.
-
-	@Input      h - buffer manager handle, not the void type as dictated by
-						 the generic nature of the resource allocator interface.
-	@Input      _base - base address of blocks to free.
-	@Input      psMapping - arbitrary user reference associated with the
-					 underlying storage provided by BM_ImportMemory
-	@Return 	None
-
- *****************************************************************************/
 static IMG_VOID
 BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 {
@@ -2321,7 +2404,8 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	PVR_UNREFERENCED_PARAMETER (_base);
 
 	PVR_DPF ((PVR_DBG_MESSAGE,
-			  "BM_FreeMemory (h=%08X, base=0x%x, psMapping=0x%x)", h, _base, psMapping));
+			  "BM_FreeMemory (h=0x%x, base=0x%x, psMapping=0x%x)",
+			  (IMG_UINTPTR_T)h, _base, (IMG_UINTPTR_T)psMapping));
 
 	PVR_ASSERT (psMapping != IMG_NULL);
 
@@ -2333,7 +2417,7 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 
 	DevMemoryFree (psMapping);
 
-
+	
 	if((psMapping->ui32Flags & PVRSRV_MEM_INTERLEAVED) != 0)
 	{
 		psMapping->uSize /= 2;
@@ -2348,7 +2432,12 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 		uPSize = psMapping->uSize;
 	}
 
-	if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
+	if (psMapping->ui32Flags & PVRSRV_MEM_XPROC)
+	{
+		XProcWorkaroundFreeShareable(psMapping->hOSMemHandle);
+	}
+	else
+    if(pBMHeap->ui32Attribs & PVRSRV_BACKINGSTORE_SYSMEM_NONCONTIG)
 	{
 		OSFreePages(pBMHeap->ui32Attribs,
 						uPSize,
@@ -2371,29 +2460,12 @@ BM_FreeMemory (IMG_VOID *h, IMG_UINTPTR_T _base, BM_MAPPING *psMapping)
 	}
 
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(BM_MAPPING), psMapping, IMG_NULL);
-
+	
 
 	PVR_DPF((PVR_DBG_MESSAGE,
-			"..BM_FreeMemory (h=%08X, base=0x%x, psMapping=0x%x)",
-			h, _base, psMapping));
+			"..BM_FreeMemory (h=0x%x, base=0x%x)",
+			(IMG_UINTPTR_T)h, _base));
 }
-
-/*!
-******************************************************************************
-
- @Function	BM_GetPhysPageAddr
-
- @Description
-
- @Input		psMemInfo
-
- @Input		sDevVPageAddr
-
- @Output	psDevPAddr
-
- @Return	IMG_VOID
-
-******************************************************************************/
 
 IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 								IMG_DEV_VIRTADDR sDevVPageAddr,
@@ -2405,29 +2477,14 @@ IMG_VOID BM_GetPhysPageAddr(PVRSRV_KERNEL_MEM_INFO *psMemInfo,
 
 	PVR_ASSERT (psMemInfo && psDevPAddr)
 
-
+	
 	PVR_ASSERT((sDevVPageAddr.uiAddr & 0xFFF) == 0);
 
-	/* PRQA S 0505 4 */ /* PVR_ASSERT should catch NULL ptrs */
+	 
 	psDeviceNode = ((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->pBMHeap->pBMContext->psDeviceNode;
 
 	*psDevPAddr = psDeviceNode->pfnMMUGetPhysPageAddr(((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->pBMHeap->pMMUHeap,
 												sDevVPageAddr);
-}
-
-
-PVRSRV_ERROR BM_GetHeapInfo(IMG_HANDLE hDevMemHeap, PVRSRV_HEAP_INFO *psHeapInfo)
-{
-	BM_HEAP *psBMHeap = (BM_HEAP *)hDevMemHeap;
-
-	PVR_DPF((PVR_DBG_VERBOSE, "BM_GetHeapInfo"));
-
-	psHeapInfo->hDevMemHeap = hDevMemHeap;
-	psHeapInfo->sDevVAddrBase = psBMHeap->sDevArena.BaseDevVAddr;
-	psHeapInfo->ui32HeapByteSize = psBMHeap->sDevArena.ui32Size;
-	psHeapInfo->ui32Attribs = psBMHeap->ui32Attribs;
-
-	return PVRSRV_OK;
 }
 
 
@@ -2440,16 +2497,6 @@ MMU_CONTEXT* BM_GetMMUContext(IMG_HANDLE hDevMemHeap)
 	return pBMHeap->pBMContext->psMMUContext;
 }
 
-/*!
-******************************************************************************
- @Function	BM_GetMMUContextFromMemContext
-
- @Description	utility function to return the MMU context
-
- @Input     hDevMemContext - the Dev mem context handle
-
- @Return	MMU context, else NULL
-**************************************************************************/
 MMU_CONTEXT* BM_GetMMUContextFromMemContext(IMG_HANDLE hDevMemContext)
 {
 	BM_CONTEXT *pBMContext = (BM_CONTEXT*)hDevMemContext;
@@ -2459,16 +2506,6 @@ MMU_CONTEXT* BM_GetMMUContextFromMemContext(IMG_HANDLE hDevMemContext)
 	return pBMContext->psMMUContext;
 }
 
-/*!
-******************************************************************************
- @Function	BM_GetMMUHeap
-
- @Description	utility function to return the MMU heap handle
-
- @Input     hDevMemHeap - the Dev mem heap handle
-
- @Return	MMU heap handle, else NULL
-**************************************************************************/
 IMG_HANDLE BM_GetMMUHeap(IMG_HANDLE hDevMemHeap)
 {
 	PVR_DPF((PVR_DBG_VERBOSE, "BM_GetMMUHeap"));
@@ -2477,16 +2514,6 @@ IMG_HANDLE BM_GetMMUHeap(IMG_HANDLE hDevMemHeap)
 }
 
 
-/*!
-******************************************************************************
- @Function	BM_GetDeviceNode
-
- @Description	utility function to return the devicenode from the BM Context
-
- @Input     hDevMemContext - the Dev Mem Context
-
- @Return	MMU heap handle, else NULL
-**************************************************************************/
 PVRSRV_DEVICE_NODE* BM_GetDeviceNode(IMG_HANDLE hDevMemContext)
 {
 	PVR_DPF((PVR_DBG_VERBOSE, "BM_GetDeviceNode"));
@@ -2495,16 +2522,6 @@ PVRSRV_DEVICE_NODE* BM_GetDeviceNode(IMG_HANDLE hDevMemContext)
 }
 
 
-/*!
-******************************************************************************
- @Function	BM_GetMappingHandle
-
- @Description	utility function to return the mapping handle from a meminfo
-
- @Input     psMemInfo - kernel meminfo
-
- @Return	mapping handle, else NULL
-**************************************************************************/
 IMG_HANDLE BM_GetMappingHandle(PVRSRV_KERNEL_MEM_INFO *psMemInfo)
 {
 	PVR_DPF((PVR_DBG_VERBOSE, "BM_GetMappingHandle"));
@@ -2512,6 +2529,3 @@ IMG_HANDLE BM_GetMappingHandle(PVRSRV_KERNEL_MEM_INFO *psMemInfo)
 	return ((BM_BUF*)psMemInfo->sMemBlk.hBuffer)->pMapping->hOSMemHandle;
 }
 
-/******************************************************************************
- End of file (buffer_manager.c)
-******************************************************************************/
