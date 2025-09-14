@@ -45,6 +45,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "img_types.h"
 
+#ifdef MTK_DEBUG
+#include "mtk_debug.h"
+#endif
 
 #if defined (__cplusplus)
 extern "C" {
@@ -221,7 +224,6 @@ IMG_IMPORT IMG_VOID IMG_CALLCONV PVRSRVTrace(const IMG_CHAR* pszFormat, ... )
 	#define PVR_TRACE(X)
 
 #endif /* defined(PVRSRV_NEED_PVR_TRACE) */
-
 
 #if defined (__cplusplus)
 }
