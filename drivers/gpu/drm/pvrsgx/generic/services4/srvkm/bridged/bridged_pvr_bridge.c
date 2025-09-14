@@ -84,6 +84,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if defined (__linux__) || defined(__QNXNTO__)
 #include "mmap.h"
 #endif
+#if defined(SUPPORT_ION)
+#include "ion.h"
+#endif
 
 
 #include "srvkm.h"
@@ -711,7 +714,17 @@ PVRSRVAllocDeviceMemBW(IMG_UINT32 ui32BridgeID,
 
 	psAllocDeviceMemOUT->sClientMemInfo.pvLinAddrKM =
 			psMemInfo->pvLinAddrKM;
-
+#if defined (CONFIG_ION_MTK)    
+   if (psAllocDeviceMemIN->ui32Attribs & PVRSRV_MEM_ION )
+   {
+        psMemInfo->share_ionFd = PVRSRVGetIONFDKM(psMemInfo);
+   }
+   else
+   {
+        psMemInfo->share_ionFd = -1;
+   }
+    psAllocDeviceMemOUT->sClientMemInfo.share_ionFd = psMemInfo->share_ionFd;
+#endif
 #if defined (__linux__)
 	psAllocDeviceMemOUT->sClientMemInfo.pvLinAddr = 0;
 #else
@@ -5234,7 +5247,7 @@ IMG_INT BridgedDispatchKM(PVRSRV_PER_PROCESS_DATA * psPerProc,
 
 	if(ui32BridgeID >= (BRIDGE_DISPATCH_TABLE_ENTRY_COUNT))
 	{
-		PVR_DPF((PVR_DBG_ERROR, "%s: ui32BridgeID = %d is out if range!",
+		PVR_DPF((PVR_DBG_ERROR, "%s: ui32BridgeID = %d is out of range!",
 				 __FUNCTION__, ui32BridgeID));
 		goto return_fault;
 	}

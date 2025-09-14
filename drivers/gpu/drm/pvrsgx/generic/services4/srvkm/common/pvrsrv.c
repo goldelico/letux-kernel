@@ -1475,7 +1475,7 @@ IMG_BOOL IMG_CALLCONV PVRSRVDeviceLISR(PVRSRV_DEVICE_NODE *psDeviceNode)
 			bStatus = (*psDeviceNode->pfnDeviceISR)(psDeviceNode->pvISRData);
 		}
 
-		SysClearInterrupts(psSysData, psDeviceNode->ui32SOCInterruptBit);
+			SysClearInterrupts(psSysData, psDeviceNode->ui32SOCInterruptBit);
 	}
 
 out:

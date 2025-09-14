@@ -1,42 +1,62 @@
-/**********************************************************************
- *
- * Copyright (C) Imagination Technologies Ltd. All rights reserved.
- * 
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope it will be useful but, except 
- * as otherwise stated in writing, without any warranty; without even the 
- * implied warranty of merchantability or fitness for a particular purpose. 
- * See the GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- * 
- * The full GNU General Public License is included in this distribution in
- * the file called "COPYING".
- *
- * Contact Information:
- * Imagination Technologies Ltd. <gpl-support@imgtec.com>
- * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
- *
-*****************************************************************************/
+/*************************************************************************/ /*!
+@Title          Timed Trace functions
+@Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
+@License        Dual MIT/GPLv2
+
+The contents of this file are subject to the MIT license as set out below.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+Alternatively, the contents of this file may be used under the terms of
+the GNU General Public License Version 2 ("GPL") in which case the provisions
+of GPL are applicable instead of those above.
+
+If you wish to allow use of your version of this file only under the terms of
+GPL, and not to allow others to use your version of this file under the terms
+of the MIT license, indicate your decision by deleting the provisions above
+and replace them with the notice and other provisions required by GPL as set
+out in the file called "GPL-COPYING" included in this distribution. If you do
+not delete the provisions above, a recipient may use your version of this file
+under the terms of either the MIT license or GPL.
+
+This License is also included in this distribution in the file called
+"MIT-COPYING".
+
+EXCEPT AS OTHERWISE STATED IN A NEGOTIATED AGREEMENT: (A) THE SOFTWARE IS
+PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT; AND (B) IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/ /**************************************************************************/
 #if defined (TTRACE)
 
 #include "services_headers.h"
 #include "ttrace.h"
 
+#if defined(PVRSRV_NEED_PVR_DPF)
 #define CHECKSIZE(n,m) \
 	if ((n & m) != n) \
-		PVR_DPF((PVR_DBG_ERROR,"Size check failed for " #m)) \
+		PVR_DPF((PVR_DBG_ERROR,"Size check failed for " #m))
+#else
+#define CHECKSIZE(n,m)
+#endif
 
 #define TIME_TRACE_HASH_TABLE_SIZE	32
 
 HASH_TABLE *g_psBufferTable;
 IMG_UINT32 g_ui32HostUID;
 IMG_HANDLE g_psTimer;
+static PVRSRV_LINUX_MUTEX g_sTTraceMutex;
 
 /* Trace buffer struct */
 typedef struct
@@ -46,6 +66,8 @@ typedef struct
 	IMG_UINT32	ui32ByteCount;	/* Number of bytes in buffer */
 	IMG_UINT8	ui8Data[0];
 } sTimeTraceBuffer;
+
+static PVRSRV_ERROR _PVRSRVTimeTraceBufferCreate(IMG_UINT32 ui32PID);
 
 /*!
 ******************************************************************************
@@ -105,12 +127,12 @@ PVRSRVTimeTraceAllocItem(IMG_UINT32 **pui32Item, IMG_UINT32 ui32Size)
 		PVRSRV_ERROR eError;
 
 		PVR_DPF((PVR_DBG_MESSAGE, "PVRSRVTimeTraceAllocItem: Creating buffer for PID %u", (IMG_UINT32) ui32PID));
-		eError = PVRSRVTimeTraceBufferCreate(ui32PID);
+		eError = _PVRSRVTimeTraceBufferCreate(ui32PID);
 		if (eError != PVRSRV_OK)
 		{
 			*pui32Item = IMG_NULL;
 			PVR_DPF((PVR_DBG_ERROR, "PVRSRVTimeTraceAllocItem: Failed to create buffer"));
-			return;
+            return;
 		}
 		
 		psBuffer = (sTimeTraceBuffer *) HASH_Retrieve(g_psBufferTable, (IMG_UINTPTR_T) ui32PID);
@@ -118,7 +140,7 @@ PVRSRVTimeTraceAllocItem(IMG_UINT32 **pui32Item, IMG_UINT32 ui32Size)
 		{
 			*pui32Item = NULL;
 			PVR_DPF((PVR_DBG_ERROR, "PVRSRVTimeTraceAllocItem: Failed to retrieve buffer"));
-			return;
+            return;
 		}
 	}
 
@@ -127,7 +149,7 @@ PVRSRVTimeTraceAllocItem(IMG_UINT32 **pui32Item, IMG_UINT32 ui32Size)
 	{
 		*pui32Item = NULL;
 		PVR_DPF((PVR_DBG_ERROR, "PVRSRVTimeTraceAllocItem: Error trace item too large (%d)", ui32Size));
-		return;
+        return;
 	}
 
 	/* FIXME: Enter critical section? */
@@ -185,6 +207,15 @@ PVRSRVTimeTraceAllocItem(IMG_UINT32 **pui32Item, IMG_UINT32 ui32Size)
 ******************************************************************************/
 PVRSRV_ERROR PVRSRVTimeTraceBufferCreate(IMG_UINT32 ui32PID)
 {
+    PVRSRV_ERROR ret;
+    LinuxLockMutex(&g_sTTraceMutex);
+    ret = _PVRSRVTimeTraceBufferCreate(ui32PID);
+    LinuxUnLockMutex(&g_sTTraceMutex);
+    return ret;
+}
+
+static PVRSRV_ERROR _PVRSRVTimeTraceBufferCreate(IMG_UINT32 ui32PID)
+{
 	sTimeTraceBuffer *psBuffer;
 	PVRSRV_ERROR eError = PVRSRV_OK;
 
@@ -230,20 +261,22 @@ PVRSRV_ERROR PVRSRVTimeTraceBufferCreate(IMG_UINT32 ui32PID)
 PVRSRV_ERROR PVRSRVTimeTraceBufferDestroy(IMG_UINT32 ui32PID)
 {
 	sTimeTraceBuffer *psBuffer;
-
 #if defined(DUMP_TTRACE_BUFFERS_ON_EXIT)
 	PVRSRVDumpTimeTraceBuffers();
 #endif
+    LinuxLockMutex(&g_sTTraceMutex);
 	psBuffer = (sTimeTraceBuffer *) HASH_Retrieve(g_psBufferTable, (IMG_UINTPTR_T) ui32PID);
 	if (psBuffer)
 	{
 		OSFreeMem(PVRSRV_PAGEABLE_SELECT, sizeof(sTimeTraceBuffer) + TIME_TRACE_BUFFER_SIZE,
 				psBuffer, NULL);
 		HASH_Remove(g_psBufferTable, (IMG_UINTPTR_T) ui32PID);
+        LinuxUnLockMutex(&g_sTTraceMutex);
 		return PVRSRV_OK;
 	}
 
 	PVR_DPF((PVR_DBG_ERROR, "PVRSRVTimeTraceBufferDestroy: Can't find trace buffer in hash table"));
+	LinuxUnLockMutex(&g_sTTraceMutex);
 	return PVRSRV_ERROR_INVALID_PARAMS;
 }
 
@@ -261,6 +294,8 @@ PVRSRV_ERROR PVRSRVTimeTraceBufferDestroy(IMG_UINT32 ui32PID)
 ******************************************************************************/
 PVRSRV_ERROR PVRSRVTimeTraceInit(IMG_VOID)
 {
+    LinuxInitMutex(&g_sTTraceMutex);
+
 	g_psBufferTable = HASH_Create(TIME_TRACE_HASH_TABLE_SIZE);
 
 	/* Create hash table to store the per process buffers in */
@@ -271,7 +306,7 @@ PVRSRV_ERROR PVRSRVTimeTraceInit(IMG_VOID)
 	}
 
 	/* Create the kernel buffer */
-	PVRSRVTimeTraceBufferCreate(KERNEL_ID);
+	_PVRSRVTimeTraceBufferCreate(KERNEL_ID);
 
 	g_psTimer = OSFuncHighResTimerCreate();
 
@@ -424,11 +459,12 @@ IMG_VOID PVRSRVTimeTraceArray(IMG_UINT32 ui32Group, IMG_UINT32 ui32Class, IMG_UI
 	ui32Size = ui32TypeSize * ui32Count;
 
 	/* Allocate space from the buffer */
+    LinuxLockMutex(&g_sTTraceMutex);
 	PVRSRVTimeTraceAllocItem(&pui32TraceItem, ui32Size);
-
 	if (!pui32TraceItem)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "Can't find buffer\n"));
+        LinuxUnLockMutex(&g_sTTraceMutex);
 		return;
 	}
 
@@ -439,6 +475,7 @@ IMG_VOID PVRSRVTimeTraceArray(IMG_UINT32 ui32Group, IMG_UINT32 ui32Class, IMG_UI
 	{
 		OSMemCopy(ui8Ptr, pui8Data, ui32Size);
 	}
+    LinuxUnLockMutex(&g_sTTraceMutex);
 }
 
 /*!
@@ -468,12 +505,12 @@ IMG_VOID PVRSRVTimeTraceSyncObject(IMG_UINT32 ui32Group, IMG_UINT32 ui32Token,
 	IMG_UINT32 *ui32Ptr;
 	IMG_UINT32 ui32Size = PVRSRV_TRACE_TYPE_SYNC_SIZE;
 
-
+    LinuxLockMutex(&g_sTTraceMutex);
 	PVRSRVTimeTraceAllocItem(&pui32TraceItem, ui32Size);
-
 	if (!pui32TraceItem)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "Can't find buffer\n"));
+        LinuxUnLockMutex(&g_sTTraceMutex);
 		return;
 	}
 
@@ -491,6 +528,8 @@ IMG_VOID PVRSRVTimeTraceSyncObject(IMG_UINT32 ui32Group, IMG_UINT32 ui32Token,
 	ui32Ptr[PVRSRV_TRACE_SYNC_RO_DEV_VADDR] = psSync->sReadOpsCompleteDevVAddr.uiAddr;
 	ui32Ptr[PVRSRV_TRACE_SYNC_RO2_DEV_VADDR] = psSync->sReadOps2CompleteDevVAddr.uiAddr;
 	ui32Ptr[PVRSRV_TRACE_SYNC_OP] = ui8SyncOp;
+    LinuxUnLockMutex(&g_sTTraceMutex);
+
 }
 
 /*!
@@ -516,7 +555,7 @@ static PVRSRV_ERROR PVRSRVDumpTimeTraceBuffer(IMG_UINTPTR_T hKey, IMG_UINTPTR_T 
 	IMG_UINT32 ui32Walker = psBuffer->ui32Roff;
 	IMG_UINT32 ui32Read, ui32LineLen, ui32EOL, ui32MinLine;
 
-	PVR_DPF((PVR_DBG_ERROR, "TTB for PID %u:\n", (IMG_UINT32) hKey));
+	PVR_DPF_MDWP((PVR_DBG_ERROR, "TTB for PID %u:\n", (IMG_UINT32) hKey));
 
 	while (ui32ByteCount)
 	{
@@ -528,25 +567,25 @@ static PVRSRV_ERROR PVRSRVDumpTimeTraceBuffer(IMG_UINTPTR_T hKey, IMG_UINTPTR_T 
 
 		if (ui32MinLine >= 4)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X %08X %08X", ui32ByteCount,
+			PVR_DPF_MDWP((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X %08X %08X", ui32ByteCount,
 					pui32Buffer[0], pui32Buffer[1], pui32Buffer[2], pui32Buffer[3]));
 			ui32Read = 4 * sizeof(IMG_UINT32);
 		}
 		else if (ui32MinLine >= 3)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X %08X", ui32ByteCount,
+			PVR_DPF_MDWP((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X %08X", ui32ByteCount,
 					pui32Buffer[0], pui32Buffer[1], pui32Buffer[2]));
 			ui32Read = 3 * sizeof(IMG_UINT32);
 		}
 		else if (ui32MinLine >= 2)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X", ui32ByteCount,
+			PVR_DPF_MDWP((PVR_DBG_ERROR, "\t(TTB-%X) %08X %08X", ui32ByteCount,
 					pui32Buffer[0], pui32Buffer[1]));
 			ui32Read = 2 * sizeof(IMG_UINT32);
 		}
 		else
 		{
-			PVR_DPF((PVR_DBG_ERROR, "\t(TTB-%X) %08X", ui32ByteCount,
+			PVR_DPF_MDWP((PVR_DBG_ERROR, "\t(TTB-%X) %08X", ui32ByteCount,
 					pui32Buffer[0]));
 			ui32Read = sizeof(IMG_UINT32);
 		}
@@ -572,7 +611,9 @@ static PVRSRV_ERROR PVRSRVDumpTimeTraceBuffer(IMG_UINTPTR_T hKey, IMG_UINTPTR_T 
 ******************************************************************************/
 IMG_VOID PVRSRVDumpTimeTraceBuffers(IMG_VOID)
 {
+    LinuxLockMutex(&g_sTTraceMutex);
 	HASH_Iterate(g_psBufferTable, PVRSRVDumpTimeTraceBuffer);
+    LinuxUnLockMutex(&g_sTTraceMutex);
 }
 
 #endif /* TTRACE */
