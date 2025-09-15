@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.17.0-rc5 Kernel Configuration
+# Linux/riscv 6.17.0-rc6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1569,7 +1569,6 @@ CONFIG_MTD_CFI_UTIL=y
 # CONFIG_MTD_PHRAM is not set
 # CONFIG_MTD_MTDRAM is not set
 # CONFIG_MTD_BLOCK2MTD is not set
-# CONFIG_MTD_INTEL_DG is not set
 
 #
 # Disk-On-Chip Device Drivers
