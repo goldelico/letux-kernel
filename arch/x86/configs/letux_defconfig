@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.17.0-rc5 Kernel Configuration
+# Linux/x86 6.17.0-rc6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -511,6 +511,7 @@ CONFIG_MITIGATION_SPECTRE_V2=y
 CONFIG_MITIGATION_SRBDS=y
 CONFIG_MITIGATION_SSB=y
 CONFIG_MITIGATION_TSA=y
+CONFIG_MITIGATION_VMSCAPE=y
 
 #
 # Power management and ACPI options
