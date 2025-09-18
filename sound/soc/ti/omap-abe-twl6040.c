@@ -101,6 +101,7 @@ SND_SOC_DAILINK_DEFS(link_fe_lp,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 /* Backend DAIs - i.e. dynamically matched interfaces, invisible to userspace */
 SND_SOC_DAILINK_DEFS(link_be_mcpdm_dl1,
 	DAILINK_COMP_ARRAY(COMP_CPU("mcpdm-abe")),
@@ -145,7 +146,7 @@ SND_SOC_DAILINK_DEFS(link_be_dmic,
 	DAILINK_COMP_ARRAY(COMP_CODEC("dmic-codec",
 				      "dmic-hifi")),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
-
+#endif
 
 // from https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82
 // and https://kernel.googlesource.com/pub/scm/linux/kernel/git/lrg/asoc/+/omap/v3.10%5E2..omap/v3.10/
@@ -331,9 +332,12 @@ static struct snd_soc_dai_link abe_be_mcbsp3_dai = {
 
 #endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 static int omap_dmic_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_hw_params *params);
+#endif
 
 static struct snd_soc_dai_link abe_be_dmic_dai[] = {
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 {
 	/* DMIC0 */
 	SND_SOC_DAI_CONNECT("DMIC-0", "dmic-hifi", link_be_dmic),
@@ -355,6 +359,7 @@ static struct snd_soc_dai_link abe_be_dmic_dai[] = {
 	SND_SOC_DAI_OPS(&omap_abe_dmic_ops, NULL),
 	.capture_only = 1,
 },
+#endif
 };
 
 #define TOTAL_DAI_LINKS (4 + /* legacy DAIs */ \
@@ -404,6 +409,7 @@ static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
                                     struct snd_pcm_hw_params *params)
 {
@@ -414,6 +420,7 @@ static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
+#endif
 
 static const struct snd_soc_ops omap_abe_ops = {
 	.hw_params = omap_abe_hw_params,
@@ -440,6 +447,7 @@ static int omap_abe_dmic_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 static int omap_mcbsp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -470,6 +478,7 @@ static int omap_dmic_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				    SNDRV_PCM_FORMAT_S32_LE);
 	return 0;
 }
+#endif
 
 static const struct snd_soc_ops omap_abe_dmic_ops = {
 	.hw_params = omap_abe_dmic_hw_params,
@@ -623,6 +632,8 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+
 static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
@@ -635,12 +646,12 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 	left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	omap_aess_dc_set_hf_offset(platform_get_drvdata(omap_aess_dev), left_offset, right_offset);
-#endif
 
 	return 0;
 }
+#endif
+
 static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
@@ -936,15 +947,19 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 }
 #endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 static int match_dev_by_name(struct device *dev, const void *data)
 {
 	const char *name = data;
 	return dev_name(dev) && strcmp(dev_name(dev), name) == 0;
 }
+#endif
 
 static int omap_abe_twl6040_probe(struct platform_device *pdev)
 {
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	struct device *aess;
+#endif
 	struct device_node *node = pdev->dev.of_node;
 	struct snd_soc_card *card;
 	struct abe_twl6040 *priv;
@@ -1054,6 +1069,7 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 
 static void omap_abe_twl6040_remove(struct platform_device *pdev)
 {
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = &priv->card;
 
@@ -1062,7 +1078,6 @@ static void omap_abe_twl6040_remove(struct platform_device *pdev)
 					ARRAY_SIZE(aess_audio_map));
 	}
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	put_device(&omap_aess_dev->dev);
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 }
