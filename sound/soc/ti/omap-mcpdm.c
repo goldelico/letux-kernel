@@ -317,9 +317,9 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 			} else {
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 				if (mcpdm->aess) {
-					omap_aess_port_disable(mcpdm->aess,
+					mcpdm->aess->port_disable(mcpdm->aess,
 						      OMAP_AESS_BE_PORT_PDM_DL1);
-					omap_aess_port_disable(mcpdm->aess,
+					mcpdm->aess->port_disable(mcpdm->aess,
 						      OMAP_AESS_BE_PORT_PDM_UL1);
 				}
 #endif
@@ -329,8 +329,8 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 				if (mcpdm->aess) {
 					/* may be duplicate to omap_aess_pcm_close() */
-					omap_aess_pm_shutdown(mcpdm->aess);
-					omap_aess_pm_put(mcpdm->aess);
+					mcpdm->aess->pm_shutdown(mcpdm->aess);
+					mcpdm->aess->pm_put(mcpdm->aess);
 				}
 #endif
 			}
@@ -469,20 +469,20 @@ static int omap_mcpdm_prepare(struct snd_pcm_substream *substream,
 			if (!mcpdm->aess)
 				return -EINVAL;	/* not available */
 
-			if (omap_aess_port_is_enabled(mcpdm->aess,
+			if (mcpdm->aess->port_is_enabled(mcpdm->aess,
 						      OMAP_AESS_BE_PORT_PDM_DL1))
 				return 0;
 
-			if (omap_aess_port_is_enabled(mcpdm->aess,
+			if (mcpdm->aess->port_is_enabled(mcpdm->aess,
 						      OMAP_AESS_BE_PORT_PDM_UL1))
 				return 0;
 
 			omap_aess_pm_get(mcpdm->aess);
 
 			/* start ATC before McPDM IP */
-			omap_aess_port_enable(mcpdm->aess,
+			mcpdm->aess->port_enable(mcpdm->aess,
 					     OMAP_AESS_BE_PORT_PDM_DL1);
-			omap_aess_port_enable(mcpdm->aess,
+			mcpdm->aess->port_enable(mcpdm->aess,
 					     OMAP_AESS_BE_PORT_PDM_UL1);
 
 			/* wait 250us for ABE tick */
@@ -528,15 +528,15 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 	mcpdm->aess = dev_get_drvdata(mcpdm->aess_dev);
 
 	if (mcpdm->aess) {
-		ret = omap_aess_port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
+		ret = mcpdm->aess->port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
 		if (ret) {
 			put_device(mcpdm->aess_dev);
 			return ret;
 		}
 
-		ret = omap_aess_port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
+		ret = mcpdm->aess->port_open(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
 		if (ret) {
-			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
+			mcpdm->aess->port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
 			put_device(mcpdm->aess_dev);
 			return ret;
 		}
@@ -560,8 +560,8 @@ static int omap_mcpdm_probe(struct snd_soc_dai *dai)
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 		if (mcpdm->aess) {
-			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
-			omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
+			mcpdm->aess->port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
+			mcpdm->aess->port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
 			put_device(mcpdm->aess_dev);
 		}
 #endif
@@ -587,8 +587,8 @@ static int omap_mcpdm_remove(struct snd_soc_dai *dai)
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 	if (mcpdm->aess) {
-		omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
-		omap_aess_port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
+		mcpdm->aess->port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_DL1);
+		mcpdm->aess->port_close(mcpdm->aess, OMAP_AESS_BE_PORT_PDM_UL1);
 		put_device(mcpdm->aess_dev);
 	}
 #endif
