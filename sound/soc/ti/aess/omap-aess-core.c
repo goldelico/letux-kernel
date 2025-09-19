@@ -111,6 +111,21 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, aess);
 
+	aess->ops.port_open = NULL;
+	aess->ops.port_close = NULL;
+	aess->ops.port_enable = NULL;
+	aess->ops.ort_disable = NULL;
+	aess->ops.port_is_enabled = NULL;
+	aess->ops.pm_shutdown = NULL;
+	aess->ops.pm_get = NULL;
+	aess->ops.pm_put = NULL;
+	aess->ops.pm_set_mode = NULL;
+	aess->ops.opp_new_request = NULL;
+	aess->ops.opp_free_request = NULL;
+	aess->ops.dc_set_hs_offset = NULL;
+	aess->ops.dc_set_hf_offset = NULL;
+	aess->ops.set_dl1_gains = NULL;
+
 	for (i = 0; i < OMAP_AESS_IO_RESOURCES; i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						   aess_memory_bank[i]);
