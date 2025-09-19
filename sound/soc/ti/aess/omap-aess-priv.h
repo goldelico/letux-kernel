@@ -30,6 +30,7 @@
 #ifndef __OMAP_AESS_PRIV_H__
 #define __OMAP_AESS_PRIV_H__
 
+#include "omap-aess.h"
 #include "aess-fw.h"
 
 #ifdef __KERNEL__
@@ -330,6 +331,8 @@ struct omap_aess_debug;
  * AESS private data.
  */
 struct omap_aess {
+	struct omap_aess_ops ops;	/* must be first so that we can cast omap_aess <-> omap_aess_ops */
+
 	struct device *dev;
 
 	struct clk *clk;
