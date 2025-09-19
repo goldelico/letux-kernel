@@ -30,6 +30,11 @@
 #ifndef __OMAP_AESS_H__
 #define __OMAP_AESS_H__
 
+#include <linux/device.h>
+#include <linux/firmware.h>
+
+// FIXME: why must this be public? Well, partially used by omap-abe-twl6040.c
+
 /* This must currently match the BE order in DSP */
 enum omap_aess_be_id {
 	OMAP_AESS_BE_ID_PDM_UL = 0,
@@ -72,7 +77,28 @@ enum omap_aess_port_id {
 	OMAP_AESS_LAST_LOGICAL_PORT_ID,
 };
 
-struct omap_aess;
+struct omap_aess;	/* opaque type, starting with a omap_aess_ops member */
+
+struct omap_aess_ops {
+	int (*port_open)(struct omap_aess *aess, int logical_id);
+	void (*port_close)(struct omap_aess *aess, int logical_id);
+	int (*port_enable)(struct omap_aess *aess, int logical_id);
+	int (*ort_disable)(struct omap_aess *aess, int logical_id);
+	int (*port_is_enabled)(struct omap_aess *aess, int logical_id);
+	void (*pm_shutdown)(struct omap_aess *aess);
+	void (*pm_get)(struct omap_aess *aess);
+	void (*pm_put)(struct omap_aess *aess);
+	void (*pm_set_mode)(struct omap_aess *aess, int mode);
+	int (*opp_new_request)(struct omap_aess *aess, struct device *dev,
+			      int opp);
+	int (*opp_free_request)(struct omap_aess *aess, struct device *dev);
+	void (*dc_set_hs_offset)(struct omap_aess *aess, int left, int right,
+				int step_mV);
+	void (*dc_set_hf_offset)(struct omap_aess *aess, int left, int right);
+	void (*set_dl1_gains)(struct omap_aess *aess, int left, int right);
+};
+
+// FIXME: all this should be(come) private implementations of above ops */
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw);
