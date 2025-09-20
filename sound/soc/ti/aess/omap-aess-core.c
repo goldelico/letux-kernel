@@ -122,7 +122,7 @@ printk("%s %d: platform_set_drvdata(%px, %px)\n", __func__, __LINE__, pdev, aess
 	aess->ops.port_open = NULL;
 	aess->ops.port_close = NULL;
 	aess->ops.port_enable = NULL;
-	aess->ops.ort_disable = NULL;
+	aess->ops.port_disable = NULL;
 	aess->ops.port_is_enabled = NULL;
 	aess->ops.pm_shutdown = NULL;
 	aess->ops.pm_get = NULL;
