@@ -83,7 +83,7 @@ struct omap_aess_ops {
 	int (*port_open)(struct omap_aess *aess, int logical_id);
 	void (*port_close)(struct omap_aess *aess, int logical_id);
 	int (*port_enable)(struct omap_aess *aess, int logical_id);
-	int (*ort_disable)(struct omap_aess *aess, int logical_id);
+	int (*port_disable)(struct omap_aess *aess, int logical_id);
 	int (*port_is_enabled)(struct omap_aess *aess, int logical_id);
 	void (*pm_shutdown)(struct omap_aess *aess);
 	void (*pm_get)(struct omap_aess *aess);
