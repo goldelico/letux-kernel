@@ -383,7 +383,7 @@ struct abe_twl6040 {
 static struct platform_device *dmic_codec_dev;
 static struct platform_device *spdif_codec_dev;
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-static struct platform_device *omap_aess_dev;
+static struct platform_device *omap_aess_pdev;
 #endif
 
 static int omap_abe_hw_params(struct snd_pcm_substream *substream,
@@ -526,7 +526,7 @@ static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
 
 	priv->twl6040_power_mode = ucontrol->value.integer.value[0];
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	aess_ops(omap_aess_dev)->pm_set_mode(aess(omap_aess_dev), priv->twl6040_power_mode);
+	aess_ops(omap_aess_pdev)->pm_set_mode(aess(omap_aess_pdev), priv->twl6040_power_mode);
 #endif
 
 	return 1;
@@ -630,7 +630,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	gain = twl6040_get_dl1_gain(component) * 100;
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	aess_ops(omap_aess_dev)->set_dl1_gains(aess(omap_aess_dev), gain, gain);
+	aess_ops(omap_aess_pdev)->set_dl1_gains(aess(omap_aess_pdev), gain, gain);
 #endif
 
 	return 0;
@@ -650,7 +650,7 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 	left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
-	aess_ops(omap_aess_dev)->dc_set_hf_offset(aess(omap_aess_dev), left_offset, right_offset);
+	aess_ops(omap_aess_pdev)->dc_set_hf_offset(aess(omap_aess_pdev), left_offset, right_offset);
 
 	return 0;
 }
@@ -740,14 +740,15 @@ static const struct snd_soc_component_driver something = {
 #endif
 
 	/* DC offset cancellation computation only if ABE is enabled */
-	if (omap_aess_dev) {
+	if (omap_aess_pdev) {
 		hfotrim = twl6040_get_trim_value(component, TWL6040_TRIM_HFOTRIM);
 		right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 		left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
 		step_mV = twl6040_get_hs_step_size(component);
 
-		aess_ops(omap_aess_dev)->dc_set_hs_offset(aess(omap_aess_dev), left_offset,
+		aess_ops(omap_aess_pdev)->dc_set_hs_offset(aess(omap_aess_pdev),
+					   left_offset,
 					   right_offset, step_mV);
 
 		/* ABE power control */
@@ -758,7 +759,7 @@ static const struct snd_soc_component_driver something = {
 	}
 
 	/* add the aess rudio mapping here */
-	if (omap_aess_dev) {
+	if (omap_aess_pdev) {
 		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		if (ret)
@@ -847,6 +848,9 @@ static int snd_soc_card_new_dai_links_with_nodes(struct snd_soc_card *card,
 	int ret;
 	int i;
 
+	if (!platform_of_node)
+		return 0;	/* node not found, ignore */
+
 	ret = snd_soc_card_new_dai_links(card, new, count);
 	if (ret < 0)
 		return ret;
@@ -913,6 +917,9 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	struct device_node *dai_node;
 	int ret;
 
+// FIXME: skip this if we could not load firmware
+// Alternatively, call this only if firmware could be loaded successfully
+
 	aess_node = of_parse_phandle(node, "ti,aess", 0);
 
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_fe_dai, ARRAY_SIZE(abe_fe_dai), NULL, aess_node);
@@ -963,7 +970,7 @@ static int match_dev_by_name(struct device *dev, const void *data)
 static int omap_abe_twl6040_probe(struct platform_device *pdev)
 {
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	struct device *aess;
+	struct device *aess_dev;
 #endif
 	struct device_node *node = pdev->dev.of_node;
 	struct snd_soc_card *card;
@@ -1025,41 +1032,36 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 	card->fully_routed = 1;
 #endif
 
-	ret = omap_abe_add_legacy_dai_links(card);
-	if (ret < 0)
-		return ret;
-
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
 	ret = request_module("snd_soc_omap_aess");	/* try to load driver */
 	if (ret)
 		dev_err(&pdev->dev, "request_module returned: %d\n", ret);
 
-	aess = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
+	aess_dev = bus_find_device(&platform_bus_type, NULL, "401f1000.aess", match_dev_by_name);
 
 // FIXME: this prevents fallback if the driver isn't bound any time later...
-	if (!aess)
+	if (!aess_dev)
 		return -EPROBE_DEFER;	// not yet found
 
-	omap_aess_dev = to_platform_device(aess);
-
-	if(!aess->driver)
+	if(!aess_dev->driver)
 		return -EPROBE_DEFER;	// not yet bound to driver
 
-#endif
+	omap_aess_pdev = to_platform_device(aess_dev);
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+// FIXME: call this only if firmware was loaded successfully
+// either by asking aess_dev if fw is available
+// or some notifier from aess to here if it is/has become loaded
 
-	// FIXME: trigger firmware loading and evaluation i.e. call omap_aess_pcm_probe
+	ret = omap_abe_add_aess_dai_links(card);
+	if (ret < 0)
+		return ret;
 
-	if (omap_aess_dev) {
-		// this could trigger firmware load?
-		ret = omap_abe_add_aess_dai_links(card);
-		if (ret < 0)
-			return ret;
-	}
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
+	ret = omap_abe_add_legacy_dai_links(card);
+	if (ret < 0)
+		return ret;
 #if FIXME
 /* can we register the stream event here? */
 #endif
@@ -1078,12 +1080,12 @@ static void omap_abe_twl6040_remove(struct platform_device *pdev)
 	struct abe_twl6040 *priv = platform_get_drvdata(pdev);
 	struct snd_soc_card *card = &priv->card;
 
-	if (omap_aess_dev) {
+	if (omap_aess_pdev) {
 		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
+		put_device(&omap_aess_pdev->dev);
 	}
 
-	put_device(&omap_aess_dev->dev);
 #endif // IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 }
 
