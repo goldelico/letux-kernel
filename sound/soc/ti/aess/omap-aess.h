@@ -80,116 +80,29 @@ enum omap_aess_port_id {
 struct omap_aess;	/* opaque type, starting with a omap_aess_ops member */
 
 struct omap_aess_ops {
+	/* Port Management */
 	int (*port_open)(struct omap_aess *aess, int logical_id);
 	void (*port_close)(struct omap_aess *aess, int logical_id);
 	int (*port_enable)(struct omap_aess *aess, int logical_id);
 	int (*port_disable)(struct omap_aess *aess, int logical_id);
 	int (*port_is_enabled)(struct omap_aess *aess, int logical_id);
+
+	/* Power Management */
 	void (*pm_shutdown)(struct omap_aess *aess);
 	void (*pm_get)(struct omap_aess *aess);
 	void (*pm_put)(struct omap_aess *aess);
 	void (*pm_set_mode)(struct omap_aess *aess, int mode);
+
+	/* Operating Point */
 	int (*opp_new_request)(struct omap_aess *aess, struct device *dev,
 			      int opp);
 	int (*opp_free_request)(struct omap_aess *aess, struct device *dev);
+
+	/* DC Offset */
 	void (*dc_set_hs_offset)(struct omap_aess *aess, int left, int right,
 				int step_mV);
 	void (*dc_set_hf_offset)(struct omap_aess *aess, int left, int right);
 	void (*set_dl1_gains)(struct omap_aess *aess, int left, int right);
 };
-
-// FIXME: all this should be(come) private implementations of above ops */
-
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-int omap_aess_load_firmware(struct omap_aess *aess, const struct firmware *fw);
-
-int omap_aess_port_open(struct omap_aess *aess, int logical_id);
-void omap_aess_port_close(struct omap_aess *aess, int logical_id);
-int omap_aess_port_enable(struct omap_aess *aess, int logical_id);
-int omap_aess_port_disable(struct omap_aess *aess, int logical_id);
-int omap_aess_port_is_enabled(struct omap_aess *aess, int logical_id);
-
-/* Power Management */
-void omap_aess_pm_shutdown(struct omap_aess *aess);
-void omap_aess_pm_get(struct omap_aess *aess);
-void omap_aess_pm_put(struct omap_aess *aess);
-void omap_aess_pm_set_mode(struct omap_aess *aess, int mode);
-
-#if 0
-/* Operating Point */
-int omap_aess_opp_new_request(struct omap_aess *aess, struct device *dev,
-			      int opp);
-int omap_aess_opp_free_request(struct omap_aess *aess, struct device *dev);
-#endif
-
-/* DC Offset */
-void omap_aess_dc_set_hs_offset(struct omap_aess *aess, int left, int right,
-				int step_mV);
-void omap_aess_dc_set_hf_offset(struct omap_aess *aess, int left, int right);
-void omap_aess_set_dl1_gains(struct omap_aess *aess, int left, int right);
-
-#else
-static inline int omap_aess_load_firmware(struct omap_aess *aess, char *fw_name)
-{
-	return -EINVAL;
-}
-
-static inline int omap_aess_port_open(struct omap_aess *aess, int logical_id)
-{
-	return 0;
-}
-
-static inline void omap_aess_port_close(struct omap_aess *aess, int logical_id)
-{
-}
-
-static inline int omap_aess_port_enable(struct omap_aess *aess, int logical_id)
-{
-	return 0;
-}
-
-static inline int omap_aess_port_disable(struct omap_aess *aess, int logical_id)
-{
-	return 0;
-}
-
-static inline int omap_aess_port_is_enabled(struct omap_aess *aess,
-					    int logical_id)
-{
-	return 0;
-}
-
-static inline void omap_aess_pm_shutdown(struct omap_aess *aess)
-{
-}
-
-static inline void omap_aess_pm_get(struct omap_aess *aess)
-{
-}
-
-static inline void omap_aess_pm_put(struct omap_aess *aess)
-{
-}
-
-static inline void omap_aess_pm_set_mode(struct omap_aess *aess, int mode)
-{
-}
-
-static inline void omap_aess_dc_set_hs_offset(struct omap_aess *aess, int left,
-					      int right, int step_mV)
-{
-}
-
-static inline void omap_aess_dc_set_hf_offset(struct omap_aess *aess, int left,
-					      int right)
-{
-}
-
-static inline void omap_aess_set_dl1_gains(struct omap_aess *aess, int left,
-					   int right)
-{
-}
-
-#endif /* IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS) */
 
 #endif	/* End of __OMAP_AESS_H__ */

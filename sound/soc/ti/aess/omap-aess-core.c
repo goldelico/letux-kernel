@@ -66,19 +66,17 @@ static const char *aess_memory_bank[5] = {
 	"mpu"
 };
 
-void omap_aess_pm_get(struct omap_aess *aess)
+static void omap_aess_pm_get(struct omap_aess *aess)
 {
 	pm_runtime_get_sync(aess->dev);
 }
-EXPORT_SYMBOL_GPL(omap_aess_pm_get);
 
-void omap_aess_pm_put(struct omap_aess *aess)
+static void omap_aess_pm_put(struct omap_aess *aess)
 {
 	pm_runtime_put_sync(aess->dev);
 }
-EXPORT_SYMBOL_GPL(omap_aess_pm_put);
 
-void omap_aess_pm_shutdown(struct omap_aess *aess)
+static void omap_aess_pm_shutdown(struct omap_aess *aess)
 {
 	int ret;
 
@@ -97,13 +95,11 @@ void omap_aess_pm_shutdown(struct omap_aess *aess)
 			dev_err(aess->dev, "failed to scale to lowest OPP\n");
 	}
 }
-EXPORT_SYMBOL_GPL(omap_aess_pm_shutdown);
 
-void omap_aess_pm_set_mode(struct omap_aess *aess, int mode)
+static void omap_aess_pm_set_mode(struct omap_aess *aess, int mode)
 {
 	aess->dc_offset.power_mode = mode;
 }
-EXPORT_SYMBOL(omap_aess_pm_set_mode);
 
 static int omap_aess_engine_probe(struct platform_device *pdev)
 {
@@ -119,20 +115,20 @@ printk("%s %d\n", __func__, __LINE__);
 printk("%s %d: platform_set_drvdata(%px, %px)\n", __func__, __LINE__, pdev, aess);
 	platform_set_drvdata(pdev, aess);
 
-	aess->ops.port_open = NULL;
-	aess->ops.port_close = NULL;
-	aess->ops.port_enable = NULL;
-	aess->ops.port_disable = NULL;
-	aess->ops.port_is_enabled = NULL;
-	aess->ops.pm_shutdown = NULL;
-	aess->ops.pm_get = NULL;
-	aess->ops.pm_put = NULL;
-	aess->ops.pm_set_mode = NULL;
-	aess->ops.opp_new_request = NULL;
-	aess->ops.opp_free_request = NULL;
-	aess->ops.dc_set_hs_offset = NULL;
-	aess->ops.dc_set_hf_offset = NULL;
-	aess->ops.set_dl1_gains = NULL;
+	aess->ops.port_open = omap_aess_port_open;
+	aess->ops.port_close = omap_aess_port_close;
+	aess->ops.port_enable = omap_aess_port_enable;
+	aess->ops.port_disable = omap_aess_port_disable;
+	aess->ops.port_is_enabled = omap_aess_port_is_enabled;
+	aess->ops.pm_shutdown = omap_aess_pm_shutdown;
+	aess->ops.pm_get = omap_aess_pm_get;
+	aess->ops.pm_put = omap_aess_pm_put;
+	aess->ops.pm_set_mode = omap_aess_pm_set_mode;
+	aess->ops.opp_new_request = aess_opp_new_request;
+	aess->ops.opp_free_request = aess_opp_free_request;
+	aess->ops.dc_set_hs_offset = omap_aess_dc_set_hs_offset;
+	aess->ops.dc_set_hf_offset = omap_aess_dc_set_hf_offset;
+	aess->ops.set_dl1_gains = omap_aess_set_dl1_gains;
 
 	for (i = 0; i < OMAP_AESS_IO_RESOURCES; i++) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
