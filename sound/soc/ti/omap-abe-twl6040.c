@@ -34,6 +34,10 @@
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 #include "aess/omap-aess.h"
+
+#define aess(AESS) platform_get_drvdata(AESS)
+#define aess_ops(AESS) ((struct omap_aess_ops *) platform_get_drvdata(AESS))
+
 #endif
 #include "../codecs/twl6040.h"
 #include "omap-dmic.h"
@@ -522,7 +526,7 @@ static int omap_abe_set_power_mode(struct snd_kcontrol *kcontrol,
 
 	priv->twl6040_power_mode = ucontrol->value.integer.value[0];
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_pm_set_mode(platform_get_drvdata(omap_aess_dev), priv->twl6040_power_mode);
+	aess_ops(omap_aess_dev)->pm_set_mode(aess(omap_aess_dev), priv->twl6040_power_mode);
 #endif
 
 	return 1;
@@ -626,7 +630,7 @@ static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
 	gain = twl6040_get_dl1_gain(component) * 100;
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-	omap_aess_set_dl1_gains(platform_get_drvdata(omap_aess_dev), gain, gain);
+	aess_ops(omap_aess_dev)->set_dl1_gains(aess(omap_aess_dev), gain, gain);
 #endif
 
 	return 0;
@@ -646,7 +650,7 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 	right_offset = TWL6040_HSF_TRIM_RIGHT(hfotrim);
 	left_offset = TWL6040_HSF_TRIM_LEFT(hfotrim);
 
-	omap_aess_dc_set_hf_offset(platform_get_drvdata(omap_aess_dev), left_offset, right_offset);
+	aess_ops(omap_aess_dev)->dc_set_hf_offset(aess(omap_aess_dev), left_offset, right_offset);
 
 	return 0;
 }
@@ -699,6 +703,7 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 /* FIXME: should this be called twl6040_dl1_init? */
 // NOTE: This does overall backend initialization
+
 static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
@@ -742,7 +747,7 @@ static const struct snd_soc_component_driver something = {
 
 		step_mV = twl6040_get_hs_step_size(component);
 
-		omap_aess_dc_set_hs_offset(platform_get_drvdata(omap_aess_dev), left_offset,
+		aess_ops(omap_aess_dev)->dc_set_hs_offset(aess(omap_aess_dev), left_offset,
 					   right_offset, step_mV);
 
 		/* ABE power control */
