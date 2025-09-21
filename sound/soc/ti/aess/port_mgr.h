@@ -35,6 +35,12 @@ struct omap_aess;
 void omap_aess_port_mgr_init(struct omap_aess *aess);
 void omap_aess_port_mgr_cleanup(struct omap_aess *aess);
 
+int omap_aess_port_open(struct omap_aess *aess, int logical_id);
+void omap_aess_port_close(struct omap_aess *aess, int logical_id);
+int omap_aess_port_enable(struct omap_aess *aess, int logical_id);
+int omap_aess_port_disable(struct omap_aess *aess, int logical_id);
+int omap_aess_port_is_enabled(struct omap_aess *aess, int logical_id);
+
 void omap_aess_port_set_substream(struct omap_aess *aess, int logical_id,
 				 struct snd_pcm_substream *substream);
 struct snd_pcm_substream *omap_aess_port_get_substream(struct omap_aess *aess,
