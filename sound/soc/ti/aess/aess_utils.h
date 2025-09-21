@@ -68,4 +68,9 @@ void omap_aess_wakeup(struct omap_aess *aess);
 void omap_aess_set_router_configuration(struct omap_aess *aess, u32 *param);
 u32 omap_aess_get_label_data(struct omap_aess *aess, int index);
 
+void omap_aess_dc_set_hs_offset(struct omap_aess *aess, int left, int right,
+				int step_mV);
+void omap_aess_dc_set_hf_offset(struct omap_aess *aess, int left, int right);
+void omap_aess_set_dl1_gains(struct omap_aess *aess, int left, int right);
+
 #endif /* _AESS_UTILS_H_ */
