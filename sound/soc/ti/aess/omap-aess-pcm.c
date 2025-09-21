@@ -406,7 +406,10 @@ static int omap_aess_pcm_close(struct snd_soc_component *component,
 	if (!--aess->active) {
 		omap_aess_disable_irq(aess);
 		aess_save_context(aess);
+#if 0	// questionable if we need this at all here?
+	// should call:	aess->ops.pm_shutdown(aess);
 		omap_aess_pm_shutdown(aess);
+#endif
 	} else {
 		/* Only scale OPP level
 		 * if AESS is still active */
