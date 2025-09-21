@@ -264,7 +264,6 @@ void aess_opp_recalc_level(struct omap_aess *aess)
 	mutex_unlock(&aess->opp.mutex);
 }
 
-#if 0
 static struct aess_opp_req *aess_opp_lookup_requested(struct omap_aess *aess,
 						      struct device *dev)
 {
@@ -278,10 +277,9 @@ static struct aess_opp_req *aess_opp_lookup_requested(struct omap_aess *aess,
 	return NULL;
 }
 
-int aess_opp_new_request(struct snd_soc_platform *platform,
+int aess_opp_new_request(struct omap_aess *aess,
 			 struct device *dev, int opp)
 {
-	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct aess_opp_req *req;
 	int ret = 0;
 
@@ -312,10 +310,9 @@ out:
 	return ret;
 }
 
-int aess_opp_free_request(struct snd_soc_platform *platform,
+int aess_opp_free_request(struct omap_aess *aess,
 			  struct device *dev)
 {
-	struct omap_aess *aess = snd_soc_platform_get_drvdata(platform);
 	struct aess_opp_req *req;
 	int ret;
 
@@ -341,4 +338,3 @@ out:
 	mutex_unlock(&aess->opp.req_mutex);
 	return ret;
 }
-#endif
