@@ -67,4 +67,9 @@ void aess_set_opp_processing(struct omap_aess *aess, enum opp_level level);
 
 void aess_opp_recalc_level(struct omap_aess *aess);
 
+int aess_opp_new_request(struct omap_aess *aess,
+			 struct device *dev, int opp);
+int aess_opp_free_request(struct omap_aess *aess,
+			  struct device *dev);
+
 #endif /* _AESS_OPP_H_ */
