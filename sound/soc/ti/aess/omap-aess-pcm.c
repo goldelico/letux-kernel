@@ -530,7 +530,8 @@ static int omap_abe_fw_loaded(const struct firmware *fw, void *context)
 #if IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 static void omap_abe_fw_ready(const struct firmware *fw, void *context)
 {
-	omap_abe_fw_loaded(fw, context);
+	struct snd_soc_component *component = context;
+	omap_abe_fw_loaded(fw, component);
 }
 #endif /* IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS) */
 
@@ -576,18 +577,22 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 
 #else	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
-	/* if we are a kernel module we can simply load the firmware here - if it exists */
+	/* if we are a kernel module we can simply load the firmware here */
 
 	ret = request_firmware(&fw, AESS_FW_NAME, component->dev);
 	if (ret) {
 		dev_err(component->dev, "FW request failed: %d\n", ret);
+		if (ret == -ENOENT) {
+			/* ignore missing firmware here */
+			return 0;
+		}
 		return ret;
 	}
 
 	/* will be unloaded by omap_aess_pcm_remove() */
 	ret = omap_abe_fw_loaded(fw, component);
 	if (ret) {
-		dev_err(component->dev, "%s firmware was not loaded.\n",
+		dev_err(component->dev, "%s firmware exists but was not loaded.\n",
 			AESS_FW_NAME);
 		return ret;
 	}
