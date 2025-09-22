@@ -447,7 +447,7 @@ static int psp_sw_init(struct amdgpu_ip_block *ip_block)
 	psp->cmd = kzalloc(sizeof(struct psp_gfx_cmd_resp), GFP_KERNEL);
 	if (!psp->cmd) {
 		dev_err(adev->dev, "Failed to allocate memory to command buffer!\n");
-		ret = -ENOMEM;
+		return -ENOMEM;
 	}
 
 	adev->psp.xgmi_context.supports_extended_data =
@@ -595,10 +595,6 @@ int psp_wait_for(struct psp_context *psp, uint32_t reg_index,
 		}
 		udelay(1);
 	}
-
-	dev_err(adev->dev,
-		"psp reg (0x%x) wait timed out, mask: %x, read: %x exp: %x",
-		reg_index, mask, val, reg_val);
 
 	return -ETIME;
 }
