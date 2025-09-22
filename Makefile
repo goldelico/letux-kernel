@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 15
-SUBLEVEL = 190
+SUBLEVEL = 193
 EXTRAVERSION =
 NAME = Trick or Treat
 
