@@ -1,0 +1,104 @@
+#!/bin/bash
+
+SWAPFILE=/swapfile
+BOOTABLE=false
+
+while [ "$1" ]
+do
+	case "$1" in
+		-r )
+			swapoff $SWAPFILE
+			sed -i.bak "$SWAPFILE swap/d" /etc/fstab
+			echo "### $SWAPFILE deactivated."
+			exit
+			;;
+		-b )
+			shift
+			BOOTABLE=true
+			;;
+		-* )
+			echo "usage: $0 [-br] [size in MiB]"
+			exit
+			;;
+		*)
+			break;
+	esac
+done
+
+# FIXME: specifying an explicit MiB size should always create/resize the swap file
+# well, then we can't detect that it has not been changed!
+
+CURRENTSIZE=$(swapon | grep "^$SWAPFILE " | cut -d ' ' -f 3)	# has an M suffix
+CURRENTSIZE=$(printf "%.0f" ${CURRENTSIZE%M})
+
+SIZE="$1"
+[ "$SIZE" ] || SIZE=${CURRENTSIZE}
+
+if [ "$SIZE" -eq "${CURRENTSIZE}" ]
+then
+	echo "### $SWAPFILE with ${SIZE}MiB already active, nothing to do"
+	exit 0
+fi
+
+if [ $(fgrep MemTotal: /proc/meminfo | ( read MEMTOTAL SIZE kB; echo $SIZE )) -lt 256000 ]
+then
+	echo "### we have less than 256MiB physical RAM. We can't turn off swap while e.g. running apt-get. So use a temp swap"
+	TMPSIZE=$CURRENTSIZE
+	[ "$TMPSIZE" -lt 100 ] && TMPSIZE=100
+fi
+
+if [ "$TMPSIZE" ]
+then
+
+	echo "### setting up ${TMPSIZE}MiB temporary swap on $SWAPFILE.tmp"
+	echo "   ... fallocate may fail, then we do a dd"
+	if ! fallocate -l $TMPSIZE $SWAPFILE.tmp
+	then	# fall back
+		echo "### creating $SWAPFILE.tmp with ${TMPSIZE}MiB"
+		COUNT=$( echo | awk "{print int(($TMPSIZE) * 1024)}")
+		dd if=/dev/zero of="$SWAPFILE.tmp" bs=1024 count=$COUNT || exit
+	fi
+	chmod 0600 "$SWAPFILE.tmp"
+	mkswap "$SWAPFILE.tmp"
+	swapon "$SWAPFILE.tmp"
+	# NOTE: if we fail here before the $SWAPFILE is installed we can't run again...
+	echo "### $SWAPFILE.tmp is set up."
+
+fi
+
+echo "### deactivate $SWAPFILE"
+swapoff $SWAPFILE
+
+echo "### setting up ${SIZE}MiB swap on $SWAPFILE"
+
+# modern kernel syscall may not be compatible with older Debian
+# fallocate: fallocate failed: Operation not supported
+echo "   ... fallocate may fail, then we do a dd"
+
+if ! fallocate -l $SIZE $SWAPFILE
+then
+	echo "### creating $SWAPFILE with ${SIZE}MiB"
+	# only this works reliably although slowly
+	COUNT=$( echo | awk "{print int(($SIZE) * 1024.0)}")
+	# echo count: $COUNT
+	dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$COUNT || exit
+fi
+
+chmod 0600 "$SWAPFILE"
+mkswap "$SWAPFILE"
+swapon "$SWAPFILE"
+echo "### $SWAPFILE is set up."
+
+if [ "$TMPSIZE" ]
+then
+	echo "### deactivate and delete $SWAPFILE.tmp"
+	# NOTE: if we fail before before here, we can't run again...
+	swapoff $SWAPFILE.tmp
+	rm -f $SWAPFILE.tmp
+fi
+
+if $BOOTABLE
+then
+	fgrep -q /swapfile /etc/fstab || echo '/swapfile swap swap defaults 0 0' >>/etc/fstab
+	echo "### $SWAPFILE activated on boot."
+fi
