@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.17.0-rc6 Kernel Configuration
+# Linux/riscv 6.17.0-rc7 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
