@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.17.0-rc7 Kernel Configuration
+# Linux/x86 6.17.0 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1491,14 +1491,11 @@ CONFIG_BT_DEBUGFS=y
 # CONFIG_BT_HCIUART is not set
 # CONFIG_BT_HCIBCM203X is not set
 # CONFIG_BT_HCIBCM4377 is not set
-# CONFIG_BT_HCIBPA10X is not set
 # CONFIG_BT_HCIBFUSB is not set
 # CONFIG_BT_HCIVHCI is not set
 # CONFIG_BT_MRVL is not set
 # CONFIG_BT_MTKSDIO is not set
-# CONFIG_BT_MTKUART is not set
 # CONFIG_BT_VIRTIO is not set
-# CONFIG_BT_NXPUART is not set
 # CONFIG_BT_INTEL_PCIE is not set
 # end of Bluetooth device drivers
 
@@ -7971,6 +7968,8 @@ CONFIG_SLUB_DEBUG=y
 CONFIG_PAGE_POISONING=y
 # CONFIG_DEBUG_RODATA_TEST is not set
 CONFIG_ARCH_HAS_DEBUG_WX=y
+# CONFIG_DEBUG_WX is not set
+CONFIG_ARCH_HAS_PTDUMP=y
 CONFIG_HAVE_DEBUG_KMEMLEAK=y
 # CONFIG_SHRINKER_DEBUG is not set
 CONFIG_ARCH_HAS_DEBUG_VIRTUAL=y
