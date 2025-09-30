@@ -386,7 +386,20 @@ static struct platform_device *spdif_codec_dev;
 static struct platform_device *omap_aess_pdev;
 #endif
 
-static int omap_abe_hw_params(struct snd_pcm_substream *substream,
+#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+                                    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	rate->min = rate->max = 96000;
+
+	return 0;
+}
+#endif
+
+static int omap_abe_mcpdm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
@@ -413,21 +426,8 @@ static int omap_abe_hw_params(struct snd_pcm_substream *substream,
 	return ret;
 }
 
-#if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-static int omap_mcpdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-                                    struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	rate->min = rate->max = 96000;
-
-	return 0;
-}
-#endif
-
 static const struct snd_soc_ops omap_abe_ops = {
-	.hw_params = omap_abe_hw_params,
+	.hw_params = omap_abe_mcpdm_hw_params,
 };
 
 static int omap_abe_dmic_hw_params(struct snd_pcm_substream *substream,
