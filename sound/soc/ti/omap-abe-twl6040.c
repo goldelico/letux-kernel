@@ -157,7 +157,7 @@ SND_SOC_DAILINK_DEFS(link_be_dmic,
 
 #if FIXME
 // the stream_name may not be necessary to be initialized and can likely be removed
-// or replaced by _name
+// or replaced by _name or NULL
 #endif
 #define SND_SOC_DAI_CONNECT(_name, _stream_name, _link) \
 	.name = _name, .stream_name = _stream_name, SND_SOC_DAILINK_REG(_link)
@@ -614,27 +614,15 @@ static const struct snd_soc_dapm_route aess_audio_map[] = {
 };
 #endif
 
-static int omap_abe_stream_event(struct snd_soc_dapm_context *dapm, int event)
-{
-	struct snd_soc_card *card = dapm->card;
-	struct snd_soc_component *component = dapm->component;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
-
-	int gain;
-
-	/*
-	 * set DL1 gains dynamically according to the active output
-	 * (Headset, Earpiece) and HSDAC power mode
-	 */
-
-	gain = twl6040_get_dl1_gain(component) * 100;
-
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
+static int omap_abe_set_dl1_gain(struct snd_soc_component *component, int gain)
+{
 	aess_ops(omap_aess_pdev)->set_dl1_gains(aess(omap_aess_pdev), gain, gain);
-#endif
 
 	return 0;
 }
+
+#endif
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
 
@@ -661,10 +649,6 @@ static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
 	struct snd_soc_card *card = rtd->card;
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
-
-#if FIXME	// FIXME: what should that do in modern code?
-//	card_data->abe_platform = component;
-#endif
 
 	return 0;
 }
@@ -697,12 +681,12 @@ static int omap_abe_twl6040_init(struct snd_soc_pcm_runtime *rtd)
 		twl6040_hs_jack_detect(component, &hs_jack, SND_JACK_HEADSET);
 	}
 
+	twl6040_register_dl1_gain_setter(component, &omap_abe_set_dl1_gain);
+
 	return 0;
 }
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-/* FIXME: should this be called twl6040_dl1_init? */
-// NOTE: This does overall backend initialization
 
 static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -711,22 +695,6 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset, step_mV;
 	int ret;
-
-#if FIXME	// dapm.stream_event has disappeared in v5.4
-
-	card->dapm.stream_event = omap_abe_stream_event;
-
-	// what is the replacement?
-	// maybe: component->driver->stream_event = omap_abe_stream_event;
-/* better in abe_probe? */
-
-static const struct snd_soc_component_driver something = {
-	.stream_event = omap_abe_stream_event;
-};
-
-	ret = devm_snd_soc_register_component(dev, &something,
-					      &some_dai, 1);
-#endif
 
 #if FIXME	// REVISIT
 	/* allow audio paths from the audio modem to run during suspend */
@@ -1051,10 +1019,6 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 
 	omap_aess_pdev = to_platform_device(aess_dev);
 
-// FIXME: call this only if firmware was loaded successfully
-// either by asking aess_dev if fw is available
-// or some notifier from aess to here if it is/has become loaded
-
 	ret = omap_abe_add_aess_dai_links(card);
 	if (ret < 0)
 		return ret;
@@ -1064,9 +1028,7 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 	ret = omap_abe_add_legacy_dai_links(card);
 	if (ret < 0)
 		return ret;
-#if FIXME
-/* can we register the stream event here? */
-#endif
+
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
 		dev_err(&pdev->dev, "card registration failed: %d\n", ret);
