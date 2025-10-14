@@ -468,9 +468,9 @@ static int jz4780_codec_dev_probe(struct snd_soc_component *codec)
 
 	/*
 	 * avoid
-	 * [    6.978427] codec 100200a4.audio-codec can not start from non-off bias with idle_bias_off==1
+	 * [    6.978427] codec 100200a4.audio-codec can not start from non-off bias with idle_bias = false
 	*/
-	dapm->idle_bias_off = 0;
+	dapm->idle_bias = true;
 
 	jz4780_codec_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
