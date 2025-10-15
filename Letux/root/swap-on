@@ -51,7 +51,7 @@ then
 
 	echo "### setting up ${TMPSIZE}MiB temporary swap on $SWAPFILE.tmp"
 	echo "   ... fallocate may fail, then we do a dd"
-	if ! fallocate -l $TMPSIZE $SWAPFILE.tmp
+	if ! fallocate -l $( echo | awk "{print int(($TMPSIZE) * 1024 * 1024)}") $SWAPFILE.tmp
 	then	# fall back
 		echo "### creating $SWAPFILE.tmp with ${TMPSIZE}MiB"
 		COUNT=$( echo | awk "{print int(($TMPSIZE) * 1024)}")
