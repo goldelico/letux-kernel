@@ -34,6 +34,12 @@ CURRENTSIZE=$(printf "%.0f" ${CURRENTSIZE%M})
 SIZE="$1"
 [ "$SIZE" ] || SIZE=${CURRENTSIZE}
 
+if [ "$SIZE" -lt 10 ]
+then
+	echo "### swap size should be at least 10MiB"
+	exit 0
+fi
+
 if [ "$SIZE" -eq "${CURRENTSIZE}" ]
 then
 	echo "### $SWAPFILE with ${SIZE}MiB already active, nothing to do"
@@ -47,47 +53,35 @@ then
 	[ "$TMPSIZE" -lt 100 ] && TMPSIZE=100
 fi
 
+function createswap {
+# size[in MiB] name
+	echo "### setting up ${1}MiB temporary swap on $2"
+	BYTES=$( echo | awk "{print int(($1) * 1024 * 1024)}")
+	if ! fallocate -l $BYTES $2 || ! truncate -s $BYTES $2
+	then	# fall back
+		echo "   ... fallocate failed, we do a dd"
+		echo "### creating $2 with ${1}MiB"
+		COUNT=$( echo | awk "{print int(($1) * 1024)}")
+# echo count: $COUNT
+		dd if=/dev/zero of="$2" bs=1024 count=$COUNT || exit
+	fi
+	chmod 0600 "$2"
+	mkswap "$2"
+	swapon "$2"
+	# NOTE: if we fail here before the $2 is installed we can't run again...
+	echo "### $2 is set up."
+
+}
+
 if [ "$TMPSIZE" ]
 then
-
-	echo "### setting up ${TMPSIZE}MiB temporary swap on $SWAPFILE.tmp"
-	echo "   ... fallocate may fail, then we do a dd"
-	if ! fallocate -l $( echo | awk "{print int(($TMPSIZE) * 1024 * 1024)}") $SWAPFILE.tmp
-	then	# fall back
-		echo "### creating $SWAPFILE.tmp with ${TMPSIZE}MiB"
-		COUNT=$( echo | awk "{print int(($TMPSIZE) * 1024)}")
-		dd if=/dev/zero of="$SWAPFILE.tmp" bs=1024 count=$COUNT || exit
-	fi
-	chmod 0600 "$SWAPFILE.tmp"
-	mkswap "$SWAPFILE.tmp"
-	swapon "$SWAPFILE.tmp"
-	# NOTE: if we fail here before the $SWAPFILE is installed we can't run again...
-	echo "### $SWAPFILE.tmp is set up."
-
+	createswap $TMPSIZE $SWAPFILE.tmp
 fi
 
 echo "### deactivate $SWAPFILE"
 swapoff $SWAPFILE
 
-echo "### setting up ${SIZE}MiB swap on $SWAPFILE"
-
-# modern kernel syscall may not be compatible with older Debian
-# fallocate: fallocate failed: Operation not supported
-echo "   ... fallocate may fail, then we do a dd"
-
-if ! fallocate -l $SIZE $SWAPFILE
-then
-	echo "### creating $SWAPFILE with ${SIZE}MiB"
-	# only this works reliably although slowly
-	COUNT=$( echo | awk "{print int(($SIZE) * 1024.0)}")
-	# echo count: $COUNT
-	dd if=/dev/zero of="$SWAPFILE" bs=1024 count=$COUNT || exit
-fi
-
-chmod 0600 "$SWAPFILE"
-mkswap "$SWAPFILE"
-swapon "$SWAPFILE"
-echo "### $SWAPFILE is set up."
+createswap $SIZE $SWAPFILE
 
 if [ "$TMPSIZE" ]
 then
