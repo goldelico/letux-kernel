@@ -64,6 +64,7 @@ struct twl6040_data {
 	struct twl6040_jack_data hs_jack;
 	struct snd_soc_component *component;
 	struct mutex mutex;
+	int (*set_dl1_gains)(struct snd_soc_component *component, int gain);
 };
 
 /* set of rates for each pll: low-power and high-performance */
@@ -540,6 +541,32 @@ int twl6040_get_dl1_gain(struct snd_soc_component *component)
 	return 0; /* 0dB */
 }
 EXPORT_SYMBOL_GPL(twl6040_get_dl1_gain);
+
+static int twl6040_forward_dl1_gains(struct snd_soc_component *component, int event)
+{
+	struct twl6040_data *priv = snd_soc_component_get_drvdata(component);
+	int gain;
+
+	/*
+	 * set DL1 gains dynamically according to the active output
+	 * (Headset, Earpiece) and HSDAC power mode
+	 */
+
+	gain = twl6040_get_dl1_gain(component) * 100;
+
+	if (priv->set_dl1_gains)
+		priv->set_dl1_gains(component, gain);
+
+	return 0;
+}
+
+void twl6040_register_dl1_gain_setter(struct snd_soc_component *component, int (*func)(struct snd_soc_component *component, int gain))
+{
+	struct twl6040_data *priv = snd_soc_component_get_drvdata(component);
+
+	priv->set_dl1_gains = func;
+}
+EXPORT_SYMBOL_GPL(twl6040_register_dl1_gain_setter);
 
 int twl6040_get_clk_id(struct snd_soc_component *component)
 {
@@ -1144,6 +1171,7 @@ static const struct snd_soc_component_driver soc_component_dev_twl6040 = {
 	.read			= twl6040_read,
 	.write			= twl6040_write,
 	.set_bias_level		= twl6040_set_bias_level,
+	.stream_event		= twl6040_forward_dl1_gains,
 	.controls		= twl6040_snd_controls,
 	.num_controls		= ARRAY_SIZE(twl6040_snd_controls),
 	.dapm_widgets		= twl6040_dapm_widgets,
