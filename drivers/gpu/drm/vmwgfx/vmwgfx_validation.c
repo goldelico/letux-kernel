@@ -25,6 +25,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+#include <linux/hashtable.h>
 #include <linux/slab.h>
 #include "vmwgfx_validation.h"
 #include "vmwgfx_drv.h"
