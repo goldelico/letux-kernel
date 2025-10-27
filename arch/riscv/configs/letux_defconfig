@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.18.0-rc2 Kernel Configuration
+# Linux/riscv 6.18.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -30,7 +30,7 @@ CONFIG_THREAD_INFO_IN_TASK=y
 CONFIG_INIT_ENV_ARG_LIMIT=32
 # CONFIG_COMPILE_TEST is not set
 # CONFIG_WERROR is not set
-CONFIG_LOCALVERSION="-letux"
+CONFIG_LOCALVERSION="-letux-riscv"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_BUILD_SALT=""
 CONFIG_HAVE_KERNEL_GZIP=y
@@ -1729,7 +1729,6 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_UACCE is not set
 # CONFIG_PVPANIC is not set
 # CONFIG_GP_PCI1XXXX is not set
-# CONFIG_AMD_SBRMI_I2C is not set
 # CONFIG_W2CBW003 is not set
 # CONFIG_TRS3386 is not set
 # end of Misc devices
@@ -4847,7 +4846,6 @@ CONFIG_USB_MUSB_SUNXI=m
 # CONFIG_USB_APPLEDISPLAY is not set
 # CONFIG_APPLE_MFI_FASTCHARGE is not set
 # CONFIG_USB_LJCA is not set
-# CONFIG_USB_USBIO is not set
 # CONFIG_USB_SISUSBVGA is not set
 # CONFIG_USB_LD is not set
 # CONFIG_USB_TRANCEVIBRATOR is not set
