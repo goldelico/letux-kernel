@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.18.0-rc2 Kernel Configuration
+# Linux/x86 6.18.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1978,7 +1978,6 @@ CONFIG_CB710_DEBUG_ASSUMPTIONS=y
 # CONFIG_UACCE is not set
 # CONFIG_PVPANIC is not set
 # CONFIG_GP_PCI1XXXX is not set
-# CONFIG_AMD_SBRMI_I2C is not set
 # CONFIG_W2CBW003 is not set
 # CONFIG_TRS3386 is not set
 # end of Misc devices
