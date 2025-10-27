@@ -1,5 +1,5 @@
 #
-# Linux/arm64 6.18.0-rc2 Kernel Configuration
+# Linux/arm64 6.18.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -6289,7 +6289,6 @@ CONFIG_USB_SERIAL_OPTION=m
 # CONFIG_USB_APPLEDISPLAY is not set
 # CONFIG_APPLE_MFI_FASTCHARGE is not set
 # CONFIG_USB_LJCA is not set
-# CONFIG_USB_USBIO is not set
 # CONFIG_USB_SISUSBVGA is not set
 # CONFIG_USB_LD is not set
 # CONFIG_USB_TRANCEVIBRATOR is not set
@@ -8084,7 +8083,6 @@ CONFIG_OF_FPGA_REGION=m
 CONFIG_TEE=y
 CONFIG_OPTEE=y
 # CONFIG_OPTEE_INSECURE_LOAD_IMAGE is not set
-# CONFIG_QCOMTEE is not set
 CONFIG_MULTIPLEXER=y
 
 #
