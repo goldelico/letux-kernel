@@ -71,6 +71,7 @@ struct as5013_drvdata {
 	} mbutton;
 };
 
+#if 0	// unused
 static int as5013_i2c_write(struct i2c_client *client,
 			    uint8_t aregaddr,
 			    uint8_t avalue)
@@ -84,6 +85,7 @@ static int as5013_i2c_write(struct i2c_client *client,
 	error = i2c_transfer(client->adapter, &msg, 1);
 	return error < 0 ? error : 0;
 }
+#endif
 
 static int as5013_i2c_read(struct i2c_client *client,
 			   uint8_t aregaddr, uint8_t *value)
