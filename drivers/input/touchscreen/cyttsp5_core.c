@@ -3587,10 +3587,10 @@ static void cyttsp5_startup_work_function(struct work_struct *work)
 		(LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 static int cyttsp5_core_rt_suspend(struct device *dev)
 {
+#if 0
 	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 	int rc;
 
-#if 0
 	rc = cyttsp5_core_sleep(cd);
 	if (rc < 0) {
 		dev_err(dev, "%s: Error on sleep\n", __func__);
@@ -3602,9 +3602,9 @@ static int cyttsp5_core_rt_suspend(struct device *dev)
 
 static int cyttsp5_core_rt_resume(struct device *dev)
 {
+#if 0
 	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 	int rc;
-#if 0
 	rc = cyttsp5_core_wake(cd);
 	if (rc < 0) {
 		dev_err(dev, "%s: Error on wake\n", __func__);
@@ -3619,8 +3619,8 @@ static int cyttsp5_core_rt_resume(struct device *dev)
 #if defined(CONFIG_PM_SLEEP)
 static int cyttsp5_core_suspend_noirq(struct device *dev)
 {
-	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 #if 0
+	struct cyttsp5_core_data *cd = dev_get_drvdata(dev);
 	if(gpio_get_value(cd->cpdata->irq_gpio)==0)
 	{// press button (device information)  at least 10 seconds , the return value of gpio_get_value() will be 0
 		return -1 ;
@@ -3697,7 +3697,9 @@ static int cyttsp5_core_resume(struct device *dev)
 		dev_dbg(dev, "%s Device MAY NOT wakeup\n", __func__);
 	}
 
+#if 0
 exit:
+#endif
 	cyttsp5_core_wake(cd);
 
 	return 0;
