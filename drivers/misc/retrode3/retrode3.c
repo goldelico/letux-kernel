@@ -41,18 +41,15 @@ static inline int get_bus_bit(struct gpio_desc *desc)
 
 }
 
-static inline void set_bus_bit(struct gpio_desc *desc, int value)
+static inline int set_bus_bit(struct gpio_desc *desc, int value)
 {
 #if 1	// speed optimized direct call
 	struct gpio_chip *gc = desc->gdev->chip;
 	// can we use set_multiple?
-// printk("%s: %px set=%pS set_rv=%pS\n", __func__, gc, gc->set, gc->set_rv);
-if(gc->set_rv)
-	(void) gc->set_rv(gc, gpio_chip_hwgpio(desc), value);	// new - but we still ignore errors
-else
-	gc->set(gc, gpio_chip_hwgpio(desc), value);
+// printk("%s: %px set=%pS set=%pS\n", __func__, gc, gc->set, gc->set);
+	return gc->set(gc, gpio_chip_hwgpio(desc), value);
 #else
-	gpiod_set_value(desc, value);
+	return gpiod_set_value(desc, value);
 #endif
 }
 
