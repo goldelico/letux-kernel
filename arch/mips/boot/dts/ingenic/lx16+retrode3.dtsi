@@ -466,16 +466,28 @@
 			slot3 {
 				compatible = "openpandora,retrode3-gamepads", "openpandora,retrode3-controller";
 				ce-gpio = <&gpb 22 GPIO_ACTIVE_LOW>;
-				left {
+				right-sega {
 					data-offset = <0>;
+#if APPLICATION >= 295
+					status-led = <&right_controller_led>;
+#endif
+				};
+				left-sega {
+					data-offset = <8>;
 #if APPLICATION >= 295
 					status-led = <&left_controller_led>;
 #endif
 				};
-				right {
-					data-offset = <8>;
+				right-snes {
+					data-offset = <7>;
 #if APPLICATION >= 295
 					status-led = <&right_controller_led>;
+#endif
+				};
+				left-snes {
+					data-offset = <15>;
+#if APPLICATION >= 295
+					status-led = <&left_controller_led>;
 #endif
 				};
 			};
