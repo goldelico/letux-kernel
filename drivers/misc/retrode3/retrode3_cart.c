@@ -535,7 +535,7 @@ static void retrode3_slot_release(struct device *dev)
 
         dev_dbg(&slot->dev, "%s\n", __func__);
 
-	ida_simple_remove(&retrode3_minors, slot->id);
+	ida_free(&retrode3_minors, slot->id);
 	// FIXME: what else to release
 	kfree(slot);
 }
@@ -547,7 +547,7 @@ int retrode3_probe_slot(struct retrode3_slot *slot, struct device_node *child)
 	int ret;
 	const char *name = "unknown";
 
-	id = ida_simple_get(&retrode3_minors, 0, RETRODE3_MINORS, GFP_KERNEL);
+	id = ida_alloc_max(&retrode3_minors, RETRODE3_MINORS-1, GFP_KERNEL);
 	if (id < 0)
 		return id;
 
