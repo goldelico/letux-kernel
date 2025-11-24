@@ -12,6 +12,7 @@
  */
 
 #define _GNU_SOURCE
+
 #include <elf.h>
 #include <fnmatch.h>
 #include <stdio.h>
@@ -27,6 +28,15 @@
 #include <xalloc.h>
 #include "modpost.h"
 #include "../../include/linux/license.h"
+
+/* define our local strchrnul, it is not available everywhere */
+#define strchrnul strchrnul_local
+static char *strchrnul_local(const char *s, int c)
+{
+	while (*s && *s != (char)c)
+		s++;
+	return (char *)s;
+}
 
 #define MODULE_NS_PREFIX "module:"
 
@@ -1550,7 +1560,7 @@ static void mod_set_crcs(struct module *mod)
 	buf = read_text_file(objlist);
 	p = buf;
 
-	while ((obj = strsep(&p, "\n")) && obj[0])
+	while ((obj = get_line(&p)) && obj[0])
 		extract_crcs_for_object(obj, mod);
 
 	free(buf);
@@ -1777,7 +1787,8 @@ static void handle_white_list_exports(const char *white_list)
 	buf = read_text_file(white_list);
 	p = buf;
 
-	while ((name = strsep(&p, "\n"))) {
+	/* don't use strsep here, it is not available everywhere */
+	while ((name = get_line(&p))) {
 		struct symbol *sym = find_symbol(name);
 
 		if (sym)
