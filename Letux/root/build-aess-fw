@@ -22,6 +22,7 @@ VERSION=009590
 #
 
 echo +++ make sure we have the required build tools
+apt-get update
 yes | apt-get -y install build-essential bison flex bc libssl-dev git autogen automake libtool || exit 1
 
 echo +++ create and go to $THIS/aess
@@ -31,12 +32,20 @@ mkdir -p aess && cd aess || exit 1
 # getting source trees
 #
 
-function gitfetch { # $1 = repo, $2 = subdir
-	if ! [ -d $2/.git ]
+function gitfetch { # $1 = "options and repo", $2 = subdir
+# ls -l "$2/.git"
+	if ! [ -d "$2/.git" ]
 	then
-		rm -rf $2.tmp
+		rm -rf "$2.tmp"
 		echo "+++ fetch $BRANCH from $1 to $2";
-		git clone --depth 1 -b $BRANCH $1 $2.tmp && mv $2.tmp $2 || return
+		git clone --depth 1 -b $BRANCH $1 "$2.tmp" && mv "$2.tmp" "$2" || return
+	else
+		(
+		cd "$2"
+		git remote update
+		echo "+++ switch $PWD to $BRANCH";
+		git checkout --force $BRANCH
+		)
 	fi
 }
 
