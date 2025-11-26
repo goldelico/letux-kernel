@@ -122,22 +122,17 @@ struct snd_soc_fw_plugin {
 	int version;
 };
 
-extern __attribute__((const, noreturn))
-int ____ilog2_NaN(void);
-
 /**
- * ilog2 - log of base 2 of 32-bit or a 64-bit unsigned value
- * @n - parameter
+ * const_ilog2 - log base 2 of 32-bit or a 64-bit constant unsigned value
+ * @n: parameter
  *
- * constant-capable log of base 2 calculation
- * - this can be used to initialise global variables from constant data, hence
- *   the massive ternary operator construction
- *
- * selects the appropriately-sized optimised version depending on sizeof(n)
+ * Use this where sparse expects a true constant expression, e.g. for array
+ * indices.
  */
 #define ilog2(n)				\
 (						\
-		(n) < 1 ? ____ilog2_NaN() :	\
+	__builtin_constant_p(n) ? (		\
+		(n) < 2 ? 0 :			\
 		(n) & (1ULL << 63) ? 63 :	\
 		(n) & (1ULL << 62) ? 62 :	\
 		(n) & (1ULL << 61) ? 61 :	\
@@ -200,10 +195,8 @@ int ____ilog2_NaN(void);
 		(n) & (1ULL <<  4) ?  4 :	\
 		(n) & (1ULL <<  3) ?  3 :	\
 		(n) & (1ULL <<  2) ?  2 :	\
-		(n) & (1ULL <<  1) ?  1 :	\
-		(n) & (1ULL <<  0) ?  0 :	\
-		____ilog2_NaN()			\
- )
+		1) :				\
+	-1)
 
 /**
  * roundup_pow_of_two - round the given value up to nearest power of two
