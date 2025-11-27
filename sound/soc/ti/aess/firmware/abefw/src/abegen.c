@@ -65,6 +65,9 @@
 #define uintptr_t host_uintptr_t
 #define intptr_t host_intptr_t
 
+#undef __alloc_size__
+#define __alloc_size__(x, ...)
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
