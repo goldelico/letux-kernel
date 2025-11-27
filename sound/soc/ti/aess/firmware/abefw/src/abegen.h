@@ -71,6 +71,9 @@ typedef	int16_t s16;
 typedef	uint8_t u8;
 typedef	int8_t s8;
 
+#undef __alloc_size__
+#define __alloc_size__(x, ...)
+
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof(x[0]))
 
 struct abe_firmware {
