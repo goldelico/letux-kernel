@@ -1,10 +1,15 @@
 #!/bin/bash
 #
-# build AESS firmware on destination device (e.g. PandaBoard, OMAP5EVM, Pyra, ...)
-# cross-compile may/will need different approach
-# tested on Debian 9.13 on letux devices
+# run this on destination device (e.g. PandaBoard, OMAP5EVM, Pyra, ...) to build AESS firmware
 #
-# Source code comes originally from https://github.com/omap-audio
+# NOTES:
+# - cross-compile may/will need different approach
+# - tested on Debian 9.13 and later on LetuxOS devices
+# - firmware source code comes originally from https://github.com/omap-audio
+#   but is now part of the LetuxOS kernel trees
+#
+# Options:
+#   -n	do not fetch/update source
 #
 
 THIS="$PWD"
@@ -28,6 +33,11 @@ yes | apt-get -y install build-essential bison flex bc libssl-dev git autogen au
 echo +++ create and go to $THIS/aess
 mkdir -p aess && cd aess || exit 1
 
+LINUX="$PWD/letux-kernel"			# full source tree (for headers)
+DEST="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware
+
+if [ "$1" != -n ]
+then
 #
 # getting source trees
 #
@@ -49,27 +59,41 @@ function gitfetch { # $1 = "options and repo", $2 = subdir
 	fi
 }
 
-LINUX="$PWD/letux-kernel"			# full source tree (for headers)
-DEST="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware
-
 echo "+++ make sure we have the (complete) kernel source tree ($BRANCH)"
 ( gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel && [ -r "$DEST" ] ) ||
 ( echo "--- retry $BRANCH from scratch"; rm -rf letux-kernel; gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel ) ||
 ( echo "--- fallback to $FALLBACK"; rm -rf letux-kernel; gitfetch "--depth 1 -b $FALLBACK https://github.com/goldelico/letux-kernel.git" letux-kernel ) || exit 1
 
+fi
+
 #
 # build generated kernel headers
 #
 
-echo +++ configure kernel and build generated headers
+# ls -l $LINUX/../linux-headers/Makefile $LINUX/../linux-headers/Makefile
+# well, this detection rule may not be 100% precise and sufficient if some important header file is changed but not the Makefile
+
+if [ ! -r $LINUX/../linux-headers/Makefile ] || ! diff -q $LINUX/Makefile $LINUX/../linux-headers/Makefile
+then
 (
-cd $LINUX || exit
+	cd $LINUX || exit
 
-DEFCONFIG=letux_defconfig
-uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
+	DEFCONFIG=letux_defconfig
+	uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
 
-[ -f include/generated/uapi/linux/version.h ] || ( make ARCH=arm $DEFCONFIG modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers && ln -sf asm-generic include/asm)
+	echo +++ rebuild headers for arm $DEFCONFIG
+	make ARCH=arm $DEFCONFIG clean modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers &&
+		ln -sf asm-generic include/asm &&
+		cp Makefile ../linux-headers/Makefile
+
 ) || exit
+fi
+
+# patch issue with host defined __attribute_alloc_size__
+# there is a note that __alloc_size__ should not be used - but it may be...
+
+sed -i.bak 's|^#define __alloc_size__(x, ...)|// #define __alloc_size__(x, ...)|' $LINUX/include/linux/compiler_attributes.h
+fgrep '#define __alloc_size__' $LINUX/include/linux/compiler_attributes.h
 
 #
 # build firmware tools and firmware
