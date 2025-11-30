@@ -30,11 +30,6 @@
 #ifndef __OMAP_AESS_H__
 #define __OMAP_AESS_H__
 
-#include <linux/device.h>
-#include <linux/firmware.h>
-
-// FIXME: why must this be public? Well, partially used by omap-abe-twl6040.c
-
 /* This must currently match the BE order in DSP */
 enum omap_aess_be_id {
 	OMAP_AESS_BE_ID_PDM_UL = 0,
@@ -78,6 +73,7 @@ enum omap_aess_port_id {
 };
 
 struct omap_aess;	/* opaque type, starting with a omap_aess_ops member */
+struct device;		/* opaque type */
 
 struct omap_aess_ops {
 	/* Port Management */
