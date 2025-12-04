@@ -64,6 +64,7 @@ static void retrode3_polling_work(struct work_struct *work)
 		u64 changes = state ^ c->last_state;
 
 // if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
+
 		if (!c->state_valid || (changes & BIT_ULL(56))) { // first event after boot or controller has been (un)plugged
 			char *envp[4];
 
@@ -76,8 +77,9 @@ static void retrode3_polling_work(struct work_struct *work)
 			kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 		}
 
-		if (c->state_valid) { // skip first analysis after boot
 #define SEND_CHANGE(BIT, KEY) if (changes & BIT_ULL(BIT)) input_report_key(c->input, KEY, !(state & BIT_ULL(BIT)));
+
+		if (c->state_valid) { // skip first analysis after boot
 			/* NOTE: in fast key press actions more than a single key status may have changed */
 			SEND_CHANGE(59, KEY_UP);
 			SEND_CHANGE(58, KEY_DOWN);
@@ -118,40 +120,52 @@ static void retrode3_polling_work(struct work_struct *work)
 	// but there are differences: 16 clocks vs. 8 cycles
 	// sampling is on one edge only - but that would simply multiply the bit numbers by 2
 	// but makes it more difficult (&0x5555) to detect all buttons are low
+
 	for (cycle = 0; cycle < 16; cycle ++) { // 16 clocks
 		retrode3_set_select(slot, 0);
 		w = read_word(slot->bus);	// D7 and D15 are relevant
+// printk("%s %d: %x %llx %llx\n", __func__, line, w, word[2], word[3]);
 		if(w < 0) { // invalid read
 			select_slot(slot->bus, NULL);
 			return;
 		}
-		for (i = 2; i < 3; i++)
+		for (i = 2; i < 4; i++) {
 			word[i] = (word[i] << 1) | ((w >> slot->controllers[i].data_offset) & 0x1);
+// printk("%s %d: %d %x %d %llx\n", __func__, __LINE__, i, w, ((w >> slot->controllers[i].data_offset) & 0x1), word[i]);
 		retrode3_set_select(slot, 1);
+		}
 	}
 
 // printk("%s: %llx %llx\n", __func__, word[2], word[3]);
 
-	for (i=2; i < 3; i++) {
+	// this may also be merged into a single loop
+	// only the SEND_CHANGE calls are then controller dependent
+
+	for (i=2; i < 4; i++) {
 		struct retrode3_controller *c = &slot->controllers[i];
 		u64 state = word[i];
-		u64 changes = state ^ c->last_state;
+		u64 changes;
 
-if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
+		if (state == 0)	/* there is a pull-down resistor making all bits read as 0 if unplugged */
+			state |= BIT_ULL(56) | 0xffffULL;	/* assume no button is pressed now */
 
-		if (!c->state_valid || state == 0) { // first event after boot or controller has been (un)plugged
+		changes = state ^ c->last_state;
+
+// if (changes) printk("%s: controller %d changes %16llx state %16llx valid=%d\n", __func__, i, changes, state, c->state_valid);
+
+		if (!c->state_valid || (changes & BIT_ULL(56))) { // first event after boot or controller has been (un)plugged
 			char *envp[4];
 
 			envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
 			envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
-			envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state == 0)?"disconnected":"connected");
+			envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & BIT_ULL(56))?"disconnected":"connected");
 			envp[3] = NULL;
 // printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
 			// check with: udevadm monitor --environment
 			kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 		}
 
-		if (c->state_valid) { // skip first analysis after boot
+		if (c->state_valid) { // skip first analysis after boot or plugging
 			/* NOTE: in fast key press actions more than a single key status may have changed */
 			SEND_CHANGE(15, KEY_B);	// B
 			SEND_CHANGE(14, KEY_Y);	// Y
@@ -225,7 +239,7 @@ int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*chi
 			input_set_capability(input_dev, EV_KEY, KEY_LEFT);
 			input_set_capability(input_dev, EV_KEY, KEY_RIGHT);
 			input_set_capability(input_dev, EV_KEY, KEY_S);
-// FIXME: add only after detecting a 6 button controller?
+// FIXME: dynamically add only after detecting a 6 button controller?
 			input_set_capability(input_dev, EV_KEY, KEY_X);
 			input_set_capability(input_dev, EV_KEY, KEY_Y);
 			input_set_capability(input_dev, EV_KEY, KEY_Z);
@@ -252,6 +266,8 @@ int retrode3_probe_controller(struct retrode3_slot *slot, struct device_node*chi
 		}
 
 		of_property_read_u32(controller, "data-offset", &slot->controllers[id].data_offset);
+
+// printk("%s %d: %d %d\n", __func__, __LINE__, id, slot->controllers[id].data_offset);
 
 		id++;
 	}
