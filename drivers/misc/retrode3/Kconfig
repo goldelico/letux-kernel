@@ -4,7 +4,42 @@
 #
 
 config RETRODE3
-	tristate "Retrode3 gpio based Cart read"
+	tristate "Retrode3 gpio based Cart read/write"
+	help
+	  Choose Y.
+
+config RETRODE3_GPIO_BUS
+	tristate "Retrode3 GPIO based Bus controller"
+	help
+	  Choose Y.
+
+config RETRODE3_CLIENT
+	tristate "Retrode3 demo Bus client"
+	depends on RETRODE3_GPIO_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_MEGADRIVE
+	tristate "Retrode3 MegaDrive driver"
+	depends on RETRODE3_GPIO_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_NES
+	tristate "Retrode3 NES driver"
+	depends on RETRODE3_GPIO_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_SNES
+	tristate "Retrode3 SNES driver"
+	depends on RETRODE3_GPIO_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_CONTROLLER
+	tristate "Retrode3 SNES driver"
+	depends on RETRODE3_GPIO_BUS
 	help
 	  Choose Y.
 

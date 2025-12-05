@@ -1,0 +1,34 @@
+# dt binding stub
+
+Controller node and client:
+
+retrode3@40000000 {
+    compatible = "dragonbox,retrode3-bus";
+    reg = <0x40000000 0x1000>;
+
+    children {
+        sensor@1000 {
+            compatible = "dragonbox,retrode3-client-example";
+            reg = <0x1000>;
+            /* optional properties */
+            retrode3-controller = <&retrode3ctlr>; /* if client is declared elsewhere */
+        };
+
+        eeprom@2000 {
+            compatible = "dragonbox,retrode3-eeprom";
+            reg = <0x2000>;
+        };
+    };
+};
+If the controller is a separate node:
+
+retrode3ctlr: retrode3-controller@40000000 {
+    compatible = "dragonbox,retrode3-mmio";
+    reg = <0x40000000 0x1000>;
+};
+
+sensor@0 {
+    compatible = "dragonbox,retrode3-client-example";
+    retrode3-controller = <&retrode3ctlr>;
+    reg = <0x1000>;
+};
