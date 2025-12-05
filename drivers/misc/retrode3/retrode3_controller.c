@@ -34,19 +34,6 @@ static void retrode3_polling_work(struct work_struct *work)
 
 	select_slot(slot->bus, slot);
 
-// FIXME: if 3 button controller detected, we do not need 8 cycles
-	for (cycle = 0; cycle < 8; cycle++) {
-		retrode3_set_select(slot, cycle%2);
-		w = read_word(slot->bus);	// D0..D5 are Controller 1 and D8..D13 Controller 2
-		if(w < 0) { // invalid read
-			select_slot(slot->bus, NULL);
-			return;
-		}
-		for (i=0; i<2; i++)
-			word[i] = (word[i] << 8) | ((w >> slot->controllers[i].data_offset) & 0x3f);
-	}
-// printk("%s: %llx %llx\n", __func__, word[0], word[1]);
-
 	/* SEGA controller
 	 * see: https://nfggames.com/forum2/index.php?topic=2266.0
 	 * see https://sites.ualberta.ca/~delliott/cmpe490/appnotes/2016w/g6_genesis_controllers/genesis_controller.pdf
@@ -58,49 +45,19 @@ static void retrode3_polling_work(struct work_struct *work)
 	 * D0-D6/D8-D13:	Data
 	 */
 
-	for (i=0; i < 2; i++) {
-		struct retrode3_controller *c = &slot->controllers[i];
-		u64 state = word[i];
-		u64 changes = state ^ c->last_state;
-
-// if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
-
-		if (!c->state_valid || (changes & BIT_ULL(56))) { // first event after boot or controller has been (un)plugged
-			char *envp[4];
-
-			envp[0] = kasprintf(GFP_KERNEL, "SLOT=%s", dev_name(&slot->dev));
-			envp[1] = kasprintf(GFP_KERNEL, "CHANNEL=%d", i);
-			envp[2] = kasprintf(GFP_KERNEL, "STATE=%s", (state & BIT_ULL(56))?"disconnected":"connected");
-			envp[3] = NULL;
-// printk("%s: %s %s %s\n", __func__, envp[0], envp[1], envp[2]);
-			// check with: udevadm monitor --environment
-			kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
+// FIXME: if 3 button controller detected, we do not need 8 cycles
+	for (cycle = 0; cycle < 8; cycle++) {
+		retrode3_set_select(slot, cycle%2);
+		w = read_word(slot->bus);	// D0..D5 are Controller 1 and D8..D13 Controller 2
+		if(w < 0) { // invalid read
+			select_slot(slot->bus, NULL);
+			return;
 		}
-
-#define SEND_CHANGE(BIT, KEY) if (changes & BIT_ULL(BIT)) input_report_key(c->input, KEY, !(state & BIT_ULL(BIT)));
-
-		if (c->state_valid) { // skip first analysis after boot
-			/* NOTE: in fast key press actions more than a single key status may have changed */
-			SEND_CHANGE(59, KEY_UP);
-			SEND_CHANGE(58, KEY_DOWN);
-			SEND_CHANGE(48, KEY_RIGHT);
-			SEND_CHANGE(49, KEY_LEFT);
-			SEND_CHANGE(60, KEY_A);
-			SEND_CHANGE(52, KEY_B);
-			SEND_CHANGE(53, KEY_C);
-			SEND_CHANGE(61, KEY_S);
-			if(state & BIT_ULL(8)) { // 6 button
-				SEND_CHANGE(17, KEY_X);
-				SEND_CHANGE(18, KEY_Y);
-				SEND_CHANGE(19, KEY_Z);
-				SEND_CHANGE(16, KEY_M);
-			}
-			input_sync(c->input);
-		}
-
-		c->last_state = state;
-		c->state_valid = true;
+		for (i=0; i<2; i++)
+			word[i] = (word[i] << 8) | ((w >> slot->controllers[i].data_offset) & 0x3f);
 	}
+
+// printk("%s: %llx %llx\n", __func__, word[0], word[1]);
 
 	/* SNES controller
 	 * based on description at https://gamefaqs.gamespot.com/snes/916396-super-nintendo/faqs/5395
@@ -138,20 +95,19 @@ static void retrode3_polling_work(struct work_struct *work)
 
 // printk("%s: %llx %llx\n", __func__, word[2], word[3]);
 
-	// this may also be merged into a single loop
-	// only the SEND_CHANGE calls are then controller dependent
+#define IS_SEGA(i) (i < 2)
 
-	for (i=2; i < 4; i++) {
+	for (i=0; i < 4; i++) {
 		struct retrode3_controller *c = &slot->controllers[i];
 		u64 state = word[i];
 		u64 changes;
 
-		if (state == 0)	/* there is a pull-down resistor making all bits read as 0 if unplugged */
+		if (IS_SNES(i) && state == 0)	/* there is a pull-down resistor making all bits read as 0 if unplugged */
 			state |= BIT_ULL(56) | 0xffffULL;	/* assume no button is pressed now */
 
 		changes = state ^ c->last_state;
 
-// if (changes) printk("%s: controller %d changes %16llx state %16llx valid=%d\n", __func__, i, changes, state, c->state_valid);
+// if (changes) printk("%s: controller %d changes %16llx state %16llx\n", __func__, i, changes, state);
 
 		if (!c->state_valid || (changes & BIT_ULL(56))) { // first event after boot or controller has been (un)plugged
 			char *envp[4];
@@ -165,28 +121,47 @@ static void retrode3_polling_work(struct work_struct *work)
 			kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 		}
 
-		if (c->state_valid) { // skip first analysis after boot or plugging
+#define SEND_CHANGE(BIT, KEY) if (changes & BIT_ULL(BIT)) input_report_key(c->input, KEY, !(state & BIT_ULL(BIT)));
+
+		if (c->state_valid) { // skip first analysis after boot
 			/* NOTE: in fast key press actions more than a single key status may have changed */
-			SEND_CHANGE(15, KEY_B);	// B
-			SEND_CHANGE(14, KEY_Y);	// Y
-			SEND_CHANGE(13, KEY_C);	// Select
-			SEND_CHANGE(12, KEY_S);	// Start
-			SEND_CHANGE(11, KEY_UP);	// U on joypad
-			SEND_CHANGE(10, KEY_DOWN);	// D on joypad
-			SEND_CHANGE(9, KEY_LEFT);	// L on joypad
-			SEND_CHANGE(8, KEY_RIGHT);	// R on joypad
-			SEND_CHANGE(7, KEY_A);	// A
-			SEND_CHANGE(6, KEY_X);	// X
-			SEND_CHANGE(5, KEY_L);	// L shoulder
-			SEND_CHANGE(4, KEY_R);	// R shoulder
-			// 4 more bits
+			if (IS_SEGA(i)) {
+				SEND_CHANGE(59, KEY_UP);
+				SEND_CHANGE(58, KEY_DOWN);
+				SEND_CHANGE(48, KEY_RIGHT);
+				SEND_CHANGE(49, KEY_LEFT);
+				SEND_CHANGE(60, KEY_A);
+				SEND_CHANGE(52, KEY_B);
+				SEND_CHANGE(53, KEY_C);
+				SEND_CHANGE(61, KEY_S);
+				if(state & BIT_ULL(8)) { // 6 button
+					SEND_CHANGE(17, KEY_X);
+					SEND_CHANGE(18, KEY_Y);
+					SEND_CHANGE(19, KEY_Z);
+					SEND_CHANGE(16, KEY_M);
+				}
+			}
+			else {
+				SEND_CHANGE(15, KEY_B);	// B
+				SEND_CHANGE(14, KEY_Y);	// Y
+				SEND_CHANGE(13, KEY_C);	// Select
+				SEND_CHANGE(12, KEY_S);	// Start
+				SEND_CHANGE(11, KEY_UP);	// U on joypad
+				SEND_CHANGE(10, KEY_DOWN);	// D on joypad
+				SEND_CHANGE(9, KEY_LEFT);	// L on joypad
+				SEND_CHANGE(8, KEY_RIGHT);	// R on joypad
+				SEND_CHANGE(7, KEY_A);	// A
+				SEND_CHANGE(6, KEY_X);	// X
+				SEND_CHANGE(5, KEY_L);	// L shoulder
+				SEND_CHANGE(4, KEY_R);	// R shoulder
+				// 4 more bits
+			}
 			input_sync(c->input);
 		}
 
 		c->last_state = state;
 		c->state_valid = true;
 	}
-
 	select_slot(slot->bus, NULL);
 
 	schedule_delayed_work(&slot->work, POLL_RATE);	// start next check
