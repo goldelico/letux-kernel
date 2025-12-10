@@ -356,7 +356,7 @@
 #endif
 
 / {
-	retrode3 {
+	retrode3-old {
 		compatible = "openpandora,retrode3";
 		pinctrl-names = "default";
 		pinctrl-0 = <&retrode3>, <&slots>;
@@ -490,6 +490,153 @@
 					status-led = <&left_controller_led>;
 #endif
 				};
+			};
+		};
+	};
+};
+
+/ {
+	retrode3 {
+		compatible = "dragonbox,retrode3-bus";
+		pinctrl-names = "default";
+		pinctrl-0 = <&retrode3>, <&slots>;
+
+#if APPLICATION < 292
+		addr-gpios = <&gpb 30 GPIO_ACTIVE_HIGH>, // A0	should be &gpa 0 but that ends in error -16
+#else
+		addr-gpios = <&gpa 0 GPIO_ACTIVE_HIGH>, // A0
+#endif
+			     <&gpa 1 GPIO_ACTIVE_HIGH>, // A1
+			     <&gpa 2 GPIO_ACTIVE_HIGH>, // A2
+			     <&gpa 3 GPIO_ACTIVE_HIGH>, // A3
+			     <&gpa 4 GPIO_ACTIVE_HIGH>, // A4
+			     <&gpa 5 GPIO_ACTIVE_HIGH>, // A5
+			     <&gpa 6 GPIO_ACTIVE_HIGH>, // A6
+			     <&gpa 7 GPIO_ACTIVE_HIGH>, // A7
+			     <&gpa 24 GPIO_ACTIVE_HIGH>, // A8
+			     <&gpa 25 GPIO_ACTIVE_HIGH>, // A9
+			     <&gpa 26 GPIO_ACTIVE_HIGH>, // A10
+			     <&gpa 27 GPIO_ACTIVE_HIGH>, // A11
+			     <&gpa 28 GPIO_ACTIVE_HIGH>, // A12
+			     <&gpa 29 GPIO_ACTIVE_HIGH>, // A13
+			     <&gpa 30 GPIO_ACTIVE_HIGH>, // A14
+			     <&gpa 31 GPIO_ACTIVE_HIGH>, // A15
+			     <&gpb 12 GPIO_ACTIVE_HIGH>, // A16
+			     <&gpb 13 GPIO_ACTIVE_HIGH>, // A17
+			     <&gpb 14 GPIO_ACTIVE_HIGH>, // A18
+			     <&gpb 15 GPIO_ACTIVE_HIGH>, // A19
+			     <&gpb 16 GPIO_ACTIVE_HIGH>, // A20
+			     <&gpb 17 GPIO_ACTIVE_HIGH>, // A21
+			     <&gpb 19 GPIO_ACTIVE_HIGH>, // A22
+			     <&gpb 20 GPIO_ACTIVE_HIGH>; // A23
+
+		data-gpios = <&gpa 8 GPIO_ACTIVE_HIGH>, // D0
+			     <&gpa 9 GPIO_ACTIVE_HIGH>, // D1
+			     <&gpa 10 GPIO_ACTIVE_HIGH>, // D2
+			     <&gpa 11 GPIO_ACTIVE_HIGH>, // D3
+			     <&gpa 12 GPIO_ACTIVE_HIGH>, // D4
+			     <&gpa 13 GPIO_ACTIVE_HIGH>, // D5
+			     <&gpa 14 GPIO_ACTIVE_HIGH>, // D6
+			     <&gpa 15 GPIO_ACTIVE_HIGH>, // D7
+			     <&gpa 16 GPIO_ACTIVE_HIGH>, // D8
+			     <&gpa 17 GPIO_ACTIVE_HIGH>, // D9
+			     <&gpa 18 GPIO_ACTIVE_HIGH>, // D10
+			     <&gpa 19 GPIO_ACTIVE_HIGH>, // D11
+			     <&gpa 20 GPIO_ACTIVE_HIGH>, // D12
+			     <&gpa 21 GPIO_ACTIVE_HIGH>, // D13
+			     <&gpa 22 GPIO_ACTIVE_HIGH>, // D14
+			     <&gpa 23 GPIO_ACTIVE_HIGH>; // D15
+
+#if APPLICATION < 294
+		oe-gpio =    <&gpb 4 GPIO_ACTIVE_LOW>;	// OE/RD
+		we-gpios =   <&gpb 2 GPIO_ACTIVE_LOW>,	// LDSW
+			     <&gpb 3 GPIO_ACTIVE_LOW>;	// UDSW
+		time-gpio =  <&gpb 5 GPIO_ACTIVE_LOW>;	// TIME
+		reset-gpio = <&gpb 7 GPIO_ACTIVE_LOW>;  // RESET
+#else
+		oe-gpio =    <&gpb 7 GPIO_ACTIVE_LOW>;	// OE/RD
+		we-gpios =   <&gpb 8 GPIO_ACTIVE_LOW>,	// LDSW
+			     <&gpb 9 GPIO_ACTIVE_LOW>;	// UDSW
+		time-gpio =  <&gpb 10 GPIO_ACTIVE_LOW>;	// TIME
+		reset-gpio = <&exp_leds 2 GPIO_ACTIVE_LOW>;  // RESET
+#endif
+
+		example {
+			compatible = "dragonbox,retrode3-client-example";
+#if APPLICATION >= 294
+			power-gpio = <&exp_leds 3 GPIO_ACTIVE_LOW>;	// output high for 5V, output low/input/float for 3.3V
+#elif APPLICATION >= 292
+			power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
+#endif
+			cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
+			ce-gpio = <&gpb 28 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
+			status-led = <&md_led>;
+#endif
+			address-width = <23>;
+			bus-width = <16>;
+		};
+		md {
+			compatible = "dragonbox,retrode3-megadrive";
+#if APPLICATION >= 294
+			power-gpio = <&exp_leds 3 GPIO_ACTIVE_LOW>;	// output high for 5V, output low/input/float for 3.3V
+#elif APPLICATION >= 292
+			power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
+#endif
+			cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
+			ce-gpio = <&gpb 28 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
+			status-led = <&md_led>;
+#endif
+			address-width = <23>;
+			bus-width = <16>;
+		};
+		snes {
+			compatible = "dragonbox,retrode3-snes";
+			cd-gpio = <&gpb 25 GPIO_ACTIVE_LOW>;
+			ce-gpio = <&gpb 26 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
+			status-led = <&snes_led>;
+#endif
+			address-width = <18>;
+			bus-width = <8>;
+		};
+		nes {
+			compatible = "dragonbox,retrode3-nes";
+			cd-gpio = <&gpb 23 GPIO_ACTIVE_LOW>;
+			ce-gpio = <&gpb 24 GPIO_ACTIVE_LOW>;
+#if APPLICATION >= 292
+			status-led = <&nes_led>;
+#endif
+			address-width = <15>;
+			bus-width = <8>;	// effectively 8 + 8
+		};
+		controller {
+			compatible = "dragonbox,retrode3-controller";
+			ce-gpio = <&gpb 22 GPIO_ACTIVE_LOW>;
+			right-sega {
+				data-offset = <0>;
+#if APPLICATION >= 295
+				status-led = <&right_controller_led>;
+#endif
+			};
+			left-sega {
+				data-offset = <8>;
+#if APPLICATION >= 295
+				status-led = <&left_controller_led>;
+#endif
+			};
+			right-snes {
+				data-offset = <7>;
+#if APPLICATION >= 295
+				status-led = <&right_controller_led>;
+#endif
+			};
+			left-snes {
+				data-offset = <15>;
+#if APPLICATION >= 295
+				status-led = <&left_controller_led>;
+#endif
 			};
 		};
 	};
