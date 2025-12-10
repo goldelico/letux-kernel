@@ -8,42 +8,44 @@ config RETRODE3
 	help
 	  Choose Y.
 
-config RETRODE3_GPIO_BUS
+config RETRODE3_BUS
 	tristate "Retrode3 GPIO based Bus controller"
-	help
-	  Choose Y.
-
-config RETRODE3_CLIENT
-	tristate "Retrode3 demo Bus client"
-	depends on RETRODE3_GPIO_BUS
-	help
-	  Choose Y.
-
-config RETRODE3_MEGADRIVE
-	tristate "Retrode3 MegaDrive driver"
-	depends on RETRODE3_GPIO_BUS
-	help
-	  Choose Y.
-
-config RETRODE3_NES
-	tristate "Retrode3 NES driver"
-	depends on RETRODE3_GPIO_BUS
-	help
-	  Choose Y.
-
-config RETRODE3_SNES
-	tristate "Retrode3 SNES driver"
-	depends on RETRODE3_GPIO_BUS
-	help
-	  Choose Y.
-
-config RETRODE3_CONTROLLER
-	tristate "Retrode3 SNES driver"
-	depends on RETRODE3_GPIO_BUS
 	help
 	  Choose Y.
 
 config RETRODE3_BUFFER
 	bool "use in-kernel driver buffer to speed up read()"
+	depends on RETRODE3_BUS || RETRODE3
 	help
 	  Choose Y.
+
+config RETRODE3_CLIENT
+	tristate "Retrode3 demo Bus client"
+	depends on RETRODE3_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_MEGADRIVE
+	tristate "Retrode3 MegaDrive driver"
+	depends on RETRODE3_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_NES
+	tristate "Retrode3 NES driver"
+	depends on RETRODE3_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_SNES
+	tristate "Retrode3 SNES driver"
+	depends on RETRODE3_BUS
+	help
+	  Choose Y.
+
+config RETRODE3_CONTROLLER
+	tristate "Retrode3 SNES driver"
+	depends on RETRODE3_BUS
+	help
+	  Choose Y.
+

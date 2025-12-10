@@ -12,41 +12,55 @@
 
 #include "retrode3.h"
 
-static LIST_HEAD(ctlr_list);
-static DEFINE_MUTEX(ctlr_list_lock);
-
 static int retrode3_bus_match(struct device *dev, const struct device_driver *drv)
 {
+	printk("%s %d\n", __func__, __LINE__);
 	/* default match uses of_match if dev->of_node/driver->of_match_table set */
 	return of_driver_match_device(dev, drv);
 }
 
+static int retrode3_uevent(const struct device *dev, struct kobj_uevent_env *env)
+{
+	const char *compatible;
+
+	if (!dev->of_node)
+		return 0;
+
+	compatible = of_get_property(dev->of_node, "compatible", NULL);
+	if (!compatible)
+		return 0;
+
+	/* Build MODALIAS string: "of:N*T*C<vendor>,<name>" */
+	return add_uevent_var(env, "MODALIAS=of:N*T*C%s", compatible);
+}
+
 /* Bus type for driver core */
-static struct bus_type retrode3_bus_type = {
+struct bus_type retrode3_bus_type = {
 	.name = "retrode3",
 	.match = retrode3_bus_match,
+	.uevent = retrode3_uevent,
 };
 
 /* Called by controller driver to register itself */
-int retrode3_bus_register_controller(struct retrode3_bus_controller *ctlr)
+int retrode3_bus_register_controller(struct retrode3_bus_controller *controller)
 {
 	struct device_node *child;
 	struct retrode3_bus_device *mdev;
-	struct device *dev = ctlr->dev;
+	struct device *dev = controller->dev;
+	printk("%s %d\n", __func__, __LINE__);
 
-	if (!ctlr || !ctlr->ops)
+	if (!controller || !controller->ops)
 		return -EINVAL;
 
-	mutex_init(&ctlr->lock);
+	/* Initialize list of devices belonging to this controller */
+	INIT_LIST_HEAD(&controller->devices);
 
-	mutex_lock(&ctlr_list_lock);
-	list_add_tail(&ctlr->dev->kobj.entry, &ctlr_list); /* just symbolic; adapt if keep real list */
-	mutex_unlock(&ctlr_list_lock);
+	mutex_init(&controller->lock);
 
 	/* create retrode3 devices for each DT child so client drivers get probed */
 	if (dev->of_node) {
 		for_each_available_child_of_node(dev->of_node, child) {
-			mdev = retrode3_bus_device_create_from_of(ctlr, child);
+			mdev = retrode3_bus_client_create_from_of(controller, child);
 			if (IS_ERR(mdev)) {
 				dev_warn(dev, "failed to create retrode3 device for %pOF\n", child);
 			}
@@ -58,40 +72,55 @@ int retrode3_bus_register_controller(struct retrode3_bus_controller *ctlr)
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_register_controller);
 
-void retrode3_bus_unregister_controller(struct retrode3_bus_controller *ctlr)
+void retrode3_bus_unregister_controller(struct retrode3_bus_controller *controller)
 {
-	/* For simplicity: we won't remove devices here; production code must cleanup */
-	mutex_lock(&ctlr_list_lock);
-	/* remove from list... */
-	mutex_unlock(&ctlr_list_lock);
+	struct retrode3_bus_device *mdev, *tmp;
+
+	printk("%s %d\n", __func__, __LINE__);
+
+	list_for_each_entry_safe(mdev, tmp, &controller->devices, list) {
+		retrode3_bus_client_remove(mdev);
+	}
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_unregister_controller);
 
+static void retrode3_bus_dev_release(struct device *dev)
+{
+	struct retrode3_bus_device *mdev = to_retrode3_bus_device(dev);
+
+	kfree(mdev);
+}
+
 /* device_create helper: allocates a retrode3_bus_device, sets parent to controller device */
-struct retrode3_bus_device *retrode3_bus_device_create_from_of(struct retrode3_bus_controller *ctlr,
-												 struct device_node *np)
+struct retrode3_bus_device *retrode3_bus_client_create_from_of(struct retrode3_bus_controller *controller,
+															   struct device_node *np)
 {
 	struct retrode3_bus_device *mdev;
 	int ret;
+	printk("%s %d\n", __func__, __LINE__);
 
-	if (!ctlr || !np)
+	if (!controller || !np)
 		return ERR_PTR(-EINVAL);
 
 	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
 	if (!mdev)
 		return ERR_PTR(-ENOMEM);
 
-	mdev->ctlr = ctlr;
+	mdev->controller = controller;
+
+	// FIXME: do we need this here?
 	/* read optional DT properties */
 	of_property_read_u32(np, "retrode3,addr-width", &mdev->addr_width);
 	of_property_read_u32(np, "retrode3,data-width", &mdev->data_width);
 
 	device_initialize(&mdev->dev);
-	mdev->dev.parent = ctlr->dev;
+	mdev->dev.parent = controller->dev;
 	mdev->dev.bus = &retrode3_bus_type;
 	mdev->dev.of_node = of_node_get(np);
-	/* set device name: use node name or a reg property */
-	ret = dev_set_name(&mdev->dev, "%pOF", np);
+
+	mdev->dev.release = retrode3_bus_dev_release;
+
+	ret = dev_set_name(&mdev->dev, np->name);
 	if (ret) {
 		put_device(&mdev->dev);
 		kfree(mdev);
@@ -105,29 +134,52 @@ struct retrode3_bus_device *retrode3_bus_device_create_from_of(struct retrode3_b
 		return ERR_PTR(ret);
 	}
 
-	dev_info(ctlr->dev, "created retrode3 device %s\n", dev_name(&mdev->dev));
+	list_add_tail(&mdev->list, &controller->devices);
+
+	dev_info(controller->dev, "created retrode3 device %s\n", dev_name(&mdev->dev));
 	return mdev;
 }
-EXPORT_SYMBOL_GPL(retrode3_bus_device_create_from_of);
+EXPORT_SYMBOL_GPL(retrode3_bus_client_create_from_of);
 
-void retrode3_bus_device_remove(struct retrode3_bus_device *mdev)
+void retrode3_bus_client_remove(struct retrode3_bus_device *mdev)
 {
-	if (!mdev) return;
+	if (!mdev)
+		return;
+
+	list_del(&mdev->list);
+
 	device_del(&mdev->dev);
 	put_device(&mdev->dev);
-	kfree(mdev);
 }
-EXPORT_SYMBOL_GPL(retrode3_bus_device_remove);
+EXPORT_SYMBOL_GPL(retrode3_bus_client_remove);
+
+int retrode3_bus_client_driver_register(struct retrode3_bus_client_driver *drv)
+{
+	printk("%s %d\n", __func__, __LINE__);
+	drv->driver.bus = &retrode3_bus_type;
+	return driver_register(&drv->driver);
+}
+EXPORT_SYMBOL_GPL(retrode3_bus_client_driver_register);
+
+void retrode3_bus_client_driver_unregister(struct retrode3_bus_client_driver *drv)
+{
+	printk("%s %d\n", __func__, __LINE__);
+	driver_unregister(&drv->driver);
+}
+EXPORT_SYMBOL_GPL(retrode3_bus_client_driver_unregister);
 
 /* Client API implementations */
 
-struct retrode3_bus_controller *retrode3_bus_get_controller_by_phandle(struct device *dev,
-														 const char *propname)
+#if 0
+struct retrode3_bus_controller *retrode3_bus_get_controller_by_phandle(
+																	   struct device *dev,
+																	   const char *propname)
 {
 	struct device_node *np;
-	struct device_node *ctlr_np;
+	struct device_node *controller_np;
 	struct platform_device *pdev;
-	struct retrode3_bus_controller *ctlr = NULL;
+	struct retrode3_bus_controller *controller = NULL;
+	printk("%s %d\n", __func__, __LINE__);
 
 	if (!dev || !propname)
 		return ERR_PTR(-EINVAL);
@@ -136,70 +188,78 @@ struct retrode3_bus_controller *retrode3_bus_get_controller_by_phandle(struct de
 	if (!np)
 		return ERR_PTR(-ENODEV);
 
-	ctlr_np = of_parse_phandle(np, propname, 0);
-	if (!ctlr_np)
+	controller_np = of_parse_phandle(np, propname, 0);
+	if (!controller_np)
 		return ERR_PTR(-ENODEV);
 
-	pdev = of_find_device_by_node(ctlr_np);
-	of_node_put(ctlr_np);
+	pdev = of_find_device_by_node(controller_np);
+	of_node_put(controller_np);
 	if (!pdev)
 		return ERR_PTR(-ENODEV);
 
-	ctlr = platform_get_drvdata(pdev);
-	if (!ctlr)
+	controller = platform_get_drvdata(pdev);
+	if (!controller)
 		return ERR_PTR(-ENODEV);
 
-	return ctlr;
+	return controller;
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_get_controller_by_phandle);
+#endif
 
-int retrode3_bus_lock_bus(struct retrode3_bus_controller *ctlr)
+int retrode3_bus_lock_bus(struct retrode3_bus_controller *controller)
 {
-	if (!ctlr || !ctlr->ops || !ctlr->ops->lock)
+	printk("%s %d\n", __func__, __LINE__);
+	if (!controller || !controller->ops || !controller->ops->lock)
 		return -ENOSYS;
-	return ctlr->ops->lock(ctlr);
+	return controller->ops->lock(controller);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_lock_bus);
 
-void retrode3_bus_unlock_bus(struct retrode3_bus_controller *ctlr)
+void retrode3_bus_unlock_bus(struct retrode3_bus_controller *controller)
 {
-	if (!ctlr || !ctlr->ops || !ctlr->ops->unlock)
+	printk("%s %d\n", __func__, __LINE__);
+	if (!controller || !controller->ops || !controller->ops->unlock)
 		return;
-	ctlr->ops->unlock(ctlr);
+	controller->ops->unlock(controller);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_unlock_bus);
 
-int retrode3_bus_set_address(struct retrode3_bus_controller *ctlr, u64 addr)
+int retrode3_bus_set_address(struct retrode3_bus_controller *controller, u32 addr)
 {
-	if (!ctlr || !ctlr->ops || !ctlr->ops->set_addr)
+	printk("%s %d\n", __func__, __LINE__);
+	if (!controller || !controller->ops || !controller->ops->set_addr)
 		return -ENOSYS;
-	return ctlr->ops->set_addr(ctlr, addr);
+	return controller->ops->set_addr(controller, addr);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_set_address);
 
-int retrode3_bus_set_select(struct retrode3_bus_controller *ctlr, unsigned int sel)
+int retrode3_bus_set_select(struct retrode3_bus_controller *controller, unsigned int sel)
 {
-	if (!ctlr || !ctlr->ops || !ctlr->ops->set_select)
+	printk("%s %d\n", __func__, __LINE__);
+	if (!controller || !controller->ops || !controller->ops->set_select)
 		return -ENOSYS;
-	return ctlr->ops->set_select(ctlr, sel);
+	return controller->ops->set_select(controller, sel);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_set_select);
 
-int retrode3_bus_xfer(struct retrode3_bus_controller *ctlr, u8 dir, void *buf, size_t len, size_t *retlen)
+int retrode3_bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *buf, size_t len)
 {
-	if (!ctlr || !ctlr->ops || !ctlr->ops->xfer)
+	printk("%s %d\n", __func__, __LINE__);
+	if (!controller || !controller->ops || !controller->ops->xfer)
 		return -ENOSYS;
-	return ctlr->ops->xfer(ctlr, dir, buf, len, retlen);
+	return controller->ops->xfer(controller, dir, buf, len);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_xfer);
 
 /* init/exit of module: register bus type */
 static int __init retrode3_bus_core_init(void)
 {
+	printk("%s %d\n", __func__, __LINE__);
 	return bus_register(&retrode3_bus_type);
 }
 static void __exit retrode3_bus_core_exit(void)
 {
+	printk("%s %d\n", __func__, __LINE__);
 	bus_unregister(&retrode3_bus_type);
 }
 module_init(retrode3_bus_core_init);
