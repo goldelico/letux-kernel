@@ -3,43 +3,38 @@
 # Retrode3
 #
 
-config RETRODE3
-	tristate "Retrode3 gpio based Cart read/write"
-	help
-	  Choose Y.
-
 config RETRODE3_BUS
 	tristate "Retrode3 GPIO based Bus controller"
 	help
-	  Choose Y.
+	  Choose Y or M.
 
 config RETRODE3_BUFFER
 	bool "use in-kernel driver buffer to speed up read()"
-	depends on RETRODE3_BUS || RETRODE3
+	depends on RETRODE3_BUS
 	help
-	  Choose Y.
+	  Choose N or Y.
 
 config RETRODE3_MEGADRIVE
-	tristate "Retrode3 MegaDrive driver"
+	tristate "Retrode3 driver for MegaDrive slot"
 	depends on RETRODE3_BUS
 	help
-	  Choose Y.
+	  Choose Y or M.
 
 config RETRODE3_NES
-	tristate "Retrode3 NES driver"
+	tristate "Retrode3 driver for NES slot"
 	depends on RETRODE3_BUS
 	help
-	  Choose Y.
+	  Choose Y or M.
 
 config RETRODE3_SNES
-	tristate "Retrode3 SNES driver"
+	tristate "Retrode3 driver for SNES slot"
 	depends on RETRODE3_BUS
 	help
-	  Choose Y.
+	  Choose Y or M.
 
 config RETRODE3_CONTROLLER
-	tristate "Retrode3 SNES driver"
+	tristate "Retrode3 driver for Game Controllers"
 	depends on RETRODE3_BUS
 	help
-	  Choose Y.
+	  Choose Y or M.
 
