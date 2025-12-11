@@ -11,8 +11,5 @@ obj-$(CONFIG_RETRODE3_NES)		+= retrode3-core.o retrode3-nes.o
 obj-$(CONFIG_RETRODE3_SNES)		+= retrode3-core.o retrode3-snes.o
 obj-$(CONFIG_RETRODE3_CONTROLLER)	+= retrode3-core.o retrode3-controller.o
 
-# experimental
-obj-$(CONFIG_RETRODE3_CLIENT)		+= retrode3-core.o retrode3-client-example.o
-
 # old
 obj-$(CONFIG_RETRODE3)		+= retrode3.o

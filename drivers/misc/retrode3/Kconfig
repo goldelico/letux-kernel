@@ -19,12 +19,6 @@ config RETRODE3_BUFFER
 	help
 	  Choose Y.
 
-config RETRODE3_CLIENT
-	tristate "Retrode3 demo Bus client"
-	depends on RETRODE3_BUS
-	help
-	  Choose Y.
-
 config RETRODE3_MEGADRIVE
 	tristate "Retrode3 MegaDrive driver"
 	depends on RETRODE3_BUS
