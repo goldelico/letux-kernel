@@ -355,6 +355,7 @@
 
 #endif
 
+#ifdef OLD
 / {
 	retrode3-old {
 		compatible = "openpandora,retrode3";
@@ -494,6 +495,7 @@
 		};
 	};
 };
+#endif
 
 / {
 	retrode3 {
@@ -561,21 +563,6 @@
 		reset-gpio = <&exp_leds 2 GPIO_ACTIVE_LOW>;  // RESET
 #endif
 
-		example {
-			compatible = "dragonbox,retrode3-client-example";
-#if APPLICATION >= 294
-			power-gpio = <&exp_leds 3 GPIO_ACTIVE_LOW>;	// output high for 5V, output low/input/float for 3.3V
-#elif APPLICATION >= 292
-			power-gpio = <&gpc 24 GPIO_ACTIVE_HIGH>;	// output low for 5V, input/float for 3.3V
-#endif
-			cd-gpio = <&gpb 27 GPIO_ACTIVE_LOW>;		// CD=Cart Detect, CE=Cart Enable
-			ce-gpio = <&gpb 28 GPIO_ACTIVE_LOW>;
-#if APPLICATION >= 292
-			status-led = <&md_led>;
-#endif
-			address-width = <23>;
-			bus-width = <16>;
-		};
 		md {
 			compatible = "dragonbox,retrode3-megadrive";
 #if APPLICATION >= 294
