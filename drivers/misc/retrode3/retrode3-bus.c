@@ -17,28 +17,24 @@ struct retrode3_bus {
 
 static int bus_lock(struct retrode3_bus_controller *controller)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	mutex_lock(&controller->lock);
 	return 0;
 }
 
 static void bus_unlock(struct retrode3_bus_controller *controller)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	mutex_unlock(&controller->lock);
 }
 
 static int bus_set_addr(struct retrode3_bus_controller *controller, u32 addr)
 {
 	struct retrode3_bus *m = controller->priv;
-	/* Write lower/upper 32bits */
-	printk("%s %d:%08x\n", __func__, __LINE__, addr);
+	/* Write to address bus */
 	return 0;
 }
 
 static int bus_set_select(struct retrode3_bus_controller *controller, unsigned int sel)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	/* Implementation depends on hardware; maybe write a sel register */
 	/* For example, write to REG_CTRL high bits */
 	return 0;
@@ -50,14 +46,11 @@ static int bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *bu
 	size_t i;
 	u8 *b = buf;
 
-	printk("%s %d\n", __func__, __LINE__);
-
 	for (i = 0; i < len; ++i) {
 		if (dir == retrode3_bus_DIR_WRITE) {
-			printk("%s %d\n", __func__, __LINE__);
+
 		} else {
 			/* strobe to read then read data */
-			printk("%s %d\n", __func__, __LINE__);
 		}
 	}
 
@@ -77,8 +70,6 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 //	struct resource *res;
 	struct retrode3_bus *m;
 	int ret;
-
-	printk("%s %d\n", __func__, __LINE__);
 
 	m = devm_kzalloc(&pdev->dev, sizeof(*m), GFP_KERNEL);
 	if (!m)

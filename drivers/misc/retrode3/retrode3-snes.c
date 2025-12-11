@@ -19,7 +19,6 @@ static int retrode3_snes_probe(struct retrode3_bus_device *dev)
 	int ret;
 	u8 buf[4];
 
-	printk("%s %d\n", __func__, __LINE__);
 	p = devm_kzalloc(&dev->dev, sizeof(*p), GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
@@ -27,8 +26,6 @@ static int retrode3_snes_probe(struct retrode3_bus_device *dev)
 	p->controller = controller;
 	dev_set_drvdata(&dev->dev, p);
 
-	/* sample code during probe */
-	printk("%s %d\n", __func__, __LINE__);
 	/* Lock the bus, set address, read 4 bytes */
 	ret = retrode3_bus_lock_bus(controller);
 	if (ret) {
@@ -52,8 +49,6 @@ static int retrode3_snes_probe(struct retrode3_bus_device *dev)
 
 	dev_info(&dev->dev, "read %d bytes from retrode3 addr 0x1000\n", ret);
 	retrode3_bus_unlock_bus(controller);
-	printk("%s %d\n", __func__, __LINE__);
-	/* end sample code during probe */
 
 	return 0;
 }
@@ -81,7 +76,6 @@ static struct retrode3_bus_client_driver retrode3_snes_driver = {
 
 static int __init retrode3_snes_init(void)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	return retrode3_bus_client_driver_register(&retrode3_snes_driver);
 }
 static void __exit retrode3_snes_exit(void)

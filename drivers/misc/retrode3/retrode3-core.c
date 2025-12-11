@@ -14,8 +14,6 @@
 
 static int retrode3_bus_match(struct device *dev, const struct device_driver *drv)
 {
-	printk("%s %d\n", __func__, __LINE__);
-	/* default match uses of_match if dev->of_node/driver->of_match_table set */
 	return of_driver_match_device(dev, drv);
 }
 
@@ -47,7 +45,6 @@ int retrode3_bus_register_controller(struct retrode3_bus_controller *controller)
 	struct device_node *child;
 	struct retrode3_bus_device *mdev;
 	struct device *dev = controller->dev;
-	printk("%s %d\n", __func__, __LINE__);
 
 	if (!controller || !controller->ops)
 		return -EINVAL;
@@ -76,8 +73,6 @@ void retrode3_bus_unregister_controller(struct retrode3_bus_controller *controll
 {
 	struct retrode3_bus_device *mdev, *tmp;
 
-	printk("%s %d\n", __func__, __LINE__);
-
 	list_for_each_entry_safe(mdev, tmp, &controller->devices, list) {
 		retrode3_bus_client_remove(mdev);
 	}
@@ -97,7 +92,6 @@ struct retrode3_bus_device *retrode3_bus_client_create_from_of(struct retrode3_b
 {
 	struct retrode3_bus_device *mdev;
 	int ret;
-	printk("%s %d\n", __func__, __LINE__);
 
 	if (!controller || !np)
 		return ERR_PTR(-EINVAL);
@@ -155,7 +149,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_client_remove);
 
 int retrode3_bus_client_driver_register(struct retrode3_bus_client_driver *drv)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	drv->driver.bus = &retrode3_bus_type;
 	return driver_register(&drv->driver);
 }
@@ -163,7 +156,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_client_driver_register);
 
 void retrode3_bus_client_driver_unregister(struct retrode3_bus_client_driver *drv)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	driver_unregister(&drv->driver);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_client_driver_unregister);
@@ -179,7 +171,6 @@ struct retrode3_bus_controller *retrode3_bus_get_controller_by_phandle(
 	struct device_node *controller_np;
 	struct platform_device *pdev;
 	struct retrode3_bus_controller *controller = NULL;
-	printk("%s %d\n", __func__, __LINE__);
 
 	if (!dev || !propname)
 		return ERR_PTR(-EINVAL);
@@ -208,7 +199,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_get_controller_by_phandle);
 
 int retrode3_bus_lock_bus(struct retrode3_bus_controller *controller)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	if (!controller || !controller->ops || !controller->ops->lock)
 		return -ENOSYS;
 	return controller->ops->lock(controller);
@@ -217,7 +207,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_lock_bus);
 
 void retrode3_bus_unlock_bus(struct retrode3_bus_controller *controller)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	if (!controller || !controller->ops || !controller->ops->unlock)
 		return;
 	controller->ops->unlock(controller);
@@ -226,7 +215,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_unlock_bus);
 
 int retrode3_bus_set_address(struct retrode3_bus_controller *controller, u32 addr)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	if (!controller || !controller->ops || !controller->ops->set_addr)
 		return -ENOSYS;
 	return controller->ops->set_addr(controller, addr);
@@ -235,7 +223,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_set_address);
 
 int retrode3_bus_set_select(struct retrode3_bus_controller *controller, unsigned int sel)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	if (!controller || !controller->ops || !controller->ops->set_select)
 		return -ENOSYS;
 	return controller->ops->set_select(controller, sel);
@@ -244,7 +231,6 @@ EXPORT_SYMBOL_GPL(retrode3_bus_set_select);
 
 int retrode3_bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *buf, size_t len)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	if (!controller || !controller->ops || !controller->ops->xfer)
 		return -ENOSYS;
 	return controller->ops->xfer(controller, dir, buf, len);
@@ -254,12 +240,10 @@ EXPORT_SYMBOL_GPL(retrode3_bus_xfer);
 /* init/exit of module: register bus type */
 static int __init retrode3_bus_core_init(void)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	return bus_register(&retrode3_bus_type);
 }
 static void __exit retrode3_bus_core_exit(void)
 {
-	printk("%s %d\n", __func__, __LINE__);
 	bus_unregister(&retrode3_bus_type);
 }
 module_init(retrode3_bus_core_init);
