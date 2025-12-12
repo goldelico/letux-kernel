@@ -45,7 +45,7 @@ struct bus_type retrode3_bus_type = {
 int retrode3_bus_register_controller(struct retrode3_bus_controller *controller)
 {
 	struct device_node *child;
-	struct retrode3_bus_device *mdev;
+	struct retrode3_bus_device *slot;
 	struct device *dev = controller->dev;
 	printk("%s %d\n", __func__, __LINE__);
 
@@ -60,8 +60,8 @@ int retrode3_bus_register_controller(struct retrode3_bus_controller *controller)
 	/* create retrode3 devices for each DT child so client drivers get probed */
 	if (dev->of_node) {
 		for_each_available_child_of_node(dev->of_node, child) {
-			mdev = retrode3_bus_client_create_from_of(controller, child);
-			if (IS_ERR(mdev)) {
+			slot = retrode3_bus_client_create_from_of(controller, child);
+			if (IS_ERR(slot)) {
 				dev_warn(dev, "failed to create retrode3 device for %pOF\n", child);
 			}
 			of_node_put(child);
@@ -74,82 +74,77 @@ EXPORT_SYMBOL_GPL(retrode3_bus_register_controller);
 
 void retrode3_bus_unregister_controller(struct retrode3_bus_controller *controller)
 {
-	struct retrode3_bus_device *mdev, *tmp;
+	struct retrode3_bus_device *slot, *tmp;
 
 	printk("%s %d\n", __func__, __LINE__);
 
-	list_for_each_entry_safe(mdev, tmp, &controller->devices, list) {
-		retrode3_bus_client_remove(mdev);
+	list_for_each_entry_safe(slot, tmp, &controller->devices, list) {
+		retrode3_bus_client_remove(slot);
 	}
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_unregister_controller);
 
 static void retrode3_bus_dev_release(struct device *dev)
 {
-	struct retrode3_bus_device *mdev = to_retrode3_bus_device(dev);
+	struct retrode3_bus_device *slot = to_retrode3_bus_device(dev);
 
-	kfree(mdev);
+	kfree(slot);
 }
 
 /* device_create helper: allocates a retrode3_bus_device, sets parent to controller device */
 struct retrode3_bus_device *retrode3_bus_client_create_from_of(struct retrode3_bus_controller *controller,
 															   struct device_node *np)
 {
-	struct retrode3_bus_device *mdev;
+	struct retrode3_bus_device *slot;
 	int ret;
 	printk("%s %d\n", __func__, __LINE__);
 
 	if (!controller || !np)
 		return ERR_PTR(-EINVAL);
 
-	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
-	if (!mdev)
+	slot = kzalloc(sizeof(*slot), GFP_KERNEL);
+	if (!slot)
 		return ERR_PTR(-ENOMEM);
 
-	mdev->controller = controller;
+	slot->controller = controller;
 
-	// FIXME: do we need this here?
-	/* read optional DT properties */
-	of_property_read_u32(np, "retrode3,addr-width", &mdev->addr_width);
-	of_property_read_u32(np, "retrode3,data-width", &mdev->data_width);
+	device_initialize(&slot->dev);
+	slot->dev.parent = controller->dev;
+	slot->dev.bus = &retrode3_bus_type;
+	slot->dev.of_node = of_node_get(np);
 
-	device_initialize(&mdev->dev);
-	mdev->dev.parent = controller->dev;
-	mdev->dev.bus = &retrode3_bus_type;
-	mdev->dev.of_node = of_node_get(np);
+	slot->dev.release = retrode3_bus_dev_release;
 
-	mdev->dev.release = retrode3_bus_dev_release;
-
-	ret = dev_set_name(&mdev->dev, np->name);
+	ret = dev_set_name(&slot->dev, np->name);
 	if (ret) {
-		put_device(&mdev->dev);
-		kfree(mdev);
+		put_device(&slot->dev);
+		kfree(slot);
 		return ERR_PTR(ret);
 	}
 
-	ret = device_add(&mdev->dev);
+	ret = device_add(&slot->dev);
 	if (ret) {
-		put_device(&mdev->dev);
-		kfree(mdev);
+		put_device(&slot->dev);
+		kfree(slot);
 		return ERR_PTR(ret);
 	}
 
-	list_add_tail(&mdev->list, &controller->devices);
+	list_add_tail(&slot->list, &controller->devices);
 
-	dev_info(controller->dev, "created retrode3 device %s\n", dev_name(&mdev->dev));
-	return mdev;
+	dev_info(controller->dev, "created retrode3 device %s\n", dev_name(&slot->dev));
+	return slot;
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_client_create_from_of);
 
-void retrode3_bus_client_remove(struct retrode3_bus_device *mdev)
+void retrode3_bus_client_remove(struct retrode3_bus_device *slot)
 {
-	if (!mdev)
+	if (!slot)
 		return;
 
-	list_del(&mdev->list);
+	list_del(&slot->list);
 
-	device_del(&mdev->dev);
-	put_device(&mdev->dev);
+	device_del(&slot->dev);
+	put_device(&slot->dev);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_client_remove);
 
@@ -169,42 +164,6 @@ void retrode3_bus_client_driver_unregister(struct retrode3_bus_client_driver *dr
 EXPORT_SYMBOL_GPL(retrode3_bus_client_driver_unregister);
 
 /* Client API implementations */
-
-#if 0
-struct retrode3_bus_controller *retrode3_bus_get_controller_by_phandle(
-																	   struct device *dev,
-																	   const char *propname)
-{
-	struct device_node *np;
-	struct device_node *controller_np;
-	struct platform_device *pdev;
-	struct retrode3_bus_controller *controller = NULL;
-	printk("%s %d\n", __func__, __LINE__);
-
-	if (!dev || !propname)
-		return ERR_PTR(-EINVAL);
-
-	np = dev->of_node;
-	if (!np)
-		return ERR_PTR(-ENODEV);
-
-	controller_np = of_parse_phandle(np, propname, 0);
-	if (!controller_np)
-		return ERR_PTR(-ENODEV);
-
-	pdev = of_find_device_by_node(controller_np);
-	of_node_put(controller_np);
-	if (!pdev)
-		return ERR_PTR(-ENODEV);
-
-	controller = platform_get_drvdata(pdev);
-	if (!controller)
-		return ERR_PTR(-ENODEV);
-
-	return controller;
-}
-EXPORT_SYMBOL_GPL(retrode3_bus_get_controller_by_phandle);
-#endif
 
 int retrode3_bus_lock_bus(struct retrode3_bus_controller *controller)
 {
@@ -233,15 +192,6 @@ int retrode3_bus_set_address(struct retrode3_bus_controller *controller, u32 add
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_set_address);
 
-int retrode3_bus_set_select(struct retrode3_bus_controller *controller, unsigned int sel)
-{
-	printk("%s %d\n", __func__, __LINE__);
-	if (!controller || !controller->ops || !controller->ops->set_select)
-		return -ENOSYS;
-	return controller->ops->set_select(controller, sel);
-}
-EXPORT_SYMBOL_GPL(retrode3_bus_set_select);
-
 int retrode3_bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *buf, size_t len)
 {
 	printk("%s %d\n", __func__, __LINE__);
@@ -250,6 +200,49 @@ int retrode3_bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *
 	return controller->ops->xfer(controller, dir, buf, len);
 }
 EXPORT_SYMBOL_GPL(retrode3_bus_xfer);
+
+// FIXME: das hier ist sehr verdreht...
+// hier können wir verschiedene Controller behandeln, also Bus-Treiber
+// diese greifen aber auf den CE von Clients zu, die nur dort bekannt sind
+// dieses select_device wird aber vom Client selbst ausgelöst
+// eine zentrale Funktion braucht es aber nur fürs locking oder um den bisher selektierten Slot zu deselectieren
+// ist das hier also eine Eigenschaft des core - oder des speziellen bus???
+// der spezielle Retrode-Bus-Treiber kennt aber keine retrode3_bus_device
+// Ziel ist zu vermeiden dass ein Objekt zu viel vom anderen wissen muss!
+// die retrode3_bus_device Children sind aber hier bekannt!
+
+void retrode3_bus_select_device(struct retrode3_bus_controller *controller, struct retrode3_bus_device *slot)
+{ // NOTE: this relies on all slots initially being deselected
+	if (slot) {
+//		if (!slot->dev->driver->is_selected || slot->dev->driver->is_selected(slot))
+			return;	// already selected (and locked)
+//		mutex_lock(&bus->select_lock);	// lock until slot == 0
+	}
+
+	// FIXME: das hier setzt alle CE neu!
+#if MOVE_TO_DEVICE_DRIVER
+	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
+		if (!bus->slots[i])
+			continue;	// avoid to match slot == NULL
+		gpiod_set_value(bus->slots[i]->ce, (bus->slots[i] == slot) ? 1:0);
+	}
+#endif
+
+//	if (!slot && mutex_is_locked(&bus->select_lock))
+//		mutex_unlock(&bus->select_lock);
+
+	if (slot != controller->selected_slot) {
+#if CHECKME
+		if (controller->selected_slot)
+			selected_slot->select(selected_slot->select, 0);	// deselect old
+		if (controller->selected_slot = slot) {
+			if (selected_slot->select)
+				selected_slot->select(selected_slot->select, 1);	// select new
+		}
+#endif
+	}
+}
+EXPORT_SYMBOL_GPL(retrode3_bus_select_device);
 
 /* init/exit of module: register bus type */
 static int __init retrode3_bus_core_init(void)

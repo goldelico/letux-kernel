@@ -20,7 +20,6 @@ struct retrode3_bus_controller_ops {
 	void (*unlock)(struct retrode3_bus_controller *controller);
 
 	int (*set_addr)(struct retrode3_bus_controller *controller, u32 addr);
-	int (*set_select)(struct retrode3_bus_controller *controller, unsigned int sel);
 
 	/* Generic transfer: direction, address already set, buffer is bytes */
 	int (*xfer)(struct retrode3_bus_controller *controller, u8 direction,
@@ -32,18 +31,16 @@ struct retrode3_bus_controller {
 	struct list_head devices;     // list of retrode3_bus_device
 	const struct retrode3_bus_controller_ops *ops;
 	void *priv; /* controller private pointer */
-	/* internal locking: exported functions will use this */
 	struct mutex lock;
+	struct retrode3_bus_device *selected_slot;
 };
 
 struct retrode3_bus_device {
 	struct device dev; /* embed device - clients use container_of */
-	/* bus-specific fields */
 	struct retrode3_bus_controller *controller;
 	struct list_head list;
-	u32 addr_width;
-	u32 data_width;
-	/* any other per-device metadata */
+	int (*select)(struct retrode3_bus_device *dev, unsigned int state);
+	int (*is_selected)(struct retrode3_bus_device *dev);
 };
 
 struct retrode3_bus_client_driver {
@@ -69,7 +66,7 @@ void retrode3_bus_client_driver_unregister(struct retrode3_bus_client_driver *dr
 int retrode3_bus_lock_bus(struct retrode3_bus_controller *controller);
 void retrode3_bus_unlock_bus(struct retrode3_bus_controller *controller);
 int retrode3_bus_set_address(struct retrode3_bus_controller *controller, u32 addr);
-int retrode3_bus_set_select(struct retrode3_bus_controller *controller, unsigned int sel);
 int retrode3_bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *buf, size_t len);
+void retrode3_bus_select_device(struct retrode3_bus_controller *controller, struct retrode3_bus_device *slot);
 
 #endif /* _LINUX_RETRODE3_BUS_H */
