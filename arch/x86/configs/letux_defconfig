@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.1.158 Kernel Configuration
+# Linux/x86 6.1.159 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -5655,7 +5655,6 @@ CONFIG_STAGING=y
 # CONFIG_RTLLIB is not set
 # CONFIG_RTL8189FS is not set
 # CONFIG_RTL8723BS is not set
-# CONFIG_R8712U is not set
 # CONFIG_R8188EU is not set
 CONFIG_RTS5208=y
 
