@@ -483,7 +483,7 @@ static ssize_t vcc_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
-	int mV = get_slot_power_mV(slot);
+	int mV = retrode3_get_slot_power_mV(slot);
 
 	if (mV < 0)
 		return sprintf(buf, "fixed\n");
@@ -506,7 +506,7 @@ static ssize_t vcc_store(struct device *dev,
 	if (err < 0)
 		return err;
 
-	err = set_slot_power_mV(slot, mV);
+	err = retrode3_set_slot_power_mV(slot, mV);
 	if (err < 0)
 		return err;
 
@@ -519,7 +519,7 @@ static ssize_t addr_show(struct device *dev, struct device_attribute *attr,
 {
 	struct retrode3_slot *slot = dev_get_drvdata(dev);
 
-	if (!is_selected(slot))
+	if (!retrode3_is_selected(slot))
 		return sprintf(buf, "deselected\n");
 
 	return sprintf(buf, "%08x\n", slot->bus->current_addr);

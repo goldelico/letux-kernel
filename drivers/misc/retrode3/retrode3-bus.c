@@ -27,17 +27,18 @@ struct retrode3_bus {
 	uint32_t current_addr;
 };
 
-#define EOF	(1L<<24)	// 24 address lines = 16 MByte
-
-/* low level address and data bus access */
+/**
+ * low level address and data bus access
+ */
 
 // FXIME: get_multiple / set_multiple could be much faster, if supported by device driver
 
+#define GPIO_CHIP_DIRECT 1
 static inline int get_bus_bit(struct gpio_desc *desc)
 {
-#if 1
+#if GPIO_CHIP_DIRECT
 	struct gpio_chip *gc = desc->gdev->chip;
-	return gc->get(gc, gpio_chip_hwgpio(desc));
+	return gc->get(gc, gpiod_hwgpio(desc));
 #else
 	return gpiod_get_value(desc);
 #endif
@@ -46,17 +47,15 @@ static inline int get_bus_bit(struct gpio_desc *desc)
 
 static inline int set_bus_bit(struct gpio_desc *desc, int value)
 {
-#if 1	// speed optimized direct call
+#if GPIO_CHIP_DIRECT	// speed optimized direct call
 	struct gpio_chip *gc = desc->gdev->chip;
 	// can we use set_multiple?
 // printk("%s: %px set=%pS set=%pS\n", __func__, gc, gc->set, gc->set);
-	return gc->set(gc, gpio_chip_hwgpio(desc), value);
+	return gc->set(gc, gpiod_hwgpio(desc), value);
 #else
 	return gpiod_set_value(desc, value);
 #endif
 }
-
-/* access to cart bus */
 
 static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 { /* set address on all gpios */
@@ -78,6 +77,11 @@ static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 	return 0;
 }
 
+static inline int activate_oe(struct retrode3_bus *bus, uint8_t data)
+{
+	return gpiod_set_value(bus->time, data);
+}
+
 // FIXME: force to switch direction of D lines to input? Or rely on write turning them back?
 
 static inline int read_half(struct retrode3_bus *bus, int a0)
@@ -86,7 +90,7 @@ static inline int read_half(struct retrode3_bus *bus, int a0)
 	uint8_t data;
 // printk("%s: a0=%d\n", __func__, a0);
 
-	set_bus_bit(bus->oe, 0);	// this is the pin level although we have defined "active low" in the DTS
+	activate_oe(bus, 0);	// this is the pin level although we have defined "active low" in the DTS
 
 	/* read 8 data bits either on D0..D7 or D8..D15 */
 	data = 0;
@@ -107,7 +111,7 @@ static inline int read_half(struct retrode3_bus *bus, int a0)
 			data |= bit << (d-8);
 		}
 
-	set_bus_bit(bus->oe, 1);
+	activate_oe(bus, 1);
 // printk("%s: data=%02x\n", __func__, data);
 
 	return data;
@@ -125,7 +129,7 @@ static inline int read_word(struct retrode3_bus *bus)
 
 // printk("%s:\n", __func__);
 
-	set_bus_bit(bus->oe, 0);	// this is the pin level although we have "active low"
+	activate_oe(bus, 0);	// this is the pin level although we have "active low"
 
 	/* read 16 data bits */
 	data = 0;
@@ -139,13 +143,14 @@ static inline int read_word(struct retrode3_bus *bus)
 		data |= bit << d;
 	}
 
-	set_bus_bit(bus->oe, 1);
+	activate_oe(bus, 1);
 // printk("%s: data=%02x\n", __func__, data);
 
 	return data;
 }
 
-static inline void set_half(struct retrode3_bus *bus, uint8_t data, int a0)
+/* used internally only */
+static inline int set_half(struct retrode3_bus *bus, uint8_t data, int a0)
 { // set D0..D7 or D8..D15
 	int d;
 	/* set data bits */
@@ -161,36 +166,43 @@ static inline void set_half(struct retrode3_bus *bus, uint8_t data, int a0)
 			gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 		}
 	}
+	return 0;
 }
 
-static inline void drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
+static inline int activate_we(struct retrode3_bus *bus, uint8_t data, int a0)
+{
+	return gpiod_set_value(bus->we->desc[a0], data);
+}
+
+static inline int drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
 { // write D0..D7 or D8..D15 with WE
 	set_half(bus, data, a0);
 	/* pulse write enable for a0 */
-	gpiod_set_value(bus->we->desc[a0], 1);
-	gpiod_set_value(bus->we->desc[a0], 0);
+	activate_we(bus, 1, a0);
+	return activate_we(bus, 0, a0);
 }
 
-static inline void end_drive_word(struct retrode3_bus *bus)
+static inline int end_drive(struct retrode3_bus *bus)
 { /* switch data bus back to input */
 	int d;
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_input(bus->datas->desc[d]);
 	}
+	return 0;
 }
 
-static inline void write_half(struct retrode3_bus *bus, uint8_t data, int a0)
+static inline int write_half(struct retrode3_bus *bus, uint8_t data, int a0)
 { // write D0..D7 or D8..D15 with WE and switch data bus back to input
 	drive_half(bus, data, a0);
-	end_drive_word(bus);
+	return end_drive(bus);
 }
 
-static inline void write_byte(struct retrode3_bus *bus, uint8_t data)
+static inline int write_byte(struct retrode3_bus *bus, uint8_t data)
 { // use bit 0 of current_address
 	return write_half(bus, data, bus->current_addr & 1);
 }
 
-static inline void set_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+static inline int set_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 { /* set D0..D15 */
 	int d;
 	/* set data bits */
@@ -200,68 +212,43 @@ static inline void set_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 	for (d = 0; d < bus->datas->ndescs; d++) {
 		gpiod_direction_output(bus->datas->desc[d], (data>>d) & 1);
 	}
-}
-
-static inline void drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
-{ /* write data to data lines */
-	set_word(bus, data);
-	/* pulse both write enables */
-	gpiod_set_value(bus->we->desc[0], 1);
-	gpiod_set_value(bus->we->desc[1], 1);
-	gpiod_set_value(bus->we->desc[0], 0);
-	gpiod_set_value(bus->we->desc[1], 0);
-}
-
-static inline void write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
-{
-	drive_word(bus, data);
-	end_drive_word(bus);
-}
-
-#define CONFIG_RETRODE3_MDSLOT 294
-
-#if NOT_HERE_OR_DIFFERENT
-
-static int get_slot_power_mV(struct retrode3_slot *slot)
-{
-	if(!slot || IS_ERR_OR_NULL(slot->power))
-		return -ENODEV;
-	return gpiod_get_direction(slot->power) ? 3300 : 5000;
-}
-
-static int set_slot_power_mV(struct retrode3_slot *slot, int mV)
-{
-printk("%s: %dmV %px\n", __func__, mV, slot->power);
-
-	if (IS_ERR_OR_NULL(slot->power))
-		return -ENODEV;
-
-	switch(mV) {
-		case 5000:
-			gpiod_direction_output(slot->power, 0);	// switch to output 0
-			break;
-		case 3300:
-#if CONFIG_RETRODE3_MDSLOT == 293
-			return -EINVAL;	// broken
-#endif
-			gpiod_direction_input(slot->power);	// switch to floating
-			break;
-		default:
-printk("%s: unknown voltage %dmV\n", __func__, mV);
-			return -EINVAL;
-	}
 	return 0;
 }
 
-// FIXME: move this into slot driver
+static inline int drive_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+{ /* write data to data lines */
+	set_word(bus, data);
+	/* pulse both write enables */
+	activate_we(bus, 1, 0);
+	activate_we(bus, 1, 1);
+	activate_we(bus, 0, 0);
+	activate_we(bus, 0, 1);
+	return 0;
+}
 
-static int is_selected(struct retrode3_slot *slot)
+static inline int write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
+{
+	drive_word(bus, data);
+	return end_drive(bus);
+}
+
+static inline int activate_time(struct retrode3_bus *bus, uint8_t data)
+{
+	return gpiod_set_value(bus->time, data);
+}
+
+static inline int activate_reset(struct retrode3_bus *bus, uint8_t data)
+{
+	return gpiod_set_value(bus->reset, data);
+}
+
+static inline int is_selected(struct retrode3_slot *slot)
 {
 	// errors are treated as selected...
 	return gpiod_get_value(slot->ce);
 }
 
-static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
+static inline void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
 { /* control chip select */
 	int i;
 
@@ -283,68 +270,61 @@ static void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
 		mutex_unlock(&bus->select_lock);
 }
 
-static void retrode3_remove(struct platform_device *pdev)
-{
-	struct retrode3_bus *bus = platform_get_drvdata(pdev);
-	int i;
-
-	select_slot(bus, NULL);	// deselect all slots
-
-	for (i=0; i<ARRAY_SIZE(bus->slots); i++) {
-		struct retrode3_slot *slot = bus->slots[i];
-
-		cancel_delayed_work_sync(&slot->work);
-		cdev_device_del(&slot->cdev, &slot->dev);
-	}
-
-	mutex_destroy(&bus->select_lock);
-}
-#endif
-
-static int bus_lock(struct retrode3_bus_controller *controller)
-{
-	printk("%s %d\n", __func__, __LINE__);
-	mutex_lock(&controller->lock);
-	return 0;
-}
-
-static void bus_unlock(struct retrode3_bus_controller *controller)
-{
-	printk("%s %d\n", __func__, __LINE__);
-	mutex_unlock(&controller->lock);
-}
+/**
+ * ops for client drivers
+ */
 
 static int bus_set_addr(struct retrode3_bus_controller *controller, u32 addr)
 {
 	struct retrode3_bus *bus = controller->priv;
-	/* Write lower/upper 32bits */
-	printk("%s %d:%08x\n", __func__, __LINE__, addr);
+	printk("%s %d: %08x\n", __func__, __LINE__, addr);
+	set_address(bus, addr);
 	return 0;
 }
 
-static int bus_xfer(struct retrode3_bus_controller *controller, u8 dir, void *buf, size_t len)
+static int bus_select_slot(struct retrode3_bus_controller *controller, struct retrode3_slot *slot)
 {
 	struct retrode3_bus *bus = controller->priv;
-	size_t i;
-	u8 *b = buf;
+	printk("%s %d: %p\n", __func__, __LINE__, slot);
+	select_slot(bus, slot);
+	return 0;
+}
 
-	printk("%s %d\n", __func__, __LINE__);
-
-	for (i = 0; i < len; ++i) {
-		if (dir == retrode3_bus_DIR_WRITE) {
-			printk("%s %d\n", __func__, __LINE__);
-		} else {
-			/* strobe to read then read data */
-			printk("%s %d\n", __func__, __LINE__);
-		}
+static int bus_xfer(struct retrode3_bus_controller *controller, int mode, int addr, int data)
+{
+	struct retrode3_bus *bus = controller->priv;
+	printk("%s %d: mode=%d addr=%d data=%08x\n", __func__, __LINE__, mode, addr, data);
+	switch(mode) {
+		case RETRODE3_BUS_READ_HALF:
+			return read_half(bus, addr);
+		case RETRODE3_BUS_READ_BYTE:
+			return read_byte(bus);	// based on a0
+		case RETRODE3_BUS_READ_WORD:
+			return read_word(bus);	// ignoring a0
+		case RETRODE3_BUS_WRITE_HALF:
+			return write_half(bus, data, addr);
+		case RETRODE3_BUS_WRITE_BYTE:
+			return write_byte(bus, data);	// based on a0
+		case RETRODE3_BUS_WRITE_WORD:
+			return write_word(bus, data);	// ignoring a0
+#if FIXME
+			return drive_half(bus, data, addr);
+			return end_drive(bus);
+			return set_word(bus, data);	// D0..D15
+			return drive_word(bus, data);	// D0..D15
+			return get_slot_power_mV(bus);
+			return set_slot_power_mV(bus, data);
+			return activate_we(bus, data, addr);
+			return activate_time(bus, data);
+			return activate_reset(bus, data);
+#endif
+		default:
+			return -EINVAL;
 	}
-
-	return len;
 }
 
 static const struct retrode3_bus_controller_ops bus_ops = {
-	.lock = bus_lock,
-	.unlock = bus_unlock,
+	.select = bus_select_slot,
 	.set_addr = bus_set_addr,
 	.xfer = bus_xfer,
 };
@@ -352,7 +332,6 @@ static const struct retrode3_bus_controller_ops bus_ops = {
 static int retrode3_bus_probe(struct platform_device *pdev)
 {
 	struct retrode3_bus *bus;
-	struct device_node *np;
 	int ret;
 
 	printk("%s %d\n", __func__, __LINE__);
@@ -393,7 +372,7 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 																// printk("%s: oe=%px\n", __func__, bus->oe);
 	if (IS_ERR(bus->oe))
 		return PTR_ERR(bus->oe);
-	gpiod_set_value(bus->oe, 0);	// turn inactive
+	activate_oe(bus, 0);	// turn inactive
 
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																		// printk("%s: we=%px\n", __func__, bus->we);
@@ -404,20 +383,22 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 				bus->we->ndescs);
 		return -EINVAL;
 	}
-	gpiod_set_value(bus->we->desc[0], 0);	// make both inactive
-	gpiod_set_value(bus->we->desc[1], 0);
+
+	// make both inactive
+	activate_we(bus, 0, 0);
+	activate_we(bus, 0, 1);
 
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																	// printk("%s: time=%px\n", __func__, bus->time);
 	if (IS_ERR(bus->time))
 		return PTR_ERR(bus->time);
-	gpiod_set_value(bus->time, 0);	// make inactive
+	activate_time(bus, 0);	// make inactive
 
 	bus->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																		// printk("%s: reset=%px\n", __func__, bus->reset);
 	if (IS_ERR(bus->reset))
 		return PTR_ERR(bus->reset);
-	gpiod_set_value_cansleep(bus->reset, 0);	// make inactive
+	activate_reset(bus, 0);	// make inactive
 
 #if 0
 	printk("%s: 1\n", __func__);
@@ -441,7 +422,7 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 	}
 #endif
 
-	retrode3_bus_select_device(&bus->controller, NULL);	// deselect all slots
+	retrode3_bus_select_slot(&bus->controller, NULL);	// deselect all slots
 
 	mutex_init(&bus->select_lock);
 
@@ -466,6 +447,27 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 static void retrode3_bus_remove(struct platform_device *pdev)
 {
 	struct retrode3_bus *bus = platform_get_drvdata(pdev);
+
+#if 0
+	// FIXME: move this into slot driver
+
+	static void retrode3_remove(struct platform_device *pdev)
+	{
+		struct retrode3_bus *bus = platform_get_drvdata(pdev);
+		int i;
+
+		select_slot(bus, NULL);	// deselect all slots
+
+		for (i=0; i<ARRAY_SIZE(bus->slots); i++) {
+			struct retrode3_slot *slot = bus->slots[i];
+
+			cancel_delayed_work_sync(&slot->work);
+			cdev_device_del(&slot->cdev, &slot->dev);
+		}
+
+		mutex_destroy(&bus->select_lock);
+	}
+#endif
 
 	retrode3_bus_unregister_controller(&bus->controller);
 }
