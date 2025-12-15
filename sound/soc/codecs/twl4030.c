@@ -1050,7 +1050,7 @@ static const struct soc_enum twl4030_voice_route_enum =
 static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct twl4030_priv *twl4030 = snd_soc_component_get_drvdata(component);
 	ucontrol->value.enumerated.item[0] = twl4030->voice_enabled;
 	return 0;
@@ -1059,7 +1059,7 @@ static int twl4030_voice_route_get(struct snd_kcontrol *kcontrol,
 static int twl4030_voice_route_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct twl4030_priv *twl4030 = snd_soc_component_get_drvdata(component);
 	dev_dbg(component->dev, "voice ctl route: %u\n",
 		ucontrol->value.enumerated.item[0]);
