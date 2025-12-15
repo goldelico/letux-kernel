@@ -828,6 +828,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	struct drm_connector *connector;
 	struct i2c_adapter *ddc = NULL;
 	struct drm_bridge *panel_bridge __free(drm_bridge_put) = NULL;
+	struct drm_bridge *bridge;
 	unsigned int supported_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
 	unsigned int max_bpc = 8;
 	bool support_hdcp = false;
@@ -1038,7 +1039,6 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	if (bridge_connector->bridge_hdmi_audio ||
 	    bridge_connector->bridge_dp_audio) {
 		struct device *dev;
-		struct drm_bridge *bridge;
 
 		if (bridge_connector->bridge_hdmi_audio)
 			bridge = bridge_connector->bridge_hdmi_audio;
@@ -1059,7 +1059,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	if (bridge_connector->bridge_hdmi_cec &&
 	    bridge_connector->bridge_hdmi_cec->ops & DRM_BRIDGE_OP_HDMI_CEC_NOTIFIER) {
-		struct drm_bridge *bridge = bridge_connector->bridge_hdmi_cec;
+		bridge = bridge_connector->bridge_hdmi_cec;
 
 		ret = drmm_connector_hdmi_cec_notifier_register(connector,
 								NULL,
@@ -1070,7 +1070,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	if (bridge_connector->bridge_hdmi_cec &&
 	    bridge_connector->bridge_hdmi_cec->ops & DRM_BRIDGE_OP_HDMI_CEC_ADAPTER) {
-		struct drm_bridge *bridge = bridge_connector->bridge_hdmi_cec;
+		bridge = bridge_connector->bridge_hdmi_cec;
 
 		ret = drmm_connector_hdmi_cec_register(connector,
 						       &drm_bridge_connector_hdmi_cec_funcs,
@@ -1089,7 +1089,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT
 				  | DRM_CONNECTOR_POLL_DISCONNECT;
 	if (bridge_connector->bridge_cec) {
-		struct drm_bridge *bridge = bridge_connector->bridge_cec;
+		bridge = bridge_connector->bridge_cec;
 		int ret = bridge->funcs->connector_attach(bridge, connector);
 
 		if (ret) {
@@ -1111,7 +1111,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	ret = 0;
 	/* call connector_attach for all bridges */
-	drm_for_each_bridge_in_chain(encoder, bridge) {
+	drm_for_each_bridge_in_chain_scoped(encoder, bridge) {
 		if (!bridge->funcs->connector_attach)
 			continue;
 		ret = bridge->funcs->connector_attach(bridge, connector);
