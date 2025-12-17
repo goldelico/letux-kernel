@@ -14,11 +14,12 @@
 #include <drm/drm_print.h>
 #include <linux/backlight.h>
 #include <linux/delay.h>
+#include <video/display_timing.h>
 #include <linux/gpio/consumer.h>
 #include <linux/media-bus-format.h>
-#include <linux/module.h>
-#include <video/display_timing.h>
 #include <video/mipi_display.h>
+#include <linux/module.h>
+#include <linux/of.h>
 
 #define DRV_NAME "panel-xingbangda-xbd599"
 
