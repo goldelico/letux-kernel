@@ -512,11 +512,13 @@ static int retrode3_open(struct inode *inode, struct file *file)
 	struct retrode3_slot *slot;
 	int ret = 0;
 
+	printk("%s %d: inode=%px file=%px\n", __func__, __LINE__, inode, file);
+
 	slot = container_of(inode->i_cdev, struct retrode3_slot, cdev);
 
 		dev_dbg(&slot->dev, "%s\n", __func__);
 
-	ret = gpiod_get_value(slot->cd);	// check cart detect
+	ret = gpiod_get_value_cansleep(slot->cd);	// check cart detect
 
 	if (!ret)
 		return -ENODEV;	// no cart is inserted
@@ -559,7 +561,9 @@ static ssize_t sense_show(struct device *dev, struct device_attribute *attr, cha
 
 static void retrode3_update_cd(struct retrode3_slot *slot)
 {
-	int cd_state = gpiod_get_value(slot->cd);	// check cart detect pin
+	int cd_state = gpiod_get_value_cansleep(slot->cd);	// check cart detect pin
+
+//	printk("%s %d: cd_state=%d\n", __func__, __LINE__, cd_state);
 
 	if (cd_state < 0)
 		return;	// ignore
@@ -586,7 +590,6 @@ static void retrode3_update_cd(struct retrode3_slot *slot)
 		kobject_uevent_env(&slot->dev.kobj, KOBJ_CHANGE, envp);
 	}
 }
-
 
 #if UNUSED
 static irqreturn_t retrode3_gpio_cd_irqt(int irq, void *dev_id)
@@ -669,72 +672,76 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 	list_add_tail(&slot->list, &controller->slots);
 	printk("%s %d\n", __func__, __LINE__);
 
-		id = ida_alloc_max(&retrode3_minors, RETRODE3_MINORS-1, GFP_KERNEL);
+	id = ida_alloc_max(&retrode3_minors, RETRODE3_MINORS-1, GFP_KERNEL);
 	if (id < 0) {
 		device_del(dev);
 		put_device(dev);
 		return ERR_PTR(id);
 	}
-		slot->id = id;
+	slot->id = id;
 
-		device_initialize(dev);
-		dev->devt = retrode3_first + id;
-		dev->class = retrode3_class;
-		dev->release = retrode3_slot_release;
-		dev_set_drvdata(dev, slot);
-		of_property_read_string(np, "name", &name);
-		dev_set_name(dev, "slot-%s", name);
+	device_initialize(dev);
+	dev->devt = retrode3_first + id;
+	dev->class = retrode3_class;
+	dev->release = retrode3_slot_release;
+	dev_set_drvdata(dev, slot);
+	of_property_read_string(np, "name", &name);
+	dev_set_name(dev, "slot-%s", name);
 
-		slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
-		gpiod_set_value(slot->ce, 0);	// turn inactive
-		slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
-		slot->led = devm_gpiod_get(dev, "status", GPIOD_OUT_HIGH);
-		if (!IS_ERR_OR_NULL(slot->led))
-			gpiod_set_value(slot->led, 0);	// turn inactive
-		slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
-		of_property_read_u32_index(np, "address-width", 0, &slot->addr_width);
-		of_property_read_u32_index(np, "bus-width", 0, &slot->bus_width);
+	slot->ce = devm_gpiod_get(dev, "ce", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
+	gpiod_set_value(slot->ce, 0);	// turn inactive
+	of_property_read_u32_index(np, "address-width", 0, &slot->addr_width);
+	of_property_read_u32_index(np, "bus-width", 0, &slot->bus_width);
 
-		// access reference "status-led" (if available)
+	slot->cd = devm_gpiod_get(dev, "cd", GPIOD_IN);
+	slot->led = devm_gpiod_get(dev, "status-led", GPIOD_OUT_HIGH);
+	if (!IS_ERR_OR_NULL(slot->led))
+		gpiod_set_value(slot->led, 0);	// turn inactive
+	slot->power = devm_gpiod_get(dev, "power", GPIOD_IN);
 
-		cdev_init(&slot->cdev, &slot_fops);
-		slot->cdev.owner = THIS_MODULE;
+	cdev_init(&slot->cdev, &slot_fops);
+	slot->cdev.owner = THIS_MODULE;
 
 	// FIXME: should be some devm_cdev_device_add
-		ret = cdev_device_add(&slot->cdev, &slot->dev);
+	ret = cdev_device_add(&slot->cdev, &slot->dev);
 	if (ret) {
 		device_del(dev);
 		put_device(dev);
 		return ERR_PTR(id);
 	}
 
-		if(!IS_ERR_OR_NULL(slot->power)) {
-			if (retrode3_set_slot_power_mV(slot, 3300) < 0)	// switch to 3.3V if possible
-				retrode3_set_slot_power_mV(slot, 5000);	// fall back to 5V
-		}
+	if(!IS_ERR_OR_NULL(slot->power)) {
+		if (retrode3_set_slot_power_mV(slot, 3300) < 0)	// switch to 3.3V if possible
+			retrode3_set_slot_power_mV(slot, 5000);	// fall back to 5V
+	}
 
-		slot->cd_state = -1;	// enforce a state update event for initial state
-	#if 1	// use polling
-		INIT_DELAYED_WORK(&slot->work, retrode3_cd_work);
+	slot->cd_state = -1;	// enforce a state update event for initial state
+	INIT_DELAYED_WORK(&slot->work, retrode3_cd_work);
+	if(!IS_ERR_OR_NULL(slot->cd)) {
+#if 1	// use polling
 		schedule_delayed_work(&slot->work,
-				msecs_to_jiffies(50));	// start first check
+							  msecs_to_jiffies(50));	// start first check
 
-	#else	// use interrupt (untested)
+#else	// use interrupt (untested)
 		ret = devm_request_threaded_irq(dev, gpiod_to_irq(slot->cd),
-			NULL, retrode3_gpio_cd_irqt,
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				"cart-detect", slot);
-	#endif
+										NULL, retrode3_gpio_cd_irqt,
+										IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+										"cart-detect", slot);
+#endif
+	}
 
-	dev_info(controller->dev, "created retrode3 device %s\n", dev_name(dev));
-	return slot;
-}
+	   dev_info(controller->dev, "created retrode3 device %s\n", dev_name(dev));
+	   return slot;
+		}
 EXPORT_SYMBOL_GPL(retrode3_slot_create_from_of);
 
 void retrode3_bus_client_remove(struct retrode3_slot *slot)
 {
 	if (!slot)
 		return;
+
+	cancel_delayed_work_sync(&slot->work);
+	cdev_device_del(&slot->cdev, &slot->dev);
 
 	list_del(&slot->list);
 
@@ -756,7 +763,7 @@ static ssize_t sense_show(struct device *dev, struct device_attribute *attr,
 		return sprintf(buf, "%s\n", "unknown");
 
 // sould use sysfs_emit()
-	return sprintf(buf, "%s\n", gpiod_get_value(slot->cd)?"active":"empty");
+	return sprintf(buf, "%s\n", gpiod_get_value_cansleep(slot->cd)?"active":"empty");
 }
 static DEVICE_ATTR_RO(sense);
 

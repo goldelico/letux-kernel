@@ -36,8 +36,9 @@ struct retrode3_bus {
 #define GPIO_CHIP_DIRECT 0	// geht (hier) nicht mehr... desc ist "randomized"
 static inline int get_bus_bit(struct gpio_desc *desc)
 {
-	if (!desc)
-		return 0;
+	printk("%s %d: desc=%px\n", __func__, __LINE__, desc);
+	if (IS_ERR_OR_NULL(desc))
+		return PTR_ERR(desc);
 #if GPIO_CHIP_DIRECT
 	struct gpio_chip *gc = desc->gdev->chip;
 	return gc->get(gc, gpiod_hwgpio(desc));
@@ -50,8 +51,8 @@ static inline int get_bus_bit(struct gpio_desc *desc)
 static inline int set_bus_bit(struct gpio_desc *desc, int value)
 {
 	printk("%s %d: desc=%px val=%d\n", __func__, __LINE__, desc, value);
-	if (!desc)
-		return -EINVAL;
+	if (IS_ERR_OR_NULL(desc))
+		return PTR_ERR(desc);
 #if GPIO_CHIP_DIRECT	// speed optimized direct call
 	struct gpio_chip *gc = desc->gdev->chip;
 	// can we use set_multiple?
