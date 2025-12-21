@@ -33,27 +33,32 @@ struct retrode3_bus {
 
 // FXIME: get_multiple / set_multiple could be much faster, if supported by device driver
 
-#define GPIO_CHIP_DIRECT 1
+#define GPIO_CHIP_DIRECT 0	// geht (hier) nicht mehr... desc ist "randomized"
 static inline int get_bus_bit(struct gpio_desc *desc)
 {
+	if (!desc)
+		return 0;
 #if GPIO_CHIP_DIRECT
 	struct gpio_chip *gc = desc->gdev->chip;
 	return gc->get(gc, gpiod_hwgpio(desc));
 #else
-	return gpiod_get_value(desc);
+	return gpiod_get_value_cansleep(desc);
 #endif
 
 }
 
 static inline int set_bus_bit(struct gpio_desc *desc, int value)
 {
+	printk("%s %d: desc=%px val=%d\n", __func__, __LINE__, desc, value);
+	if (!desc)
+		return -EINVAL;
 #if GPIO_CHIP_DIRECT	// speed optimized direct call
 	struct gpio_chip *gc = desc->gdev->chip;
 	// can we use set_multiple?
 // printk("%s: %px set=%pS set=%pS\n", __func__, gc, gc->set, gc->set);
 	return gc->set(gc, gpiod_hwgpio(desc), value);
 #else
-	return gpiod_set_value(desc, value);
+	return gpiod_set_value_cansleep(desc, value);
 #endif
 }
 
@@ -79,7 +84,7 @@ static inline int set_address(struct retrode3_bus *bus, uint32_t addr)
 
 static inline int activate_oe(struct retrode3_bus *bus, uint8_t data)
 {
-	return gpiod_set_value(bus->time, data);
+	return set_bus_bit(bus->time, data);
 }
 
 // FIXME: force to switch direction of D lines to input? Or rely on write turning them back?
@@ -171,7 +176,7 @@ static inline int set_half(struct retrode3_bus *bus, uint8_t data, int a0)
 
 static inline int activate_we(struct retrode3_bus *bus, uint8_t data, int a0)
 {
-	return gpiod_set_value(bus->we->desc[a0], data);
+	return set_bus_bit(bus->we->desc[a0], data);
 }
 
 static inline int drive_half(struct retrode3_bus *bus, uint8_t data, int a0)
@@ -234,18 +239,18 @@ static inline int write_word(struct retrode3_bus *bus, uint16_t data)	// D0..D15
 
 static inline int activate_time(struct retrode3_bus *bus, uint8_t data)
 {
-	return gpiod_set_value(bus->time, data);
+	return set_bus_bit(bus->time, data);
 }
 
 static inline int activate_reset(struct retrode3_bus *bus, uint8_t data)
 {
-	return gpiod_set_value(bus->reset, data);
+	return set_bus_bit(bus->reset, data);
 }
 
 static inline int is_selected(struct retrode3_slot *slot)
 {
 	// errors are treated as selected...
-	return gpiod_get_value(slot->ce);
+	return get_bus_bit(slot->ce);
 }
 
 static inline void select_slot(struct retrode3_bus *bus, struct retrode3_slot *slot)
@@ -263,7 +268,7 @@ static inline void select_slot(struct retrode3_bus *bus, struct retrode3_slot *s
 	for(i=0; i<ARRAY_SIZE(bus->slots); i++) {
 		if (!bus->slots[i])
 			continue;	// avoid to match slot == NULL
-		gpiod_set_value(bus->slots[i]->ce, (bus->slots[i] == slot) ? 1:0);
+		set_bus_bit(bus->slots[i]->ce, (bus->slots[i] == slot) ? 1:0);
 	}
 
 	if (!slot && mutex_is_locked(&bus->select_lock))
@@ -285,7 +290,7 @@ static int bus_set_addr(struct retrode3_bus_controller *controller, u32 addr)
 static int bus_select_slot(struct retrode3_bus_controller *controller, struct retrode3_slot *slot)
 {
 	struct retrode3_bus *bus = controller->priv;
-	printk("%s %d: %p\n", __func__, __LINE__, slot);
+	printk("%s %d: %px\n", __func__, __LINE__, slot);
 	select_slot(bus, slot);
 	return 0;
 }
@@ -351,15 +356,15 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 				bus->addrs->ndescs);
 		return -EINVAL;
 	}
-	// printk("%s: addrs 1\n", __func__);
+	printk("%s %d:\n", __func__, __LINE__);
 	/* bring all address gpios in a defined state */
 	bus->current_addr = EOF - 1;
-	// printk("%s: addrs 2\n", __func__);
-	set_address(bus, 0);
-	// printk("%s: addrs 3\n", __func__);
+	printk("%s %d:\n", __func__, __LINE__);
+	set_address(bus, 0);	/* enforce an initial change */
+	printk("%s %d:\n", __func__, __LINE__);
 
 	bus->datas = devm_gpiod_get_array(&pdev->dev, "data", GPIOD_IN);
-	// printk("%s: datas=%px\n", __func__, bus->datas);
+	printk("%s %d: datas=%px\n", __func__, __LINE__, bus->datas);
 	if (IS_ERR(bus->datas))
 		return PTR_ERR(bus-> datas);
 	if (bus->datas->ndescs != 16) {
@@ -370,12 +375,14 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 
 	bus->oe = devm_gpiod_get(&pdev->dev, "oe", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																// printk("%s: oe=%px\n", __func__, bus->oe);
+	printk("%s %d: oe=%px\n", __func__, __LINE__, bus->oe);
 	if (IS_ERR(bus->oe))
 		return PTR_ERR(bus->oe);
 	activate_oe(bus, 0);	// turn inactive
 
 	bus->we = devm_gpiod_get_array(&pdev->dev, "we", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																		// printk("%s: we=%px\n", __func__, bus->we);
+	printk("%s %d: we=%px\n", __func__, __LINE__, bus->oe);
 	if (IS_ERR(bus->we))
 		return PTR_ERR(bus->we);
 	if (bus->we->ndescs != 2) {
@@ -390,17 +397,19 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 
 	bus->time = devm_gpiod_get(&pdev->dev, "time", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																	// printk("%s: time=%px\n", __func__, bus->time);
+	printk("%s %d: time=%px\n", __func__, __LINE__, bus->oe);
 	if (IS_ERR(bus->time))
 		return PTR_ERR(bus->time);
 	activate_time(bus, 0);	// make inactive
 
+	printk("%s %d: reset=%px\n", __func__, __LINE__, bus->oe);
 	bus->reset = devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);	// active LOW is XORed with DT definition
 																		// printk("%s: reset=%px\n", __func__, bus->reset);
 	if (IS_ERR(bus->reset))
 		return PTR_ERR(bus->reset);
 	activate_reset(bus, 0);	// make inactive
 
-#if 0
+#if 1
 	printk("%s: 1\n", __func__);
 	printk("%s: bus=%px\n", __func__, bus);
 	printk("%s: addrs=%px\n", __func__, bus->addrs);
@@ -409,7 +418,7 @@ static int retrode3_bus_probe(struct platform_device *pdev)
 	printk("%s: chip=%px\n", __func__, bus->addrs->desc[0]->gdev->chip);
 #endif
 
-#if 0
+#if 1
 	{
 	struct gpio_chip *gc = bus->addrs->desc[0]->gdev->chip;
 	printk("%s: get %ps\n", __func__, gc->get);

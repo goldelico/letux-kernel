@@ -61,7 +61,9 @@ int retrode3_bus_register_controller(struct retrode3_bus_controller *controller)
 	/* create retrode3 slots for each DT child so client drivers get probed */
 	if (dev->of_node) {
 		for_each_available_child_of_node(dev->of_node, child) {
+			printk("%s %d: child=%pOF\n", __func__, __LINE__, child);
 			slot = retrode3_slot_create_from_of(controller, child);
+			printk("%s %d: slot=%px\n", __func__, __LINE__, slot);
 			if (IS_ERR(slot)) {
 				dev_warn(dev, "failed to create retrode3 device for %pOF\n", child);
 			}

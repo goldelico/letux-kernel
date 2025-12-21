@@ -636,14 +636,15 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 	if (!controller || !np)
 		return ERR_PTR(-EINVAL);
 
-	slot = devm_kzalloc(controller->dev, sizeof(*slot), GFP_KERNEL);
+	slot = kzalloc(sizeof(*slot), GFP_KERNEL);
 	if (!slot)
 		return ERR_PTR(-ENOMEM);
 
-	slot->controller = controller;
-
 	dev = &slot->dev;
+	printk("%s %d\n", __func__, __LINE__);
 	device_initialize(dev);
+	printk("%s %d\n", __func__, __LINE__);
+
 	dev->parent = controller->dev;
 	dev->bus = &retrode3_bus_type;
 
@@ -655,18 +656,25 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 		return ERR_PTR(ret);
 	}
 
+	slot->controller = controller;
+	printk("%s %d\n", __func__, __LINE__);
+
 	ret = device_add(dev);
 	if (ret) {
 		put_device(dev);
 		return ERR_PTR(ret);
 	}
+	printk("%s %d\n", __func__, __LINE__);
 
 	list_add_tail(&slot->list, &controller->slots);
+	printk("%s %d\n", __func__, __LINE__);
 
 		id = ida_alloc_max(&retrode3_minors, RETRODE3_MINORS-1, GFP_KERNEL);
-		if (id < 0)
-			return ERR_PTR(id);
-
+	if (id < 0) {
+		device_del(dev);
+		put_device(dev);
+		return ERR_PTR(id);
+	}
 		slot->id = id;
 
 		device_initialize(dev);
@@ -694,8 +702,11 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 
 	// FIXME: should be some devm_cdev_device_add
 		ret = cdev_device_add(&slot->cdev, &slot->dev);
-		if (ret)
-			return ERR_PTR(ret);
+	if (ret) {
+		device_del(dev);
+		put_device(dev);
+		return ERR_PTR(id);
+	}
 
 		if(!IS_ERR_OR_NULL(slot->power)) {
 			if (retrode3_set_slot_power_mV(slot, 3300) < 0)	// switch to 3.3V if possible
