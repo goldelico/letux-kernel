@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.19.0-rc1 Kernel Configuration
+# Linux/riscv 6.19.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -2314,7 +2314,7 @@ CONFIG_REALTEK_PHY=y
 # CONFIG_VITESSE_PHY is not set
 # CONFIG_XILINX_GMII2RGMII is not set
 # CONFIG_PSE_CONTROLLER is not set
-CONFIG_CAN_DEV=m
+CONFIG_CAN_DEV=y
 # CONFIG_CAN_VCAN is not set
 # CONFIG_CAN_VXCAN is not set
 CONFIG_CAN_NETLINK=y
