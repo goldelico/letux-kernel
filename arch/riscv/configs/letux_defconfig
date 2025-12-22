@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.18.1 Kernel Configuration
+# Linux/riscv 6.18.2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -4551,6 +4551,7 @@ CONFIG_SND_SOC_WM8978=m
 # CONFIG_SND_SOC_MT6358 is not set
 # CONFIG_SND_SOC_MT6660 is not set
 # CONFIG_SND_SOC_NAU8315 is not set
+# CONFIG_SND_SOC_NAU8325 is not set
 # CONFIG_SND_SOC_NAU8540 is not set
 # CONFIG_SND_SOC_NAU8810 is not set
 # CONFIG_SND_SOC_NAU8821 is not set
