@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.17.12 Kernel Configuration
+# Linux/mips 6.17.13 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -4022,6 +4022,7 @@ CONFIG_SND_SOC_SIMPLE_AMPLIFIER=m
 # CONFIG_SND_SOC_MT6358 is not set
 # CONFIG_SND_SOC_MT6660 is not set
 # CONFIG_SND_SOC_NAU8315 is not set
+# CONFIG_SND_SOC_NAU8325 is not set
 # CONFIG_SND_SOC_NAU8540 is not set
 # CONFIG_SND_SOC_NAU8810 is not set
 # CONFIG_SND_SOC_NAU8821 is not set
