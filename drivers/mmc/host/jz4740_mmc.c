@@ -358,6 +358,12 @@ static int jz4740_mmc_start_dma_transfer(struct jz4740_mmc_host *host,
 		dev_err(mmc_dev(host->mmc),
 			"Failed to allocate DMA %s descriptor",
 			 conf.direction == DMA_MEM_TO_DEV ? "TX" : "RX");
+printk("chan=%px\n", chan);
+printk("data->sg=%px\n", data->sg);
+printk("sg_count =%d\n", sg_count);
+printk("conf.direction =%d\n", conf.direction);
+printk("chan->device=%px\n", chan->device);
+printk("chan->device->device_prep_slave_sg=%px %pF\n", chan->device->device_prep_slave_sg, chan->device->device_prep_slave_sg);
 		goto dma_unmap;
 	}
 

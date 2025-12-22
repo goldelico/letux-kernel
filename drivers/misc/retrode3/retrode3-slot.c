@@ -103,6 +103,9 @@ static struct class *retrode3_class;
 #define IS_SNES()	(mode == SNES_REGULAR || mode == SNES_HIROM)
 #define IS_NES()	(mode >= NES_PRG && mode <= NES_WRAM)
 
+// FIXME: make this generic and have specific drivers for the slot types - removes need for IS_MD() macros etc.
+// and moves handling of the individual modes there
+
 static ssize_t retrode3_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
@@ -138,6 +141,7 @@ static ssize_t retrode3_read(struct file *file, char __user *buf,
 
 	retrode3_bus_select_slot(slot->controller, slot);
 
+	// NOTE: EOF limit is lower for NES/SNES
 	if (addr + count >= EOF) {
 		if (addr >= EOF)
 			count = 0;	// read nothing
@@ -680,7 +684,6 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 	}
 	slot->id = id;
 
-	device_initialize(dev);
 	dev->devt = retrode3_first + id;
 	dev->class = retrode3_class;
 	dev->release = retrode3_slot_release;
@@ -946,6 +949,8 @@ int retrode3_slot_driver_register(struct retrode3_slot_driver *drv)
 {
 	int ret;
 
+	printk("%s %d\n", __func__, __LINE__);
+
 	ret = alloc_chrdev_region(&retrode3_first, 0, RETRODE3_MINORS, "retrode3");
 	if (ret < 0) {
 		pr_err("failed to allocate device numbers: %d\n", ret);
@@ -984,6 +989,8 @@ EXPORT_SYMBOL_GPL(retrode3_slot_driver_register);
 
 void retrode3_slot_driver_unregister(struct retrode3_slot_driver *drv)
 {
+	printk("%s %d\n", __func__, __LINE__);
+
 	class_destroy(retrode3_class);
 	unregister_chrdev_region(retrode3_first, RETRODE3_MINORS);
 	ida_destroy(&retrode3_minors);
