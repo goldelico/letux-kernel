@@ -75,6 +75,7 @@ static const struct of_device_id retrode3_megadrive_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, retrode3_megadrive_of_match);
 
+
 static struct retrode3_slot_driver retrode3_megadrive_driver = {
 	.probe = retrode3_megadrive_probe,
 	.remove = retrode3_megadrive_remove,

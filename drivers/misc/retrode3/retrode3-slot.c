@@ -648,27 +648,23 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 		return ERR_PTR(-ENOMEM);
 
 	dev = &slot->dev;
-	printk("%s %d\n", __func__, __LINE__);
-	device_initialize(dev);
-	printk("%s %d\n", __func__, __LINE__);
 
 	dev->parent = controller->dev;
 	dev->bus = &retrode3_bus_type;
 
 	dev->of_node = of_node_get(np);
 
+	printk("%s %d: name=%s\n", __func__, __LINE__, np->name);
 	ret = dev_set_name(dev, np->name);
-	if (ret) {
-		put_device(dev);	// FIXME: where is the get_device()? in device_initialize()?
+	if (ret)
 		return ERR_PTR(ret);
-	}
 
 	slot->controller = controller;
 	printk("%s %d\n", __func__, __LINE__);
 
-	ret = device_add(dev);
+	ret = device_add(dev);	// this calls get_device() on success
 	if (ret) {
-		put_device(dev);
+//		put_device(dev);
 		return ERR_PTR(ret);
 	}
 	printk("%s %d\n", __func__, __LINE__);
@@ -678,11 +674,15 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 
 	id = ida_alloc_max(&retrode3_minors, RETRODE3_MINORS-1, GFP_KERNEL);
 	if (id < 0) {
-		device_del(dev);
+		list_del(&slot->list);
 		put_device(dev);
 		return ERR_PTR(id);
 	}
 	slot->id = id;
+
+	printk("%s %d\n", __func__, __LINE__);
+	device_initialize(dev);
+	printk("%s %d\n", __func__, __LINE__);
 
 	dev->devt = retrode3_first + id;
 	dev->class = retrode3_class;
@@ -708,6 +708,7 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 	// FIXME: should be some devm_cdev_device_add
 	ret = cdev_device_add(&slot->cdev, &slot->dev);
 	if (ret) {
+		list_del(&slot->list);
 		device_del(dev);
 		put_device(dev);
 		return ERR_PTR(id);
@@ -733,9 +734,9 @@ struct retrode3_slot *retrode3_slot_create_from_of(struct retrode3_bus_controlle
 #endif
 	}
 
-	   dev_info(controller->dev, "created retrode3 device %s\n", dev_name(dev));
-	   return slot;
-		}
+	dev_info(controller->dev, "created retrode3 device %s\n", dev_name(dev));
+	return slot;
+}
 EXPORT_SYMBOL_GPL(retrode3_slot_create_from_of);
 
 void retrode3_bus_client_remove(struct retrode3_slot *slot)
