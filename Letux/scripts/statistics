@@ -94,7 +94,13 @@ CURRENTLINUS=$2
 if ! [ "$1" ]
 then
 # git tag --points-at HEAD?
+	# FIXME: this may require a make >= 4.0!
 	KV="$(make kernelversion | sed 's/\([0-9]*\.[0-9]*\)\.0/\1/')"
+	if [ ! "$KV" ]
+	then
+		echo can not determine kernelversion
+		exit 1
+	fi
 	CURRENTBRANCH=letux-$KV
 	CURRENTLINUS=v$KV
 # echo $KV $CURRENTBRANCH $CURRENTLINUS
