@@ -1074,6 +1074,9 @@ static void __exit esp_exit(void)
 	}
 	debugfs_exit();
 }
+#undef __KBUILD_MODNAME
+#define __KBUILD_MODNAME esp_hosted_ng_sdio_spi
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Amey Inamdar <amey.inamdar@espressif.com>");
 MODULE_AUTHOR("Mangesh Malusare <mangesh.malusare@espressif.com>");
