@@ -3,7 +3,7 @@
 # description needs to be fixed
 
 config ESP_HOSTED_NG
-	tristate
+	bool
 	help
 	  Add support for the Espressif 802.11 b/g/n SoC.
 	  This provides Wi-FI over an SDIO or SPI interface, and
@@ -37,6 +37,10 @@ config ESP_HOSTED_NG_SPI
 	  be used for control and for serial I/O of 802.11 data.
 	  Select this if your platform is using the SPI bus.
 
-config ENABLE_MONITOR_PROCESS
+config ESP_HOSTED_ENABLE_MONITOR_PROCESS
 	depends on ESP_HOSTED_NG
 	bool "Enable monitor process for Espressif devices"
+
+config ESP_HOSTED_DEBUG_LOGS
+	depends on ESP_HOSTED_NG
+	bool "Enable debug logs for Espressif devices"
