@@ -1,5 +1,5 @@
 #
-# Linux/arm64 6.18.2 Kernel Configuration
+# Linux/arm64 6.18.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3309,7 +3309,6 @@ CONFIG_SPI_MEM=y
 # CONFIG_SPI_GPIO is not set
 # CONFIG_SPI_FSL_SPI is not set
 # CONFIG_SPI_FSL_DSPI is not set
-# CONFIG_SPI_MICROCHIP_CORE is not set
 # CONFIG_SPI_MICROCHIP_CORE_QSPI is not set
 # CONFIG_SPI_OC_TINY is not set
 # CONFIG_SPI_OMAP24XX is not set

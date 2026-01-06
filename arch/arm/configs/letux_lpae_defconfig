@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.18.2 Kernel Configuration
+# Linux/arm 6.18.3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3408,13 +3408,13 @@ CONFIG_SPI_GPIO=y
 CONFIG_SPI_IMX=y
 # CONFIG_SPI_FSL_SPI is not set
 # CONFIG_SPI_FSL_DSPI is not set
-# CONFIG_SPI_MICROCHIP_CORE is not set
 # CONFIG_SPI_MICROCHIP_CORE_QSPI is not set
 # CONFIG_SPI_OC_TINY is not set
 CONFIG_SPI_OMAP24XX=y
 # CONFIG_SPI_TI_QSPI is not set
 # CONFIG_SPI_PCI1XXXX is not set
 # CONFIG_SPI_PL022 is not set
+# CONFIG_SPI_POLARFIRE_SOC is not set
 # CONFIG_SPI_SC18IS602 is not set
 # CONFIG_SPI_SIFIVE is not set
 # CONFIG_SPI_SN_F_OSPI is not set
