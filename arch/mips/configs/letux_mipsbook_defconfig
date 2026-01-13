@@ -3,10 +3,10 @@
 #
 
 #
-# Compiler: mipsel-linux-gnu-gcc (GCC) 4.9.1
+# Compiler: mipsel-linux-gnu-gcc (GCC) 6.3.0
 #
 CONFIG_CC_IS_GCC=y
-CONFIG_GCC_VERSION=40901
+CONFIG_GCC_VERSION=60300
 CONFIG_CLANG_VERSION=0
 CONFIG_CC_CAN_LINK=y
 CONFIG_CC_HAS_ASM_GOTO=y
@@ -5305,6 +5305,8 @@ CONFIG_DEBUG_MEMORY_INIT=y
 CONFIG_HAVE_DEBUG_STACKOVERFLOW=y
 CONFIG_KASAN_STACK=1
 # end of Memory Debugging
+
+CONFIG_CC_HAS_SANCOV_TRACE_PC=y
 
 #
 # Debug Lockups and Hangs
