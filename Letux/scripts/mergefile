@@ -185,7 +185,7 @@ letux/esp-hosted-ng
 letux/kobolino/backlight
 letux/kobolino/dt
 #letux/kobolino/rtc
-letux/kobolino/touch
+#letux/kobolino/touch
 #letux/kobolino/battery
 letux/rtl8189fs
 letux/kobolino/epdc-pmic
