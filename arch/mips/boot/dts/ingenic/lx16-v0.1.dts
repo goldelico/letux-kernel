@@ -1,0 +1,5 @@
+/dts-v1/;
+
+#define LX16_REV 	1	// main board revision
+
+#include "lx16.dts"
