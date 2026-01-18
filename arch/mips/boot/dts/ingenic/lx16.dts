@@ -2,7 +2,9 @@
 
 // NOTE: all this could be made depend on a set of some CONFIG options
 
-#define LX16_REV 	3	// main board revision
+#ifndef LX16_REV
+#define LX16_REV 	3	// default main board revision
+#endif
 #define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
 #define PWM_LED		0	// 1 = use PWM on led0 and led1
 #define SPI_BITBANG	0	// 1 = debug using bitbang gpio
