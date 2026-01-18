@@ -1,0 +1,5 @@
+/dts-v1/;
+
+#define LX20_REV 	3	// main board revision
+
+#include "lx20.dts"
