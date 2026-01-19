@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.19.0-rc5 Kernel Configuration
+# Linux/arm 6.19.0-rc6 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -2652,7 +2652,7 @@ CONFIG_SMSC_PHY=y
 # CONFIG_VITESSE_PHY is not set
 # CONFIG_XILINX_GMII2RGMII is not set
 # CONFIG_PSE_CONTROLLER is not set
-CONFIG_CAN_DEV=y
+CONFIG_CAN_DEV=m
 CONFIG_CAN_VCAN=m
 # CONFIG_CAN_VXCAN is not set
 CONFIG_CAN_NETLINK=y
