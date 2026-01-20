@@ -1,5 +1,6 @@
 /dts-v1/;
 
 #define LX16_REV 	4	// main board revision
+#define LX16_W		2	// 0 = none; WLAN and Bluetooth: 1 = QCom, 2 = ESP32
 
 #include "lx16.dts"
