@@ -67,6 +67,11 @@ struct tsc2007 {
 	struct touchscreen_properties prop;
 	u16			model;
 	u16			x_plate_ohms;
+
+	u16			min_x;
+	u16			min_y;
+	u16			max_x;
+	u16			max_y;
 	u16			max_rt;
 	unsigned long		poll_period; /* in jiffies */
 	int			fuzzx;

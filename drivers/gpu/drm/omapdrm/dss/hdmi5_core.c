@@ -22,6 +22,7 @@
 #include <sound/asoundef.h>
 
 #include "hdmi5_core.h"
+#include "hdmi5_cec.h"
 
 void hdmi5_core_ddc_init(struct hdmi_core_data *core)
 {
@@ -229,6 +230,19 @@ void hdmi5_core_dump(struct hdmi_core_data *core, struct seq_file *s)
 	DUMPCORE(HDMI_CORE_I2CM_FS_SCL_LCNT_1_ADDR);
 	DUMPCORE(HDMI_CORE_I2CM_FS_SCL_LCNT_0_ADDR);
 	DUMPCORE(HDMI_CORE_I2CM_SDA_HOLD_ADDR);
+
+	DUMPCORE(HDMI_CORE_IH_CEC_STAT0);
+	DUMPCORE(HDMI_CORE_IH_MUTE_CEC_STAT0);
+	DUMPCORE(HDMI_CORE_CEC_CTRL);
+	DUMPCORE(HDMI_CORE_CEC_MASK);
+	DUMPCORE(HDMI_CORE_CEC_ADDR_L);
+	DUMPCORE(HDMI_CORE_CEC_ADDR_H);
+	DUMPCORE(HDMI_CORE_CEC_TX_CNT);
+	DUMPCORE(HDMI_CORE_CEC_RX_CNT);
+	DUMPCORE(HDMI_CORE_CEC_TX_DATA0);
+	DUMPCORE(HDMI_CORE_CEC_RX_DATA0);
+	DUMPCORE(HDMI_CORE_CEC_LOCK);
+	DUMPCORE(HDMI_CORE_CEC_WKUPCTRL);
 }
 
 static void hdmi_core_init(struct hdmi_core_vid_config *video_cfg,
@@ -513,8 +527,6 @@ static void hdmi_core_mask_interrupts(struct hdmi_core_data *core)
 	REG_FLD_MOD(base, HDMI_CORE_AUD_INT, 0x3, 3, 2);
 	REG_FLD_MOD(base, HDMI_CORE_AUD_GP_MASK, 0x3, 1, 0);
 
-	REG_FLD_MOD(base, HDMI_CORE_CEC_MASK, 0x7f, 6, 0);
-
 	REG_FLD_MOD(base, HDMI_CORE_I2CM_CTLINT, 0x1, 6, 6);
 	REG_FLD_MOD(base, HDMI_CORE_I2CM_CTLINT, 0x1, 2, 2);
 	REG_FLD_MOD(base, HDMI_CORE_I2CM_INT, 0x1, 2, 2);
@@ -532,8 +544,6 @@ static void hdmi_core_mask_interrupts(struct hdmi_core_data *core)
 
 	REG_FLD_MOD(base, HDMI_CORE_IH_AS_STAT0, 0x7, 2, 0);
 
-	REG_FLD_MOD(base, HDMI_CORE_IH_CEC_STAT0, 0x7f, 6, 0);
-
 	REG_FLD_MOD(base, HDMI_CORE_IH_I2CM_STAT0, 0x3, 1, 0);
 
 	REG_FLD_MOD(base, HDMI_CORE_IH_PHY_STAT0, 0xff, 7, 0);
@@ -543,6 +553,35 @@ static void hdmi_core_enable_interrupts(struct hdmi_core_data *core)
 {
 	/* Unmute interrupts */
 	REG_FLD_MOD(core->base, HDMI_CORE_IH_MUTE, 0x0, 1, 0);
+}
+
+int hdmi5_core_handle_irqs(struct hdmi_core_data *core)
+{
+	void __iomem *base = core->base;
+	unsigned int stat = hdmi_read_reg(base, HDMI_CORE_IH_CEC_STAT0);
+
+	if (stat) {
+		hdmi_write_reg(base, HDMI_CORE_IH_CEC_STAT0, stat);
+		hdmi5_cec_irq(core, stat);
+	}
+#if FIXME	// where do we now handle CEC interrupts?
+// FIXME: this was removed upstream
+	/*
+	 * Clear all possible IRQ_CORE interrupts except for
+	 * HDMI_CORE_IH_I2CM_STAT0 (that interrupt is muted and
+	 * is handled by polling elsewhere) and HDMI_CORE_IH_CEC_STAT0
+	 * which is handled by the CEC code above.
+	 */
+	REG_FLD_MOD(base, HDMI_CORE_IH_FC_STAT0, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_FC_STAT1, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_FC_STAT2, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_AS_STAT0, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_PHY_STAT0, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_VP_STAT0, 0xff, 7, 0);
+	REG_FLD_MOD(base, HDMI_CORE_IH_I2CMPHY_STAT0, 0xff, 7, 0);
+#endif
+
+	return 0;
 }
 
 void hdmi5_configure(struct hdmi_core_data *core, struct hdmi_wp_data *wp,
@@ -858,6 +897,9 @@ int hdmi5_core_init(struct platform_device *pdev, struct hdmi_core_data *core)
 	core->base = devm_platform_ioremap_resource_byname(pdev, "core");
 	if (IS_ERR(core->base))
 		return PTR_ERR(core->base);
+
+	REG_FLD_MOD(core->base, HDMI_CORE_CEC_MASK, 0x7f, 6, 0);
+	REG_FLD_MOD(core->base, HDMI_CORE_IH_CEC_STAT0, 0x7f, 6, 0);
 
 	return 0;
 }

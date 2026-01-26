@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/string_choices.h>
+#include <linux/etherdevice.h>
 
 #include "realtek.h"
 
