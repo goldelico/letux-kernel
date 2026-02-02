@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.19.0-rc7 Kernel Configuration
+# Linux/mips 6.19.0-rc8 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -2652,6 +2652,7 @@ CONFIG_REGULATOR_ACT8865=y
 # CONFIG_REGULATOR_TPS65023 is not set
 # CONFIG_REGULATOR_TPS6507X is not set
 # CONFIG_REGULATOR_TPS65132 is not set
+# CONFIG_REGULATOR_TPS65185 is not set
 # CONFIG_REGULATOR_TPS6524X is not set
 # CONFIG_REGULATOR_VCTRL is not set
 CONFIG_RC_CORE=m
