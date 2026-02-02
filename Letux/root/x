@@ -14,8 +14,11 @@
 # root      3008  3007  0 12:38 tty2     00:00:01 /usr/bin/X :7 -auth /tmp/serverauth.YPgDh8JPcm
 # on Stretch we see (with nodm):
 # root      2512  2503  0 17:17 tty7     00:00:04 /usr/lib/xorg/Xorg :0 -nolisten tcp vt7
+# on macOS with XQuartz
+#   502 15736 15734   0  1:26pm ??        0:00.06 /opt/X11/bin/Xquartz :0 -listen tcp -iglx -auth /Users/hns/.serverauth.15443
 
-read REPLY REPLY REPLY REPLY REPLY REPLY REPLY REPLY DISPLAY REPLY XAUTHORITY REPLY < <(ps -ef | grep "/usr/lib/xorg/Xorg\|/usr/bin/X\|/opt/X11/bin/Xquartz" | grep -v -- "--" | grep -v grep)
+DISPLAY="$(ps -ef | grep "/usr/lib/xorg/Xorg\|/usr/bin/X\|/opt/X11/bin/Xquartz" | head -1 | sed 's/.*\(:[^ ]*\).*/\1/')"
+XAUTHORITY="$(ps -ef | grep "/usr/lib/xorg/Xorg\|/usr/bin/X\|/opt/X11/bin/Xquartz" | grep -e '-auth' | head -1 | sed 's/.* -auth \([^ ]*\).*/\1/')"
 
 export DISPLAY XAUTHORITY
 
