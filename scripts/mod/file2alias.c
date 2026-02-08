@@ -37,6 +37,8 @@ typedef Elf64_Addr	kernel_ulong_t;
 #include <ctype.h>
 #include <stdbool.h>
 
+#define uuid_t local_uuid_t	/* prevent conflict with Darwin uuid_t */
+
 /**
  * module_alias_printf - add auto-generated MODULE_ALIAS()
  *
