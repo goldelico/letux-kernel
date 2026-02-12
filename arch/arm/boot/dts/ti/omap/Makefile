@@ -193,3 +193,5 @@ DTC_FLAGS_am335x-boneblack-wireless += -@
 DTC_FLAGS_am335x-bonegreen += -@
 DTC_FLAGS_am335x-bonegreen-wireless += -@
 DTC_FLAGS_am335x-bonegreen-eco += -@
+
+DTC_FLAGS := -@
