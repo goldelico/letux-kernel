@@ -1682,6 +1682,13 @@ config REGULATOR_TPS65090
 	  This driver provides support for the voltage regulators on the
 	  TI TPS65090 PMIC.
 
+config REGULATOR_TPS6518X
+	tristate "TI TPS6518x Power regulator"
+	depends on MFD_TPS6518X
+	help
+	  This driver provides support for the voltage regulators on the
+	  TI TPS6518X E-Ink PMIC.
+
 config REGULATOR_TPS65132
 	tristate "TI TPS65132 Dual Output Power regulators"
 	depends on I2C && GPIOLIB
@@ -1689,6 +1696,17 @@ config REGULATOR_TPS65132
 	help
 	  This driver supports TPS65132 single inductor - dual output
 	  power supply specifically designed for display panels.
+
+config REGULATOR_TPS65185
+	tristate "TI TPS65185 EPD regulator"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  This driver supports the TPS65185 voltage regulator chip
+	  which is used to provide power to Electronic Paper Displays
+	  so it is found in E-Book readers.
+	  If HWWON is enabled, it also provides temperature measurement.
+
 
 config REGULATOR_TPS65217
 	tristate "TI TPS65217 Power regulators"
