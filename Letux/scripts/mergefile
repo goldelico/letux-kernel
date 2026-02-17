@@ -67,6 +67,8 @@ letux/dt-udoo-neo
 letux/dt-omap5-common
 letux/dt-omap5-uevm
 letux/dt-raspi
+letux/dt-star64
+
 letux/dt-makefile
 letux/omap2plus_defconfig
 
