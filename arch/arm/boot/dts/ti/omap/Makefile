@@ -30,6 +30,8 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-evm-37xx.dtb \
 	omap3-gta04a3.dtb \
 	omap3-gta04a4.dtb \
+	omap3-gta04b2.dtbo \
+	omap3-gta04a4+b2.dtb \
 	omap3-gta04a5.dtb \
 	omap3-gta04a5one.dtb \
 	omap3-ha.dtb \
@@ -67,6 +69,9 @@ dtb-$(CONFIG_ARCH_OMAP3) += \
 	omap3-sniper.dtb \
 	omap3-thunder.dtb \
 	omap3-zoom3.dtb
+
+omap3-gta04a4+b2-dtbs := omap3-gta04a4.dtb omap3-gta04b2.dtbo
+
 dtb-$(CONFIG_ARCH_OMAP4) += \
 	omap4-droid-bionic-xt875.dtb \
 	omap4-droid4-xt894.dtb \
