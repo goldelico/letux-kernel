@@ -24,7 +24,7 @@ struct pcm1773 {
 static int pcm1773_dac_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *k, int event)
 {
-	struct snd_soc_component *component = w->dapm->component;
+	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
 	struct pcm1773 *ctx = snd_soc_component_get_drvdata(component);
 	struct device *dev = component->dev;
 	int ret;
