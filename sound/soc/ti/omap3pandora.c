@@ -254,7 +254,7 @@ static int omap3pandora_capture_hw_free(struct snd_pcm_substream *substream)
 static int omap3pandora_hp_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *k, int event)
 {
-	struct snd_soc_card *card = w->dapm->card;
+	struct snd_soc_card *card = snd_soc_dapm_to_card(w->dapm);
 	struct device *dev = card->dev;
 	struct omap3pandora_sound *ctx =
 		snd_soc_card_get_drvdata(card);
