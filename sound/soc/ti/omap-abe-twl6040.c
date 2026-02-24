@@ -698,13 +698,13 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 
 #if FIXME	// REVISIT
 	/* allow audio paths from the audio modem to run during suspend */
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
-// AFML/AFMR belong to the codec twl6040.c and will not be found by &card->dapm
+	snd_soc_dapm_ignore_suspend(card->dapm, "Ext Spk");
+// AFML/AFMR belong to the codec twl6040.c and will not be found by card->dapm
 // which is some generic context but not the one pointing to the codec
-	snd_soc_dapm_ignore_suspend(&card->dapm, "AFML");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "AFMR");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Mic");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "Headset Stereophone");
+	snd_soc_dapm_ignore_suspend(card->dapm, "AFML");
+	snd_soc_dapm_ignore_suspend(card->dapm, "AFMR");
+	snd_soc_dapm_ignore_suspend(card->dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(card->dapm, "Headset Stereophone");
 #endif
 
 	/* DC offset cancellation computation only if ABE is enabled */
@@ -728,7 +728,7 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* add the aess rudio mapping here */
 	if (omap_aess_pdev) {
-		ret = snd_soc_dapm_add_routes(&card->dapm, aess_audio_map,
+		ret = snd_soc_dapm_add_routes(card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		if (ret)
 			return ret;
@@ -1045,7 +1045,7 @@ static void omap_abe_twl6040_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = &priv->card;
 
 	if (omap_aess_pdev) {
-		snd_soc_dapm_del_routes(&card->dapm, aess_audio_map,
+		snd_soc_dapm_del_routes(card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
 		put_device(&omap_aess_pdev->dev);
 	}
