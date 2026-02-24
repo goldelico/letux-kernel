@@ -83,7 +83,7 @@ struct omap_aess_filter {
  * soc_tplg_add_kcontrol() [also through omap_aess_pcm_probe()]
  * this ends up in different initialization of kcontrol->private_data
  * making it difficult to fetch the drvdata correctly
- * especially snd_soc_dapm_kcontrol_dapm() expects a widget list to be initialized
+ * especially snd_soc_dapm_kcontrol_to_dapm() expects a widget list to be initialized
  *
  * Ideally this would be sufficient if kcontrol->private_data were set to the aess component:
 
@@ -102,8 +102,8 @@ static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct omap_aess *aess = snd_soc_component_get_drvdata(component);	// NULL in some cases as described above
 #elif VARIANT == 2
-	/* wirft einen NULL-Pointer in dapm_kcontrol_get_wlist() aufgerufen aus snd_soc_dapm_kcontrol_dapm() weil dort data=NULL */
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
+	/* wirft einen NULL-Pointer in dapm_kcontrol_get_wlist() aufgerufen aus snd_soc_dapm_kcontrol_to_dapm() weil dort data=NULL */
+	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_to_dapm(kcontrol);
 	struct snd_soc_component *component = dapm?dapm->component:NULL;
 	struct omap_aess *aess = component?snd_soc_component_get_drvdata(component):NULL;
 #endif
@@ -117,7 +117,7 @@ static struct omap_aess *aess_get(struct snd_kcontrol *kcontrol)
 static int aess_put_mixer(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
+	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_to_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
 if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
@@ -235,7 +235,7 @@ static const int router[] = {
 static int aess_ul_mux_put_route(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
+	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_to_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
 if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
@@ -310,7 +310,7 @@ if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 static int aess_put_switch(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_dapm(kcontrol);
+	struct snd_soc_dapm_context *dapm = snd_soc_dapm_kcontrol_to_dapm(kcontrol);
 	struct omap_aess *aess = aess_get(kcontrol);
 if(!aess) { printk("%s: aess=%px\n", __func__, aess); return 0; }
 
