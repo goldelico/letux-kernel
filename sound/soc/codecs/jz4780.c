@@ -442,15 +442,13 @@ static int jz4780_codec_set_bias_level(struct snd_soc_component *codec,
 		break;
 	}
 
-	codec->dapm.bias_level = level;
-
 	return 0;
 }
 
 static int jz4780_codec_dev_probe(struct snd_soc_component *codec)
 {
 	struct jz4780_codec *jzc = snd_soc_component_get_drvdata(codec);
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(codec);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(codec);
 	struct regmap *regmap = jzc->regmap;
 
 	/* reset */
@@ -462,7 +460,7 @@ static int jz4780_codec_dev_probe(struct snd_soc_component *codec)
 	 * avoid
 	 * [    6.978427] codec 100200a4.audio-codec can not start from non-off bias with idle_bias = false
 	*/
-	dapm->idle_bias = true;
+	snd_soc_dapm_set_idle_bias(dapm, true);
 
 	jz4780_codec_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
