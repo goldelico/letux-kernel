@@ -123,6 +123,14 @@ struct drm_bridge_connector {
 	 * DRM_BRIDGE_OP_HDMI_CEC_NOTIFIER).
 	 */
 	struct drm_bridge *bridge_hdmi_cec;
+// FIXME: this is (partial?) duplication with upstream...
+	/**
+	 * @bridge_cec:
+	 *
+	 * The last bridge in the chain (closest to the connector) that provides
+	 * cec adapter support, if any (see &DRM_BRIDGE_OP_CEC).
+	 */
+	struct drm_bridge *bridge_cec;
 
 	/**
 	 * @hdmi_funcs:
@@ -249,6 +257,35 @@ static void drm_bridge_connector_force(struct drm_connector *connector)
 
 	if (hdmi)
 		drm_atomic_helper_connector_hdmi_force(connector);
+}
+
+static void drm_bridge_connector_destroy(struct drm_connector *connector)
+{
+	struct drm_bridge_connector *bridge_connector =
+		to_drm_bridge_connector(connector);
+	struct drm_bridge *bridge;
+
+	drm_for_each_bridge_in_chain_scoped(bridge_connector->encoder, bridge)
+		if (bridge->funcs->connector_detach)
+			bridge->funcs->connector_detach(bridge, connector);
+
+	if (bridge_connector->bridge_cec) {
+		struct drm_bridge *cec = bridge_connector->bridge_cec;
+
+		cec->funcs->connector_detach(cec, connector);
+	}
+	if (bridge_connector->bridge_hpd) {
+		struct drm_bridge *hpd = bridge_connector->bridge_hpd;
+
+		drm_bridge_hpd_disable(hpd);
+	}
+
+	drm_connector_unregister(connector);
+	drm_connector_cleanup(connector);
+
+	fwnode_handle_put(connector->fwnode);
+
+	kfree(bridge_connector);
 }
 
 static void drm_bridge_connector_debugfs_init(struct drm_connector *connector,
@@ -789,6 +826,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	struct drm_connector *connector;
 	struct i2c_adapter *ddc = NULL;
 	struct drm_bridge *panel_bridge __free(drm_bridge_put) = NULL;
+	struct drm_bridge *bridge;
 	unsigned int supported_formats = BIT(HDMI_COLORSPACE_RGB);
 	unsigned int max_bpc = 8;
 	bool support_hdcp = false;
@@ -873,6 +911,8 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 			if (bridge->max_bpc)
 				max_bpc = bridge->max_bpc;
 		}
+		if (bridge->ops & DRM_BRIDGE_OP_CEC)
+			bridge_connector->bridge_cec = bridge;
 
 		if (bridge->ops & DRM_BRIDGE_OP_HDMI_AUDIO) {
 			if (bridge_connector->bridge_hdmi_audio)
@@ -991,7 +1031,6 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	if (bridge_connector->bridge_hdmi_audio ||
 	    bridge_connector->bridge_dp_audio) {
 		struct device *dev;
-		struct drm_bridge *bridge;
 
 		if (bridge_connector->bridge_hdmi_audio)
 			bridge = bridge_connector->bridge_hdmi_audio;
@@ -1012,7 +1051,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	if (bridge_connector->bridge_hdmi_cec &&
 	    bridge_connector->bridge_hdmi_cec->ops & DRM_BRIDGE_OP_HDMI_CEC_NOTIFIER) {
-		struct drm_bridge *bridge = bridge_connector->bridge_hdmi_cec;
+		bridge = bridge_connector->bridge_hdmi_cec;
 
 		ret = drmm_connector_hdmi_cec_notifier_register(connector,
 								NULL,
@@ -1023,7 +1062,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	if (bridge_connector->bridge_hdmi_cec &&
 	    bridge_connector->bridge_hdmi_cec->ops & DRM_BRIDGE_OP_HDMI_CEC_ADAPTER) {
-		struct drm_bridge *bridge = bridge_connector->bridge_hdmi_cec;
+		bridge = bridge_connector->bridge_hdmi_cec;
 
 		ret = drmm_connector_hdmi_cec_register(connector,
 						       &drm_bridge_connector_hdmi_cec_funcs,
@@ -1041,6 +1080,15 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	else if (bridge_connector->bridge_detect)
 		connector->polled = DRM_CONNECTOR_POLL_CONNECT
 				  | DRM_CONNECTOR_POLL_DISCONNECT;
+	if (bridge_connector->bridge_cec) {
+		bridge = bridge_connector->bridge_cec;
+		int ret = bridge->funcs->connector_attach(bridge, connector);
+
+		if (ret) {
+			drm_bridge_connector_destroy(connector);
+			return ERR_PTR(ret);
+		}
+	}
 
 	if (panel_bridge)
 		drm_panel_bridge_set_orientation(connector, panel_bridge);
@@ -1049,6 +1097,23 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 	    IS_ENABLED(CONFIG_DRM_DISPLAY_HDCP_HELPER))
 		drm_connector_attach_content_protection_property(connector, true);
 
-	return connector;
+	ret = 0;
+	/* call connector_attach for all bridges */
+	drm_for_each_bridge_in_chain_scoped(encoder, bridge) {
+		if (!bridge->funcs->connector_attach)
+			continue;
+		ret = bridge->funcs->connector_attach(bridge, connector);
+		if (ret)
+			break;
+	}
+	if (!ret)
+		return connector;
+
+	/* on error, detach any previously successfully attached connectors */
+	list_for_each_entry_continue_reverse(bridge, &(encoder)->bridge_chain,
+					     chain_node)
+		if (bridge->funcs->connector_detach)
+			bridge->funcs->connector_detach(bridge, connector);
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL_GPL(drm_bridge_connector_init);
