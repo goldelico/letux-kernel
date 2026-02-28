@@ -114,10 +114,6 @@ static int __init ingenic_intc_setup_irqchip(unsigned int cpu)
 	struct irq_chip_type *ct;
 	unsigned int i;
 
-	intc = kzalloc_obj(*intc);
-	if (!intc)
-		return -ENOMEM;
-
 	if (intc->version >= ID_X2000)
 		irqchip = per_cpu_ptr(intc->irqchips, cpu);
 	else
@@ -173,7 +169,7 @@ static int __init ingenic_intc_probe(struct device_node *np, unsigned num_chips)
 	unsigned int cpu;
 	int ret;
 
-	intc = kzalloc(sizeof(*intc), GFP_KERNEL);
+	intc = kzalloc_obj(*intc);
 	if (!intc)
 		return -ENOMEM;
 
