@@ -116,7 +116,7 @@ $DEBUG && echo "Panel: $PANEL"
 
 if [ $PANEL = default ]
 then
-	echo "$0: unknown motherboard $(model_or_compatible)"
+	echo "$0: unknown device $(model_or_compatible)"
 fi
 
 # symlink to chosen config (if any)
@@ -128,7 +128,7 @@ then
 	[ -r /usr/lib/xorg/modules/drivers/omap_drv.so ] || sed -i.bak 's/"omap"/"fbdev"/' /etc/X11/xorg.conf
 fi
 
-# look for and run shell script $COMPATIBLE.sh if it exists
-[ -x "/etc/X11/$COMPATIBLE.sh" ] && "/etc/X11/$COMPATIBLE.sh"
+# look for and run shell script $PANEL.sh if it exists
+[ -x "/etc/X11/$PANEL.sh" ] && "/etc/X11/$PANEL.sh"
 
 $DEBUG && ls -l /etc/X11/*.conf
