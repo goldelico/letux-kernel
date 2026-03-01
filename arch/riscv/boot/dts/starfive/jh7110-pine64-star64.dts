@@ -12,6 +12,13 @@
 	aliases {
 		ethernet1 = &gmac1;
 	};
+	reboot {
+		compatible = "syscon-reboot";
+		regmap = <&sys_syscon>;
+		offset = <0x12c>;
+		mask = <0xff>;
+		value = <0x55>;
+	};
 };
 
 &gmac0 {
@@ -42,6 +49,13 @@
 
 &i2c0 {
 	status = "okay";
+};
+
+&led_status_power {
+	label = "star64:blue:usr0";
+	function = LED_FUNCTION_STATUS;
+	color = <LED_COLOR_ID_BLUE>;
+	linux,default-trigger = "heartbeat";
 };
 
 &mmc0 {
@@ -131,11 +145,4 @@
 &usb_cdns3 {
 	phys = <&usbphy0>, <&pciephy0>;
 	phy-names = "cdns3,usb2-phy", "cdns3,usb3-phy";
-};
-
-&led_status_power {
-	label = "star64:blue:usr0";
-	function = LED_FUNCTION_STATUS;
-	color = <LED_COLOR_ID_BLUE>;
-	linux,default-trigger = "heartbeat";
 };
