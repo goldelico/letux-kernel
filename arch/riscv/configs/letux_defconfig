@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.18.13 Kernel Configuration
+# Linux/riscv 6.18.15 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3780,7 +3780,7 @@ CONFIG_DRM_NOUVEAU_CH7006=m
 CONFIG_DRM_NOUVEAU_SIL164=m
 # CONFIG_DRM_XE is not set
 # CONFIG_DRM_VGEM is not set
-# CONFIG_DRM_VKMS is not set
+CONFIG_DRM_VKMS=m
 # CONFIG_DRM_UDL is not set
 # CONFIG_DRM_AST is not set
 # CONFIG_DRM_MGAG200 is not set
@@ -4035,7 +4035,7 @@ CONFIG_FB=y
 # CONFIG_FB_UDL is not set
 # CONFIG_FB_IBM_GXT4500 is not set
 # CONFIG_FB_GOLDFISH is not set
-# CONFIG_FB_VIRTUAL is not set
+CONFIG_FB_VIRTUAL=m
 # CONFIG_FB_METRONOME is not set
 # CONFIG_FB_MB862XX is not set
 # CONFIG_FB_SIMPLE is not set
@@ -7156,5 +7156,3 @@ CONFIG_MEMTEST=y
 # end of Kernel hacking
 
 CONFIG_IO_URING_ZCRX=y
-CONFIG_DRM_VKMS=m
-CONFIG_FB_VIRTUAL=m
