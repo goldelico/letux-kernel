@@ -1,5 +1,5 @@
 #
-# Linux/riscv 6.18.15 Kernel Configuration
+# Linux/riscv 6.18.16 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -7064,7 +7064,6 @@ CONFIG_LOCK_DEBUGGING_SUPPORT=y
 
 # CONFIG_DEBUG_IRQFLAGS is not set
 CONFIG_STACKTRACE=y
-# CONFIG_WARN_ALL_UNSEEDED_RANDOM is not set
 
 #
 # Debug kernel data structures
