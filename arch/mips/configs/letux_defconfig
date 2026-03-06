@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.12.74 Kernel Configuration
+# Linux/mips 6.12.76 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6213,7 +6213,6 @@ CONFIG_LOCK_DEBUGGING_SUPPORT=y
 
 # CONFIG_DEBUG_IRQFLAGS is not set
 CONFIG_STACKTRACE=y
-# CONFIG_WARN_ALL_UNSEEDED_RANDOM is not set
 
 #
 # Debug kernel data structures
