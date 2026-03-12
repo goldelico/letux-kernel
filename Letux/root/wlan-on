@@ -1,6 +1,8 @@
 #!/bin/bash
 #
-# set up wlan connection
+# set up wlan
+# connect to some network: wlan-on NETWORK -p PASSWORD
+# provide some network:    wlan-on -f 2412 NETWORK -p PASSWORD
 #
 
 # to avoid wlan0: deauthenticating from c0:25:06:e4:8e:cc by local choice (Reason: 3=DEAUTH_LEAVING)
@@ -13,12 +15,14 @@ read -t 5 WLAN OTHER < <(iwconfig 2>&1 | fgrep 'wlan')
 OUTPUT=/dev/null
 
 function usage {
-		echo "usage: $0 [-d dev] ] -p key ] -a | [ssid]"
-		echo "  -d dev: set interface"
-		echo "  -a:     ad hoc mode"
-		echo "  -p key: Password"
-		echo "  ssid:   SSID to connect to"
-		exit;
+		echo "usage: $0 [-d dev] [ -p key ] [ -a ] [ -f freq ] | [ssid]"
+		echo "  -d dev       set interface name"
+		echo "  -a           ad hoc mode"
+		echo "  -f freq      access point mode on frequency (e.g. 2412 + 5*i up to 2484)"
+		echo "  -f 0         disable access point mode (needs a dummy SSID!)"
+		echo "  -p key       Password/Key"
+		echo "  ssid         SSID to connect to or use for AP"
+		exit 1
 }
 
 while [ "$1" ]
@@ -37,6 +41,11 @@ case "$1" in
 		iwconfig "$WLAN" mode ad-hoc essid $(hostname) enc off channel 6 &&
 		ifconfig "$WLAN" 10.1.1.1
 		exit
+		;;
+	-f ) # switch to AP mode on frequency
+		shift
+		FREQ="$1"
+		shift
 		;;
 	-p ) # set network password
 		shift
@@ -61,11 +70,7 @@ done
 
 if [ ! "$SSID" ]
 then
-	echo access point mode not yet supported
-
-#	ifconfig "$WLAN" up &&
-#	iwconfig "$WLAN" essid "$SSID" &&
-#	dhclient "$WLAN"
+	echo missing SSID
 	usage
 fi
 
@@ -73,6 +78,7 @@ echo restarting wpa_supplicant
 
 killall wpa_supplicant dhclient &>$OUTPUT
 sleep 0.5
+echo p2p_disabled=1 >>/etc/wpa_supplicant/wpa_supplicant.conf
 wpa_supplicant -B -i "$WLAN" -c /etc/wpa_supplicant/wpa_supplicant.conf || { echo can not start wpa_supplicant; exit 1; }
 
 echo setting up $SSID on $WLAN
@@ -80,6 +86,21 @@ echo setting up $SSID on $WLAN
 wpa_cli list_networks | ( read IGNORE; read IGNORE; while read NETWORK SSID OTHER; do wpa_cli remove_network $NETWORK &>$OUTPUT; done )
 wpa_cli add_network 0 &>$OUTPUT
 wpa_cli set_network 0 ssid "\"$SSID\"" &>$OUTPUT || { echo invalid network name $SSID; exit 1; }
+
+if [ "$FREQ" ]
+then
+	if [ "$FREQ" -ge 2412 ]
+	then
+		wpa_cli set p2p_disabled 1
+		wpa_cli set_network 0 mode 2 &>$OUTPUT
+		wpa_cli set_network 0 frequency "$FREQ" &>$OUTPUT
+		wpa_cli set_network 0 auth_alg OPEN
+		wpa_cli set_network 0 proto RSN
+		wpa_cli set_network 0 scan_ssid 1
+	else # turn off
+		wpa_cli set_network 0 mode 0 &>$OUTPUT
+	fi
+fi
 
 if [ "$PASSWORD" ]
 then
@@ -95,6 +116,23 @@ wpa_cli enable_network 0 &>$OUTPUT
 sleep 0.5
 #wpa_cli
 
-echo starting dhclient on $WLAN
+if [ "$FREQ" ]
+then
+	if [ "$FREQ" -ge 2412 ]
+	then
+		echo starting WLAN services on $WLAN
+		ip link set "$WLAN" down
+		ip addr flush dev "$WLAN"
+		ip addr add 192.168.4.1/24 dev "$WLAN"
+		ip link set "$WLAN" up
+		# better run dnsmasq
+		# or dhserver? for providing clients an address range
+	else
+		echo stopped WLAN services on $WLAN
+	fi
+else
+	echo starting dhclient on $WLAN
+	dhclient "$WLAN" && echo $WLAN up and running || echo $WLAN failed to connect
 
-dhclient "$WLAN" && echo $WLAN up and running || echo $WLAN failed to connect
+fi
+
