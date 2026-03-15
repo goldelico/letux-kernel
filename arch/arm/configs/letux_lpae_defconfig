@@ -1,5 +1,5 @@
 #
-# Linux/arm 7.0.0-rc3 Kernel Configuration
+# Linux/arm 7.0.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3414,6 +3414,7 @@ CONFIG_I2C_SLAVE=y
 # end of I2C support
 
 # CONFIG_I3C is not set
+CONFIG_I3C_OR_I2C=y
 CONFIG_SPI=y
 CONFIG_SPI_MASTER=y
 CONFIG_SPI_MEM=y
