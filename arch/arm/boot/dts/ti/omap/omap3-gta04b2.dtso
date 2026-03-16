@@ -1,0 +1,109 @@
+/*
+ * Copyright (C) 2014 H. Nikolaus Schaller <hns@goldelico.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&{/} {
+	model = "Goldelico GTA04b2/Letux 3704";
+
+	aliases {
+		display0 = <&lcd_dpi>;
+	};
+
+	lcd_dpi: lcd-dpi {
+		compatible =    "ortustech,com37h3m05dtc",
+				"ortustech,com37h3m99dtc",
+				"panel-dpi";
+		label = "lcd";
+		enable-gpios = <&gpio1 20 0>;
+		backlight = <&backlight>;
+
+		port {
+			lcd_dpi_in: endpoint {
+				remote-endpoint = <&dpi_out>;
+			};
+		};
+	};
+};
+
+&spi_lcd {
+	status = "disabled";
+};
+
+&dpi_out {
+	remote-endpoint = <&lcd_dpi_in>;
+};
+
+/* FIXME: add optional TRF7970 */
+/*
+&bat {
+	battery-name = "Letux-7004-battery";
+	energy-full-design-microwatt-hours = <14430000>;
+	charge-full-design-microamp-hours = <3900000>;
+};
+*/
+
+&tca6507 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	gta04_led0: led@0 {
+		compatible = "led";
+		label = "gta04:red:aux";
+		reg = <0x0>;
+	};
+
+	gta04_led1: led@1 {
+		compatible = "led";
+		label = "gta04:green:power";
+		linux,default-trigger = "default-on";
+		reg = <0x1>;
+	};
+
+	gta04_led3: led@3 {
+		reg = <7>;
+	};
+
+	gta04_led4: led@4 {
+		reg = <7>;
+	};
+
+	wifi_reset: led@6 { /* reference as <&tca_gpios 0 0> since it is currently the only GPIO */
+		reg = <0x6>;
+		compatible = "gpio";
+	};
+
+};
+
+&i2c2 {
+	/* touchscreen */
+	tsc2007@48 {
+		compatible = "ti,tsc2007";
+		pinctrl-names = "default";
+		pinctrl-0 = <&penirq_pins>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		gpios = <&gpio6 0 GPIO_ACTIVE_LOW>;     /* gpio160 */
+		ti,x-plate-ohms = <450>;
+		touchscreen-min-x = <190>;
+		touchscreen-min-y = <140>;
+		touchscreen-size-x = <3900>;
+		touchscreen-size-y = <3900>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <2>;
+		touchscreen-fuzz-y = <2>;
+		touchscreen-fuzz-pressure = <10>;
+		ti,max-rt = <1000>;
+	};
+
+};
+
