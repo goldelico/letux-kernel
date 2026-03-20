@@ -115,6 +115,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SADC>;
 			interrupt-controller;
+			#interrupt-cells = <1>;
 			status = "okay";
 		};
 
