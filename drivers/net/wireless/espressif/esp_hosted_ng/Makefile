@@ -10,12 +10,12 @@ esp-hosted-ng-core := main.o esp_bt.o esp_cmd.o esp_utils.o esp_cfg80211.o \
 		      esp_stats.o esp_debugfs.o esp_log.o
 
 # Conditional SDIO build
-sdio-y := $(esp-hosted-ng-core) sdio/esp_sdio.o sdio/esp_sdio_api.o
-obj-$(CONFIG_ESP_HOSTED_NG_SDIO) += sdio.o
+esp-hosted-ng-sdio-y := $(esp-hosted-ng-core) sdio/esp_sdio.o sdio/esp_sdio_api.o
+obj-$(CONFIG_ESP_HOSTED_NG_SDIO) += esp-hosted-ng-sdio.o
 
 # Conditional SPI build
-spi-y := $(esp-hosted-ng-core) spi/esp_spi.o
-obj-$(CONFIG_ESP_HOSTED_NG_SPI) += spi.o
+esp-hosted-ng-spi-y := $(esp-hosted-ng-core) spi/esp_spi.o
+obj-$(CONFIG_ESP_HOSTED_NG_SPI) += esp-hosted-ng-spi.o
 
 # NOTE: this is broken if spi or sdio is configured as "m" and the other as "y"
 
