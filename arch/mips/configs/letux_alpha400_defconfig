@@ -1,5 +1,5 @@
 #
-# Linux/mips 7.0.0-rc4 Kernel Configuration
+# Linux/mips 7.0.0-rc5 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -6356,9 +6356,10 @@ CONFIG_DMA_CMA=y
 # Default contiguous memory area size:
 #
 CONFIG_CMA_SIZE_MBYTES=32
-CONFIG_CMA_SIZE_SEL_MBYTES=y
+CONFIG_CMA_SIZE_PERCENTAGE=5
+# CONFIG_CMA_SIZE_SEL_MBYTES is not set
 # CONFIG_CMA_SIZE_SEL_PERCENTAGE is not set
-# CONFIG_CMA_SIZE_SEL_MIN is not set
+CONFIG_CMA_SIZE_SEL_MIN=y
 # CONFIG_CMA_SIZE_SEL_MAX is not set
 CONFIG_CMA_ALIGNMENT=8
 # CONFIG_DMA_API_DEBUG is not set
