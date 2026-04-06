@@ -75,6 +75,9 @@ MODULE_PARM_DESC(drm_leak_fbdev_smem,
 		 "Allow unsafe leaking fbdev physical smem address [default=false]");
 #endif
 
+static LIST_HEAD(kernel_fb_helper_list);
+static DEFINE_MUTEX(kernel_fb_helper_lock);
+
 /**
  * DOC: fbdev helpers
  *
