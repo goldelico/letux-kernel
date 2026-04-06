@@ -1,5 +1,5 @@
 #
-# Linux/riscv 7.0.0-rc6 Kernel Configuration
+# Linux/riscv 7.0.0-rc7 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1760,7 +1760,6 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_CB710_CORE is not set
 # CONFIG_SENSORS_LIS3_I2C is not set
 # CONFIG_ALTERA_STAPL is not set
-# CONFIG_INTEL_MEI is not set
 # CONFIG_GENWQE is not set
 # CONFIG_BCM_VK is not set
 # CONFIG_MISC_ALCOR_PCI is not set
