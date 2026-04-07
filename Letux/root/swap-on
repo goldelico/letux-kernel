@@ -1,0 +1,108 @@
+#!/bin/bash
+
+SWAPFILE=/swapfile
+BOOTABLE=false
+
+while [ "$1" ]
+do
+	case "$1" in
+		-r )
+			swapoff $SWAPFILE
+			sed -i.bak "$SWAPFILE swap/d" /etc/fstab
+			echo "### $SWAPFILE deactivated."
+			exit
+			;;
+		-b )
+			shift
+			BOOTABLE=true
+			;;
+		-* )
+			echo "usage: $0 [-br] [size in MiB]"
+			exit
+			;;
+		*)
+			break;
+	esac
+done
+
+function bootable {
+	if $BOOTABLE
+	then
+		fgrep -q /swapfile /etc/fstab || echo '/swapfile swap swap defaults 0 0' >>/etc/fstab
+		echo "### $SWAPFILE activated on boot."
+	fi
+}
+
+function createswap {
+# size[in MiB] name
+	echo "### setting up ${1}MiB temporary swap on $2"
+	BYTES="$( echo | awk "{print int(($SIZE) * 1024 * 1024)}")"	# size in MiB
+	if ! fallocate -l $BYTES $2 && : ! truncate -s $BYTES $2	# truncate would create file with holes
+	then	# fall back
+		BS="$( echo | awk "{print 10 * 1024}")"		# appears to be faster than 1 or 1000
+		COUNT="$( echo | awk "{print int($BYTES / $BS)}")"
+		echo "   ... fallocate and truncate failed, we do a dd"
+		echo "### creating $2 with ${SIZE}MiB"
+# echo dd if=/dev/zero of="$2" bs=$BS count=$COUNT
+		dd if=/dev/zero of="$2" bs="$BS" count="$COUNT" || exit 1
+	fi
+	chmod 0600 "$2"
+	mkswap "$2"
+	swapon "$2"
+	# NOTE: if we fail here before the $2 is installed we can't run again...
+	echo "### $2 is set up."
+}
+
+# FIXME: specifying an explicit MiB size should always create/resize the swap file
+# well, then we can't detect that it has not been changed!
+
+CURRENTSIZE=$(swapon | grep "^$SWAPFILE " | awk '{print $3}')	# has an M suffix
+CURRENTSIZE=$(printf "%.0f" ${CURRENTSIZE%M})
+
+SIZE="$1"	# in MiB
+[ "$SIZE" ] || SIZE=${CURRENTSIZE}
+
+if [ "$SIZE" -lt 10 ]
+then
+	echo "### swap size should be at least 10MiB"
+	exit 0
+fi
+
+if [ "$SIZE" -eq "${CURRENTSIZE}" ]
+then
+	echo "### $SWAPFILE with ${CURRENTSIZE}MiB already active, nothing to do"
+	$BOOTABLE && bootable
+	exit 0
+fi
+
+if [ "$CURRENTSIZE" -gt 0 -a "$(fgrep MemTotal: /proc/meminfo | ( read MEMTOTAL SIZE kB; echo $SIZE ))" -lt 256000 ]
+then
+	echo "### swap exists and we have less than 256MiB physical RAM."
+	echo "### We can't turn off swap while e.g. running apt-get. So use a temp swap."
+	TMPSIZE=$CURRENTSIZE
+	[ "$TMPSIZE" -lt 100 ] && TMPSIZE=100
+fi
+
+if [ "$TMPSIZE" ]
+then
+	createswap $TMPSIZE $SWAPFILE.tmp
+fi
+
+if [ "$CURRENTSIZE" -gt 0 ]
+then
+	echo "### deactivate $SWAPFILE"
+	swapoff $SWAPFILE
+fi
+
+createswap $SIZE $SWAPFILE
+
+if [ "$TMPSIZE" ]
+then
+	echo "### deactivate and delete $SWAPFILE.tmp"
+	# NOTE: if we fail before before here, we can't run again...
+	swapoff $SWAPFILE.tmp
+	rm -f $SWAPFILE.tmp
+fi
+
+$BOOTABLE && bootable
+exit 0
