@@ -731,7 +731,26 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	return phylink_ethtool_set_wol(priv->phylink, wol);
+	if (!priv->plat->pmt) {
+		int ret = phylink_ethtool_set_wol(priv->phylink, wol);
+
+		if (!ret)
+			device_set_wakeup_enable(priv->device, !!wol->wolopts);
+		return ret;
+	}
+
+	device_set_wakeup_enable(priv->device, !!wol->wolopts);
+
+	mutex_lock(&priv->lock);
+	priv->wolopts = wol->wolopts;
+	mutex_unlock(&priv->lock);
+
+	if (phy_ethtool_set_wol(dev->phydev, wol) == 0)
+		enable_irq_wake(dev->phydev->irq);
+	else
+		disable_irq_wake(dev->phydev->irq);
+
+	return 0;
 }
 
 static int stmmac_ethtool_op_get_eee(struct net_device *dev,
