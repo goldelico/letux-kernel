@@ -91,6 +91,10 @@ config X2000_LX20
 	bool "Letux X2000 based SBC"
 	select MACH_X2000
 
+config X2600_LX26
+	bool "Letux X2600 based SBC"
+	select MACH_X2600
+
 endchoice
 
 config MACH_JZ4725B
