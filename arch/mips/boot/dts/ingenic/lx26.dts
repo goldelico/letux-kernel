@@ -1,0 +1,186 @@
+/dts-v1/;
+
+#include <dt-bindings/input/input.h>
+#include "x2600.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "goldelico,letux-x26", "ingenic,x2600";
+
+	model = "Letux LX26v0.1";
+
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		uart0 = &uart0;
+		uart1 = &uart1;
+		uart2 = &uart2;
+		uart3 = &uart3;
+		uart4 = &uart4;
+		uart5 = &uart5;
+		uart6 = &uart6;
+		uart7 = &uart7;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		serial4 = &uart4;
+		serial5 = &uart5;
+		serial6 = &uart6;
+		serial7 = &uart7;
+		mmc0 = &msc0;
+		mmc1 = &msc1;
+		mac0 = &mac0;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		pwm = &pwm;
+		can0 = &can0;
+		can1 = &can1;
+	};
+
+
+	chosen {
+		stdout-path = &uart2;
+#if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
+		bootargs = "mem=128M@0x0 ieee754=emulated rootfstype=ext4 root=/dev/mmcblk0p2 rw earlycon console=ttyS2,115200 clk_ignore_unused ignore_loglevel rootwait";
+#endif
+	};
+
+	// reserved-memory here
+
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe>;
+};
+
+&uart1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pb>;
+};
+
+&uart2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pd>;
+};
+
+&otg {
+	dr_mode = "otg"; // host,peripheral,otg
+	status = "okay";
+};
+
+&usb {
+	status = "okay";
+};
+
+&otg_phy {
+	status = "okay";
+};
+
+&usb_phy {
+	status = "okay";
+};
+
+&pinctrl {
+	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
+	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_1V8>;
+};
+
+&sfc {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&sfc_pd1>;
+	ingenic,sfc-max-frequency = <200000000>;
+	ingenic,sfc-init-frequency= <40000000>;
+	ingenic,use_ofpart_info  = /bits/ 8 <0>;
+	ingenic,spiflash_param_offset = <0>;
+
+};
+
+&tcu0 {
+	status = "disable";
+};
+
+&tcu1 {
+	status = "disable";
+};
+
+/ {
+
+	extclk: extclk {
+		clock-frequency = <24000000>;
+	};
+};
+
+&jpegd {
+    status = "okay";
+};
+
+&jpege {
+    status = "okay";
+};
+
+&felix {
+	status = "okay";
+};
+
+&pdma {
+	status = "okay";
+};
+
+&pdma1 {
+	status = "okay";
+};
+
+/* Board Sleep GPIO configuration. */
+/* <0 1 2 3 .... 31>, set one of the pin to state.*/
+&gpa {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpb {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpc {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpd {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
+
+&gpe {
+	ingenic,gpio-sleep-pullup 	= <>;
+	ingenic,gpio-sleep-pulldown 	= <>;
+	ingenic,gpio-sleep-hiz		= <>;
+	ingenic,gpio-sleep-low		= <>;
+	ingenic,gpio-sleep-high		= <>;
+	ingenic,gpio-sleep-wakeup	= <>;
+};
