@@ -17,6 +17,7 @@ config MACH_INGENIC_GENERIC
 	select MACH_X1830
 	select MACH_X2000
 	select MACH_X2100
+	select MACH_X2600
 
 choice
 	prompt "Machine type"
@@ -99,6 +100,10 @@ config X2000_LX20
 	bool "Letux X2000 based SBC"
 	select MACH_X2000
 
+config X2600_LX26
+	bool "Letux X2600 based SBC"
+	select MACH_X2600
+
 endchoice
 
 config MACH_JZ4725B
@@ -138,6 +143,16 @@ config MACH_X1830
 	select SYS_SUPPORTS_HIGHMEM
 
 config MACH_X2000
+	bool
+	select GENERIC_CLOCKEVENTS_BROADCAST if SMP
+	select SYS_HAS_CPU_MIPS32_R5
+	select SYS_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_SMP
+	select MIPS_O32_FP64_SUPPORT
+	select WEAK_ORDERING
+	select WEAK_REORDERING_BEYOND_LLSC
+
+config MACH_X2600
 	bool
 	select GENERIC_CLOCKEVENTS_BROADCAST if SMP
 	select SYS_HAS_CPU_MIPS32_R5
