@@ -12,13 +12,12 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <sound/soc.h>
 
 struct pcm1773 {
 	struct regulator *regulator;
-	bool has_enable_gpio;
-	int enable_gpio;
+	struct gpio_desc *enable_gpio;
 };
 
 static int pcm1773_dac_event(struct snd_soc_dapm_widget *w,
@@ -43,11 +42,11 @@ static int pcm1773_dac_event(struct snd_soc_dapm_widget *w,
 			mdelay(1);
 		}
 
-		if (ctx->has_enable_gpio)
-			gpio_set_value(ctx->enable_gpio, 1);
+		if (ctx->enable_gpio)
+			gpiod_set_value_cansleep(ctx->enable_gpio, 1);
 	} else {
-		if (ctx->has_enable_gpio)
-			gpio_set_value(ctx->enable_gpio, 0);
+		if (ctx->enable_gpio)
+			gpiod_set_value_cansleep(ctx->enable_gpio, 0);
 
 		if (ctx->regulator) {
 			mdelay(1);
@@ -87,7 +86,6 @@ static int pcm1773_probe(struct snd_soc_component *component)
 {
 	struct pcm1773 *ctx = NULL;
 	struct device *dev = component->dev;
-	struct device_node *of_node = dev->of_node;
 	int ret;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
@@ -95,30 +93,15 @@ static int pcm1773_probe(struct snd_soc_component *component)
 		return -ENOMEM;
 	snd_soc_component_set_drvdata(component, ctx);
 
-	if (!of_node) {
-		dev_dbg(dev, "DT data not present for pcm1773-codec; assuming hardware handles regulators and chip enable appropriately");
-		return 0;
+	ctx->enable_gpio = devm_gpiod_get(dev, "enable-gpio", GPIOD_OUT_LOW);
+	if (IS_ERR(ctx->enable_gpio)) {
+		ctx->enable_gpio = NULL;
+		dev_err(dev, "invalid GPIO specification for enable-gpio");
+		return PTR_ERR(ctx->enable_gpio);
 	}
+	dev_dbg(dev, "got enable-gpio %pe", ctx->enable_gpio);
 
-	ctx->enable_gpio = of_get_named_gpio(of_node, "enable-gpio", 0);
-	if (ctx->enable_gpio <= 0) {
-		ctx->enable_gpio = 0;
-		dev_warn(dev, "invalid GPIO specification for enable-gpio");
-	} else {
-		ctx->has_enable_gpio = true;
-		dev_dbg(dev, "got enable-gpio %d", ctx->enable_gpio);
-
-		ret = gpio_request(ctx->enable_gpio, "dac_enable");
-		if (ret >= 0)
-			ret = gpio_direction_output(ctx->enable_gpio, 0);
-		if (ret < 0) {
-			dev_err(dev, "failed to reserve GPIO %d as an output",
-				ctx->enable_gpio);
-			return ret;
-		}
-	}
-
-	ctx->regulator = regulator_get(dev, "vcc");
+	ctx->regulator = devm_regulator_get(dev, "vcc");
 	if (IS_ERR(ctx->regulator)) {
 		ctx->regulator = NULL;
 		dev_warn(dev, "cannot get regulator 'vcc'");
@@ -127,20 +110,8 @@ static int pcm1773_probe(struct snd_soc_component *component)
 	return 0;
 }
 
-static void pcm1773_remove(struct snd_soc_component *component)
-{
-	struct pcm1773 *ctx = snd_soc_component_get_drvdata(component);
-
-	if (ctx->regulator)
-		regulator_put(ctx->regulator);
-
-	if (ctx->has_enable_gpio)
-		gpio_free(ctx->enable_gpio);
-}
-
 static const struct snd_soc_component_driver soc_component_dev_pcm1773 = {
 	.probe = pcm1773_probe,
-	.remove = pcm1773_remove,
 	.dapm_widgets = pcm1773_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(pcm1773_dapm_widgets),
 	.dapm_routes = pcm1773_dapm_routes,
