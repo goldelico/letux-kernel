@@ -203,10 +203,13 @@ static unsigned long x2000_cpu_recalc_rate(struct clk_hw *hw, unsigned long pare
 	return parent_rate / ((readl(cgu->base + CGU_REG_CPCCR) & 0xf) + 1);
 }
 
-static long x2000_cpu_round_rate(struct clk_hw *hw, unsigned long req_rate,
-				      unsigned long *parent_rate)
+static int x2000_cpu_determine_rate(struct clk_hw *hw,
+				     struct clk_rate_request *req)
 {
-	return *parent_rate / ((*parent_rate - 1) / req_rate + 1);
+	req->rate = req->best_parent_rate /
+			((req->best_parent_rate - 1) / req->rate + 1);
+
+	return 0;
 }
 
 static int x2000_cpu_set_rate(struct clk_hw *hw, unsigned long req_rate, unsigned long parent_rate)
@@ -234,7 +237,7 @@ static int x2000_cpu_set_rate(struct clk_hw *hw, unsigned long req_rate, unsigne
 
 static const struct clk_ops x2000_cpu_ops = {
 	.recalc_rate = x2000_cpu_recalc_rate,
-	.round_rate = x2000_cpu_round_rate,
+	.determine_rate = x2000_cpu_determine_rate,
 	.set_rate = x2000_cpu_set_rate,
 };
 
