@@ -24,7 +24,7 @@
 #include <linux/init.h>
 #include <linux/input.h>
 #include <linux/module.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
 
