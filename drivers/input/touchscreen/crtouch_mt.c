@@ -46,7 +46,7 @@
 #include <linux/syscalls.h>
 #include <linux/device.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 #define DEVICE_NAME	"crtouch_drv"
 
