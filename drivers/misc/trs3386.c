@@ -12,7 +12,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/serial_core.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 /* this defines the indexes in the gpio list and their
    mapping to mctrl bits */
