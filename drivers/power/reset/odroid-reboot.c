@@ -32,7 +32,7 @@
 #include <linux/arm-smccc.h>
 
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 int sd_vqsw;
 int sd_vmmc;
