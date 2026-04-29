@@ -386,7 +386,7 @@ static int8_t esp_get_mode_from_iface_type(int iface_type)
 }
 
 static int esp_cfg80211_change_iface(struct wiphy *wiphy,
-					struct net_device *dev,
+					struct net_device *ndev,
 					enum nl80211_iftype type,
 					struct vif_params *params)
 {
@@ -394,12 +394,12 @@ static int esp_cfg80211_change_iface(struct wiphy *wiphy,
 	enum ESP_INTERFACE_TYPE esp_if_type;
 	int ret;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !ndev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 	if (!priv) {
 		esp_err("empty priv\n");
 		return -EINVAL;
@@ -424,7 +424,7 @@ static int esp_cfg80211_change_iface(struct wiphy *wiphy,
 		priv->wdev.iftype = type;
 		/* update Mac address of interface */
 		cmd_get_mac(priv);
-		ETH_HW_ADDR_SET(dev, priv->mac_address/*mac_addr->sa_data*/);
+		ETH_HW_ADDR_SET(ndev, priv->mac_address/*mac_addr->sa_data*/);
 	}
 
 	esp_info("wdev iftype=%d, ret=%d\n", priv->wdev.iftype, ret);
@@ -513,17 +513,17 @@ static int esp_cfg80211_set_ap_chanwidth(struct wiphy *wiphy,
 }
 
 static int esp_cfg80211_set_default_key(struct wiphy *wiphy,
-					struct net_device *dev, INT_LINK_ID
+					struct net_device *ndev, INT_LINK_ID
 					u8 key_index, bool unicast, bool multicast)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !ndev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 	if (!priv) {
 		esp_err("Empty priv");
 		return -EINVAL;
@@ -533,30 +533,30 @@ static int esp_cfg80211_set_default_key(struct wiphy *wiphy,
 }
 
 static int esp_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
-					     struct net_device *ndev, INT_LINK_ID u8 key_index)
+					     struct wireless_dev *wdev, INT_LINK_ID u8 key_index)
 {
 	return 0;
 }
 
-static int esp_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 				INT_LINK_ID u8 key_index, bool pairwise,
 				const u8 *mac_addr)
 {
 	return 0;
 }
 
-static int esp_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 				INT_LINK_ID u8 key_index, bool pairwise,
 				const u8 *mac_addr, struct key_params *params)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev || !params) {
+	if (!wiphy || !wdev || !params) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(wdev->netdev);
 	if (!priv) {
 		esp_err("Empty priv\n");
 		return -EINVAL;
@@ -564,22 +564,22 @@ static int esp_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 	esp_dbg("\n");
 
 	if (params->key_len == 0) {
-		return esp_cfg80211_del_key(wiphy, dev, ZERO_LINK_ID key_index, pairwise, mac_addr);
+		return esp_cfg80211_del_key(wiphy, wdev, ZERO_LINK_ID key_index, pairwise, mac_addr);
 	}
 	return cmd_add_key(priv, key_index, pairwise, mac_addr, params);
 }
 
 static int esp_cfg80211_disconnect(struct wiphy *wiphy,
-		struct net_device *dev, u16 reason_code)
+		struct net_device *ndev, u16 reason_code)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !ndev) {
 		esp_info("%u invalid input\n",  __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 
 	if (!priv) {
 		esp_err("empty priv\n");
@@ -590,19 +590,19 @@ static int esp_cfg80211_disconnect(struct wiphy *wiphy,
 	return cmd_disconnect_request(priv, reason_code, NULL);
 }
 
-static int esp_cfg80211_authenticate(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_authenticate(struct wiphy *wiphy, struct net_device *ndev,
 		struct cfg80211_auth_request *req)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev || !req) {
+	if (!wiphy || !ndev || !req) {
 		esp_info("%u invalid input\n", __LINE__);
 		return -EINVAL;
 	}
 
 	esp_dbg("\n");
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 
 	if (!priv) {
 		esp_err("Empty priv\n");
@@ -613,17 +613,17 @@ static int esp_cfg80211_authenticate(struct wiphy *wiphy, struct net_device *dev
 }
 
 
-static int esp_cfg80211_associate(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_associate(struct wiphy *wiphy, struct net_device *ndev,
 		struct cfg80211_assoc_request *req)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev || !req) {
+	if (!wiphy || !ndev || !req) {
 		esp_info("%u invalid input\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 
 	esp_dbg("\n");
 
@@ -635,18 +635,18 @@ static int esp_cfg80211_associate(struct wiphy *wiphy, struct net_device *dev,
 	return cmd_assoc_request(priv, req);
 }
 
-static int esp_cfg80211_deauth(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_deauth(struct wiphy *wiphy, struct net_device *ndev,
 		struct cfg80211_deauth_request *req)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev || !req) {
+	if (!wiphy || !ndev || !req) {
 		esp_info("%u invalid input\n", __LINE__);
 		return -EINVAL;
 	}
 
 	esp_dbg("\n");
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 
 	if (!priv) {
 		esp_err("Empty priv\n");
@@ -656,29 +656,25 @@ static int esp_cfg80211_deauth(struct wiphy *wiphy, struct net_device *dev,
 	return cmd_disconnect_request(priv, req->reason_code, req->bssid);
 }
 
-static int esp_cfg80211_disassoc(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_disassoc(struct wiphy *wiphy, struct net_device *ndev,
 		struct cfg80211_disassoc_request *req)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev || !req) {
+	if (!wiphy || !ndev || !req) {
 		esp_info("%u invalid input\n", __LINE__);
 		return -EINVAL;
 	}
 
 	esp_dbg("\n");
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 
 	if (!priv) {
 		esp_err("Empty priv\n");
 		return 0;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0))
 	return cmd_disconnect_request(priv, req->reason_code, req->ap_addr);
-#else
-	return cmd_disconnect_request(priv, req->reason_code, req->bss->bssid);
-#endif
 }
 
 static int esp_cfg80211_suspend(struct wiphy *wiphy,
@@ -783,12 +779,12 @@ static int esp_cfg80211_set_tx_power(struct wiphy *wiphy,
 	return cmd_set_tx_power(priv, priv->tx_pwr);
 }
 
-static int esp_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev,
+static int esp_cfg80211_get_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 				    const u8 *mac, struct station_info *sinfo)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	priv = netdev_priv(ndev);
+	priv = netdev_priv(wdev->netdev);
 
 	if (!mac || !priv) {
 		esp_err("mac=%p priv=%p\n", mac, priv);
@@ -890,16 +886,10 @@ static int esp_set_ies(struct esp_wifi_device *priv, struct cfg80211_beacon_data
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
 static int esp_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
 				   struct  cfg80211_ap_update *params)
 {
 	struct cfg80211_beacon_data *info = &params->beacon;
-#else
-static int esp_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
-				   struct cfg80211_beacon_data *info)
-{
-#endif
 	struct esp_wifi_device *priv = NULL;
 
 	if (!wiphy || !ndev) {
@@ -921,7 +911,7 @@ static int esp_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *nd
 	return esp_set_ies(priv, info);
 }
 
-static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *ndev,
 				 struct cfg80211_ap_settings *info)
 {
 	struct esp_wifi_device *priv = NULL;
@@ -931,12 +921,12 @@ static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	int res;
 	int i;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !ndev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(ndev);
 	if (!priv) {
 		esp_err("empty priv\n");
 		return -EINVAL;
@@ -1034,17 +1024,17 @@ static int esp_cfg80211_probe_client(struct wiphy *wiphy, struct net_device *dev
 	return 0;
 }
 
-static int esp_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_del_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 					struct station_del_parameters *params)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !wdev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(wdev->netdev);
 	if (!priv) {
 		esp_err("empty priv\n");
 		return -EINVAL;
@@ -1055,18 +1045,18 @@ static int esp_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev,
 	return 0;
 }
 
-static int esp_cfg80211_add_station(struct wiphy *wiphy, struct net_device *dev,
+static int esp_cfg80211_add_station(struct wiphy *wiphy, struct wireless_dev *wdev,
 				    const u8 *mac,
 				    struct station_parameters *params)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !wdev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(wdev->netdev);
 	if (!priv) {
 		esp_err("empty priv\n");
 		return -EINVAL;
@@ -1079,17 +1069,17 @@ static int esp_cfg80211_add_station(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int esp_cfg80211_change_station(struct wiphy *wiphy,
-				       struct net_device *dev, const u8 *mac,
+				       struct wireless_dev *wdev, const u8 *mac,
 				       struct station_parameters *params)
 {
 	struct esp_wifi_device *priv = NULL;
 
-	if (!wiphy || !dev) {
+	if (!wiphy || !wdev) {
 		esp_err("%u invalid params\n", __LINE__);
 		return -EINVAL;
 	}
 
-	priv = netdev_priv(dev);
+	priv = netdev_priv(wdev->netdev);
 	if (!priv) {
 		esp_err("empty priv\n");
 		return -EINVAL;
