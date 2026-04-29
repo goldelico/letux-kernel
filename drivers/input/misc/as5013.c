@@ -24,7 +24,7 @@
 #include <linux/gpio.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 
 
 #define AS5013_INTERVAL		25
