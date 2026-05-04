@@ -28,6 +28,11 @@
 #define CPIO_TRAILER "TRAILER!!!"
 #define padlen(_off, _align) (((_align) - ((_off) & ((_align) - 1))) % (_align))
 
+#ifndef O_LARGEFILE
+#define O_LARGEFILE 0
+#define copy_file_range(A, B, C, D, E, F) 0
+#endif
+
 /* zero-padding the filename field for data alignment is limited by PATH_MAX */
 static char padding[PATH_MAX];
 static unsigned int offset;
