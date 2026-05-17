@@ -159,9 +159,6 @@ letux/aess-asoc-fw
 letux/aess-audio-test
 letux/aess-abefw
 
-# generic Ingenic
-letux/ingenic
-
 # Alpha400 / JZ4730
 letux/jz4730
 letux/alpha400
@@ -176,12 +173,17 @@ letux/jz4780-smp
 letux/ci20_defconfig
 letux/jz4780-sound	# contains defconfig fixes...
 
-# LX16/20 and X1600/X2000
+# LX16/20/26 and X1600/X2000/X2600
 letux/x1600
 letux/dt-lx16
 letux/x2000
 letux/dt-lx20
+letux/x2600
+letux/dt-lx26
 letux/esp-hosted-ng
+
+# generic for Ingenic
+letux/ingenic
 
 # E-Book reader
 letux/kobolino/backlight
