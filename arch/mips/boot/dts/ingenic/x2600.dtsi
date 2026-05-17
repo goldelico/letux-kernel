@@ -145,73 +145,117 @@
 		pinctrl: pinctrl@13601000 {
 			compatible = "ingenic,x2600-pinctrl";
 			reg = <0x13601000 0x5000>;
+#if 1	// still CHECKME
 			ingenic,num-chips = <5>;
 			ingenic,regs-offset = <0x1000>;
 			ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
+#endif
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-			gpa: gpa {
+			gpa: gpio@0 {
+				compatible = "ingenic,x2600-gpio";
+				reg = <0>;
+
 				gpio-controller;
-				#gpio-cells = <3>;
-				#ingenic,pincfg-cells = <3>;
-				#ingenic,pinmux-cells = <2>;
+				gpio-ranges = <&pinctrl 0 0 32>;
+				#gpio-cells = <2>;
+
 				interrupts = <IRQ_GPIO0>;
 				interrupt-parent = <&core_intc>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
-				ingenic,pull-gpios-low = <0x55555555>;
-				ingenic,pull-gpios-high = <0x55555555>;
-			};
-
-			gpb: gpb {
-				gpio-controller;
-				#gpio-cells = <3>;
+				#interrupt-cells = <2>;
+#if CHECKME
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
+
+				ingenic,pull-gpios-low = <0x55555555>;
+				ingenic,pull-gpios-high = <0x55555555>;
+#endif
+			};
+
+			gpb: gpio@1 {
+				compatible = "ingenic,x2600-gpio";
+				reg = <1>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 32 32>;
+
 				interrupts = <IRQ_GPIO1>;
 				interrupt-parent = <&core_intc>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
-				ingenic,pull-gpios-low = <0x55565555>;
-				ingenic,pull-gpios-high = <0x55555555>;
-			};
-
-			gpc: gpc {
-				gpio-controller;
-				#gpio-cells = <3>;
+				#interrupt-cells = <2>;
+#if CHECKME
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
+
+				ingenic,pull-gpios-low = <0x55565555>;
+				ingenic,pull-gpios-high = <0x55555555>;
+#endif
+			};
+
+			gpc: gpio@2 {
+				compatible = "ingenic,x2600-gpio";
+				reg = <2>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 64 32>;
+
 				interrupts = <IRQ_GPIO2>;
 				interrupt-parent = <&core_intc>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
-				ingenic,pull-gpios-low = <0x55555555>;
-				ingenic,pull-gpios-high = <0x55555555>;
-			};
-
-			gpd: gpd {
-				gpio-controller;
-				#gpio-cells = <3>;
+				#interrupt-cells = <2>;
+#if CHECKME
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
+
+				ingenic,pull-gpios-low = <0x55555555>;
+				ingenic,pull-gpios-high = <0x55555555>;
+#endif
+			};
+
+			gpd: gpio@3 {
+				compatible = "ingenic,x2600-gpio";
+				reg = <3>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 96 32>;
+
 				interrupts = <IRQ_GPIO3>;
 				interrupt-parent = <&core_intc>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
-				ingenic,pull-gpios-low = <0x55555555>;
-				ingenic,pull-gpios-high = <0x55555555>;
-			};
-
-			gpe: gpe {
-				gpio-controller;
-				#gpio-cells = <3>;
+				#interrupt-cells = <2>;
+#if CHECKME
 				#ingenic,pincfg-cells = <3>;
 				#ingenic,pinmux-cells = <2>;
+
+				ingenic,pull-gpios-low = <0x55555555>;
+				ingenic,pull-gpios-high = <0x55555555>;
+#endif
+			};
+
+			gpe: gpio@4 {
+				compatible = "ingenic,x2600-gpio";
+				reg = <4>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 128 32>;
+
 				interrupts = <IRQ_GPIO4>;
 				interrupt-parent = <&core_intc>;
 				interrupt-controller;
-				#interrupt-cells = <3>;
+				#interrupt-cells = <2>;
+#if CHECKME
+				#ingenic,pincfg-cells = <3>;
+				#ingenic,pinmux-cells = <2>;
+
 				ingenic,pull-gpios-low = <0x55555555>;
 				ingenic,pull-gpios-high = <0x55555555>;
+#endif
 			};
 
 		};
