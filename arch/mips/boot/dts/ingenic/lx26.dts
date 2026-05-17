@@ -1,8 +1,51 @@
 /dts-v1/;
 
+#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
-#include "x2600.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
+#include "x2600.dtsi"
+
+// Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
+#define SDA	PIN3
+#define SCL	PIN5
+#define IO4	PIN7
+#define TXD	PIN8
+#define RXD	PIN10
+#define IO17	PIN11
+#define PCM_CLK	PIN12
+#define IO18	PIN12
+#define IO27	PIN13
+#define IO22	PIN15
+#define IO23	PIN16
+#define IO24	PIN18
+#define MOSI	PIN19
+#define IO10	PIN19
+#define MISO	PIN21
+#define IO9	PIN21
+#define IO25	PIN22
+#define SCLK	PIN23
+#define IO11	PIN23
+#define CE0	PIN24
+#define IO8	PIN24
+#define CE1	PIN26
+#define IO7	PIN26
+#define IDSD	PIN27
+#define IDSC	PIN28
+#define IO5	PIN29
+#define IO6	PIN31
+#define IO12	PIN32
+#define IO13	PIN33
+#define IO19	PIN35
+#define IO16	PIN36
+#define IO26	PIN37
+#define IO20	PIN38
+#define IO21	PIN40
+
+// Mapping of connector pins to LX26 signals
+// e.g. #define PIN3	PB31_SDA0
+
+// there are no connections to LX26 in this v0.1
+// e.g. #define PB31_SDA0		&gpb 31
 
 / {
 	compatible = "goldelico,letux-x26", "ingenic,x2600";
@@ -48,7 +91,16 @@
 #endif
 	};
 
-	// reserved-memory here
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges =<>;
+
+		reserved_memory: reserved_mem@2000000{
+		      compatible = "shared-dma-pool";
+		      reg = <0x02000000 0x20000>;
+		};
+	};
 
 };
 
@@ -136,51 +188,4 @@
 
 &pdma1 {
 	status = "okay";
-};
-
-/* Board Sleep GPIO configuration. */
-/* <0 1 2 3 .... 31>, set one of the pin to state.*/
-&gpa {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-	ingenic,gpio-sleep-wakeup	= <>;
-};
-
-&gpb {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-	ingenic,gpio-sleep-wakeup	= <>;
-};
-
-&gpc {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-	ingenic,gpio-sleep-wakeup	= <>;
-};
-
-&gpd {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-	ingenic,gpio-sleep-wakeup	= <>;
-};
-
-&gpe {
-	ingenic,gpio-sleep-pullup 	= <>;
-	ingenic,gpio-sleep-pulldown 	= <>;
-	ingenic,gpio-sleep-hiz		= <>;
-	ingenic,gpio-sleep-low		= <>;
-	ingenic,gpio-sleep-high		= <>;
-	ingenic,gpio-sleep-wakeup	= <>;
 };
