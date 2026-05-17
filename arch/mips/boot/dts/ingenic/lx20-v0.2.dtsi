@@ -1,9 +1,9 @@
 /dts-v1/;
 
-#include "x2000.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include "x2000.dtsi"
 
 // Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
 #define SDA	PIN3
@@ -42,7 +42,10 @@
 #define IO21	PIN40
 
 // Mapping of connector pins to LX20 signals
+// e.g. #define PIN3	PB31_SDA0
+
 // there are no connections to LX20 in this v0.2
+// e.g. #define PB31_SDA0		&gpb 31
 
 / {
 	compatible = "goldelico,letux-x20", "ingenic,halley5_v10", "ingenic,x2000";
