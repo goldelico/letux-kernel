@@ -1,0 +1,14 @@
+#!/bin/bash
+# configure kernel (letux_defconfig) for Debugging
+# run from root of source tree
+
+[ "$PLATFORM" ] || export PLATFORM=letux
+[ "$ARCH" ] || export ARCH=arm;
+
+CONF="arch/${ARCH}/configs/${PLATFORM}_defconfig"
+
+# enable all DEBUG symbols
+sed -i.bak 's/# CONFIG_\(.*DEBUG.*\) is not set/CONFIG_\1=y/g' $CONF
+
+# keep i2c debugging off because it happens too often
+sed -i.bak 's/CONFIG_I2C_DEBUG=y/# CONFIG_I2C_DEBUG is not set/g' $CONF
