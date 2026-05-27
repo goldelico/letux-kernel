@@ -174,6 +174,19 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	/* External clocks */
 
 	[X2600_CLK_EXCLK] = { "ext", CGU_CLK_EXT },
+#if 0
+// NOTE: there is an rtc32k_o signal which can be pinmuxed to PE00 according to Programming Guide but not mentioned in Data Sheet
+	[X2600_CLK_RTCLK] = { "rtc", CGU_CLK_EXT },
+
+	[X1600_CLK_EXCLK_DIV512] = {
+		"exclk_div512", CGU_CLK_FIXDIV,
+		.parents = { X1600_CLK_EXCLK },
+		.fixdiv = { 512 },
+	},
+
+// FIXME: there is no CLK12M? So let's pretend it is the same as EXCLK until we renumber the ingenic,x2600-cgu.h numbers
+	[X2600_CLK_12M] = { "ext" /* "clk12m" */, CGU_CLK_EXT },
+#endif
 
 	/* PLLs */
 
@@ -364,7 +377,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	[X2600_CLK_MSC0] = {
 		"msc0", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
-			     X2600_CLK_EPLL, -1 },
+			     X2600_CLK_EXCLK, -1 },
 		.mux = { CGU_REG_MSC0CDR, 30, 2 },
 		.div = { CGU_REG_MSC0CDR, 0, 4, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 2 },
@@ -374,7 +387,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	[X2600_CLK_MSC1] = {
 		"msc1", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
-			     X2600_CLK_EPLL, -1 },
+			     X2600_CLK_EXCLK, -1 },
 		.mux = { CGU_REG_MSC1CDR, 30, 2 },
 		.div = { CGU_REG_MSC1CDR, 0, 4, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 3 },
