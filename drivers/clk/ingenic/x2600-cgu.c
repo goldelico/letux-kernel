@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Ingenic X2600 SoC CGU driver
+ * Ingenic X2600 SoC CGU driver based on X2000
  *
  * Copyright (c) 2013-2015 Imagination Technologies
  * Author: Paul Burton <paul.burton@mips.com>
@@ -174,18 +174,6 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	/* External clocks */
 
 	[X2600_CLK_EXCLK] = { "ext", CGU_CLK_EXT },
-	[X2600_CLK_RTCLK] = { "rtc", CGU_CLK_EXT },
-
-#if 0	// or can we use this instead of X2600_CLK_RTCLK and all rtc references in device tree?
-	[X1600_CLK_EXCLK_DIV512] = {
-		"exclk_div512", CGU_CLK_FIXDIV,
-		.parents = { X1600_CLK_EXCLK },
-		.fixdiv = { 512 },
-	},
-#endif
-
-// FIXME: there is no CLK12M? So let's pretend it is the same as EXCLK until we renumber the ingenic,x2600-cgu.h numbers
-	[X2600_CLK_12M] = { "ext" /* "clk12m" */, CGU_CLK_EXT },
 
 	/* PLLs */
 
@@ -316,17 +304,6 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.gate = { CGU_REG_I2S0CDR, 29, true },
 	},
 
-#if 0	// FIXME: there is no X2600_CLK_I2S1?
-	[X2600_CLK_I2S1] = {
-		"i2s1", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
-		.parents = { X2600_CLK_SCLKA, X2600_CLK_EPLL, -1, -1 },
-		.mux = { CGU_REG_I2S1CDR, 30, 1 },
-		.div = { CGU_REG_I2S1CDR, 20, 1, 9, -1, -1, -1 },
-		.mdiv = { CGU_REG_I2S1CDR, 0, 1, 20 },
-		.nddiv = { CGU_REG_I2S1CDR1, 31, 30 },
-		.gate = { CGU_REG_I2S1CDR, 29, true },
-	},
-#endif
 
 	[X2600_CLK_LCDPIXCLK] = {
 		"lcd0pixclk", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
@@ -386,7 +363,9 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 
 	[X2600_CLK_OTGPHY] = {
 		"otg_phy", CGU_CLK_CUSTOM,
+#if 0	// FIXME
 		.parents = { X2600_CLK_12M },
+#endif
 		.custom = { &x2600_otg_phy_ops },
 	},
 
