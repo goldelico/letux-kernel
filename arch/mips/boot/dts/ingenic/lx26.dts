@@ -42,10 +42,63 @@
 #define IO21	PIN40
 
 // Mapping of connector pins to LX26 signals
-// e.g. #define PIN3	PB31_SDA0
+#define PIN3	PC3_SDA
+#define PIN5	PC2_SCL
+#define PIN7	PB4
+#define PIN8	PC12
+#define PIN10	PC11
+#define PIN11	PB17
+#define PIN12	PB18
+#define PIN13	PB27
+#define PIN15	PB22
+#define PIN16	PB23
+#define PIN18	PB24
+#define PIN19	PB2_MOSI
+#define PIN21	PB1_MISO
+#define PIN22	PB25
+#define PIN23	PB3_SCLK
+#define PIN24	PB0_CE
+#define PIN26	PB7
+#define PIN27	PC1_SDA
+#define PIN28	PC0_SCL
+#define PIN29	PB5
+#define PIN31	PB6
+#define PIN32	PB12
+#define PIN33	PB13
+#define PIN35	PB19
+#define PIN36	PB16
+#define PIN37	PB26
+#define PIN38	PB20
+#define PIN40	PB21
 
-// there are no connections to LX26 in this v0.1
-// e.g. #define PB31_SDA0		&gpb 31
+// Mapping of LX26 signals to x2600 gpios/pins
+#define PB0_CE		&gpb 0
+#define PB1_MISO	&gpb 1
+#define PB2_MOSI	&gpb 2
+#define PB3_SCLK	&gpb 3
+#define PB4		&gpb 4
+#define PB5		&gpb 5
+#define PB6		&gpb 6
+#define PB7		&gpb 7
+#define PB12		&gpb 12
+#define PB13		&gpb 13
+#define PB17		&gpb 17
+#define PB18		&gpb 18
+#define PB19		&gpb 19
+#define PB20		&gpb 20
+#define PB21		&gpb 21
+#define PB22		&gpb 22
+#define PB23		&gpb 23
+#define PB24		&gpb 24
+#define PB25		&gpb 25
+#define PB26		&gpb 26
+#define PB27		&gpb 27
+#define PC0_SCL		&gpc 0
+#define PC1_SDA		&gpc 1
+#define PC2_SCL		&gpc 2
+#define PC3_SDA		&gpc 3
+#define PC11		&gpc 11
+#define PC12		&gpc 12
 
 / {
 	compatible = "goldelico,letux-x26", "ingenic,x2600";
@@ -152,13 +205,6 @@
 
 &tcu1 {
 	status = "disable";
-};
-
-/ {
-
-	extclk: extclk {
-		clock-frequency = <24000000>;
-	};
 };
 
 &jpegd {
