@@ -105,20 +105,26 @@
 
 &uart0 {
 	status = "okay";
+#if 0	// FIXME
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_pe>;
+#endif
 };
 
 &uart1 {
 	status = "okay";
+#if 0	// FIXME
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart1_pb>;
+#endif
 };
 
 &uart2 {
 	status = "okay";
+#if 0	// FIXME
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_pd>;
+#endif
 };
 
 &otg {
@@ -138,20 +144,23 @@
 	status = "okay";
 };
 
+#if 0	// needs a new mechanism to control this
 &pinctrl {
 	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
 	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_1V8>;
 };
+#endif
 
 &sfc {
 	status = "okay";
+#if 0 // FIXME
 	pinctrl-names = "default";
 	pinctrl-0 = <&sfc_pd1>;
+#endif
 	ingenic,sfc-max-frequency = <200000000>;
 	ingenic,sfc-init-frequency= <40000000>;
 	ingenic,use_ofpart_info  = /bits/ 8 <0>;
 	ingenic,spiflash_param_offset = <0>;
-
 };
 
 &tcu0 {
