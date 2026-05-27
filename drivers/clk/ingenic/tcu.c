@@ -637,3 +637,5 @@ CLK_OF_DECLARE_DRIVER(jz4730_cgu, "ingenic,jz4730-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(jz4760_cgu, "ingenic,jz4760-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(jz4770_cgu, "ingenic,jz4770-tcu", ingenic_tcu_init);
 CLK_OF_DECLARE_DRIVER(x1000_cgu, "ingenic,x1000-tcu", ingenic_tcu_init);
+CLK_OF_DECLARE_DRIVER(x1600_cgu, "ingenic,x1600-tcu", ingenic_tcu_init);
+CLK_OF_DECLARE_DRIVER(x2600_cgu, "ingenic,x2600-tcu", ingenic_tcu_init);
