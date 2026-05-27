@@ -1,43 +1,18 @@
-#include <dt-bindings/interrupt-controller/x2600-irq.h>
-#include <dt-bindings/gpio/ingenic-gpio.h>
-#include <dt-bindings/clock/ingenic-tcu.h>
-#include <dt-bindings/clock/ingenic-x2600.h>
-#include <dt-bindings/sound/ingenic-baic.h>
-#include <dt-bindings/gpio/ingenic-gpio.h>
-#include <dt-bindings/net/ingenic_gmac.h>
+// FIXME: these includes should be consolidated with other Ingenic SoC
+
+#include <dt-bindings/clock/ingenic,tcu.h>
+#include <dt-bindings/clock/ingenic,x2600-cgu.h>
 #include <dt-bindings/dma/ingenic-pdma-x2600.h>
+#include <dt-bindings/interrupt-controller/x2600-irq.h>
+#include <dt-bindings/net/ingenic_gmac.h>
+#include <dt-bindings/sound/ingenic-baic.h>
+
+#define GPIO_VOLTAGE_1V8 1	// FIXME
 
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "ingenic,x2600";
-
-#if CHECKME
-// hier oder in Board-Files? Oder sowas direkt in x1600/x2000.dtsi ergänzen! Dort gibt es gar keine Aliases???
-// oder hier löschen, weil es auch in lx26.dts drin ist
-
-	aliases: aliases {
-		i2c0 = &i2c0;
-		i2c1 = &i2c1;
-		i2c2 = &i2c2;
-		i2c3 = &i2c3;
-		uart0 = &uart0;
-		uart1 = &uart1;
-		uart2 = &uart2;
-		uart3 = &uart3;
-		uart4 = &uart4;
-		uart5 = &uart5;
-		uart6 = &uart6;
-		uart7 = &uart7;
-		mmc0 = &msc0;
-		mmc1 = &msc1;
-		mac0 = &mac0;
-		spi0 = &spi0;
-		spi1 = &spi1;
-		can0 = &can0;
-		can1 = &can1;
-	};
-#endif
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -63,83 +38,117 @@
 		reg = <0x0 0x08000000>;	/* default to 128 MB of the smallest X2600 */
 	};
 
+	cpufreq: cpufreq-dt {
+		 compatible = "ingenic,x2600-cpufreq";
+		 status = "disabled";
+	};
+
 	cpuintc: interrupt-controller {
 		#address-cells = <0>;
 		#interrupt-cells = <1>;
 		interrupt-controller;
-		compatible = "ingenic,cpu-interrupt-controller";
-
+		compatible = "mti,cpu-interrupt-controller";
 	};
 
-	core_intc: core-intc@12300000 {
-		compatible = "ingenic,core-intc";
+	intc: interrupt-controller@12300000 {
+		compatible = "ingenic,x2600-intc";
 		reg = <0x12300000 0x1000>,
-		    <0x10001000 0x1000>;
+		      <0x10001000 0x1000>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		cpu-intc-map = <0 0x000>,
-			           <1 0x100>;
-
+			       <1 0x100>;
 		interrupt-parent = <&cpuintc>;
 		interrupts = <CORE_INTC_IRQ>;
 		interrupt-names ="intc";
 	};
 
-	core_ost: core-ost@12000000 {
-		compatible = "ingenic,core-ost";
-		reg = <0x12000000 0x10000>, /*Global ost*/
-		      <0x12100000 0x10000>; /*Core ost*/
+	ost: timer@12000000 {
+		compatible = "ingenic,x2600-ost";
+		reg = <0x12000000 0x10000>, /* global ost */
+		      <0x12100000 0x10000>; /* core ost */
+
+		// FIXME: clocks? clock-names= #clock-cells=
+		cpu-ost-map = 	<0 0x000>,
+				<1 0x100>,
+				<2 0x200>,
+				<3 0x300>;
+
+		clocks = <&cgu X2600_CLK_EXCLK>;
+		clock-names = "ost";
+
 		interrupt-parent = <&cpuintc>;
 		interrupt-names = "sys_ost";
 		interrupts = <CORE_SYS_OST_IRQ>;
-		cpu-ost-map = 	<0 0x000>,
-			<1 0x100>,
-			<2 0x200>,
-			<3 0x300>;
 	};
 
-	extclk: extclk {
-		compatible = "ingenic,fixed-clock";
-		clock-output-names ="ext";
+	ext: ext {
+		compatible = "fixed-clock";
+		clock-output-names = "ext";
 		#clock-cells = <0>;
-		clock-frequency  = <24000000>;
+		clock-frequency = <24000000>;
 	};
 
-	rtcclk: rtcclk {
-		compatible = "ingenic,fixed-clock";
-		clock-output-names ="rtc_ext";
+	// can we use/replace by "exclk_div512"?
+	rtc: rtc {
+		compatible = "fixed-clock";
+		clock-output-names = "rtc";
 		#clock-cells = <0>;
-		clock-frequency = <32768>;
-	};
-
-	clock: clock-controller@10000000 {
-		compatible = "ingenic,x2600-clocks";
-		reg = <0x10000000 0x100>;
-		clocks = <&extclk>, <&rtcclk>;
-		clock-names = "ext", "rtc_ext";
-		#clock-cells = <1>;
-		little-endian;
+		clock-frequency = <46875>;	// this is EXTCLK divided by 512
 	};
 
 	riscv: riscv-core@12a00000 {
 	       compatible = "ingenic,x2600-riscv-rproc";
 	       reg = <0x12a00000 0x1000>,<0x13640000 0x1000>;
-	       interrupt-parent = <&core_intc>;
+	       interrupt-parent = <&intc>;
 	       interrupts = <IRQ_SYS_LEP IRQ_WDT>;
 	       status = "okay";
 	};
 
-	apb {
+	ahb_mcu {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <>;
-		watchdog: watchdog@13630000 {
-				compatible = "ingenic,watchdog";
-				reg = <0x13630000 0x1000>;
-				interrupt-parent = <&core_intc>;
-				interrupts = <IRQ_TCU0>;
-				status = "ok";
+
+		pdma1: dma@13660000 {
+			compatible = "ingenic,x2600-pdma";
+			reg = <0x13660000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupt-names = "pdma", "pdmad";
+			interrupts = <IRQ_MCU_PDMA>, <IRQ_MCU_PDMAD>;
+			ingenic,bus-ctrl = <INGENIC_DMA_CTRL_AHB_MCU_BUS>;
+			#dma-channels = <32>;
+			#dma-cells = <1>;
+			status ="disabled";
+			//ingenic,reserved-chs = <0x3>;
+		};
+
+		pwm: pwm@13610000 {
+			compatible = "ingenic,x2600-pwm";
+			#pwm-cells = <2>;
+			reg = <0x13610000 0x10000>;
+			interrupt-parent = <&intc>;
+			pwm-num = <16>;
+			first-channel = <0>;
+			interrupts = <IRQ_PWM0>;
+			dmas = <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM0_TX)>,
+				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM1_TX)>,
+				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM2_TX)>,
+				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM3_TX)>,
+				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM4_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM5_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM6_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM7_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM8_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM9_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM10_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM11_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM12_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM13_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM14_TX)>,
+			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM15_TX)>;
+			dma-names = "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15";
 		};
 
 		pinctrl: pinctrl@13601000 {
@@ -162,7 +171,7 @@
 				#gpio-cells = <2>;
 
 				interrupts = <IRQ_GPIO0>;
-				interrupt-parent = <&core_intc>;
+				interrupt-parent = <&intc>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 #if CHECKME
@@ -183,7 +192,7 @@
 				gpio-ranges = <&pinctrl 0 32 32>;
 
 				interrupts = <IRQ_GPIO1>;
-				interrupt-parent = <&core_intc>;
+				interrupt-parent = <&intc>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 #if CHECKME
@@ -204,7 +213,7 @@
 				gpio-ranges = <&pinctrl 0 64 32>;
 
 				interrupts = <IRQ_GPIO2>;
-				interrupt-parent = <&core_intc>;
+				interrupt-parent = <&intc>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 #if CHECKME
@@ -225,7 +234,7 @@
 				gpio-ranges = <&pinctrl 0 96 32>;
 
 				interrupts = <IRQ_GPIO3>;
-				interrupt-parent = <&core_intc>;
+				interrupt-parent = <&intc>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 #if CHECKME
@@ -246,7 +255,7 @@
 				gpio-ranges = <&pinctrl 0 128 32>;
 
 				interrupts = <IRQ_GPIO4>;
-				interrupt-parent = <&core_intc>;
+				interrupt-parent = <&intc>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
 #if CHECKME
@@ -260,352 +269,155 @@
 
 		};
 
-		uart0: serial@10030000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10030000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART0>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-		};
-
-		uart1: serial@10031000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10031000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART1>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_RX)>;
-			dma-names = "tx", "rx";
-		};
-
-		uart2: serial@10032000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10032000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART2>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_RX)>;
-			dma-names = "tx", "rx";
-		};
-
-		uart3: serial@10033000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10033000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART3>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_RX)>;
-			dma-names = "tx", "rx";
-		};
-
-		uart4: serial@10034000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10034000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART4>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_RX)>;
-			dma-names = "tx", "rx";
-		};
-		uart5: serial@10035000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10035000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART5>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_RX)>;
-			dma-names = "tx", "rx";
-		};
-		uart6: serial@10036000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10036000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART6>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_RX)>;
-			dma-names = "tx", "rx";
-		};
-		uart7: serial@10037000 {
-			compatible = "ingenic,8250-uart";
-			reg = <0x10037000 0x100>;
-			reg-shift = <2>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_UART7>;
-			status = "disabled";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_TX)>,
-				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_RX)>;
-			dma-names = "tx", "rx";
-		};
-
-		i2c0: i2c@10050000 {
-			compatible = "ingenic,x2600-i2c";
-			reg = <0x10050000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_I2C0>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clk-always-enable;
-			status = "disabled";
-		};
-
-		i2c1: i2c@10051000 {
-			compatible = "ingenic,x2600-i2c";
-			reg = <0x10051000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_I2C1>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clk-always-enable;
-			status = "disabled";
-		};
-
-		i2c2: i2c@10052000 {
-			compatible = "ingenic,x2600-i2c";
-			reg = <0x10052000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_I2C2>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clk-always-enable;
-			status = "disabled";
-		};
-
-		i2c3: i2c@10053000 {
-			compatible = "ingenic,x2600-i2c";
-			reg = <0x10053000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_I2C3>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clk-always-enable;
-			status = "okay";
-		};
-
-		spi0: spi@10043000 {
-			compatible = "ingenic,x2600-spi";
-			reg = <0x10043000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_SSI0>;
-			clocks = <&clock CLK_GATE_SSI0> , <&clock CLK_DIV_SSI>;
-			clock-names = "gate_ssi0", "div_ssi";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disable";
-		};
-
-		spi1: spi@10044000 {
-			compatible = "ingenic,x2600-spi";
-			reg = <0x10044000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_SSI1>;
-			clocks = <&clock CLK_GATE_SSI1> , <&clock CLK_DIV_SSI>;
-			clock-names = "gate_ssi1", "div_ssi";
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disable";
-		};
-
-		spi_slv0: slv@10045000 {
-			compatible = "ingenic,slv";
-			reg = <0x10045000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_SSI_SLAVE>;
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disable";
-		};
-
-		dtrng: dtrng@10072000 {
-			compatible = "ingenic,dtrng";
-			reg = <0x10072000 0x100>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_DTRNG>;
-			status = "disabled";
-		};
-
-		otg_phy: otg_phy {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "ingenic,usbphy0-x2600";
-			reg = <0x10000000 0x1000 0x10078000 0x1000>;
-#ifdef CONFIG_USB_DWC2_EXT_VBUS_DETECT
-			external-vbus-detect;
-#endif
-		};
-
-		usb_phy: usb_phy {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "ingenic,usbphy1-x2600";
-			reg = <0x10000000 0x1000 0x10078400 0x1000>;
-			external-vbus-detect;
-			disable-sw-switch-id;
-		};
-
-		aic: aic@10020000 {
-			compatible = "ingenic,x2600-aic";
-			reg = <0x10020000 0x100>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_AUDIO>;
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_TX)>,
-			       <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_RX)>;
-			dma-names = "tx", "rx";
-
-			i2s: i2s {
-				compatible = "ingenic,x2600-i2s";
-				status = "okay";
-			};
-			i2s_tloop: i2s_tloop {
-				compatible = "ingenic,i2s-tloop";
-				dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_LOOP_RX)>;
-				dma-names = "rx";
-				status = "okay";
-			};
-		};
-
-		icodec: icodec@10021000 {
-			compatible = "ingenic,x2600-icodec";
-			reg = <0x10021000 0x140>;
-			status = "okay";
-		};
-
-		dmic: dmic@134c0000 {
-			compatible = "ingenic,x2600-dmic";
-			reg = <0x134c0000 0xa010>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_DMIC>;
-			ingenic,fifo-size = <4096>;
-			ingenic,fth_quirk;
-			status = "disable";
-		};
-
-		pcm: pcm@10071000 {
-			compatible = "ingenic,x2600-pcm";
-			reg = <0x10071000 0x100>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_PCM>;
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_PCM_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_PCM_RX)>;
-			dma-names = "tx", "rx";
-			status = "disable";
-		};
-
-	};
-
-	ahb_mcu {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
-
-		tcu0: tcu0@13630000 {
-				compatible = "ingenic,tcu";
-				reg = <0x13630000 0x10000>;
-				interrupt-parent = <&core_intc>;
-				interrupt-names = "tcu_int0";
-				interrupts = <IRQ_TCU0>;
-				interrupt-controller;
-				#interrupt-cells = <1>;
-				clocks = <&clock CLK_GATE_TCU0>;
-				clock-names = "gate_tcu0";
-				status = "disable";
-		};
-		tcu1: tcu1@13640000 {
-				compatible = "ingenic,tcu";
-				reg = <0x13640000 0x10000>;
-				interrupt-parent = <&core_intc>;
-				interrupt-names = "tcu_int1";
-				interrupts = <IRQ_TCU1>;
-				interrupt-controller;
-				#interrupt-cells = <1>;
-				clocks = <&clock CLK_GATE_TCU1>;
-				clock-names = "gate_tcu1";
-				status = "disable";
-
-		};
-
-
-		pdma1: dma@13660000 {
-			compatible = "ingenic,x2600-pdma";
-			reg = <0x13660000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupt-names = "pdma", "pdmad";
-			interrupts = <IRQ_MCU_PDMA>, <IRQ_MCU_PDMAD>;
-			ingenic,bus-ctrl = <INGENIC_DMA_CTRL_AHB_MCU_BUS>;
-			#dma-channels = <32>;
-			#dma-cells = <1>;
-			status ="disable";
-			//ingenic,reserved-chs = <0x3>;
-		};
-
 		sadc: sadc@13650000 {
 			compatible = "ingenic,x2600-sadc";
 			reg = <0x13650000 0x10000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SADC>;
 #if CHECKME	// can the sadc forward any interrupts from other sources than local?
 			interrupt-controller;
 #endif
 			dmas = <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_SADC_SEQ1_RX)>,
-			     <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_SADC_SEQ2_RX)>;
+			       <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_SADC_SEQ2_RX)>;
 			dma-names = "seq1rx", "seq2rx";
-			status = "disable";
+			status = "disabled";
 		};
 
-		pwm: pwm@13610000 {
-			compatible = "ingenic,x2600-pwm";
-			#pwm-cells = <2>;
-			reg = <0x13610000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			pwm-num = <16>;
-			first-channel = <0>;
-			interrupts = <IRQ_PWM0>;
-			dmas = <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM0_TX)>,
-				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM1_TX)>,
-				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM2_TX)>,
-				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM3_TX)>,
-				   <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM4_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM5_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM6_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM7_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM8_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM9_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM10_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM11_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM12_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM13_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM14_TX)>,
-			           <&pdma1 INGENIC_DMA_AHB_MCU_TYPE(INGENIC_DMA_REQ_PWM15_TX)>;
-			dma-names = "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15";
+		tcu0: tcu0@13630000 {
+			compatible = "ingenic,x2600-tcu",
+				     "simple-mfd";
+			reg = <0x13630000 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x13630000 0x1000>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+			interrupt-parent = <&intc>;
+			interrupt-names = "tcu_int0";
+			interrupts = <IRQ_TCU0>;
+
+			#clock-cells = <1>;
+			clocks = <&cgu X2600_CLK_GATE_TCU0>;
+			clock-names = "gate_tcu0";
+
+			status = "okay";
+
+			watchdog0: watchdog@0 {
+				compatible = "ingenic,watchdog";
+				reg = <0 0x1000>;
+
+				status = "ok";
+
+				interrupt-parent = <&intc>;
+				interrupts = <IRQ_TCU0>;
+			};
 		};
+
+		tcu1: tcu1@13640000 {
+			compatible = "ingenic,x2600-tcu",
+				     "simple-mfd";
+			reg = <0x13640000 0x10000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x13640000 0x1000>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+			interrupt-parent = <&intc>;
+			interrupt-names = "tcu_int1";
+			interrupts = <IRQ_TCU1>;
+
+			#clock-cells = <1>;
+			clocks = <&cgu X2600_CLK_GATE_TCU1>;
+			clock-names = "gate_tcu1";
+			status = "disabled";
+
+			watchdog1: watchdog@0 {
+				compatible = "ingenic,watchdog";
+				reg = <0 0x1000>;
+
+				status = "disabled";
+
+				interrupt-parent = <&intc>;
+				interrupts = <IRQ_TCU1>;
+			};
+		};
+
 	};
+
+	ahb0 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+
+		cim: cim@13060000 {
+			compatible = "ingenic,x2600-cim";
+			reg = <0x13060000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_CIM>;
+			clocks = <&cgu X2600_CLK_DIV_CIM>, <&cgu X2600_CLK_GATE_CIM>, <&cgu X2600_CLK_GATE_CIM_MCLK>;
+			clock-names = "div_cim", "gate_cim", "gate_cim_mclk";
+			status = "disabled";
+		};
+
+		dpu: dpu@13050000 {
+			compatible = "ingenic,dpu";
+			reg = <0x13050000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_LCD>,<IRQ_ROTATE>,<IRQ_MIPI_DSI>;
+			status = "disabled";
+			composer-support;
+			/* for mipi device*/
+			dsi-host-reg = <0x10023000>;
+			dsi-phy-reg  = <0x10024000>;
+		};
+
+		felix: felix@13300000 {
+			compatible = "ingenic,x2600-felix";
+			reg = <0x13300000 0x100000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_FELIX>;
+			status = "disabled";
+		};
+
+		jpegd: jpegd@13200000 {
+			compatible = "ingenic,x2600-jpegd";
+			reg = <0x13200000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_JPEGD>;
+			status = "disabled";
+		};
+
+		jpege: jpege@13210000 {
+			compatible = "ingenic,x2600-jpege";
+			reg = <0x13210000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_JPEGE>;
+			status = "disabled";
+		};
+
+		rotate: rotate@13070000 {
+			compatible = "ingenic,x2600-rotate";
+			reg = <0x13070000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_ROTATE>;
+			status = "okay";
+		};
+
+	};
+
+#if 0
+	ahb1 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <>;
+	};
+#endif
 
 	ahb2 {
 		compatible = "simple-bus";
@@ -613,10 +425,60 @@
 		#size-cells = <1>;
 		ranges = <>;
 
+		can0: can@13490000 {
+			compatible = "ingenic,x2600-can";
+			reg = <0x13490000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_CAN0>;
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN0_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN0_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		can1: can@134a0000 {
+			compatible = "ingenic,x2600-can";
+			reg = <0x134A0000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_CAN1>;
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN1_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN1_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		aes: aes@13430000 {
+			compatible = "ingenic,aes";
+			reg = <0x13430000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_AES>;
+			status = "ok";
+		};
+
+		hash: hash@13470000 {
+			compatible = "ingenic,hash";
+			reg = <0x13470000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_HASH>;
+			status = "ok";
+		};
+
+		mac0: mac@134b0000 {
+			compatible = "ingenic,x2600-mac";
+			reg = <0x134b0000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_MAC>;
+			ingenic,rst-ms = <10>;
+		};
+
 		msc0: msc@13450000 {
 			compatible = "ingenic,sdhci";
 			reg = <0x13450000 0x10000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
 			pinctrl-names ="default", "default";
 			pinctrl-0 = <&msc0_8bit_low>;
@@ -627,88 +489,36 @@
 			compatible = "ingenic,sdhci";
 			reg = <0x13460000 0x10000>;
 			status = "disabled";
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
 			pinctrl-names ="default";
 			pinctrl-0 = <&msc1_4bit>;
 		};
 
-		can0: can@13490000 {
-			compatible = "ingenic,x2600-can";
-			reg = <0x13490000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_CAN0>;
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN0_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN0_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disable";
-		};
-
-		can1: can@134A0000 {
-			compatible = "ingenic,x2600-can";
-			reg = <0x134A0000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_CAN1>;
-			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN1_TX)>,
-				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_CAN1_RX)>;
-			dma-names = "tx", "rx";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disable";
-		};
-
-
-		aes: aes@13430000 {
-			compatible = "ingenic,aes";
-			reg = <0x13430000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_AES>;
-			status = "ok";
-		};
-
-		hash: hash@13470000 {
-			compatible = "ingenic,hash";
-			reg = <0x13470000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_HASH>;
-			status = "ok";
-		};
-
-		mac0: mac@134b0000 {
-			compatible = "ingenic,x2600-mac";
-			reg = <0x134b0000 0x1000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_MAC>;
-			ingenic,rst-ms = <10>;
-	  };
-
-
 		sfc: sfc@13440000 {
 			compatible = "ingenic,x2600-sfc";
 			reg = <0x13440000 0x10000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SFC>;
 		};
 
 		pdma: dma@13420000 {
 			compatible = "ingenic,x2600-pdma";
 			reg = <0x13420000 0x10000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupt-names = "pdma", "pdmad";
 			interrupts = <IRQ_PDMA>, <IRQ_PDMAD>;
 			ingenic,bus-ctrl = <INGENIC_DMA_CTRL_AHB2_BUS>;
 			#dma-channels = <32>;
 			#dma-cells = <1>;
 			ingenic,reserved-chs = <0x3>;
-			status ="disable";
+			status ="disabled";
 		};
 
 		mcu: mcu@13420000 {
 			compatible = "ingenic,x2600-mcu";
 			reg = <0x13420000 0x10000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupt-names = "pdmam";
 			interrupts = <IRQ_PDMAM>;
 			ingenic,tcsm_size = <8192>;
@@ -717,9 +527,9 @@
 		otg: otg@13500000 {
 			compatible = "ingenic,x2600-dwc2-hsotg";
 			reg = <0x13500000 0x40000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_OTG>;
-			clocks = <&clock CLK_GATE_OTG>;
+			clocks = <&cgu X2600_CLK_GATE_OTG>;
 			clock-names = "gate_otg";
 			ingenic,usbphy=<&otg_phy>;
 
@@ -745,9 +555,9 @@
 		usb: usb@13540000 {
 			compatible = "ingenic,x2600-dwc2-hsotg";
 			reg = <0x13540000 0x40000>;
-			interrupt-parent = <&core_intc>;
+			interrupt-parent = <&intc>;
 			interrupts = <IRQ_USB>;
-			clocks = <&clock CLK_GATE_USB>;
+			clocks = <&cgu X2600_CLK_GATE_USB>;
 			clock-names = "gate_usb";
 			ingenic,usbphy=<&usb_phy>;
 
@@ -761,75 +571,285 @@
 		};
 	};
 
-	ahb1 {
+	apb {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <>;
 
-	};
+		aic: aic@10020000 {
+			compatible = "ingenic,x2600-aic";
+			reg = <0x10020000 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_AUDIO>;
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_TX)>,
+			       <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_RX)>;
+			dma-names = "tx", "rx";
 
-	ahb0 {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
+			i2s: i2s {
+				compatible = "ingenic,x2600-i2s";
+				status = "okay";
+			};
 
-		cim: cim@13060000 {
-			compatible = "ingenic,x2600-cim";
-			reg = <0x13060000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_CIM>;
-			clocks = <&clock CLK_DIV_CIM>, <&clock CLK_GATE_CIM>, <&clock CLK_GATE_CIM_MCLK>;
-			clock-names = "div_cim", "gate_cim", "gate_cim_mclk";
-			status = "disable";
+			i2s_tloop: i2s_tloop {
+				compatible = "ingenic,i2s-tloop";
+				dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_AIC_LOOP_RX)>;
+				dma-names = "rx";
+				status = "okay";
+			};
 		};
 
-		dpu: dpu@13050000 {
-			compatible = "ingenic,dpu";
-			reg = <0x13050000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_LCD>,<IRQ_ROTATE>,<IRQ_MIPI_DSI>;
+		cgu: clock-controller@10000000 {
+			compatible = "ingenic,x2600-cgu";
+			reg = <0x10000000 0x100>;
+			// can we use/replace by "exclk_div512"?
+			clocks = <&ext>, <&rtc>;
+			clock-names = "ext", "rtc";
+			#clock-cells = <1>;
+			little-endian;	// FIXME: what is this good for?
+		};
+
+		dmic: dmic@134c0000 {
+			compatible = "ingenic,x2600-dmic";
+			reg = <0x134c0000 0xa010>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_DMIC>;
+			ingenic,fifo-size = <4096>;
+			ingenic,fth_quirk;
 			status = "disabled";
-			composer-support;
-			/* for mipi device*/
-			dsi-host-reg = <0x10023000>;
-			dsi-phy-reg  = <0x10024000>;
 		};
 
-		rotate: rotate@13070000 {
-			compatible = "ingenic,x2600-rotate";
-			reg = <0x13070000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_ROTATE>;
+		dtrng: dtrng@10072000 {
+			compatible = "ingenic,dtrng";
+			reg = <0x10072000 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_DTRNG>;
+			status = "disabled";
+		};
+
+		icodec: icodec@10021000 {
+			compatible = "ingenic,x2600-icodec";
+			reg = <0x10021000 0x140>;
 			status = "okay";
 		};
 
-		jpegd: jpegd@13200000 {
-			compatible = "ingenic,x2600-jpegd";
-			reg = <0x13200000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_JPEGD>;
+		i2c0: i2c@10050000 {
+			compatible = "ingenic,x2600-i2c";
+			reg = <0x10050000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_I2C0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clk-always-enable;
 			status = "disabled";
 		};
 
-		jpege: jpege@13210000 {
-			compatible = "ingenic,x2600-jpege";
-			reg = <0x13210000 0x10000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_JPEGE>;
+		i2c1: i2c@10051000 {
+			compatible = "ingenic,x2600-i2c";
+			reg = <0x10051000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_I2C1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clk-always-enable;
 			status = "disabled";
 		};
 
-		felix: felix@13300000 {
-			compatible = "ingenic,x2600-felix";
-			reg = <0x13300000 0x100000>;
-			interrupt-parent = <&core_intc>;
-			interrupts = <IRQ_FELIX>;
+		i2c2: i2c@10052000 {
+			compatible = "ingenic,x2600-i2c";
+			reg = <0x10052000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_I2C2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clk-always-enable;
 			status = "disabled";
+		};
+
+		i2c3: i2c@10053000 {
+			compatible = "ingenic,x2600-i2c";
+			reg = <0x10053000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_I2C3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clk-always-enable;
+			status = "okay";
+		};
+
+		otg_phy: otg_phy {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "ingenic,usbphy0-x2600";
+			reg = <0x10000000 0x1000 0x10078000 0x1000>;
+#ifdef CONFIG_USB_DWC2_EXT_VBUS_DETECT
+			external-vbus-detect;
+#endif
+		};
+
+		pcm: pcm@10071000 {
+			compatible = "ingenic,x2600-pcm";
+			reg = <0x10071000 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_PCM>;
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_PCM_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_PCM_RX)>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		spi0: spi@10043000 {
+			compatible = "ingenic,x2600-spi";
+			reg = <0x10043000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_SSI0>;
+			clocks = <&cgu X2600_CLK_GATE_SSI0> , <&cgu X2600_CLK_DIV_SSI>;
+			clock-names = "gate_ssi0", "div_ssi";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi1: spi@10044000 {
+			compatible = "ingenic,x2600-spi";
+			reg = <0x10044000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_SSI1>;
+			clocks = <&cgu X2600_CLK_GATE_SSI1> , <&cgu X2600_CLK_DIV_SSI>;
+			clock-names = "gate_ssi1", "div_ssi";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi_slv0: slv@10045000 {
+			compatible = "ingenic,slv";
+			reg = <0x10045000 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_SSI_SLAVE>;
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_TX)>,
+				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		uart0: serial@10030000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10030000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART0>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_RX)>;
+			dma-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		uart1: serial@10031000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10031000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART1>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart2: serial@10032000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10032000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART2>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart3: serial@10033000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10033000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART3>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart4: serial@10034000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10034000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART4>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart5: serial@10035000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10035000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART5>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart6: serial@10036000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10036000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART6>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		uart7: serial@10037000 {
+			compatible = "ingenic,8250-uart";
+			reg = <0x10037000 0x100>;
+			reg-shift = <2>;
+			interrupt-parent = <&intc>;
+			interrupts = <IRQ_UART7>;
+			status = "disabled";
+			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_TX)>,
+				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_RX)>;
+			dma-names = "tx", "rx";
+		};
+
+		usb_phy: usb_phy {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "ingenic,usbphy1-x2600";
+			reg = <0x10000000 0x1000 0x10078400 0x1000>;
+			external-vbus-detect;
+			disable-sw-switch-id;
 		};
 
 	};
 
 };
+
 #include "x2600-pinctrl.dtsi"
