@@ -441,9 +441,11 @@
 			reg = <0x13450000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
+#if 0	// FIXME
 			pinctrl-names ="default", "default";
 			pinctrl-0 = <&msc0_8bit_low>;
 			pinctrl-1 = <&msc0_8bit_high>;
+#endif
 		};
 
 		msc1: msc@13460000 {
@@ -452,8 +454,10 @@
 			status = "disabled";
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
+#if 0	// FIXME
 			pinctrl-names ="default";
 			pinctrl-0 = <&msc1_4bit>;
+#endif
 		};
 
 		sfc: sfc@13440000 {
