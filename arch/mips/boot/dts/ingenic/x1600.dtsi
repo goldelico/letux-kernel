@@ -43,7 +43,6 @@
 		#interrupt-cells = <1>;
 		interrupt-controller;
 		compatible = "mti,cpu-interrupt-controller";
-
 	};
 
 	intc: interrupt-controller@10001000 {
@@ -60,6 +59,7 @@
 		compatible = "ingenic,x1600-ost";
 		reg = <0x12000000 0x3c>;
 
+		// CHECKME!
 		interrupt-controller;
 		#interrupt-cells = <1>;
 
@@ -74,23 +74,23 @@
 
 	ext: ext {
 		compatible = "fixed-clock";
-		clock-output-names ="ext";
+		clock-output-names = "ext";
 		#clock-cells = <0>;
-		clock-frequency  = <24000000>;
+		clock-frequency = <24000000>;
 	};
 
 	rtc: rtc {
 		compatible = "fixed-clock";
-		clock-output-names ="rtc";
+		clock-output-names = "rtc";
 		#clock-cells = <0>;
 		clock-frequency = <32768>;
 	};
 
 	clk12m: clk12m {
 		compatible = "fixed-clock";
-		clock-output-names ="clk12m";
+		clock-output-names = "clk12m";
 		#clock-cells = <0>;
-		clock-frequency  = <12000000>;
+		clock-frequency = <12000000>;
 	};
 
 	apb {
@@ -114,6 +114,7 @@
 			reg = <0x10070000 0x32>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SADC>;
+			// CHECKME!
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			status = "okay";
@@ -147,7 +148,7 @@
 				clocks = <&cgu X1600_CLK_RTCLK>;
 				clock-names = "wdt";
 
-			// data sheet mentiones a "half interrupt"
+			// data sheet mentions a "half interrupt"
 			//	interrupt-parent = <&intc>;
 			//	interrupts = <IRQ_TCU0>;
 			};
