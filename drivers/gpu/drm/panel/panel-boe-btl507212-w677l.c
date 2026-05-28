@@ -511,9 +511,6 @@ static int w677l_prepare(struct drm_panel *panel)
 	w677l_reset(ctx, false);	/* release reset */
 	msleep(10);
 
-	if (r)
-		dev_err(ctx->dev, "%s failed\n", __func__);
-
 	r = w677l_init_sequence(ctx);
 	if (r)
 		return r;
