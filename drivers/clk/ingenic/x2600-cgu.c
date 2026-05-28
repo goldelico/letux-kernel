@@ -75,7 +75,7 @@
 #define CGU_REG_USB1PCR1	0xe8	// not in x1600
 #define CGU_REG_MESTSEL		0xec	// not in x1600
 
-/* x1600 only?
+/* x1600 only
 #define CGU_REG_I2S1CDR		0x7c
 #define CGU_REG_I2S1CDR1	0x80
 #define CGU_REG_CDBUSCDR	0xac
@@ -382,18 +382,6 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.gate = { CGU_REG_CLKGR0, 22 },
 	},
 
-	[X2600_CLK_EXCLK_DIV512] = {
-		"exclk_div512", CGU_CLK_FIXDIV,
-		.parents = { X2600_CLK_EXCLK },
-		.fixdiv = { 512 },
-	},
-
-	[X2600_CLK_RTC] = {
-		"rtc_ercs", CGU_CLK_MUX | CGU_CLK_GATE,
-		.parents = { X2600_CLK_EXCLK_DIV512, X2600_CLK_RTCLK },
-		.mux = { CGU_REG_OPCR, 2, 1},
-	},
-
 	/* Custom (SoC-specific) OTG PHY */
 
 	[X2600_CLK_OTGPHY] = {
@@ -403,103 +391,121 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	},
 
 	/* Gate-only clocks */
-
 	[X2600_CLK_NEMC] = {
 		"nemc", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 0 },
+		.gate = { CGU_REG_CLKGR0, 0 },	// = EFUSE
 	},
 
-	[X2600_CLK_OTG0] = {
-		"otg0", CGU_CLK_GATE,
+	[X2600_CLK_GATE_OTG] = {
+		"gate_otg", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 3 },
+		.gate = { CGU_REG_CLKGR0, 4 },
+	},
+
+	[X2600_CLK_GATE_USB] = {
+		"gate_usb", CGU_CLK_GATE,
+		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 5 },
 	},
 
 	[X2600_CLK_SMB0] = {
 		"smb0", CGU_CLK_GATE,
 		.parents = { X2600_CLK_PCLK, -1, -1, -1 },
+//FIXME
 		.gate = { CGU_REG_CLKGR0, 7 },
 	},
 
 	[X2600_CLK_SMB1] = {
 		"smb1", CGU_CLK_GATE,
 		.parents = { X2600_CLK_PCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 8 },
+//FIXME
+		.gate = { CGU_REG_CLKGR0, 7 },
 	},
 
 	[X2600_CLK_AIC] = {
 		"aic", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 11 },
+		.gate = { CGU_REG_CLKGR0, 24 },
 	},
-
-#if 0	// missing?
-	[X2600_CLK_I2S0_RX] = {
-		"i2s0_rx", CGU_CLK_GATE,
-		.parents = { X2600_CLK_I2S0, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 8 },
-	},
-
-	[X2600_CLK_I2S0_TX] = {
-		"i2s0_tx", CGU_CLK_GATE,
-		.parents = { X2600_CLK_I2S1, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 9 },
-	},
-#endif
 
 	[X2600_CLK_SADC] = {
 		"sadc", CGU_CLK_GATE,
 		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 14 },
+		.gate = { CGU_REG_CLKGR1, 10 },
 	},
 
 	[X2600_CLK_UART0] = {
 		"uart0", CGU_CLK_GATE,
 		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 14 },
+		.gate = { CGU_REG_CLKGR0, 12 },
 	},
 
 	[X2600_CLK_UART1] = {
 		"uart1", CGU_CLK_GATE,
 		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 15 },
+		.gate = { CGU_REG_CLKGR0, 13 },
 	},
 
 	[X2600_CLK_UART2] = {
 		"uart2", CGU_CLK_GATE,
 		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 16 },
+		.gate = { CGU_REG_CLKGR0, 14 },
 	},
 
 	[X2600_CLK_UART3] = {
 		"uart3", CGU_CLK_GATE,
 		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 16 },
+		.gate = { CGU_REG_CLKGR0, 15 },
+	},
+
+	[X2600_CLK_UART4] = {
+		"uart4", CGU_CLK_GATE,
+		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 16 },
+	},
+
+	[X2600_CLK_UART5] = {
+		"uart5", CGU_CLK_GATE,
+		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 17 },
+	},
+
+	[X2600_CLK_UART6] = {
+		"uart6", CGU_CLK_GATE,
+		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 18 },
+	},
+
+	[X2600_CLK_UART7] = {
+		"uart7", CGU_CLK_GATE,
+		.parents = { X2600_CLK_EXCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 19 },
 	},
 
 	[X2600_CLK_PDMA] = {
 		"pdma", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 21 },
+// FIXME
+		.gate = { CGU_REG_CLKGR1, 0 },
 	},
 
 	[X2600_CLK_AES] = {
 		"aes", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 24 },
+		.gate = { CGU_REG_CLKGR1, 2 },
 	},
 
 	[X2600_CLK_GATE_TCU0] = {
 		"gate_tcu0", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 24 },
+		.gate = { CGU_REG_CLKGR1, 8 },
 	},
 
 	[X2600_CLK_GATE_TCU1] = {
 		"gate_tcu1", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 24 },
+		.gate = { CGU_REG_CLKGR1, 9 },
 	},
 
 
@@ -513,7 +519,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	[X2600_CLK_GATE_USB] =
 	[X2600_CLK_DIV_CIM] =
 	[X2600_CLK_GATE_CIM_MCLK] =
-	usrt4-7
+	X2600_CLK_UART4..7
 #endif
 };
 
