@@ -35,16 +35,18 @@
 	memory {
 		device_type = "memory";
 		reg = <0x0 0x08000000>;	/* default to 128 MB of the smallest X2600 */
+		/* second bank should start at 0x20000000 */
 	};
 
+	/* may not be needed if U-Boot properly sets the Base Address and manipulates the memory node */
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 
 		/* hardware registers are here */
-		io_registers: io@12000000 {
-			reg = <0x12000000 0x02000000>; /* 32 MB window for I/O */
+		io_registers: io@10000000 {
+			reg = <0x10000000 0x10000000>; /* 256 MB window for I/O */
 			no-map; /* do not use as RAM */
 		};
 	};
@@ -70,12 +72,12 @@
 
 	intc: interrupt-controller@12300000 {
 		compatible = "ingenic,x2600-intc";
-		reg = <0x12300000 0x1000>,
-		      <0x10001000 0x1000>;
+		reg = <0x12300000 0x100>;
+// NOTE: there may be a second intc1 @0x12310000 and a PDMA MCU INTC @0x10001000
+
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		cpu-intc-map = <0 0x000>,
-			       <1 0x100>;
+
 		interrupt-parent = <&cpuintc>;
 		interrupts = <CORE_INTC_IRQ>;
 		interrupt-names ="intc";
@@ -95,7 +97,7 @@
 		compatible = "ingenic,x2600-ost32";
 		reg = <0x12100000 0x10000>;
 
-		// CHECKME!
+		// CHECKME! Why is this an interrupt controller?
 		interrupt-controller;
 		#interrupt-cells = <1>;
 
@@ -279,7 +281,7 @@
 
 			interrupt-parent = <&intc>;
 			interrupt-names = "tcu_int0";
-			interrupts = <IRQ_TCU0>;
+			interrupts = <IRQ_TCU0>, <IRQ_TCU1>;
 
 			#clock-cells = <1>;
 			clocks = <&cgu X2600_CLK_GATE_TCU0>;
