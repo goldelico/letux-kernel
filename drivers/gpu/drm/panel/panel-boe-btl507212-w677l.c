@@ -560,11 +560,16 @@ static int w677l_get_modes(struct drm_panel *panel, struct drm_connector *connec
 
 	connector->display_info.width_mm = mode->width_mm;
 	connector->display_info.height_mm = mode->height_mm;
-	drm_connector_set_panel_orientation(connector, ctx->orientation);
 
 	dev_dbg(panel->dev, "%s done\n", __func__);
 
 	return 1;
+}
+
+static enum drm_panel_orientation w677l_get_orientation(struct drm_panel *panel)
+{
+	struct otm1283a *ctx = panel_to_otm1283a(panel);
+	return ctx->orientation;
 }
 
 static const struct drm_panel_funcs w677l_panel_funcs = {
@@ -573,6 +578,7 @@ static const struct drm_panel_funcs w677l_panel_funcs = {
 	.prepare = w677l_prepare,
 	.enable = w677l_enable,
 	.get_modes = w677l_get_modes,
+	.get_orientation = w677l_get_orientation,
 };
 
 static int w677l_set_brightness(struct backlight_device *bd)
