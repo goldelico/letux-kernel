@@ -13,9 +13,6 @@
 #define __DT_BINDINGS_CLOCK_X2600_CGU_H__
 
 #define X2600_CLK_EXCLK			0
-// #define X2600_CLK_RTCLK			x1	// there is no rtc
-// FIXME: there is no CLK12M?
-// #define X2600_CLK_12M			x2
 #define X2600_CLK_APLL			1
 #define X2600_CLK_EPLL			2
 #define X2600_CLK_MPLL			3
@@ -29,19 +26,14 @@
 #define X2600_CLK_PCLK			11
 #define X2600_CLK_DDR			12
 #define X2600_CLK_I2S0			13
-// FIXME: there is no X2600_CLK_I2S1?
-// #define X2600_CLK_I2S1			x14
 #define X2600_CLK_LCDPIXCLK		14
 #define X2600_CLK_MAC			15
 #define X2600_CLK_MSC0			16
 #define X2600_CLK_MSC1			17
 #define X2600_CLK_SSI0			18
 #define X2600_CLK_CIMMCLK		19
-// #define X2600_CLK_EXCLK_DIV512		x23	// this is no clock mux
-// #define X2600_CLK_RTC			x20
 #define X2600_CLK_OTGPHY		20
 #define X2600_CLK_NEMC			21
-// #define X2600_CLK_OTG0		x22
 #define X2600_CLK_GATE_OTG		22
 #define X2600_CLK_GATE_USB		23
 #define X2600_CLK_SMB0			24
@@ -63,7 +55,7 @@
 #define X2600_CLK_GATE_CIM		40
 #define X2600_CLK_GATE_MIPI_CSI		41
 
-// FIXME:
+// FIXME - must be inserted or follow the last
 #define X2600_CLK_I2S0_RX		98
 #define X2600_CLK_I2S0_TX		99
 #define X2600_CLK_GATE_SSI0		100
