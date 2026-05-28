@@ -64,6 +64,7 @@
 enum ingenic_ost_version {
 	ID_X1000,
 	ID_X2000,
+	ID_X2000_64,
 };
 
 struct ingenic_soc_info {
@@ -332,6 +333,9 @@ static int ingenic_ost_cevt_set_next(unsigned long next,
 	struct ingenic_ost_timer *timer = to_ingenic_ost_timer(evt);
 	struct ingenic_ost *ost = timer->ost;
 
+	if (ost->soc_info->version >= ID_X2000_64)
+		return -EINVAL;
+
 	writel((u32)~OSTFR_FFLAG, timer->base + OST_REG_OSTFR);
 	writel(next, timer->base + OST_REG_OST1DFR);
 	writel(OSTCR_OST1CLR, timer->base + OST_REG_OSTCR);
@@ -350,6 +354,9 @@ static irqreturn_t ingenic_ost_cevt_cb(int irq, void *dev_id)
 {
 	struct ingenic_ost_timer *timer = dev_id;
 	struct ingenic_ost *ost = timer->ost;
+
+	if (ost->soc_info->version >= ID_X2000_64)
+		return -EINVAL;
 
 	if (ost->soc_info->version >= ID_X2000)
 		writel(0, timer->base + OST_REG_OSTER);
@@ -444,8 +451,10 @@ static int __init ingenic_ost_setup_cevt(unsigned int cpu)
 
 	snprintf(timer->name, sizeof(timer->name), "OST event timer%u", cpu);
 
-	/* Unmask full comparison match interrupt */
-	writel((u32)~OSTMR_FMASK, timer->base + OST_REG_OSTMR);
+	if (ost->soc_info->version < ID_X2000_64) {
+		/* Unmask full comparison match interrupt */
+		writel((u32)~OSTMR_FMASK, timer->base + OST_REG_OSTMR);
+	}
 
 	timer->cpu = smp_processor_id();
 	timer->cevt.cpumask = cpumask_of(smp_processor_id());
@@ -453,7 +462,8 @@ static int __init ingenic_ost_setup_cevt(unsigned int cpu)
 	timer->cevt.name = timer->name;
 	timer->cevt.rating = 400;
 	timer->cevt.set_state_shutdown = ingenic_ost_cevt_set_state_shutdown;
-	timer->cevt.set_next_event = ingenic_ost_cevt_set_next;
+	if (ost->soc_info->version < ID_X2000_64)
+		timer->cevt.set_next_event = ingenic_ost_cevt_set_next;
 
 	clockevents_config_and_register(&timer->cevt, rate, 4, 0xffffffff);
 
@@ -541,12 +551,22 @@ static const struct ingenic_soc_info x2000_soc_ost32_info = {
 };
 
 static const struct ingenic_soc_info x2000_soc_ost64_info = {
-	.version = ID_X2000,
+	.version = ID_X2000_64,
 	.clk_info = x2000_ost64_clk_info,
 
 	.num_channels = 1,
 
 	.has_global_timer = true,
+	.has_event_timer = false,
+};
+
+static const struct ingenic_soc_info x2600_soc_ost64_info = {
+	.version = ID_X2000_64,
+	.clk_info = x2000_ost64_clk_info,
+
+	.num_channels = 1,
+
+	.has_global_timer = false,
 	.has_event_timer = false,
 };
 
@@ -559,6 +579,8 @@ static const struct of_device_id __maybe_unused ingenic_ost_of_matches[] __initc
 	{ .compatible = "ingenic,x2000-ost64", .data = &x2000_soc_ost64_info },
 	{ .compatible = "ingenic,x2500-ost32", .data = &x2000_soc_ost32_info },
 	{ .compatible = "ingenic,x2500-ost64", .data = &x2000_soc_ost64_info },
+	{ .compatible = "ingenic,x2600-ost32", .data = &x2000_soc_ost32_info },
+	{ .compatible = "ingenic,x2600-ost64", .data = &x2000_soc_ost64_info },
 	{ /* sentinel */ }
 };
 
@@ -753,3 +775,5 @@ TIMER_OF_DECLARE(x2000_ost32,  "ingenic,x2000-ost32",  ingenic_ost_init);
 TIMER_OF_DECLARE(x2000_ost64,  "ingenic,x2000-ost64",  ingenic_ost_init);
 TIMER_OF_DECLARE(x2500_ost32,  "ingenic,x2500-ost32",  ingenic_ost_init);
 TIMER_OF_DECLARE(x2500_ost64,  "ingenic,x2500-ost64",  ingenic_ost_init);
+TIMER_OF_DECLARE(x2600_ost32,  "ingenic,x2600-ost32",  ingenic_ost_init);
+TIMER_OF_DECLARE(x2600_ost64,  "ingenic,x2600-ost64",  ingenic_ost_init);
