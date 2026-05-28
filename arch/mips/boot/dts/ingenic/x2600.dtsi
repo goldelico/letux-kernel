@@ -111,6 +111,8 @@
 		interrupts = <CORE_SYS_OST_IRQ>;
 	};
 
+
+#if 0
 	// can we use/replace by "exclk_div512"?
 	rtc: rtc {
 		compatible = "fixed-clock";
@@ -118,6 +120,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <46875>;	// this is EXTCLK divided by 512
 	};
+#endif
 
 	riscv: riscv-core@12a00000 {
 	       compatible = "ingenic,x2600-riscv-rproc";
@@ -591,9 +594,13 @@
 		cgu: clock-controller@10000000 {
 			compatible = "ingenic,x2600-cgu";
 			reg = <0x10000000 0x100>;
-			// can we use/replace by "exclk_div512"?
+#if 0
+			// can we use/replace by "exclk_div512" or remove "rtc" completely?
 			clocks = <&ext>, <&rtc>;
 			clock-names = "ext", "rtc";
+#endif
+			clocks = <&ext>;
+			clock-names = "ext";
 			#clock-cells = <1>;
 			little-endian;	// FIXME: what is this good for?
 		};
