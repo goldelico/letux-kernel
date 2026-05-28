@@ -41,6 +41,7 @@ enum ingenic_intc_version {
 	ID_JZ4780,
 	ID_X1600,
 	ID_X2000,
+	ID_X2600,
 };
 
 struct ingenic_intc_irqchip {
@@ -157,6 +158,7 @@ static const struct of_device_id __maybe_unused ingenic_intc_of_matches[] __init
 	{ .compatible = "ingenic,x1830-intc", .data = (void *) ID_JZ4730 },
 	{ .compatible = "ingenic,x2000-intc", .data = (void *) ID_X2000 },
 	{ .compatible = "ingenic,x2500-intc", .data = (void *) ID_X2000 },
+	{ .compatible = "ingenic,x2600-intc", .data = (void *) ID_X2600 },
 	{ /* sentinel */ }
 };
 
@@ -319,3 +321,4 @@ IRQCHIP_DECLARE(x1600_intc, "ingenic,x1600-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(x1830_intc, "ingenic,x1830-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(x2000_intc, "ingenic,x2000-intc", intc_2chip_of_init);
 IRQCHIP_DECLARE(x2500_intc, "ingenic,x2500-intc", intc_2chip_of_init);
+IRQCHIP_DECLARE(x2600_intc, "ingenic,x2600-intc", intc_2chip_of_init);
