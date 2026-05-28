@@ -36,6 +36,18 @@
 		reg = <0x0 0x08000000>;	/* default to 128 MB of the smallest X2600 */
 	};
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* hardware registers are here */
+		io_registers: io@12000000 {
+			reg = <0x12000000 0x02000000>; /* 32 MB window for I/O */
+			no-map; /* do not use as RAM */
+		};
+	};
+
 	cpufreq: cpufreq-dt {
 		 compatible = "ingenic,x2600-cpufreq";
 		 status = "disabled";
