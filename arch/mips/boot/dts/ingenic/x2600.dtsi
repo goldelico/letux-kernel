@@ -81,16 +81,25 @@
 		interrupt-names ="intc";
 	};
 
-	ost: timer@12000000 {
-		compatible = "ingenic,x2600-ost";
-		reg = <0x12000000 0x10000>, /* global ost */
-		      <0x12100000 0x10000>; /* core ost */
+	ost64: timer@12000000 { /* gobal ost */
+		compatible = "ingenic,x2600-ost64";
+		reg = <0x12000000 0x10000>;
 
-		// FIXME: clocks? clock-names= #clock-cells=
-		cpu-ost-map = 	<0 0x000>,
-				<1 0x100>,
-				<2 0x200>,
-				<3 0x300>;
+		#clock-cells = <1>;
+
+		clocks = <&cgu X2600_CLK_EXCLK>;
+		clock-names = "ost";
+	};
+
+	ost32: timer@12100000 { /* core ost */
+		compatible = "ingenic,x2600-ost32";
+		reg = <0x12100000 0x10000>;
+
+		// CHECKME!
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		#clock-cells = <1>;
 
 		clocks = <&cgu X2600_CLK_EXCLK>;
 		clock-names = "ost";
@@ -98,13 +107,6 @@
 		interrupt-parent = <&cpuintc>;
 		interrupt-names = "sys_ost";
 		interrupts = <CORE_SYS_OST_IRQ>;
-	};
-
-	ext: ext {
-		compatible = "fixed-clock";
-		clock-output-names = "ext";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
 	};
 
 	// can we use/replace by "exclk_div512"?
