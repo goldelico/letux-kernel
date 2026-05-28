@@ -61,6 +61,13 @@
 		compatible = "mti,cpu-interrupt-controller";
 	};
 
+	ext: ext {
+		compatible = "fixed-clock";
+		clock-output-names = "ext";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+
 	intc: interrupt-controller@12300000 {
 		compatible = "ingenic,x2600-intc";
 		reg = <0x12300000 0x1000>,
