@@ -115,10 +115,16 @@
 
 &msc0 {
 	status = "okay";
+	broken-cd;	// there is a GPIO for CD
+	disable-wp;
+	bus-width = <4>;
 };
 
 &msc1 {
 	status = "okay";
+	broken-cd;	// there is a GPIO for CD
+	disable-wp;
+	bus-width = <4>;
 };
 
 #if 0	// needs a new mechanism to control this
