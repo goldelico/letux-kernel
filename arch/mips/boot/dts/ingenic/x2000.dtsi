@@ -1,13 +1,39 @@
+// FIXME: these includes should be consolidated with other Ingenic SoC
+
 #include <dt-bindings/clock/ingenic,tcu.h>
 #include <dt-bindings/clock/ingenic,x2000-cgu.h>
 #include <dt-bindings/clock/ingenic,sysost.h>
 #include <dt-bindings/dma/x2000-dma.h>
-#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/x2000-irq.h>
 
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	compatible = "ingenic,x2000", "ingenic,x2000e";
+
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		uart0 = &uart0;
+		uart1 = &uart1;
+		uart2 = &uart2;
+		uart3 = &uart3;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+#if 0
+		mac0 = &mac0;
+		spi0 = &ssi0;
+		spi1 = &ssi1;
+		pwm = &pwm;
+		can0 = &can0;
+		can1 = &can1;
+#endif
+		mmc0 = &msc2;
+		mmc1 = &msc1;
+	};
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -49,7 +75,7 @@
 		#interrupt-cells = <1>;
 
 		interrupt-parent = <&cpuintc>;
-		interrupts = <2>;
+		interrupts = <CORE_INTC_IRQ>;
 	};
 
 	exclk: ext {
@@ -126,7 +152,7 @@
 		clock-names = "ost";
 
 		interrupt-parent = <&cpuintc>;
-		interrupts = <4>;
+		interrupts = <CORE_SYS_OST_IRQ>;
 
 		/* 6 MHz for the system timers */
 		assigned-clocks = <&ost32 OST_CLK_EVENT_TIMER0>, <&ost32 OST_CLK_EVENT_TIMER1>;
@@ -149,7 +175,7 @@
 		#interrupt-cells = <1>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <27 26 25>;
+		interrupts = <IRQ_TCU0>, <IRQ_TCU1>, <IRQ_TCU2>;
 
 		wdt: watchdog@0 {
 			compatible = "ingenic,x2000-watchdog", "ingenic,jz4780-watchdog";
@@ -165,7 +191,7 @@
 		reg = <0x10003000 0x4c>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <32>;
+		interrupts = <IRQ_RTC>;
 
 		clocks = <&cgu X2000_CLK_RTCLK>;
 		clock-names = "rtc";
@@ -189,7 +215,7 @@
 			#interrupt-cells = <2>;
 
 			interrupt-parent = <&intc>;
-			interrupts = <17>;
+			interrupts = <IRQ_GPIO0>;
 		};
 
 		gpb: gpio@1 {
@@ -204,7 +230,7 @@
 			#interrupt-cells = <2>;
 
 			interrupt-parent = <&intc>;
-			interrupts = <16>;
+			interrupts = <IRQ_GPIO1>;
 		};
 
 		gpc: gpio@2 {
@@ -219,7 +245,7 @@
 			#interrupt-cells = <2>;
 
 			interrupt-parent = <&intc>;
-			interrupts = <15>;
+			interrupts = <IRQ_GPIO2>;
 		};
 
 		gpd: gpio@3 {
@@ -234,7 +260,7 @@
 			#interrupt-cells = <2>;
 
 			interrupt-parent = <&intc>;
-			interrupts = <14>;
+			interrupts = <IRQ_GPIO3>;
 		};
 
 		gpe: gpio@4 {
@@ -249,16 +275,16 @@
 			#interrupt-cells = <2>;
 
 			interrupt-parent = <&intc>;
-			interrupts = <13>;
+			interrupts = <IRQ_GPIO4>;
 		};
 	};
 
 	uart0: serial@10030000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10030000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <47>;
+		interrupts = <IRQ_UART0>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART0>;
 		clock-names = "baud", "module";
@@ -267,11 +293,11 @@
 	};
 
 	uart1: serial@10031000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10031000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <46>;
+		interrupts = <IRQ_UART1>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART1>;
 		clock-names = "baud", "module";
@@ -280,11 +306,11 @@
 	};
 
 	uart2: serial@10032000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10032000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <45>;
+		interrupts = <IRQ_UART2>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART2>;
 		clock-names = "baud", "module";
@@ -293,11 +319,11 @@
 	};
 
 	uart3: serial@10033000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10033000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <44>;
+		interrupts = <IRQ_UART3>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART3>;
 		clock-names = "baud", "module";
@@ -306,11 +332,11 @@
 	};
 
 	uart4: serial@10034000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10034000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <43>;
+		interrupts = <IRQ_UART4>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART4>;
 		clock-names = "baud", "module";
@@ -319,11 +345,11 @@
 	};
 
 	uart5: serial@10035000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10035000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <42>;
+		interrupts = <IRQ_UART5>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART5>;
 		clock-names = "baud", "module";
@@ -332,11 +358,11 @@
 	};
 
 	uart6: serial@10036000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10036000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <41>;
+		interrupts = <IRQ_UART6>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART6>;
 		clock-names = "baud", "module";
@@ -345,11 +371,11 @@
 	};
 
 	uart7: serial@10037000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10037000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <40>;
+		interrupts = <IRQ_UART7>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART7>;
 		clock-names = "baud", "module";
@@ -358,11 +384,11 @@
 	};
 
 	uart8: serial@10038000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10038000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <39>;
+		interrupts = <IRQ_UART8>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART8>;
 		clock-names = "baud", "module";
@@ -371,11 +397,11 @@
 	};
 
 	uart9: serial@10039000 {
-		compatible = "ingenic,x2000-uart", "ingenic,x1000-uart";
+		compatible = "ingenic,x2000-uart";
 		reg = <0x10039000 0x100>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <38>;
+		interrupts = <IRQ_UART9>;
 
 		clocks = <&exclk>, <&cgu X2000_CLK_UART9>;
 		clock-names = "baud", "module";
@@ -390,7 +416,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <61>;
+		interrupts = <IRQ_I2C0>;
 
 		clocks = <&cgu X2000_CLK_I2C0>;
 
@@ -404,7 +430,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <60>;
+		interrupts = <IRQ_I2C1>;
 
 		clocks = <&cgu X2000_CLK_I2C1>;
 
@@ -418,7 +444,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <59>;
+		interrupts = <IRQ_I2C2>;
 
 		clocks = <&cgu X2000_CLK_I2C2>;
 
@@ -432,7 +458,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <58>;
+		interrupts = <IRQ_I2C3>;
 
 		clocks = <&cgu X2000_CLK_I2C3>;
 
@@ -446,7 +472,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <57>;
+		interrupts = <IRQ_I2C4>;
 
 		clocks = <&cgu X2000_CLK_I2C4>;
 
@@ -460,7 +486,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <56>;
+		interrupts = <IRQ_I2C5>;
 
 		clocks = <&cgu X2000_CLK_I2C5>;
 
@@ -474,7 +500,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <9>;
+		interrupts = <IRQ_SSI0>;
 
 		clocks = <&cgu X2000_CLK_SSI0>;
 		clock-names = "spi";
@@ -493,7 +519,7 @@
 		#size-cells = <0>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <8>;
+		interrupts = <IRQ_SSI1>;
 
 		clocks = <&cgu X2000_CLK_SSI1>;
 		clock-names = "spi";
@@ -509,7 +535,7 @@
 		compatible = "ingenic,sadc";
 		reg = <0x10070000 0x32>;
 		interrupt-parent = <&intc>;
-		interrupts = <11>;
+		interrupts = <IRQ_SADC>;
 		status = "disable";
 	};
 
@@ -528,7 +554,7 @@
 		#dma-cells = <2>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <3>;
+		interrupts = <IRQ_PDMA>;
 
 		clocks = <&cgu X2000_CLK_PDMA>;
 	};
@@ -538,7 +564,7 @@
 		reg = <0x13420000 0x10000>;
 		interrupt-parent = <&intc>;
 		interrupt-names = "pdmam";
-		interrupts = <5>;
+		interrupts = <IRQ_PDMAM>;
 		ingenic,tcsm_size = <16384>;
 	};
 
@@ -547,7 +573,7 @@
 		reg = <0x13440000 0x1000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <7>;
+		interrupts = <IRQ_SFC>;
 
 		clocks = <&cgu X2000_CLK_SFC>;
 		clock-names = "sfc";
@@ -560,7 +586,7 @@
 		reg = <0x13450000 0x10000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <37>;
+		interrupts = <IRQ_MSC0>;
 
 		clocks = <&cgu X2000_CLK_MSC_EXCLK>, <&cgu X2000_CLK_MSC0>;
 		clock-names = "ext", "sdhci";
@@ -581,7 +607,7 @@
 		reg = <0x13460000 0x10000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <36>;
+		interrupts = <IRQ_MSC1>;
 
 		clocks = <&cgu X2000_CLK_MSC_EXCLK>, <&cgu X2000_CLK_MSC1>;
 		clock-names = "ext", "sdhci";
@@ -602,7 +628,7 @@
 		reg = <0x13490000 0x10000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <48>;
+		interrupts = <IRQ_MSC2>;
 
 		clocks = <&cgu X2000_CLK_MSC_EXCLK>, <&cgu X2000_CLK_MSC2>;
 		clock-names = "ext", "sdhci";
@@ -623,7 +649,7 @@
 		reg = <0x134b0000 0x2000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <55>;
+		interrupts = <IRQ_GMAC0>;
 		interrupt-names = "macirq";
 
 		clocks = <&cgu X2000_CLK_MAC0>;
@@ -647,7 +673,7 @@
 		reg = <0x134a0000 0x2000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <53>;
+		interrupts = <IRQ_GMAC1>;
 		interrupt-names = "macirq";
 
 		clocks = <&cgu X2000_CLK_MAC1>;
@@ -671,7 +697,7 @@
 		reg = <0x13500000 0x40000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <1>;
+		interrupts = <IRQ_OTG>;
 
 		clocks = <&cgu X2000_CLK_OTG>;
 		clock-names = "otg";
