@@ -12,6 +12,37 @@
 	#size-cells = <1>;
 	compatible = "ingenic,x2600";
 
+	aliases {
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		uart0 = &uart0;
+		uart1 = &uart1;
+		uart2 = &uart2;
+		uart3 = &uart3;
+		uart4 = &uart4;
+		uart5 = &uart5;
+		uart6 = &uart6;
+		uart7 = &uart7;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		serial4 = &uart4;
+		serial5 = &uart5;
+		serial6 = &uart6;
+		serial7 = &uart7;
+		mmc0 = &msc0;
+		mmc1 = &msc1;
+		mac0 = &mac0;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		pwm = &pwm;
+		can0 = &can0;
+		can1 = &can1;
+	};
+
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -468,6 +499,19 @@
 			reg = <0x13450000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
+
+			clocks = <&cgu X2600_CLK_MSC0>;
+			clock-names = "sdhci";
+
+			cap-sd-highspeed;
+			cap-sdio-irq;
+
+			sd-uhs-sdr12;
+			sd-uhs-sdr25;
+			sd-uhs-sdr50;
+			sd-uhs-sdr104;
+
+			status = "disabled";
 #if 0	// FIXME
 			pinctrl-names ="default", "default";
 			pinctrl-0 = <&msc0_8bit_low>;
@@ -478,9 +522,20 @@
 		msc1: msc@13460000 {
 			compatible = "ingenic,sdhci";
 			reg = <0x13460000 0x10000>;
-			status = "disabled";
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
+
+			clocks = <&cgu X2600_CLK_MSC1>;
+			clock-names = "sdhci";
+			cap-sd-highspeed;
+			cap-sdio-irq;
+
+			sd-uhs-sdr12;
+			sd-uhs-sdr25;
+			sd-uhs-sdr50;
+			sd-uhs-sdr104;
+
+			status = "disabled";
 #if 0	// FIXME
 			pinctrl-names ="default";
 			pinctrl-0 = <&msc1_4bit>;
@@ -492,6 +547,11 @@
 			reg = <0x13440000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SFC>;
+
+	// FIXME:		clocks = <&cgu X2600_CLK_SFC>;
+			clock-names = "sfc";
+
+			status = "disabled";
 		};
 
 		pdma: dma@13420000 {
@@ -738,12 +798,14 @@
 		};
 
 		uart0: serial@10030000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10030000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART0>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART0>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_RX)>;
 			dma-names = "tx", "rx";
@@ -752,84 +814,98 @@
 		};
 
 		uart1: serial@10031000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10031000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART1>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART1>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart2: serial@10032000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10032000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART2>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART2>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart3: serial@10033000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10033000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART3>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART3>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart4: serial@10034000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10034000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART4>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART4>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart5: serial@10035000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10035000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART5>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART5>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart6: serial@10036000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10036000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART6>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART6>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_RX)>;
 			dma-names = "tx", "rx";
 		};
 
 		uart7: serial@10037000 {
-			compatible = "ingenic,8250-uart";
+			compatible = "ingenic,x2600-uart";
 			reg = <0x10037000 0x100>;
 			reg-shift = <2>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART7>;
 			status = "disabled";
+			clocks = <&ext>, <&cgu X2600_CLK_UART7>;
+			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_RX)>;
 			dma-names = "tx", "rx";
