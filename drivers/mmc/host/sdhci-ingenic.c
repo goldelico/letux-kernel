@@ -86,7 +86,8 @@ static void sdhci_ingenic_set_clock(struct sdhci_host *host, unsigned int clock)
 		clk_prepare_enable(sdhci_ing->clk_cgu);
 	} else {
 		clk_disable_unprepare(sdhci_ing->clk_cgu);
-		clk_set_parent(sdhci_ing->clk_cgu, sdhci_ing->clk_ext);
+		if (!IS_ERR(sdhci_ing->clk_ext))
+			clk_set_parent(sdhci_ing->clk_cgu, sdhci_ing->clk_ext);
 		clk_prepare_enable(sdhci_ing->clk_cgu);
 	}
 
