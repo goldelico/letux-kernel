@@ -6,6 +6,13 @@
 	#size-cells = <1>;
 	compatible = "ingenic,jz4730";
 
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
