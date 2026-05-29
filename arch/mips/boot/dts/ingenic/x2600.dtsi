@@ -495,7 +495,7 @@
 		};
 
 		msc0: msc@13450000 {
-			compatible = "ingenic,sdhci";
+			compatible = "ingenic,x2600-sdhci";
 			reg = <0x13450000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
@@ -520,7 +520,7 @@
 		};
 
 		msc1: msc@13460000 {
-			compatible = "ingenic,sdhci";
+			compatible = "ingenic,x2600-sdhci";
 			reg = <0x13460000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
