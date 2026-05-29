@@ -52,37 +52,6 @@
 
 	model = "Letux LX26v0.1";
 
-	aliases {
-		i2c0 = &i2c0;
-		i2c1 = &i2c1;
-		i2c2 = &i2c2;
-		i2c3 = &i2c3;
-		uart0 = &uart0;
-		uart1 = &uart1;
-		uart2 = &uart2;
-		uart3 = &uart3;
-		uart4 = &uart4;
-		uart5 = &uart5;
-		uart6 = &uart6;
-		uart7 = &uart7;
-		serial0 = &uart0;
-		serial1 = &uart1;
-		serial2 = &uart2;
-		serial3 = &uart3;
-		serial4 = &uart4;
-		serial5 = &uart5;
-		serial6 = &uart6;
-		serial7 = &uart7;
-		mmc0 = &msc0;
-		mmc1 = &msc1;
-		mac0 = &mac0;
-		spi0 = &spi0;
-		spi1 = &spi1;
-		pwm = &pwm;
-		can0 = &can0;
-		can1 = &can1;
-	};
-
 	chosen {
 		stdout-path = &uart2;
 #if 0	// u-boot and optionally CONFIG_CMDLINE should provide something application specific
@@ -141,6 +110,14 @@
 };
 
 &usb_phy {
+	status = "okay";
+};
+
+&msc0 {
+	status = "okay";
+};
+
+&msc1 {
 	status = "okay";
 };
 
