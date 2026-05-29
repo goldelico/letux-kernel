@@ -258,6 +258,7 @@ static SIMPLE_DEV_PM_OPS(sdhci_ingenic_pmops, sdhci_ingenic_suspend,
 static const struct of_device_id sdhci_ingenic_dt_matches[] = {
 	{.compatible = "ingenic,x2000-sdhci", },
 	{.compatible = "ingenic,x2500-sdhci", },
+	{.compatible = "ingenic,x2600-sdhci", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, sdhci_ingenic_dt_matches);
