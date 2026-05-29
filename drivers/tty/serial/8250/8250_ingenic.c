@@ -169,7 +169,14 @@ OF_EARLYCON_DECLARE(x1000_uart, "ingenic,x1000-uart",
 		    ingenic_early_console_setup);
 
 // FIXME: check if we have to handle the additional URFCR and URTDCR registers
+// then, introduce an x1600_early_console_setup
 OF_EARLYCON_DECLARE(x1600_uart, "ingenic,x1600-uart",
+		    ingenic_early_console_setup);
+
+OF_EARLYCON_DECLARE(x2000_uart, "ingenic,x2000-uart",
+		    ingenic_early_console_setup);
+
+OF_EARLYCON_DECLARE(x2600_uart, "ingenic,x2600-uart",
 		    ingenic_early_console_setup);
 
 static void ingenic_uart_serial_out(struct uart_port *p, unsigned int offset, u32 value)
@@ -352,6 +359,16 @@ static const struct ingenic_uart_config x1600_uart_config = {
 	.fifosize = 64,
 };
 
+static const struct ingenic_uart_config x2000_uart_config = {
+	.tx_loadsz = 32,
+	.fifosize = 64,
+};
+
+static const struct ingenic_uart_config x2600_uart_config = {
+	.tx_loadsz = 32,
+	.fifosize = 64,
+};
+
 static const struct of_device_id of_match[] = {
 	{ .compatible = "ingenic,jz4740-uart", .data = &jz4740_uart_config },
 	{ .compatible = "ingenic,jz4750-uart", .data = &jz4760_uart_config },
@@ -361,6 +378,8 @@ static const struct of_device_id of_match[] = {
 	{ .compatible = "ingenic,jz4780-uart", .data = &jz4780_uart_config },
 	{ .compatible = "ingenic,x1000-uart", .data = &x1000_uart_config },
 	{ .compatible = "ingenic,x1600-uart", .data = &x1600_uart_config },
+	{ .compatible = "ingenic,x2000-uart", .data = &x2000_uart_config },
+	{ .compatible = "ingenic,x2600-uart", .data = &x2600_uart_config },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, of_match);
