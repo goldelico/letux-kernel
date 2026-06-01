@@ -219,7 +219,7 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	hdmi-transmitter@70 {
+	display0: hdmi-transmitter@70 {
 		compatible = "nxp,tda998x";
 		reg = <0x70>;
 		interrupts-extended = <&gpio3 27 IRQ_TYPE_LEVEL_LOW>;
@@ -547,7 +547,9 @@
  * published by the Free Software Foundation.
  */
 
+#if 0
 #include <dt-bindings/display/tda998x.h>
+#endif
 
 / {
 	sound {
@@ -562,7 +564,7 @@
 				sound-dai = <&ssi2 0>;
 			};
 			codec {
-				sound-dai = <&display1 0>;
+				sound-dai = <&display0 0>;
 			};
 		};
 	};
@@ -586,22 +588,43 @@
 
 	aliases {
 		display0 = &display0;
+#if 0
 		display1 = &display1;
+#endif
 	};
+
 };
 
 &i2c3 {
+#if 0
 	clock-frequency = <100000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3_2>;
 	status = "okay";
+#endif
 
 	tda19988: tda19988@34 {
 		compatible = "udoo,tda19988";
 		reg = <0x34>;
+#if 0	// something is broken with this driver
+/*
+[   19.689625] Unable to handle kernel paging request at virtual address 2f2e3040 when read
+[   20.207558]  mutex_can_spin_on_owner from __mutex_lock.constprop.7+0x60/0x494
+[   20.217263]  __mutex_lock.constprop.7 from reg_read_range+0x34/0xc4 [tda998x]
+[   20.224468]  reg_read_range [tda998x] from reg_read+0x24/0x4c [tda998x]
+[   20.231139]  reg_read [tda998x] from reg_clear+0x14/0x34 [tda998x]
+[   20.237371]  reg_clear [tda998x] from tda998x_destroy+0x30/0x7c [tda998x]
+[   20.244209]  tda998x_destroy [tda998x] from tda998x_probe+0x5ec/0x780 [tda998x]
+[   20.251569]  tda998x_probe [tda998x] from i2c_device_probe+0x230/0x2a4
+[   20.258151]  i2c_device_probe from really_probe+0x128/0x280
+[   20.263759]  really_probe from __driver_probe_device+0x180/0x1ac
+*/
 		status = "okay";
+#endif
+		status = "disabled";
 	};
 
+#if 0
 	display1: hdmi-encoder {
 		compatible = "nxp,tda998x";
 		reg = <0x34>;
@@ -615,9 +638,10 @@
 			     /*	DAI-format	AP_ENA reg value */
 		audio-ports = <	TDA998x_I2S	0x03>;
 	};
-
+#endif
 };
 
+#if 0
 &lcdif1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcdif_dat_0 &pinctrl_lcdif_ctrl_0>;
@@ -650,6 +674,7 @@
 		};
 	};
 };
+#endif
 
 &ssi2 {
 	fsl,mode = "i2s-master";
@@ -657,12 +682,14 @@
 };
 
 &iomuxc {
+#if 0
 	pinctrl_i2c3_2: i2c3grp-2 {
 		fsl,pins = <
 			MX6SX_PAD_KEY_ROW4__I2C3_SDA            0x4001b8b1
 			MX6SX_PAD_KEY_COL4__I2C3_SCL            0x4001b8b1
 		>;
 	};
+#endif
 
 	pinctrl_audmux_hdmi: audmuxgrp-hdmi {
 		fsl,pins = <
@@ -672,6 +699,7 @@
 		>;
 	};
 
+#if 0
 	pinctrl_lcdif_dat_0: lcdifdatgrp {
 		fsl,pins = <
 			MX6SX_PAD_LCD1_DATA00__LCDIF1_DATA_0 0x4001b0b0
@@ -710,6 +738,7 @@
 			MX6SX_PAD_LCD1_RESET__GPIO3_IO_27  0x80000000
 		>;
 	};
+#endif
 };
 
 &audmux {
