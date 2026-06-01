@@ -487,6 +487,8 @@
 	vbus-supply = <&reg_usb_otg1_vbus>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usb_otg1>;
+	dr_mode = "otg";
+	disable-over-current;
 	status = "okay";
 };
 
@@ -495,6 +497,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usb_otg2>;
 	dr_mode = "host";
+	disable-over-current;
 	status = "okay";
 };
 
