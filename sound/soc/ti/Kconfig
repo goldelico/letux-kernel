@@ -95,15 +95,6 @@ config SND_SOC_NOKIA_RX51
 	  Say Y or M if you want to add support for SoC audio on Nokia RX-51
 	  hardware. This is also known as Nokia N900 product.
 
-config SND_SOC_OMAP3_PANDORA
-	tristate "SoC Audio support for OMAP3 Pandora"
-	depends on ARCH_OMAP3
-	depends on TWL4030_CORE
-	select SND_SOC_OMAP_MCBSP
-	select SND_SOC_TWL4030
-	help
-	  Say Y or M if you want to add support for SoC audio on the OMAP3 Pandora.
-
 config SND_SOC_OMAP3_TWL4030
 	tristate "SoC Audio support for OMAP3 based boards with twl4030 codec"
 	depends on ARCH_OMAP3 || COMPILE_TEST && COMMON_CLK
