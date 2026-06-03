@@ -62,6 +62,15 @@ CURRENTSIZE=$(printf "%.0f" ${CURRENTSIZE%M})
 SIZE="$1"	# in MiB
 [ "$SIZE" ] || SIZE=${CURRENTSIZE}
 
+if [ "$SIZE" = 0 ]
+then
+	swapoff $SWAPFILE
+	sed -i.bak "$SWAPFILE swap/d" /etc/fstab
+	rm -f $SWAPFILE
+	echo "### $SWAPFILE deactivated and removed."
+	exit
+fi
+
 if [ "$SIZE" -lt 10 ]
 then
 	echo "### swap size should be at least 10MiB"
@@ -75,9 +84,12 @@ then
 	exit 0
 fi
 
-if [ "$CURRENTSIZE" -gt 0 -a "$(fgrep MemTotal: /proc/meminfo | ( read MEMTOTAL SIZE kB; echo $SIZE ))" -lt 256000 ]
+MEMINFO=$(fgrep MemTotal: /proc/meminfo 2>/dev/null | (read MEMTOTAL SIZE kB; echo $SIZE ))
+[ "$MEMINFO" ] || MEMINFO=0	# we do not know
+
+if [ "$CURRENTSIZE" -gt 0 -a "$MEMINFO" -lt 256000 ]
 then
-	echo "### swap exists and we have less than 256MiB physical RAM."
+	echo "### swap exists and we have less than 256MiB physical RAM ($MEMINFO)."
 	echo "### We can't turn off swap while e.g. running apt-get. So use a temp swap."
 	TMPSIZE=$CURRENTSIZE
 	[ "$TMPSIZE" -lt 100 ] && TMPSIZE=100
