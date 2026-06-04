@@ -46,15 +46,27 @@
 	dac: pcm1773-codec {
 		compatible = "ti,pcm1773";
 		vcc-supply = <&vsim>;
-		enable-gpio = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
-		status = "okay";
+		mute-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
+
+		#sound-dai-cells = <0>;
+
+		port {
+			pcm1773_endpoint: endpoint {
+			remote-endpoint = <&mcbsp2_endpoint>;
+			dai-format = "i2s";
+			};
+		};
 	};
 
 	sound: omap3pandora-sound {
-		compatible = "openpandora,omap3pandora-sound";
-		amp-gpio = <&gpio1 14 GPIO_ACTIVE_HIGH>;
-		amp-supply = <&regen>;
-		status = "okay";
+		compatible = "audio-graph-card2";
+		label = "OpenPandora";
+
+		routing =
+			"Headphone Jack", "VOUTL",
+			"Headphone Jack", "VOUTR";
+
+		dais = <&mcbsp2_port>;
 	};
 
 	gpio-leds {
@@ -892,6 +904,15 @@
 /* audio DAC */
 &mcbsp2 {
 	status = "okay";
+	#sound-dai-cells = <0>;
+
+	mcbsp2_port: port {
+		mcbsp2_endpoint: endpoint {
+		remote-endpoint = <&pcm1773_endpoint>;
+		frame-master;
+		bitclock-master;
+		};
+	};
 };
 
 /* bluetooth */
