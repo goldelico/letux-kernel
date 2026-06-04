@@ -46,9 +46,12 @@
 	dac: pcm1773-codec {
 		compatible = "ti,pcm1773";
 		vcc-supply = <&vsim>;
-		mute-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
+		mute-gpio = <&gpio4 22 GPIO_ACTIVE_LOW>; /* GPIO 118 */
 
 		#sound-dai-cells = <0>;
+
+		clocks = <&twl_audio>;
+		clock-names = "mclk";
 
 		port {
 			pcm1773_endpoint: endpoint {
@@ -58,15 +61,30 @@
 		};
 	};
 
+	amp: analog-amplifier {
+		compatible = "simple-audio-amplifier";
+		vcc-supply = <&regen>;
+		enable-gpio = <&gpio1 14 GPIO_ACTIVE_HIGH>; /* GPIO 14 */
+		sound-name-prefix = "Amplifier";
+	};
+
 	sound: omap3pandora-sound {
 		compatible = "audio-graph-card2";
 		label = "OpenPandora";
 
-		routing =
-			"Headphone Jack", "VOUTL",
-			"Headphone Jack", "VOUTR";
+		links = <&mcbsp2_port>;
 
-		dais = <&mcbsp2_port>;
+		aux-devs = <&amp>;
+
+		mclk-fs = <256>;
+
+		widgets = "Headphone", "Headphone Jack";
+
+		routing =
+			"Amplifier INL", "VOUTL",
+			"Amplifier INR", "VOUTR",
+			"Headphone Jack", "Amplifier OUTL",
+			"Headphone Jack", "Amplifier OUTR";
 	};
 
 	gpio-leds {
@@ -906,11 +924,18 @@
 	status = "okay";
 	#sound-dai-cells = <0>;
 
+	clocks = <&mcbsp2_fck>, <&mcbsp2_ick>, <&twl_audio>;
+	clock-names = "fck", "ick", "clks";
+
 	mcbsp2_port: port {
-		mcbsp2_endpoint: endpoint {
-		remote-endpoint = <&pcm1773_endpoint>;
-		frame-master;
-		bitclock-master;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		mcbsp2_endpoint: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&pcm1773_endpoint>;
+			frame-master;
+			bitclock-master;
 		};
 	};
 };
