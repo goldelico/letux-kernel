@@ -164,6 +164,7 @@ static int pcm1754_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 static const struct of_device_id pcm1754_of_match[] = {
 	{ .compatible = "ti,pcm1754" },
+	{ .compatible = "ti,pcm1773" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pcm1754_of_match);
