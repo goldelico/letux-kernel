@@ -19,6 +19,7 @@ properties:
   compatible:
     enum:
       - ti,pcm1754
+      - ti,pcm1773
 
   vcc-supply: true
 
