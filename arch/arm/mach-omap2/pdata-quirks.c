@@ -268,17 +268,6 @@ static void __init omap3_logicpd_torpedo_init(void)
 	omap3_gpio126_127_129();
 }
 
-/* omap3pandora legacy devices */
-
-static struct platform_device pandora_backlight = {
-	.name	= "pandora-backlight",
-	.id	= -1,
-};
-
-static void __init omap3_pandora_legacy_init(void)
-{
-	platform_device_register(&pandora_backlight);
-}
 #endif /* CONFIG_ARCH_OMAP3 */
 
 #ifdef CONFIG_SOC_DRA7XX
@@ -504,8 +493,6 @@ static struct pdata_init pdata_quirks[] __initdata = {
 	{ "ti,omap3-evm-37xx", omap3_evm_legacy_init, },
 	{ "ti,am3517-evm", am3517_evm_legacy_init, },
 	{ "technexion,omap3-tao3530", omap3_tao3530_legacy_init, },
-	{ "openpandora,omap3-pandora-600mhz", omap3_pandora_legacy_init, },
-	{ "openpandora,omap3-pandora-1ghz", omap3_pandora_legacy_init, },
 #endif
 	{ /* sentinel */ },
 };
