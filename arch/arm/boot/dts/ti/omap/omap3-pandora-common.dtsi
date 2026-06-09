@@ -53,6 +53,25 @@
 		vin-supply = <&aux_5v>; /* logical enable dependency */
 	};
 
+	backlight: pwm-backlight {
+		compatible = "pwm-backlight";
+		pwms = <&twl_pwm 0 1922710>;
+		/*
+		 * TPS61161 analog dimming window: duty must stay above
+		 * ~20-25 % (below that the regulator drops out, LED off)
+		 * and the startup waveform must avoid long low intervals
+		 * that could trigger EasyScale detection. The enable guard
+		 * requests full duty; TWL4030 limits it to about 62/64.
+		 * These levels were determined experimentally.
+		 */
+		brightness-levels = <
+			  0 24 30 36 42 49 58 68 80 94 110 129 255
+		>;
+		default-brightness-level = <11>;
+		/* TPS61161: cover startup mode-detection window (10 ms) */
+		pwm-enable-guard-period-us = <10000>;
+	};
+
 	tv: connector {
 		compatible = "connector-analog-tv";
 		label = "tv";
@@ -505,6 +524,10 @@
 	 >;
 };
 
+&twl_pwm {
+	ti,twl4030-pwm-frame-64;
+};
+
 /* backup battery charger */
 &charger {
 	ti,bb-uvolt = <3200000>;
@@ -736,6 +759,8 @@
 		label = "lcd";
 		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* GPIO_157 */
 		vcc-supply = <&lcd_5v>;
+
+		backlight = <&backlight>;
 
 		port {
 			lcd_in: endpoint {
