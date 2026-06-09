@@ -31,6 +31,14 @@
 		clock-frequency = <26000000>;
 	};
 
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&twl_pwm 0 1922710>;
+
+		brightness-levels = <0 150 158 166 174 185 205 230 255>;
+		default-brightness-level = <6>;
+	};
+
 	tv: connector {
 		compatible = "connector-analog-tv";
 		label = "tv";
