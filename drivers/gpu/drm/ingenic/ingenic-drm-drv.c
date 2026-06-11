@@ -122,7 +122,7 @@ struct ingenic_drm {
 
 struct ingenic_drm_bridge {
 	struct drm_encoder encoder;
-	struct drm_bridge bridge, *next_bridge;
+	struct drm_bridge *bridge, *next_bridge;
 
 	struct drm_bus_cfg bus_cfg;
 };
@@ -324,13 +324,15 @@ static void ingenic_drm_crtc_update_timings(struct ingenic_drm *priv,
 			   JZ_LCD_CTRL_OFUP | JZ_LCD_CTRL_BURST_MASK,
 			   JZ_LCD_CTRL_OFUP | priv->soc_info->max_burst);
 
+	if (IS_ENABLED(CONFIG_DRM_INGENIC_IPU) && priv->ipu_plane) {
 	/*
 	 * IPU restart - specify how much time the LCDC will wait before
 	 * transferring a new frame from the IPU. The value is the one
 	 * suggested in the programming manual.
 	 */
-	regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
-		     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
+		regmap_write(priv->map, JZ_REG_LCD_IPUR, JZ_LCD_IPUR_IPUREN |
+			     (ht * vpe / 3) << JZ_LCD_IPUR_IPUR_LSB);
+	}
 }
 
 static int ingenic_drm_crtc_atomic_check(struct drm_crtc *crtc,
@@ -802,7 +804,7 @@ static int ingenic_drm_bridge_attach(struct drm_bridge *bridge,
 	struct ingenic_drm_bridge *ib = to_ingenic_drm_bridge(encoder);
 
 	return drm_bridge_attach(encoder, ib->next_bridge,
-				 &ib->bridge, flags);
+				 bridge, flags);
 }
 
 static int ingenic_drm_bridge_atomic_check(struct drm_bridge *bridge,
@@ -1314,10 +1316,26 @@ static int ingenic_drm_bind(struct device *dev, bool has_components)
 
 		drm_encoder_helper_add(encoder, &ingenic_drm_encoder_helper_funcs);
 
-		ib->bridge.funcs = &ingenic_drm_bridge_funcs;
+		ib->bridge = devm_drm_bridge_alloc(priv->dev, struct drm_bridge,
+						   base, &ingenic_drm_bridge_funcs);
+		if (IS_ERR(ib->bridge)) {
+			ret = PTR_ERR(ib->bridge);
+			goto err_drvdata;
+		}
+
+		ib->bridge->of_node = priv->dev->of_node;
 		ib->next_bridge = bridge;
 
-		ret = drm_bridge_attach(encoder, &ib->bridge, NULL,
+		ib->bridge->ops = DRM_BRIDGE_OP_EDID | DRM_BRIDGE_OP_DETECT;
+		ib->bridge->interlace_allowed = true;
+
+		ret = devm_drm_bridge_add(priv->dev, ib->bridge);
+		if (ret) {
+			dev_err(dev, "Failed to register DRM bridge: %d\n", ret);
+			goto err_drvdata;
+		}
+
+		ret = drm_bridge_attach(encoder, ib->bridge, NULL,
 					DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 		if (ret) {
 			dev_err(dev, "Unable to attach bridge\n");
@@ -1511,6 +1529,11 @@ static int ingenic_drm_resume(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(ingenic_drm_pm_ops,
 				ingenic_drm_suspend, ingenic_drm_resume);
 
+static const u32 jz4730_formats[] = {
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_RGB565,
+};
+
 static const u32 jz4740_formats[] = {
 	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_RGB565,
@@ -1545,6 +1568,15 @@ static const u32 jz4770_formats_f0[] = {
 	DRM_FORMAT_RGB888,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_XRGB2101010,
+};
+
+static const struct jz_soc_info jz4730_soc_info = {
+	.needs_dev_clk = true,
+	.max_width = 800,
+	.max_height = 600,
+	.formats_f1 = jz4730_formats,
+	.num_formats_f1 = ARRAY_SIZE(jz4730_formats),
+	/* JZ4730 has only one plane */
 };
 
 static const struct jz_soc_info jz4740_soc_info = {
@@ -1627,6 +1659,7 @@ static const struct jz_soc_info jz4780_soc_info = {
 };
 
 static const struct of_device_id ingenic_drm_of_match[] = {
+	{ .compatible = "ingenic,jz4730-lcd", .data = &jz4730_soc_info },
 	{ .compatible = "ingenic,jz4740-lcd", .data = &jz4740_soc_info },
 	{ .compatible = "ingenic,jz4725b-lcd", .data = &jz4725b_soc_info },
 	{ .compatible = "ingenic,jz4760-lcd", .data = &jz4760_soc_info },

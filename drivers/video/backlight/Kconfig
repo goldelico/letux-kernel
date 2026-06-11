@@ -444,13 +444,6 @@ config BACKLIGHT_MP3309C
 	  To compile this driver as a module, choose M here: the module will
 	  be called mp3309c.
 
-config BACKLIGHT_PANDORA
-	tristate "Backlight driver for Pandora console"
-	depends on TWL4030_CORE
-	help
-	  If you have a Pandora console, say Y to enable the
-	  backlight driver.
-
 config BACKLIGHT_SKY81452
 	tristate "Backlight driver for SKY81452"
 	depends on MFD_SKY81452
