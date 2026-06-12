@@ -24,7 +24,6 @@ int esp_remove_card(struct esp_adapter *adapter);
 void esp_process_new_packet_intr(struct esp_adapter *adapter);
 struct esp_adapter *esp_get_adapter(void);
 struct esp_wifi_device *get_priv_from_payload_header(struct esp_payload_header *header);
-struct sk_buff *esp_alloc_skb(u32 len);
 int esp_send_packet(struct esp_adapter *adapter, struct sk_buff *skb);
 u8 esp_is_bt_supported_over_sdio(u32 cap);
 void esp_tx_pause(struct esp_wifi_device *priv);
@@ -44,4 +43,5 @@ int esp_init_raw_tp(struct esp_adapter *adapter);
 bool esp_is_valid_hardware_id(int hardware_id);
 char *esp_get_hardware_name(int hardware_id);
 int generate_slave_intr(void *context, u8 data);
+int esp_start_ota(struct esp_adapter *adapter, char *ota_file);
 #endif

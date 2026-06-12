@@ -20,6 +20,7 @@
 /* ESP Payload Header Flags */
 #define MORE_FRAGMENT                   (1 << 0)
 #define MAX_SSID_LEN                    32
+#define OTA_CHUNK_SIZE                  1016
 
 #define MAX_MULTICAST_ADDR_COUNT        8
 
@@ -42,6 +43,16 @@ struct esp_payload_header {
 	};
 	/* Do no add anything here */
 } __packed;
+
+/* Maximum alignment padding required for DMA */
+#define ESP_MAX_ALIGN_PADDING           4
+
+/* Maximum offset = header size (12) + max DMA alignment padding (4) */
+#define ESP_MAX_OFFSET_SIZE             (sizeof(struct esp_payload_header) + ESP_MAX_ALIGN_PADDING)
+
+/* Validate offset: must be >= header size and <= ESP_MAX_OFFSET_SIZE */
+#define ESP_OFFSET_VALID(offset) \
+	((offset) >= sizeof(struct esp_payload_header) && (offset) <= ESP_MAX_OFFSET_SIZE)
 
 struct ieee_mgmt_header {
 	uint16_t   frame_control;
@@ -66,7 +77,8 @@ enum ESP_IE_TYPE{
 	IE_PROBE_RESP,
 	IE_ASSOC_RESP,
 	IE_RSN,
-	IE_BEACON_PROBE,
+	IE_BEACON_PROBE_HEAD,
+	IE_BEACON_PROBE_TAIL,
 };
 
 enum ESP_PACKET_TYPE {
@@ -142,6 +154,9 @@ enum COMMAND_CODE {
 	CMD_AP_STATION = 26,
 	CMD_STA_RSSI = 27,
 	CMD_SET_TIME = 28,
+	CMD_START_OTA_UPDATE = 29,
+	CMD_START_OTA_WRITE = 30,
+	CMD_START_OTA_END = 31,
 	CMD_MAX,
 };
 
@@ -170,6 +185,12 @@ struct command_header {
 	uint16_t   seq_num;
 	uint8_t    reserved1;
 	uint8_t    reserved2;
+} __packed;
+
+struct cmd_ota_update_request {
+	struct command_header header;
+	uint16_t   ota_binary_len;
+	char       ota_binary[];
 } __packed;
 
 struct scan_request {
@@ -207,6 +228,7 @@ struct esp_ap_config {
     uint8_t sae_pwe_h2e;
     uint16_t beacon_interval;
     uint16_t inactivity_timeout;
+    uint8_t privacy;
 } __packed;
 
 struct cmd_ap_config {

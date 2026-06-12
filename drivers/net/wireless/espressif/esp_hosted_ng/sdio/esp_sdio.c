@@ -20,7 +20,7 @@
 #include <linux/kthread.h>
 #include "esp_stats.h"
 #include "esp_utils.h"
-#include "include/esp_kernel_port.h"
+#include "esp_kernel_port.h"
 
 extern u32 raw_tp_mode;
 #define MAX_WRITE_RETRIES       2
@@ -35,12 +35,7 @@ extern u32 raw_tp_mode;
 struct esp_sdio_context sdio_context;
 static atomic_t tx_pending;
 static atomic_t queue_items[MAX_PRIORITY_QUEUES];
-
-#ifdef CONFIG_ENABLE_MONITOR_PROCESS
-struct task_struct *monitor_thread;
-#endif
 struct task_struct *tx_thread;
-
 volatile u8 host_sleep;
 
 static int init_context(struct esp_sdio_context *context);
@@ -51,11 +46,10 @@ static int write_packet(struct esp_adapter *adapter, struct sk_buff *skb);
 static const struct sdio_device_id esp_devices[] = {
 	{ SDIO_DEVICE(ESP_VENDOR_ID_1, ESP_DEVICE_ID_ESP32_1) },
 	{ SDIO_DEVICE(ESP_VENDOR_ID_1, ESP_DEVICE_ID_ESP32_2) },
-	{ SDIO_DEVICE(ESP_VENDOR_ID_2, ESP_DEVICE_ID_ESP32C6_1) },
-	{ SDIO_DEVICE(ESP_VENDOR_ID_2, ESP_DEVICE_ID_ESP32C6_2) },
+	{ SDIO_DEVICE(ESP_VENDOR_ID_2, ESP_DEVICE_ID_C5_C6_C61_1) },
+	{ SDIO_DEVICE(ESP_VENDOR_ID_2, ESP_DEVICE_ID_C5_C6_C61_2) },
 	{}
 };
-MODULE_DEVICE_TABLE(sdio, esp_devices);
 
 static void esp_process_interrupt(struct esp_sdio_context *context, u32 int_status)
 {
@@ -175,7 +169,7 @@ static int esp_slave_get_tx_buffer_num(struct esp_sdio_context *context, u32 *tx
 
 int esp_deinit_module(struct esp_adapter *adapter)
 {
-	/* Second & onward bootup cleanup is not required for SDIO:
+	/* Second & onward boot-up cleanup is not required for SDIO:
 	 * As Removal of SDIO triggers complete Deinit and SDIO insertion/
 	 * detection, triggers probing which does initialization.
 	 */
@@ -256,13 +250,11 @@ static void esp_remove(struct sdio_func *func)
 	if (func->num != 1) {
 		return;
 	}
-#ifdef CONFIG_ENABLE_MONITOR_PROCESS
-	if (monitor_thread)
-		kthread_stop(monitor_thread);
-#endif
+
 	if (context) {
 		for (prio_q_idx = 0; prio_q_idx < MAX_PRIORITY_QUEUES; prio_q_idx++)
 			skb_queue_purge(&(sdio_context.tx_q[prio_q_idx]));
+		atomic_set(&tx_pending, 0);
 	}
 
 	if (tx_thread)
@@ -291,9 +283,28 @@ static void esp_remove(struct sdio_func *func)
 	esp_dbg("ESP SDIO cleanup completed\n");
 }
 
+static struct sk_buff * esp_sdio_alloc_skb(u32 len)
+{
+	struct sk_buff *skb = NULL;
+	u8 offset;
+
+	skb = netdev_alloc_skb(NULL, len + INTERFACE_HEADER_PADDING);
+
+	if (skb) {
+		/* Align SKB data pointer */
+		offset = ((unsigned long)skb->data) & (SKB_DATA_ADDR_ALIGNMENT - 1);
+
+		if (offset)
+			skb_reserve(skb, INTERFACE_HEADER_PADDING - offset);
+	}
+
+	return skb;
+}
+
 static struct esp_if_ops if_ops = {
 	.read		= read_packet,
 	.write		= write_packet,
+	.alloc_skb	= esp_sdio_alloc_skb,
 };
 
 static int get_firmware_data(struct esp_sdio_context *context)
@@ -376,6 +387,8 @@ static struct sk_buff *read_packet(struct esp_adapter *adapter)
 	struct sk_buff *skb;
 	u8 *pos;
 	struct esp_sdio_context *context;
+	struct esp_payload_header *header;
+	u16 len, offset;
 
 	if (!adapter || !adapter->if_context) {
 		esp_err("INVALID args\n");
@@ -407,7 +420,7 @@ static struct sk_buff *read_packet(struct esp_adapter *adapter)
 		esp_info("Rx large packet: %d\n", len_from_slave);
 	}
 
-	skb = esp_alloc_skb(len_from_slave);
+	skb = esp_if_alloc_skb(context->adapter, len_from_slave);
 
 	if (!skb) {
 		esp_err("SKB alloc failed\n");
@@ -459,6 +472,20 @@ static struct sk_buff *read_packet(struct esp_adapter *adapter)
 	} while (data_left > 0);
 
 	sdio_release_host(context->func);
+
+	header = (struct esp_payload_header *)skb->data;
+	len = le16_to_cpu(header->len);
+	offset = le16_to_cpu(header->offset);
+
+	if (len == 0) {
+		dev_kfree_skb(skb);
+		return NULL;
+	}
+	if (len > ESP_RX_BUFFER_SIZE || !ESP_OFFSET_VALID(offset)) {
+		esp_err("Drop invalid pkt: len=%d offset=%d\n", len, offset);
+		dev_kfree_skb(skb);
+		return NULL;
+	}
 
 	return skb;
 }
@@ -572,7 +599,7 @@ static int tx_process(void *data)
 
 		if (atomic_read(&context->adapter->state) < ESP_CONTEXT_READY) {
 			msleep(10);
-			esp_err("not ready");
+			esp_dbg("not ready\n");
 			continue;
 		}
 
@@ -721,61 +748,6 @@ static struct esp_sdio_context *init_sdio_func(struct sdio_func *func, int *sdio
 	return context;
 }
 
-#ifdef CONFIG_ENABLE_MONITOR_PROCESS
-static int monitor_process(void *data)
-{
-	u32 val, intr, len_reg, rdata, old_len = 0;
-	struct esp_sdio_context *context = (struct esp_sdio_context *) data;
-	struct sk_buff *skb;
-
-	while (!kthread_should_stop()) {
-		msleep(5000);
-
-		val = intr = len_reg = rdata = 0;
-
-		esp_read_reg(context, ESP_SLAVE_PACKET_LEN_REG,
-				(u8 *) &val, sizeof(val), ACQUIRE_LOCK);
-
-		len_reg = val & ESP_SLAVE_LEN_MASK;
-
-		val = 0;
-		esp_read_reg(context, ESP_SLAVE_TOKEN_RDATA, (u8 *) &val,
-				sizeof(val), ACQUIRE_LOCK);
-
-		rdata = ((val >> 16) & ESP_TX_BUFFER_MASK);
-
-		esp_read_reg(context, ESP_SLAVE_INT_ST_REG,
-				(u8 *) &intr, sizeof(intr), ACQUIRE_LOCK);
-
-
-		if (len_reg > context->rx_byte_count) {
-			if (old_len && (context->rx_byte_count == old_len)) {
-				esp_dbg("Monitor thread ----> [%d - %d] [%d - %d] %d\n",
-						len_reg, context->rx_byte_count,
-						rdata, context->tx_buffer_count, intr);
-
-				skb = read_packet(context->adapter);
-
-				if (!skb)
-					continue;
-
-				if (skb->len)
-					esp_dbg("Flushed %d bytes\n", skb->len);
-
-				/* drop the packet */
-				dev_kfree_skb(skb);
-				skb = NULL;
-			}
-		}
-
-		old_len = context->rx_byte_count;
-	}
-
-	do_exit(0);
-	return 0;
-}
-#endif
-
 static int esp_probe(struct sdio_func *func,
 				  const struct sdio_device_id *id)
 {
@@ -801,7 +773,7 @@ static int esp_probe(struct sdio_func *func,
 	if (sdio_context.sdio_clk_mhz) {
 		struct mmc_host *host = func->card->host;
 		u32 hz = sdio_context.sdio_clk_mhz * NUMBER_1M;
-		/* Expansion of mmc_set_clock that isnt exported */
+		/* Expansion of mmc_set_clock that isn't exported */
 		if (hz < host->f_min)
 			hz = host->f_min;
 		if (hz > host->f_max)
@@ -825,13 +797,6 @@ static int esp_probe(struct sdio_func *func,
 	atomic_set(&context->adapter->state, ESP_CONTEXT_RX_READY);
 	generate_slave_intr(context, BIT(ESP_OPEN_DATA_PATH));
 
-
-#ifdef CONFIG_ENABLE_MONITOR_PROCESS
-	monitor_thread = kthread_run(monitor_process, context, "Monitor process");
-
-	if (!monitor_thread)
-		esp_err("Failed to create monitor thread\n");
-#endif
 
 	esp_dbg("ESP SDIO probe completed\n");
 
@@ -954,6 +919,8 @@ int esp_validate_chipset(struct esp_adapter *adapter, u8 chipset)
 	switch(chipset) {
 	case ESP_FIRMWARE_CHIP_ESP32:
 	case ESP_FIRMWARE_CHIP_ESP32C6:
+	case ESP_FIRMWARE_CHIP_ESP32C61:
+	case ESP_FIRMWARE_CHIP_ESP32C5:
 		adapter->chipset = chipset;
 		esp_info("Chipset=%s ID=%02x detected over SDIO\n", esp_chipname_from_id(chipset), chipset);
 		ret = 0;

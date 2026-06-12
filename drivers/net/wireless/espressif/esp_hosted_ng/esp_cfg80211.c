@@ -12,6 +12,7 @@
 #include "esp_cfg80211.h"
 #include "esp_cmd.h"
 #include "esp_kernel_port.h"
+#include "esp_utils.h"
 
 /**
   * @brief WiFi PHY rate encodings
@@ -73,29 +74,96 @@ static struct ieee80211_rate esp_rates[] = {
 
 /* Channel definitions to be advertised to cfg80211 */
 static struct ieee80211_channel esp_channels_2ghz[] = {
-	{.center_freq = 2412, .hw_value = 1, },
-	{.center_freq = 2417, .hw_value = 2, },
-	{.center_freq = 2422, .hw_value = 3, },
-	{.center_freq = 2427, .hw_value = 4, },
-	{.center_freq = 2432, .hw_value = 5, },
-	{.center_freq = 2437, .hw_value = 6, },
-	{.center_freq = 2442, .hw_value = 7, },
-	{.center_freq = 2447, .hw_value = 8, },
-	{.center_freq = 2452, .hw_value = 9, },
-	{.center_freq = 2457, .hw_value = 10, },
-	{.center_freq = 2462, .hw_value = 11, },
-	{.center_freq = 2467, .hw_value = 12, },
-	{.center_freq = 2472, .hw_value = 13, },
-	{.center_freq = 2484, .hw_value = 14, },
+	{.center_freq = 2412, .hw_value = 1, .max_power = 20, },
+	{.center_freq = 2417, .hw_value = 2, .max_power = 20, },
+	{.center_freq = 2422, .hw_value = 3, .max_power = 20, },
+	{.center_freq = 2427, .hw_value = 4, .max_power = 20, },
+	{.center_freq = 2432, .hw_value = 5, .max_power = 20, },
+	{.center_freq = 2437, .hw_value = 6, .max_power = 20, },
+	{.center_freq = 2442, .hw_value = 7, .max_power = 20, },
+	{.center_freq = 2447, .hw_value = 8, .max_power = 20, },
+	{.center_freq = 2452, .hw_value = 9, .max_power = 20, },
+	{.center_freq = 2457, .hw_value = 10, .max_power = 20, },
+	{.center_freq = 2462, .hw_value = 11, .max_power = 20, },
+	{.center_freq = 2467, .hw_value = 12, .max_power = 20, },
+	{.center_freq = 2472, .hw_value = 13, .max_power = 20, },
+	{.center_freq = 2484, .hw_value = 14, .max_power = 20, },
 };
 
-static struct ieee80211_supported_band esp_wifi_bands = {
+static struct ieee80211_channel esp_channels_5ghz[] = {
+	{.center_freq = 5180, .hw_value = 36, .max_power = 20, },
+	{.center_freq = 5200, .hw_value = 40, .max_power = 20, },
+	{.center_freq = 5220, .hw_value = 44, .max_power = 20, },
+	{.center_freq = 5240, .hw_value = 48, .max_power = 20, },
+	{.center_freq = 5260, .hw_value = 52, .max_power = 20, },
+	{.center_freq = 5280, .hw_value = 56, .max_power = 20, },
+	{.center_freq = 5300, .hw_value = 60, .max_power = 20, },
+	{.center_freq = 5320, .hw_value = 64, .max_power = 20, },
+	{.center_freq = 5500, .hw_value = 100, .max_power = 20, },
+	{.center_freq = 5520, .hw_value = 104, .max_power = 20, },
+	{.center_freq = 5540, .hw_value = 108, .max_power = 20, },
+	{.center_freq = 5560, .hw_value = 112, .max_power = 20, },
+	{.center_freq = 5580, .hw_value = 116, .max_power = 20, },
+	{.center_freq = 5600, .hw_value = 120, .max_power = 20, },
+	{.center_freq = 5620, .hw_value = 124, .max_power = 20, },
+	{.center_freq = 5640, .hw_value = 128, .max_power = 20, },
+	{.center_freq = 5660, .hw_value = 132, .max_power = 20, },
+	{.center_freq = 5680, .hw_value = 136, .max_power = 20, },
+	{.center_freq = 5700, .hw_value = 140, .max_power = 20, },
+	{.center_freq = 5720, .hw_value = 144, .max_power = 20, },
+	{.center_freq = 5745, .hw_value = 149, .max_power = 20, },
+	{.center_freq = 5765, .hw_value = 153, .max_power = 20, },
+	{.center_freq = 5785, .hw_value = 157, .max_power = 20, },
+	{.center_freq = 5805, .hw_value = 161, .max_power = 20, },
+	{.center_freq = 5825, .hw_value = 165, .max_power = 20, },
+	{.center_freq = 5845, .hw_value = 169, .max_power = 20, },
+	{.center_freq = 5865, .hw_value = 173, .max_power = 20, },
+	{.center_freq = 5885, .hw_value = 177, .max_power = 20, },
+};
+
+static struct ieee80211_supported_band esp_wifi_bands_2ghz = {
 	.channels = esp_channels_2ghz,
 	.n_channels = ARRAY_SIZE(esp_channels_2ghz),
 	.bitrates = esp_rates,
 	.n_bitrates = ARRAY_SIZE(esp_rates),
-	.ht_cap.cap = IEEE80211_HT_CAP_SGI_20,
+	.ht_cap.cap = IEEE80211_HT_CAP_SUP_WIDTH_20_40 | IEEE80211_HT_CAP_SGI_20 |
+			IEEE80211_HT_CAP_RX_STBC | IEEE80211_HT_CAP_DSSSCCK40,
+	.ht_cap.mcs.rx_mask[0] = 0xff,
+	.ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
 	.ht_cap.ht_supported = true,
+};
+
+static struct ieee80211_supported_band esp_wifi_bands_5ghz = {
+	.channels = esp_channels_5ghz,
+	.n_channels = ARRAY_SIZE(esp_channels_5ghz),
+	.bitrates = esp_rates + 4,
+	.n_bitrates = ARRAY_SIZE(esp_rates) - 4,
+	.ht_cap.cap = IEEE80211_HT_CAP_SUP_WIDTH_20_40 | IEEE80211_HT_CAP_SGI_20 |
+			IEEE80211_HT_CAP_RX_STBC | IEEE80211_HT_CAP_DSSSCCK40,
+	.ht_cap.mcs.rx_mask[0] = 0xff,
+	.ht_cap.mcs.tx_params = IEEE80211_HT_MCS_TX_DEFINED,
+	.ht_cap.ht_supported = true,
+	.vht_cap.vht_supported = true,
+	.vht_cap.cap = (IEEE80211_VHT_MAX_AMPDU_16K << IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_SHIFT) |
+			IEEE80211_VHT_CAP_MAX_MPDU_LENGTH_3895 | IEEE80211_VHT_CAP_RXSTBC_1,
+	.vht_cap.vht_mcs.rx_mcs_map = cpu_to_le16(IEEE80211_VHT_MCS_SUPPORT_0_7 << 0  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 2  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 4  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 6  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 8  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 10 |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 12 |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 14),
+	.vht_cap.vht_mcs.rx_highest = 0x0,
+	.vht_cap.vht_mcs.tx_mcs_map = cpu_to_le16(IEEE80211_VHT_MCS_SUPPORT_0_7 << 0  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 2  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 4  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 6  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 8  |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 10 |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 12 |
+			IEEE80211_VHT_MCS_NOT_SUPPORTED << 14),
+	.vht_cap.vht_mcs.tx_highest = 0x0,
 };
 
 /* Supported crypto cipher suits to be advertised to cfg80211 */
@@ -272,6 +340,7 @@ struct wireless_dev *esp_cfg80211_add_iface(struct wiphy *wiphy,
 
 
 	set_bit(ESP_NETWORK_UP, &esp_wdev->priv_flags);
+	set_bit(ESP_INTERFACE_INITIALIZED, &esp_wdev->priv_flags);
 
 	esp_wdev->nb.notifier_call = esp_inetaddr_event;
 	register_inetaddr_notifier(&esp_wdev->nb);
@@ -307,12 +376,13 @@ static int esp_nl_mode_to_esp_iface(enum nl80211_iftype type)
 	return ESP_MAX_IF;
 }
 
-static int8_t esp_get_mode_from_iface_type(int iface_type) {
+static int8_t esp_get_mode_from_iface_type(int iface_type)
+{
 	if (iface_type == ESP_AP_IF) {
-		return 2;
+		return WIFI_MODE_APSTA;
 	}
 
-	return 1;
+	return WIFI_MODE_STA;
 }
 
 static int esp_cfg80211_change_iface(struct wiphy *wiphy,
@@ -669,6 +739,9 @@ static void esp_cfg80211_set_wakeup(struct wiphy *wiphy,
 
 static int esp_cfg80211_set_tx_power(struct wiphy *wiphy,
 				     struct wireless_dev *wdev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
+				     int radio_idx,
+#endif
 				     enum nl80211_tx_power_setting type, int mbm)
 {
 	struct esp_adapter *adapter = esp_get_adapter();
@@ -746,6 +819,12 @@ static int esp_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev
 
 static int esp_cfg80211_get_tx_power(struct wiphy *wiphy,
 				     struct wireless_dev *wdev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
+				     int radio_idx,
+#endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+				     unsigned int link_id,
+#endif
 				     int *dbm)
 {
 	struct esp_wifi_device *priv = NULL;
@@ -770,7 +849,11 @@ static int esp_cfg80211_get_tx_power(struct wiphy *wiphy,
 	return 0;
 }
 
-static int esp_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+static int esp_cfg80211_set_wiphy_params(struct wiphy *wiphy,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0))
+					 int radio_idx,
+#endif
+					 u32 changed)
 {
 	esp_dbg("\n");
 	return 0;
@@ -785,9 +868,18 @@ static int esp_cfg80211_set_txq_params(struct wiphy *wiphy, struct net_device *n
 
 static int esp_set_ies(struct esp_wifi_device *priv, struct cfg80211_beacon_data *info)
 {
-	int ret;
+	int ret = 0;
 
-	ret = cmd_set_ie(priv, IE_BEACON, info->beacon_ies, info->beacon_ies_len);
+#define FIXED_PARAM_LEN 34
+
+	if (info->head_len > FIXED_PARAM_LEN)
+		ret = cmd_set_ie(priv, IE_BEACON_PROBE_HEAD, info->head + FIXED_PARAM_LEN, info->head_len - FIXED_PARAM_LEN);
+
+	if (!ret)
+		ret = cmd_set_ie(priv, IE_BEACON_PROBE_TAIL, info->tail, info->tail_len);
+
+	if (!ret)
+		ret = cmd_set_ie(priv, IE_BEACON, info->beacon_ies, info->beacon_ies_len);
 
 	if (!ret)
 		ret = cmd_set_ie(priv, IE_PROBE_RESP, info->proberesp_ies, info->proberesp_ies_len);
@@ -829,42 +921,6 @@ static int esp_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *nd
 	return esp_set_ies(priv, info);
 }
 
-static const uint8_t *esp_get_rsn_ie(struct cfg80211_beacon_data *beacon, size_t *rsn_ie_len)
-{
-        const u8 *rsn_ie;
-
-        if (!beacon->tail)
-                return NULL;
-
-        rsn_ie = cfg80211_find_ie(WLAN_EID_RSN, beacon->tail, beacon->tail_len);
-        if (!rsn_ie)
-                return NULL;
-
-        *rsn_ie_len = *(rsn_ie + 1);
-	*rsn_ie_len += 2;
-
-        return rsn_ie;
-}
-
-static const uint8_t *esp_get_rsnx_ie(struct cfg80211_beacon_data *beacon, size_t *rsnx_ie_len)
-{
-        const u8 *rsnx_ie = NULL;
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
-        if (!beacon->tail)
-                return NULL;
-
-        rsnx_ie = cfg80211_find_ie(WLAN_EID_RSNX, beacon->tail, beacon->tail_len);
-        if (!rsnx_ie)
-                return NULL;
-
-        *rsnx_ie_len = *(rsnx_ie + 1);
-	*rsnx_ie_len += 2;
-#endif
-
-        return rsnx_ie;
-}
-
 static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 				 struct cfg80211_ap_settings *info)
 {
@@ -874,10 +930,6 @@ static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	struct esp_ap_config ap_config = {0};
 	int res;
 	int i;
-	size_t rsn_ie_len = 0;
-	size_t rsnx_ie_len = 0;
-	const uint8_t *rsn_ie;
-	const uint8_t *rsnx_ie;
 
 	if (!wiphy || !dev) {
 		esp_err("%u invalid params\n", __LINE__);
@@ -916,7 +968,6 @@ static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	if (info->hidden_ssid != NL80211_HIDDEN_SSID_NOT_IN_USE)
 		ap_config.ssid_hidden = 1;
 
-	//TODO set in vnc
 	if (info->inactivity_timeout) {
 		ap_config.inactivity_timeout = info->inactivity_timeout;
 	}
@@ -928,34 +979,19 @@ static int esp_cfg80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 				break;
 			}
 		}
+		if (!ap_config.channel && (wiphy->bands[NL80211_BAND_5GHZ] != NULL)) {
+				for (i = 0; i < ARRAY_SIZE(esp_channels_5ghz); i++) {
+					if (esp_channels_5ghz[i].center_freq == info->chandef.chan->center_freq) {
+						ap_config.channel = esp_channels_5ghz[i].hw_value;
+						break;
+					}
+				}
+		}
 	}
 	if (!ap_config.channel)
 		ap_config.channel = 6;
 
-	//TODO ht and vht caps
-	rsn_ie = esp_get_rsn_ie(&info->beacon, &rsn_ie_len);
-	rsnx_ie = esp_get_rsnx_ie(&info->beacon, &rsnx_ie_len);
-	if (rsn_ie_len || rsnx_ie_len) {
-		size_t rsn_len = rsn_ie_len + rsnx_ie_len;
-		uint8_t *rsn = kmalloc(rsn_ie_len + rsnx_ie_len, GFP_KERNEL);
-		if (!rsn) {
-			return -1;
-		}
-		if (rsn_ie_len)
-			memcpy(rsn, rsn_ie, rsn_ie_len);
-		if (rsnx_ie_len)
-			memcpy(rsn + rsn_ie_len, rsnx_ie, rsnx_ie_len);
-
-		res = cmd_set_ie(priv, IE_RSN, rsn, rsn_len);
-
-		kfree(rsn);
-		/* Dummy mode set set security */
-#define WPA2_PSK_MODE 3
-		ap_config.authmode = WPA2_PSK_MODE;
-#undef WPA2_PSK_MODE
-		if (res < 0)
-			return res;
-	}
+	ap_config.privacy = info->privacy;
 	res = cmd_set_ap_config(priv, &ap_config);
 	if (res < 0)
 		return res;
@@ -1204,12 +1240,16 @@ int esp_add_wiphy(struct esp_adapter *adapter)
 #ifdef CONFIG_AP_MODE
 	wiphy->interface_modes |= BIT(NL80211_IFTYPE_AP);
 #endif
-	wiphy->bands[NL80211_BAND_2GHZ] = &esp_wifi_bands;
-
+	wiphy->bands[NL80211_BAND_2GHZ] = &esp_wifi_bands_2ghz;
+	if (adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C5) {
+		wiphy->bands[NL80211_BAND_5GHZ] = &esp_wifi_bands_5ghz;
+	}
 	/* Initialize cipher suits */
 	if (adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C3 ||
 	    adapter->chipset == ESP_FIRMWARE_CHIP_ESP32S3 ||
-	    adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C6) {
+	    adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C5 ||
+	    adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C6 ||
+	    adapter->chipset == ESP_FIRMWARE_CHIP_ESP32C61) {
 		wiphy->cipher_suites = esp_cipher_suites_new;
 		wiphy->n_cipher_suites = ARRAY_SIZE(esp_cipher_suites_new);
 	} else {
