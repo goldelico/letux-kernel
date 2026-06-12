@@ -9,6 +9,7 @@
 #include "esp_api.h"
 #include "esp_kernel_port.h"
 #include "esp_if.h"
+#include "esp_bt_api.h"
 
 #define INVALID_HDEV_BUS (0xff)
 
