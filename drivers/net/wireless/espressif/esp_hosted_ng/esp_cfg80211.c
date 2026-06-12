@@ -1227,7 +1227,7 @@ int esp_add_wiphy(struct esp_adapter *adapter)
 	set_wiphy_dev(wiphy, esp_dev->dev);
 
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION);
-#ifdef CONFIG_AP_MODE
+#ifdef CONFIG_ESP_HOSTED_AP_MODE
 	wiphy->interface_modes |= BIT(NL80211_IFTYPE_AP);
 #endif
 	wiphy->bands[NL80211_BAND_2GHZ] = &esp_wifi_bands_2ghz;
