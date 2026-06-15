@@ -1,0 +1,8 @@
+# based on: https://www.mjt.me.uk/posts/fixing-missing-macrosilicon-ms2109/
+
+# For HDMI-to-USB adaptor:
+SUBSYSTEM=="usb", DRIVER=="snd-usb-audio", ATTRS{idProduct}=="2109", ATTRS{idVendor}=="534d", \
+    RUN+="/bin/sh -c 'echo -n $kernel > /sys/bus/usb/drivers/snd-usb-audio/unbind'"
+
+SUBSYSTEM=="usb", DRIVER=="snd-usb-audio", ATTRS{idProduct}=="2109", ATTRS{idVendor}=="534d", \
+    ATTR{bInterfaceNumber}=="00", RUN+="/bin/sh -c 'sleep 1; echo -n $kernel > /sys/bus/usb/drivers/uvcvideo/bind'"
