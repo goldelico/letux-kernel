@@ -128,6 +128,71 @@ then
 	[ -r /usr/lib/xorg/modules/drivers/omap_drv.so ] || sed -i.bak 's/"omap"/"fbdev"/' /etc/X11/xorg.conf
 fi
 
+if [ ! -r "/etc/X11/xorg.conf" ]
+then
+# we have no xorg.conf, but need to help Xorg to skip pvrsgx (Multi-GPU-Bug) and start properly (depends on Xorg release)
+
+	XVER=$(/usr/bin/Xorg -version 2>&1 | grep -oP 'X\.Org X Server \K[0-9]+\.[0-9]+')
+
+	case "$XVER" in
+		"1.16") # e.g. Debian 8 (Jessie)
+		cat << 'EOF' > /usr/share/X11/xorg.conf.d/10-pvrsgxgpu.conf
+Section "Device"
+	Identifier  "Framebuffer_Primary"
+	Driver      "fbdev"
+	Option      "fbdev" "/dev/fb0"
+EndSection
+
+Section "Device"
+	Identifier  "Framebuffer_Secondary"
+	Driver      "fbdev"
+	Option      "fbdev" "/dev/fb1"
+EndSection
+EOF
+		;;
+
+		"1.19") # e.g. Debian 9 (Stretch)
+		cat << 'EOF' > /usr/share/X11/xorg.conf.d/10-pvrsgxgpu.conf
+Section "OutputClass"
+	Identifier "omapdrm_legacy"
+	MatchDriver "omapdrm"
+	Driver "modesetting"
+EndSection
+
+Section "OutputClass"
+	Identifier "ingenic_legacy"
+	MatchDriver "ingenic-drm"
+	Driver "modesetting"
+EndSection
+EOF
+		;;
+
+	"1.20") # e.g. Debian 10 (Buster) & Debian 11 (Bullseye)
+		cat << 'EOF' > /usr/share/X11/xorg.conf.d/10-pvrsgxgpu.conf
+Section "OutputClass"
+	Identifier "omapdrm_modern"
+	MatchDriver "omapdrm"
+	Driver "modesetting"
+	Option "PrimaryGPU" "true"
+EndSection
+
+Section "OutputClass"
+	Identifier "ingenic_modern"
+	MatchDriver "ingenic-drm"
+	Driver "modesetting"
+	Option "PrimaryGPU" "true"
+EndSection
+EOF
+		;;
+
+	*) # other Debian Xorg 21.1+
+		# the Multi-GPU-Bug has been fixed
+		rm -f /usr/share/X11/xorg.conf.d/10-pvrsgxgpu.conf
+		;;
+	esac
+
+fi
+
 # look for and run shell script $PANEL.sh if it exists
 [ -x "/etc/X11/$PANEL.sh" ] && "/etc/X11/$PANEL.sh"
 
