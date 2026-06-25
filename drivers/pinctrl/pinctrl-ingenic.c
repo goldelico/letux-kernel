@@ -70,6 +70,9 @@
 #define X2000_GPIO_SR				0xd0
 #define X2000_GPIO_SMT				0xe0
 
+#define X2600_GPIO_SHADOW_OFFSET		0x800
+#define X2600_GPIO_PAGLD			(X2600_GPIO_SHADOW_OFFSET + 0xf0)
+
 #define REG_SET(x)					((x) + 0x4)
 #define REG_CLEAR(x)				((x) + 0x8)
 
@@ -3768,6 +3771,44 @@ static const struct pinfunction x2600_functions[] = {
 	INGENIC_PIN_FUNCTION("mac", x2600_mac),
 };
 
+static const struct regmap_range x2600_access_ranges[] = {
+	regmap_reg_range(0x0000 + 0x000, 0x0000 + 0x0e8),
+	regmap_reg_range(0x0000 + 0x170, 0x0000 + 0x190),
+	regmap_reg_range(0x0000 + 0x200, 0x0000 + 0x210),
+	regmap_reg_range(0x0000 + 0x814, 0x0000 + 0x8f0),
+	regmap_reg_range(0x0000 + 0x974, 0x0000 + 0x978),
+
+	regmap_reg_range(0x1000 + 0x000, 0x1000 + 0x0e8),
+	regmap_reg_range(0x1000 + 0x170, 0x1000 + 0x190),
+	regmap_reg_range(0x1000 + 0x200, 0x1000 + 0x210),
+	regmap_reg_range(0x1000 + 0x814, 0x1000 + 0x8f0),
+	regmap_reg_range(0x1000 + 0x974, 0x1000 + 0x978),
+
+	regmap_reg_range(0x2000 + 0x000, 0x2000 + 0x0e8),
+	regmap_reg_range(0x2000 + 0x170, 0x2000 + 0x190),
+	regmap_reg_range(0x2000 + 0x200, 0x2000 + 0x210),
+	regmap_reg_range(0x2000 + 0x814, 0x2000 + 0x8f0),
+	regmap_reg_range(0x2000 + 0x974, 0x2000 + 0x978),
+
+	regmap_reg_range(0x3000 + 0x000, 0x3000 + 0x0e8),
+	regmap_reg_range(0x3000 + 0x170, 0x3000 + 0x190),
+	regmap_reg_range(0x3000 + 0x200, 0x3000 + 0x210),
+	regmap_reg_range(0x3000 + 0x814, 0x3000 + 0x8f0),
+	regmap_reg_range(0x3000 + 0x974, 0x3000 + 0x978),
+
+	regmap_reg_range(0x4000 + 0x000, 0x4000 + 0x0e8),
+	regmap_reg_range(0x4000 + 0x100, 0x4000 + 0x118),
+	regmap_reg_range(0x4000 + 0x170, 0x4000 + 0x190),
+	regmap_reg_range(0x4000 + 0x200, 0x4000 + 0x210),
+	regmap_reg_range(0x4000 + 0x814, 0x4000 + 0x8f0),
+	regmap_reg_range(0x4000 + 0x974, 0x4000 + 0x978),
+};
+
+static const struct regmap_access_table x2600_access_table = {
+	.yes_ranges = x2600_access_ranges,
+	.n_yes_ranges = ARRAY_SIZE(x2600_access_ranges),
+};
+
 static const struct ingenic_chip_info x2600_chip_info = {
 	.num_chips = 5,
 	.reg_offset = 0x1000,
@@ -3778,7 +3819,7 @@ static const struct ingenic_chip_info x2600_chip_info = {
 	.num_functions = ARRAY_SIZE(x2600_functions),
 	.pull_ups = x2600_pull_ups,
 	.pull_downs = x2600_pull_downs,
-	.access_table = &x1000_access_table,
+	.access_table = &x2600_access_table,
 };
 
 static u32 ingenic_gpio_read_reg(struct ingenic_gpio_chip *jzgc, u8 reg)
@@ -3815,15 +3856,21 @@ static void ingenic_gpio_shadow_set_bit(struct ingenic_gpio_chip *jzgc,
 	else
 		reg = REG_CLEAR(reg);
 
-	regmap_write(jzgc->jzpc->map, REG_PZ_BASE(
-			jzgc->jzpc->info->reg_offset) + reg, BIT(offset));
+	if (is_soc_or_above(jzgc->jzpc, ID_X2600))
+		regmap_write(jzgc->jzpc->map, jzgc->reg_base + X2600_GPIO_SHADOW_OFFSET + reg, BIT(offset));
+	else
+		regmap_write(jzgc->jzpc->map, REG_PZ_BASE(
+			     jzgc->jzpc->info->reg_offset) + reg, BIT(offset));
 }
 
 static void ingenic_gpio_shadow_set_bit_load(struct ingenic_gpio_chip *jzgc)
 {
-	regmap_write(jzgc->jzpc->map, REG_PZ_GID2LD(
-			jzgc->jzpc->info->reg_offset),
-			jzgc->gc.base / PINS_PER_GPIO_CHIP);
+	if (is_soc_or_above(jzgc->jzpc, ID_X2600))
+		regmap_write(jzgc->jzpc->map, jzgc->reg_base + X2600_GPIO_PAGLD, 1);
+	else
+		regmap_write(jzgc->jzpc->map, REG_PZ_GID2LD(
+			     jzgc->jzpc->info->reg_offset),
+			     jzgc->gc.base / PINS_PER_GPIO_CHIP);
 }
 
 static void jz4730_gpio_set_bits(struct ingenic_gpio_chip *jzgc,
@@ -3905,6 +3952,7 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
+		// NOTE: we could use this feature also for X1600?
 		ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else if (is_soc_or_above(jzgc->jzpc, ID_X1000)) {
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
@@ -4119,16 +4167,34 @@ static inline void ingenic_shadow_config_pin(struct ingenic_pinctrl *jzpc,
 		unsigned int pin, u8 reg, bool set)
 {
 	unsigned int idx = pin % PINS_PER_GPIO_CHIP;
+	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
 
-	regmap_write(jzpc->map, REG_PZ_BASE(jzpc->info->reg_offset) +
-			(set ? REG_SET(reg) : REG_CLEAR(reg)), BIT(idx));
+	if (set)
+		reg = REG_SET(reg);
+	else
+		reg = REG_CLEAR(reg);
+
+	if (is_soc_or_above(jzpc, ID_X2600)) {
+		u32 target_reg = (offt * jzpc->info->reg_offset) + X2600_GPIO_SHADOW_OFFSET + reg;
+		
+		regmap_write(jzpc->map, target_reg, BIT(idx));
+	} else
+		regmap_write(jzpc->map, REG_PZ_BASE(jzpc->info->reg_offset) +
+			     (set ? REG_SET(reg) : REG_CLEAR(reg)), BIT(idx));
 }
 
 static inline void ingenic_shadow_config_pin_load(struct ingenic_pinctrl *jzpc,
 		unsigned int pin)
 {
-	regmap_write(jzpc->map, REG_PZ_GID2LD(jzpc->info->reg_offset),
-			pin / PINS_PER_GPIO_CHIP);
+	unsigned int offt = pin / PINS_PER_GPIO_CHIP;
+
+	if (is_soc_or_above(jzpc, ID_X2600)) {
+		u32 target_load_reg = (offt * jzpc->info->reg_offset) + X2600_GPIO_PAGLD;
+
+		regmap_write(jzpc->map, target_load_reg, 1);
+	} else
+		regmap_write(jzpc->map, REG_PZ_GID2LD(jzpc->info->reg_offset),
+			     pin / PINS_PER_GPIO_CHIP);
 }
 
 static inline void jz4730_config_pin_function(struct ingenic_pinctrl *jzpc,
@@ -4164,6 +4230,13 @@ static int ingenic_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
 	struct ingenic_gpio_chip *jzgc = gpiochip_get_data(gc);
 	struct ingenic_pinctrl *jzpc = jzgc->jzpc;
 	unsigned int pin = gc->base + offset;
+
+	if (is_soc_or_above(jzpc, ID_X2600)) {
+		if (ingenic_get_pin_config(jzpc, pin, JZ4770_GPIO_INT) ||
+		    ingenic_get_pin_config(jzpc, pin, JZ4770_GPIO_PAT1))
+			return GPIO_LINE_DIRECTION_IN;
+		return GPIO_LINE_DIRECTION_OUT;
+	}
 
 	if (is_soc_or_above(jzpc, ID_JZ4770)) {
 		if (ingenic_get_pin_config(jzpc, pin, JZ4770_GPIO_INT) ||
@@ -4316,6 +4389,7 @@ static int ingenic_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 	if (is_soc_or_above(jzpc, ID_X1000)) {
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
 		ingenic_shadow_config_pin(jzpc, pin, GPIO_MSK, true);
+		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT0, false);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, input);
 		ingenic_shadow_config_pin_load(jzpc, pin);
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
