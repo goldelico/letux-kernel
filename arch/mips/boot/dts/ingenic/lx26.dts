@@ -180,12 +180,49 @@
 	bus-width = <4>;
 };
 
-#if 0	// needs a new mechanism to control this
 &pinctrl {
+#if 0	// needs a new mechanism to control this
 	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
 	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_1V8>;
-};
 #endif
+	pins_uart2: uart2 {
+		function = "uart2";
+		groups = "uart2-data";
+		bias-pull-up;
+	};
+
+	pins_uart3: uart3 {
+		function = "uart3";
+		groups = "uart3-data-c" /*, "uart3-hwflow-c" */;
+		bias-pull-up;
+	};
+
+	pins_msc0: msc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit", "mmc0-4bit", "mmc0-8bit";
+		bias-disable;
+	};
+
+	pins_msc1: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-disable;
+	};
+
+	pins_sfc: sfc {
+		function = "mmc2";
+		groups = "mmc2-1bit", "mmc2-4bit";
+		bias-disable;
+	};
+};
+
+&pwm {
+#if PWM_LED
+	status = "okay";
+#else
+	status = "disabled";
+#endif
+};
 
 &sfc {
 	status = "okay";
@@ -225,4 +262,77 @@
 
 &pdma1 {
 	status = "okay";
+};
+
+/ {
+	leds: leds {
+#if PWM_LED	// CHECKME: can the X2600 drive the LED pins by PWM?
+		// No if we use PC4 and PC5
+		// potential alternatives with PWM-capabilities: PB12-19, PC7-14
+		compatible = "pwm-leds";
+
+		led-0 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm0_pc>;
+			linux,default-trigger = "heartbeat";
+			pwms = <&pwm 2 100000>;
+			max-brightness = <255>;
+		};
+
+		led-1 {
+			pinctrl-names = "default";
+			pinctrl-0 = <&pwm1_pc>;
+			linux,default-trigger = "mmc0";
+			pwms = <&pwm 3 100000>;
+			max-brightness = <255>;
+		};
+#else
+		compatible = "gpio-leds";
+
+		led-0 {
+			linux,default-trigger = "heartbeat";
+			gpios = <&gpc 4 GPIO_ACTIVE_HIGH>;
+		};
+
+		led-1 {
+			linux,default-trigger = "mmc0";
+			gpios = <&gpc 5 GPIO_ACTIVE_HIGH>;
+		};
+#endif
+	};
+
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+
+		wakeup {
+			label = "WAKEUP";
+			linux,code = <KEY_WAKEUP>;
+			gpios = <&gpe 31 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+		   };
+
+		bootsel0 {
+			status = "disabled";	// is not independent of bootsel1 and always H
+			label = "bootsel0";
+			linux,code = <KEY_HOME>;
+			gpios = <&gpe 25 GPIO_ACTIVE_HIGH>;
+		   };
+
+#if 0	// something is broken in IRQ priority handling
+		bootsel1 {
+			label = "bootsel1";
+			linux,code = <KEY_BACK>;
+			gpios = <&gpe 26 GPIO_ACTIVE_LOW>;
+		};
+#endif
+
+#if 0	// hard wired and always H
+		bootsel2 {
+			status = "disabled";
+			label = "bootsel2";
+			linux,code = <KEY_ENTER>;
+			gpios = <&gpe 27 GPIO_ACTIVE_HIGH>;
+		   };
+#endif
+	};
 };
