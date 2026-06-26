@@ -2463,6 +2463,8 @@ static int x1600_mac_pins[] = {
 
 static int x1600_sfc_funcs[] = { 0, 0, 0, 0, 0, 0, 2, };
 
+// static int x1600_otg_pins[] = { 0x8a, };
+
 static const struct group_desc x1600_groups[] = {
 	INGENIC_PIN_GROUP("uart0-data", x1600_uart0_data, 0),
 	INGENIC_PIN_GROUP("uart0-hwflow", x1600_uart0_hwflow, 0),
@@ -3514,86 +3516,97 @@ static const struct ingenic_chip_info x2100_chip_info = {
 	.access_table = &x2000_access_table,
 };
 
-// FIXME: review and update for x2600 !!!
-
 static const u32 x2600_pull_ups[5] = {
-	0xffffffff, 0xffffffff, 0x03fbfff, 0x0001ffff, 0xfffffffe,
+	0x000007ff, 0xffffffff, 0x7ffbfff, 0x0000ffff, 0x000ffffe,
 };
 
 static const u32 x2600_pull_downs[5] = {
-	0xffffffff, 0xffffffff, 0x00004000, 0x00010000, 0x00000001,
+	0x000007ff, 0xffffffff, 0x01ffff1, 0x0001e000, 0x000fffff,
 };
 
-/* UART0: PE09 (0x89), PE10 (0x8a) */
-static int x2600_uart0_data_pins[] = { 0x89, 0x8a, };
-/* UART0-Flow: PE11 (0x8b), PE12 (0x8c) */
-static int x2600_uart0_hwflow_pins[] = { 0x8b, 0x8c, };
-
-/* UART1: PB00 (0x20), PB01 (0x21) */
-static int x2600_uart1_data_pins[] = { 0x20, 0x21, };
-/* UART1-Flow: PC04 (0x44), PC05 (0x45) */
-static int x2600_uart1_hwflow_pins[] = { 0x44, 0x45, };
-
-/* UART2: PD13 (0x6d), PD12 (0x6c) */
-static int x2600_uart2_data_pins[] = { 0x6d, 0x6c, };
-
-/* UART3-B: PB23 (0x37), PB22 (0x36) */
-static int x2600_uart3_data_b_pins[] = { 0x37, 0x36, };
-/* UART3-D: PC16 (0x50), PC15 (0x4f) */
-static int x2600_uart3_data_c_pins[] = { 0x50, 0x4f, };
-
-static int x2600_sfc_pins[] = { 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, };
-
-static int x2600_ssio_dt_pins[] = { 0x61, };
-static int x2600_ssio_dr_pins[] = { 0x62, };
-static int x2600_ssio_clk_pins[] = { 0x60, };
-static int x2600_ssio_ce0_pins[] = { 0x65, };
-
-/* SSI1-A (Bank C): PC16 (DT), PC17 (DR), PC15 (CLK), PC18 (CE0) */
-static int x2600_ssi1_dt_a_pins[] = { 0x50, };
-static int x2600_ssi1_dr_a_pins[] = { 0x51, };
-static int x2600_ssi1_clk_a_pins[] = { 0x4f, };
-static int x2600_ssi1_ce0_a_pins[] = { 0x52, };
-
-/* SSI1-B (Bank C): PC26 (DT), PC27 (DR), PC25 (CLK), PC30 (CE0) */
-static int x2600_ssi1_dt_b_pins[] = { 0x5a, };
-static int x2600_ssi1_dr_b_pins[] = { 0x5b, };
-static int x2600_ssi1_clk_b_pins[] = { 0x59, };
-static int x2600_ssi1_ce0_b_pins[] = { 0x5e, };
-
-/* MMC0: PD00 (CLK), PD01 (CMD), PD02 (D0) -> 0x60, 0x61, 0x62 */
-static int x2600_mmc0_1bit_pins[] = { 0x60, 0x61, 0x62, };
-/* MMC0-4bit: PD03 (D1), PD04 (D2), PD05 (D3) -> 0x63, 0x64, 0x65 */
-static int x2600_mmc0_4bit_pins[] = { 0x63, 0x64, 0x65, };
-
-/* MMC1: PC25 (CLK), PC26 (CMD), PC27 (D0) -> 0x59, 0x5a, 0x5b */
-static int x2600_mmc1_1bit_pins[] = { 0x59, 0x5a, 0x5b, };
-/* MMC1-4bit: PC28 (D1), PC29 (D2), PC30 (D3) -> 0x5c, 0x5d, 0x5e */
-static int x2600_mmc1_4bit_pins[] = { 0x5c, 0x5d, 0x5e, };
-
-/* I2C0-A: PC00 (0x40), PC01 (0x41) */
-static int x2600_i2c0_a_pins[] = { 0x40, 0x41, };
-/* I2C0-B: PD04 (0x64), PD03 (0x63) */
-static int x2600_i2c0_b_pins[] = { 0x64, 0x63, };
-
-/* I2C1: PB00 (0x20), PB01 (0x21) */
-static int x2600_i2c1_pins[] = { 0x20, 0x21, };
-
-/* I2C2-A: PB03 (0x23), PB02 (0x22) */
-static int x2600_i2c2_a_pins[] = { 0x23, 0x22, };
-/* I2C2-B: PC19 (0x53), PC20 (0x54) */
-static int x2600_i2c2_b_pins[] = { 0x53, 0x54, };
-
-/* I2S native Master-Pins Bank C: PC15 (BCLK), PC16 (MCLK), PC17 (LRCK), PC18 (DO) */
-static int x2600_i2s_clk_rx_pins[]  = { 0x4f, }; /* PC15 */
-static int x2600_i2s_sysclk_pins[]  = { 0x50, }; /* PC16 */
-static int x2600_i2s_clk_tx_pins[]  = { 0x51, }; /* PC17 */
-static int x2600_i2s_data_tx_pins[] = { 0x52, }; /* PC18 */
+static int x2600_can0_pins[] = { 0x47, 0x48, };
+static int x2600_can1_pins[] = { 0x49, 0x4a, };
 
 static int x2600_cim_pins[] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 	0x08, 0x09, 0x0a, 0x0b,
 };
+
+static int x2600_clk_pins[] = { 0x82, };
+
+static int x2600_dmic_pins[] = { 0x44, 0x45, 0x46, };
+
+static int x2600_i2c0_c_pins[] = { 0x40, 0x41, };
+static int x2600_i2c0_d_pins[] = { 0x64, 0x63, };
+
+static int x2600_i2c1_b_pins[] = { 0x20, 0x21, };
+static int x2600_i2c1_c_pins[] = { 0x42, 0x43, };
+
+static int x2600_i2c2_b_pins[] = { 0x23, 0x22, };
+static int x2600_i2c2_c_pins[] = { 0x53, 0x54, };
+static int x2600_i2c3_c_pins[] = { 0x55, 0x56, };
+static int x2600_i2c3_e_pins[] = { 0x85, 0x86, };
+
+static int x2600_i2s_clk_rx_pins[]  = { 0x4f, }; /* PC15 */
+static int x2600_i2s_sysclk_pins[]  = { 0x50, }; /* PC16 */
+static int x2600_i2s_clk_tx_pins[]  = { 0x51, }; /* PC17 */
+static int x2600_i2s_data_tx_pins[] = { 0x52, 0x53, }; /* PC18, PC19 */
+
+static int x2600_lcd_16bit_pins[] = {
+	0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
+	0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33,
+};
+
+static int x2600_lcd_18bit_pins[] = { 0x34, 0x35, };
+
+static int x2600_lcd_24bit_pins[] = {
+	0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b,
+};
+
+static int x2600_lcd_sync_pins[] = { 0x3c, 0x3d, 0x3e, 0x3f, };
+
+static int x2600_lcd_none_pins[] = { };
+
+static int x2600_mac_pins[] = {
+	0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
+};
+
+static int x2600_msc0_1bit_pins[] = { 0x60, 0x61, 0x62, };
+static int x2600_msc0_4bit_pins[] = { 0x63, 0x64, 0x65, };
+static int x2600_msc0_8bit_pins[] = { 0x81, 0x82, 0x83, 0x84, };
+
+static int x2600_msc1_1bit_c_pins[] = { 0x59, 0x5a, 0x5b, };
+static int x2600_msc1_4bit_c_pins[] = { 0x5c, 0x5d, 0x5e, };
+
+static int x2600_msc1_1bit_d_pins[] = { 0x66, 0x67, 0x68, };
+static int x2600_msc1_4bit_d_pins[] = { 0x69, 0x6a, 0x6b, };
+
+static int x2600_otg_pins[] = { 0x81, };
+
+static int x2600_pcm_pins[] = { 0x40, 0x41, 0x42, 0x43, }; /* PC0-PC3 (Func3) */
+
+static int x2600_pwm0_pins[] = { 0x2c, }; /* PB12 (Func2) */
+static int x2600_pwm1_pins[] = { 0x2d, }; /* PB13 (Func2) */
+static int x2600_pwm2_pins[] = { 0x2e, }; /* PB14 (Func2) */
+static int x2600_pwm3_pins[] = { 0x2f, }; /* PB15 (Func2) */
+static int x2600_pwm4_pins[] = { 0x30, }; /* PB16 (Func2) */
+static int x2600_pwm5_pins[] = { 0x31, }; /* PB17 (Func2) */
+static int x2600_pwm6_pins[] = { 0x32, }; /* PB18 (Func2) */
+static int x2600_pwm7_pins[] = { 0x33, }; /* PB19 (Func2) */
+static int x2600_pwm8_pins[] = { 0x47, };  /* PC07 (Func0) */
+static int x2600_pwm9_pins[] = { 0x48, };  /* PC08 (Func0) */
+static int x2600_pwm10_c_pins[] = { 0x49, }; /* PC09 (Func0) */
+static int x2600_pwm10_e_pins[] = { 0x82, }; /* PE02 (Func2) */
+static int x2600_pwm11_pins[] = { 0x4a, }; /* PC10 (Func0) */
+static int x2600_pwm12_pins[] = { 0x4b, }; /* PC11 (Func0) */
+static int x2600_pwm13_pins[] = { 0x4c, }; /* PC12 (Func0) */
+static int x2600_pwm14_pins[] = { 0x4d, }; /* PC13 (Func0) */
+static int x2600_pwm15_pins[] = { 0x4e, }; /* PC14 (Func0) */
+static int x2600_pwm_trig_c_pins[] = { 0x54, }; /* PC20 (Func1) */
+static int x2600_pwm_trig_d_pins[] = { 0x6c, }; /* PD12 (Func1) */
+
+static int x2600_sfc_d0_pins[] = { 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, };
+static int x2600_sfc_d6_pins[] = { 0x66, 0x67, 0x68, 0x69, 0x6a, 0x6b, };
 
 static int x2600_slcd_8bit_pins[] = {
 	0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
@@ -3603,137 +3616,260 @@ static int x2600_slcd_16bit_pins[] = {
 	0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33,
 };
 
-static int x2600_lcd_16bit_pins[] = {
-	0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
-	0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33,
-	0x3c, 0x3d, 0x3e, 0x3f,
+static int x2600_slcd_ctrl_pins[] = {
+	0x34, 0x3c, 0x3d, 0x3e, 0x3f,
 };
 
-static int x2600_lcd_18bit_pins[] = {
-	0x10, 0x11,
-};
+static int x2600_ssi0_dt_b_pins[] = { 0x22, };
+static int x2600_ssi0_dr_b_pins[] = { 0x21, };
+static int x2600_ssi0_clk_b_pins[] = { 0x23, };
+static int x2600_ssi0_ce0_b_pins[] = { 0x20, };
 
-static int x2600_lcd_24bit_pins[] = {
-	0x34, 0x35, 0x36, 0x37, 0x38, 0x39,
-};
+static int x2600_ssi0_dt_d_pins[] = { 0x61, };
+static int x2600_ssi0_dr_d_pins[] = { 0x62, };
+static int x2600_ssi0_clk_d_pins[] = { 0x60, };
+static int x2600_ssi0_ce0_d_pins[] = { 0x65, };
 
-static int x2600_pwm_pwm0_pins[] = { 0x2c, }; /* PB12 (Func2) */
-static int x2600_pwm_pwm1_pins[] = { 0x2d, }; /* PB13 (Func2) */
-static int x2600_pwm_pwm2_pins[] = { 0x2e, }; /* PB14 (Func2) */
-static int x2600_pwm_pwm3_pins[] = { 0x2f, }; /* PB15 (Func2) */
-static int x2600_pwm_pwm4_pins[] = { 0x30, }; /* PB16 (Func2) */
-static int x2600_pwm_pwm8_pins[] = { 0x47, };  /* PC07 (Func0) */
-static int x2600_pwm_pwm9_pins[] = { 0x48, };  /* PC08 (Func0) */
-static int x2600_pwm_pwm10_pins[] = { 0x49, }; /* PC09 (Func0) */
+static int x2600_ssi1_dt_c15_pins[] = { 0x50, };
+static int x2600_ssi1_dr_c15_pins[] = { 0x51, };
+static int x2600_ssi1_clk_c15_pins[] = { 0x4f, };
+static int x2600_ssi1_ce0_c15_pins[] = { 0x52, };
 
-static int x2600_mac_pins[] = {
-	0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58,
-};
+static int x2600_ssi1_dt_c25_pins[] = { 0x5a, };
+static int x2600_ssi1_dr_c25_pins[] = { 0x5b, };
+static int x2600_ssi1_clk_c25_pins[] = { 0x59, };
+static int x2600_ssi1_ce0_c25_pins[] = { 0x5e, };
 
-static int x2600_uart2_funcs[] = { 0, 1, }; /* PD13=Func0, PD12=Func1 */
+static int x2600_ssi1_dt_d_pins[] = { 0x5a, };
+static int x2600_ssi1_dr_d_pins[] = { 0x5b, };
+static int x2600_ssi1_clk_d_pins[] = { 0x59, };
+static int x2600_ssi1_ce0_d_pins[] = { 0x5e, };
+
+static int x2600_ssi_slv_dt_pins[] = { 0x3d, }; /* PB29 (Func2) */
+static int x2600_ssi_slv_dr_pins[] = { 0x3e, }; /* PB30 (Func2) */
+static int x2600_ssi_slv_clk_pins[] = { 0x3c, }; /* PB28 (Func2) */
+static int x2600_ssi_slv_ce0_pins[] = { 0x3f, }; /* PB31 (Func2) */
+
+static int x2600_tcu0_in0_pins[] = { 0x34, }; /* PB20 (Func2) */
+static int x2600_tcu0_in1_pins[] = { 0x35, }; /* PB21 (Func2) */
+static int x2600_tcu1_in0_pins[] = { 0x36, }; /* PB22 (Func2) */
+static int x2600_tcu1_in1_pins[] = { 0x37, }; /* PB23 (Func2) */
+static int x2600_tcu2_in0_pins[] = { 0x38, }; /* PB24 (Func2) */
+static int x2600_tcu2_in1_pins[] = { 0x39, }; /* PB25 (Func2) */
+static int x2600_tcu3_in0_pins[] = { 0x3a, }; /* PB26 (Func2) */
+static int x2600_tcu3_in1_pins[] = { 0x3b, }; /* PB27 (Func2) */
+
+static int x2600_tcu4_in0_pins[] = { 0x47, }; /* PC07 (Func1) */
+static int x2600_tcu4_in1_pins[] = { 0x48, }; /* PC08 (Func2) */
+static int x2600_tcu5_in0_pins[] = { 0x49, }; /* PC09 (Func2) */
+static int x2600_tcu5_in1_pins[] = { 0x4a, }; /* PC10 (Func2) */
+static int x2600_tcu6_in0_pins[] = { 0x4b, }; /* PC11 (Func2) */
+static int x2600_tcu6_in1_pins[] = { 0x4c, }; /* PC12 (Func2) */
+static int x2600_tcu7_in0_pins[] = { 0x4d, }; /* PC13 (Func2) */
+static int x2600_tcu7_in1_pins[] = { 0x4e, }; /* PC14 (Func2) */
+
+static int x2600_uart0_data_c_pins[] = { 0x57, 0x58, };
+static int x2600_uart0_hwflow_c_pins[] = { 0x55, 0x56, };
+static int x2600_uart0_data_e_pins[] = { 0x89, 0x8a, };
+static int x2600_uart0_hwflow_e_pins[] = { 0x8b, 0x8c, };
+
+static int x2600_uart1_data_b_pins[] = { 0x20, 0x21, };
+static int x2600_uart1_data_c_pins[] = { 0x42, 0x43, };
+static int x2600_uart1_hwflow_pins[] = { 0x44, 0x45, };
+
+static int x2600_uart2_data_pins[] = { 0x6d, 0x6c, };
+
+static int x2600_uart3_data_b_pins[] = { 0x37, 0x36, };
+static int x2600_uart3_data_c_pins[] = { 0x50, 0x4f, };
+
+static int x2600_uart4_data_b_pins[] = { 0x38, 0x39, };
+static int x2600_uart4_data_c_pins[] = { 0x51, 0x52, };
+static int x2600_uart5_data_b_pins[] = { 0x3a, 0x3b, };
+static int x2600_uart5_data_c_pins[] = { 0x47, 0x48, };
+static int x2600_uart6_data_c_pins[] = { 0x40, 0x41, };
+static int x2600_uart7_data_c_pins[] = { 0x44, 0x45, };
+static int x2600_uart7_data_e_pins[] = { 0x83, 0x84, };
+
+static int x2600_wait_pins[] = { 0x6b, };
 
 static const struct group_desc x2600_groups[] = {
-	/* UARTs */
-	INGENIC_PIN_GROUP("uart0-data", x2600_uart0_data, 1),
-	INGENIC_PIN_GROUP("uart0-hwflow", x2600_uart0_hwflow, 1),
-	INGENIC_PIN_GROUP("uart1-data", x2600_uart1_data, 1),
-	INGENIC_PIN_GROUP("uart1-hwflow", x2600_uart1_hwflow, 2),
-	INGENIC_PIN_GROUP_FUNCS("uart2-data", x2600_uart2_data, x2600_uart2_funcs),
-	INGENIC_PIN_GROUP("uart3-data-b", x2600_uart3_data_b, 1),
-	INGENIC_PIN_GROUP("uart3-data-c", x2600_uart3_data_c, 3),
+	/* CAN (Controller Area Network) */
+	INGENIC_PIN_GROUP("can0-data", x2600_can0, 2),
+	INGENIC_PIN_GROUP("can1-data", x2600_can1, 2),
 
-	/* SFC (Serial Flash Controller) */
-	INGENIC_PIN_GROUP("sfc", x2600_sfc, 1),
+	/* CIM (Camera) */
+	INGENIC_PIN_GROUP("cim-data", x2600_cim, 0),
 
-	/* SSIs (SPI) */
-	INGENIC_PIN_GROUP("ssi0-dt", x2600_ssio_dt, 2),
-	INGENIC_PIN_GROUP("ssi0-dr", x2600_ssio_dr, 2),
-	INGENIC_PIN_GROUP("ssi0-clk", x2600_ssio_clk, 2),
-	INGENIC_PIN_GROUP("ssi0-ce0", x2600_ssio_ce0, 2),
-	INGENIC_PIN_GROUP("ssi1-dt-a", x2600_ssi1_dt_a, 2),
-	INGENIC_PIN_GROUP("ssi1-dr-a", x2600_ssi1_dr_a, 2),
-	INGENIC_PIN_GROUP("ssi1-clk-a", x2600_ssi1_clk_a, 2),
-	INGENIC_PIN_GROUP("ssi1-ce0-a", x2600_ssi1_ce0_a, 2),
-	INGENIC_PIN_GROUP("ssi1-dt-b", x2600_ssi1_dt_b, 1),
-	INGENIC_PIN_GROUP("ssi1-dr-b", x2600_ssi1_dr_b, 1),
-	INGENIC_PIN_GROUP("ssi1-clk-b", x2600_ssi1_clk_b, 1),
-	INGENIC_PIN_GROUP("ssi1-ce0-b", x2600_ssi1_ce0_b, 1),
+	/* EXCLK (externel clock output) */
+	INGENIC_PIN_GROUP("ex-clk", x2600_clk, 1),
 
-	/* MMCs (MSC) */
-	INGENIC_PIN_GROUP("mmc0-1bit", x2600_mmc0_1bit, 0),
-	INGENIC_PIN_GROUP("mmc0-4bit", x2600_mmc0_4bit, 0),
-	INGENIC_PIN_GROUP("mmc1-1bit", x2600_mmc1_1bit, 0),
-	INGENIC_PIN_GROUP("mmc1-4bit", x2600_mmc1_4bit, 0),
+	/* DMIC */
+	INGENIC_PIN_GROUP("dmic-data", x2600_dmic, 0),
 
 	/* I2Cs */
-	INGENIC_PIN_GROUP("i2c0-data-a", x2600_i2c0_a, 1),
-	INGENIC_PIN_GROUP("i2c0-data-b", x2600_i2c0_b, 2),
-	INGENIC_PIN_GROUP("i2c1-data", x2600_i2c1, 3),
-	INGENIC_PIN_GROUP("i2c2-data-a", x2600_i2c2_a, 3),
-	INGENIC_PIN_GROUP("i2c2-data-b", x2600_i2c2_b, 2),
+	INGENIC_PIN_GROUP("i2c0-data-c", x2600_i2c0_c, 1),
+	INGENIC_PIN_GROUP("i2c0-data-d", x2600_i2c0_d, 2),
+	INGENIC_PIN_GROUP("i2c1-data-b", x2600_i2c1_b, 3),
+	INGENIC_PIN_GROUP("i2c1-data-c", x2600_i2c1_c, 1),
+	INGENIC_PIN_GROUP("i2c2-data-b", x2600_i2c2_b, 3),
+	INGENIC_PIN_GROUP("i2c2-data-c", x2600_i2c2_c, 2),
+	INGENIC_PIN_GROUP("i2c3-data-c", x2600_i2c3_c, 2),
+	INGENIC_PIN_GROUP("i2c3-data-e", x2600_i2c3_e, 1),
 
 	/* I2S (Audio) */
 	INGENIC_PIN_GROUP("i2s-clk-rx", x2600_i2s_clk_rx, 1),
 	INGENIC_PIN_GROUP("i2s-sysclk", x2600_i2s_sysclk, 1),
 	INGENIC_PIN_GROUP("i2s-clk-tx", x2600_i2s_clk_tx, 1),
 	INGENIC_PIN_GROUP("i2s-data-tx", x2600_i2s_data_tx, 1),
-
-	/* CIM (Camera) */
-	INGENIC_PIN_GROUP("cim-data", x2600_cim, 0),
+	INGENIC_PIN_GROUP("i2s-data-rx", x2600_i2s_sysclk, 1),
+	INGENIC_PIN_GROUP("pcm", x2600_pcm, 3),
 
 	/* LCD & SLCD */
-	INGENIC_PIN_GROUP("slcd-8bit", x2600_slcd_8bit, 0),
-	INGENIC_PIN_GROUP("slcd-16bit", x2600_slcd_16bit, 0),
 	INGENIC_PIN_GROUP("lcd-16bit", x2600_lcd_16bit, 0),
+	INGENIC_PIN_GROUP("lcd-18bit", x2600_lcd_18bit, 0),
 	INGENIC_PIN_GROUP("lcd-24bit", x2600_lcd_24bit, 0),
-
-	/* PWMs */
-	INGENIC_PIN_GROUP("pwm0", x2600_pwm_pwm0, 2),
-	INGENIC_PIN_GROUP("pwm1", x2600_pwm_pwm1, 2),
-	INGENIC_PIN_GROUP("pwm2", x2600_pwm_pwm2, 2),
-	INGENIC_PIN_GROUP("pwm3", x2600_pwm_pwm3, 2),
-	INGENIC_PIN_GROUP("pwm4", x2600_pwm_pwm4, 2),
-	INGENIC_PIN_GROUP("pwm8", x2600_pwm_pwm8, 0),
-	INGENIC_PIN_GROUP("pwm9", x2600_pwm_pwm9, 0),
-	INGENIC_PIN_GROUP("pwm10", x2600_pwm_pwm10, 0),
+	INGENIC_PIN_GROUP("lcd-sync", x2600_lcd_sync, 0),
+	INGENIC_PIN_GROUP("lcd-none", x2600_lcd_none, 1),
+	INGENIC_PIN_GROUP("slcd-8bit", x2600_slcd_8bit, 1),
+	INGENIC_PIN_GROUP("slcd-16bit", x2600_slcd_16bit, 1),
+	INGENIC_PIN_GROUP("slcd-ctrl", x2600_slcd_ctrl, 1),
 
 	/* MAC (Ethernet) */
 	INGENIC_PIN_GROUP("mac", x2600_mac, 0),
+
+	/* MMCs (MSC) */
+	INGENIC_PIN_GROUP("mmc0-1bit", x2600_msc0_1bit, 0),
+	INGENIC_PIN_GROUP("mmc0-4bit", x2600_msc0_4bit, 0),
+	INGENIC_PIN_GROUP("mmc0-8bit", x2600_msc0_8bit, 0),
+	INGENIC_PIN_GROUP("mmc1-1bit_c", x2600_msc1_1bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-4bit_c", x2600_msc1_4bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-1bit_d", x2600_msc1_1bit_d, 1),
+	INGENIC_PIN_GROUP("mmc1-4bit_d", x2600_msc1_4bit_d, 1),
+
+	/* OTG (Vbus driver) */
+	INGENIC_PIN_GROUP("otg-vbus", x2600_otg, 1),
+
+	/* PWMs */
+	INGENIC_PIN_GROUP("pwm0", x2600_pwm0, 2),
+	INGENIC_PIN_GROUP("pwm1", x2600_pwm1, 2),
+	INGENIC_PIN_GROUP("pwm2", x2600_pwm2, 2),
+	INGENIC_PIN_GROUP("pwm3", x2600_pwm3, 2),
+	INGENIC_PIN_GROUP("pwm4", x2600_pwm4, 2),
+	INGENIC_PIN_GROUP("pwm5", x2600_pwm5, 2),
+	INGENIC_PIN_GROUP("pwm6", x2600_pwm6, 2),
+	INGENIC_PIN_GROUP("pwm7", x2600_pwm7, 2),
+	INGENIC_PIN_GROUP("pwm8", x2600_pwm8, 0),
+	INGENIC_PIN_GROUP("pwm9", x2600_pwm9, 0),
+	INGENIC_PIN_GROUP("pwm10-c", x2600_pwm10_c, 0),
+	INGENIC_PIN_GROUP("pwm10-e", x2600_pwm10_e, 2),
+	INGENIC_PIN_GROUP("pwm11", x2600_pwm11, 0),
+	INGENIC_PIN_GROUP("pwm12", x2600_pwm12, 0),
+	INGENIC_PIN_GROUP("pwm13", x2600_pwm13, 0),
+	INGENIC_PIN_GROUP("pwm14", x2600_pwm14, 0),
+	INGENIC_PIN_GROUP("pwm15", x2600_pwm15, 0),
+	INGENIC_PIN_GROUP("pwm-trig-c", x2600_pwm_trig_c, 1),
+	INGENIC_PIN_GROUP("pwm-trig-d", x2600_pwm_trig_d, 1),
+
+	/* SFC (Serial Flash Controller) */
+	INGENIC_PIN_GROUP("sfc", x2600_sfc_d0, 1),
+	INGENIC_PIN_GROUP("sfc", x2600_sfc_d6, 0),
+
+	/* SSIs (SPI) */
+	INGENIC_PIN_GROUP("ssi0-dt-b", x2600_ssi0_dt_b, 0),
+	INGENIC_PIN_GROUP("ssi0-dr-b", x2600_ssi0_dr_b, 0),
+	INGENIC_PIN_GROUP("ssi0-clk-b", x2600_ssi0_clk_b, 0),
+	INGENIC_PIN_GROUP("ssi0-ce0-b", x2600_ssi0_ce0_b, 0),
+	INGENIC_PIN_GROUP("ssi0-dt-d", x2600_ssi0_dt_d, 2),
+	INGENIC_PIN_GROUP("ssi0-dr-d", x2600_ssi0_dr_d, 2),
+	INGENIC_PIN_GROUP("ssi0-clk-d", x2600_ssi0_clk_d, 2),
+	INGENIC_PIN_GROUP("ssi0-ce0-d", x2600_ssi0_ce0_d, 2),
+	INGENIC_PIN_GROUP("ssi1-dt-c15", x2600_ssi1_dt_c15, 2),
+	INGENIC_PIN_GROUP("ssi1-dr-c15", x2600_ssi1_dr_c15, 2),
+	INGENIC_PIN_GROUP("ssi1-clk-c15", x2600_ssi1_clk_c15, 2),
+	INGENIC_PIN_GROUP("ssi1-ce0-c15", x2600_ssi1_ce0_c15, 2),
+	INGENIC_PIN_GROUP("ssi1-dt-c25", x2600_ssi1_dt_c25, 1),
+	INGENIC_PIN_GROUP("ssi1-dr-c25", x2600_ssi1_dr_c25, 1),
+	INGENIC_PIN_GROUP("ssi1-clk-c25", x2600_ssi1_clk_c25, 1),
+	INGENIC_PIN_GROUP("ssi1-ce0-c25", x2600_ssi1_ce0_c25, 1),
+	INGENIC_PIN_GROUP("ssi1-dt-d", x2600_ssi1_dt_d, 2),
+	INGENIC_PIN_GROUP("ssi1-dr-d", x2600_ssi1_dr_d, 2),
+	INGENIC_PIN_GROUP("ssi1-clk-d", x2600_ssi1_clk_d, 2),
+	INGENIC_PIN_GROUP("ssi1-ce0-d", x2600_ssi1_ce0_d, 2),
+	INGENIC_PIN_GROUP("ssi-slv-dt-b", x2600_ssi_slv_dt, 2),
+	INGENIC_PIN_GROUP("ssi-slv-dr-b", x2600_ssi_slv_dr, 2),
+	INGENIC_PIN_GROUP("ssi-slv-clk-b", x2600_ssi_slv_clk, 2),
+	INGENIC_PIN_GROUP("ssi-slv-ce0-b", x2600_ssi_slv_ce0, 2),
+
+	/* TCU (Timer & Counter Units) */
+	INGENIC_PIN_GROUP("tcu0_in0", x2600_tcu0_in0, 2),
+	INGENIC_PIN_GROUP("tcu0_in1", x2600_tcu0_in1, 2),
+	INGENIC_PIN_GROUP("tcu1_in0", x2600_tcu1_in0, 2),
+	INGENIC_PIN_GROUP("tcu1_in1", x2600_tcu1_in1, 2),
+	INGENIC_PIN_GROUP("tcu2_in0", x2600_tcu2_in0, 2),
+	INGENIC_PIN_GROUP("tcu2_in1", x2600_tcu2_in1, 2),
+	INGENIC_PIN_GROUP("tcu3_in0", x2600_tcu3_in0, 2),
+	INGENIC_PIN_GROUP("tcu3_in1", x2600_tcu3_in1, 2),
+	INGENIC_PIN_GROUP("tcu4_in0", x2600_tcu4_in0, 1),
+	INGENIC_PIN_GROUP("tcu4_in1", x2600_tcu4_in1, 1),
+	INGENIC_PIN_GROUP("tcu5_in0", x2600_tcu5_in0, 1),
+	INGENIC_PIN_GROUP("tcu5_in1", x2600_tcu5_in1, 1),
+	INGENIC_PIN_GROUP("tcu6_in0", x2600_tcu6_in0, 1),
+	INGENIC_PIN_GROUP("tcu6_in1", x2600_tcu6_in1, 1),
+	INGENIC_PIN_GROUP("tcu7_in0", x2600_tcu7_in0, 1),
+	INGENIC_PIN_GROUP("tcu7_in1", x2600_tcu7_in1, 1),
+
+	/* UARTs */
+	INGENIC_PIN_GROUP("uart0-data-c", x2600_uart0_data_c, 1),
+	INGENIC_PIN_GROUP("uart0-hwflow-c", x2600_uart0_hwflow_c, 1),
+	INGENIC_PIN_GROUP("uart0-data-e", x2600_uart0_data_e, 1),
+	INGENIC_PIN_GROUP("uart0-hwflow-e", x2600_uart0_hwflow_e, 1),
+	INGENIC_PIN_GROUP("uart1-data-b", x2600_uart1_data_b, 1),
+	INGENIC_PIN_GROUP("uart1-data-c", x2600_uart1_data_c, 1),
+	INGENIC_PIN_GROUP("uart1-hwflow", x2600_uart1_hwflow, 2),
+	INGENIC_PIN_GROUP("uart2-data", x2600_uart2_data, 1),
+	INGENIC_PIN_GROUP("uart2-hwflow", x2600_uart2_data, 2),
+	INGENIC_PIN_GROUP("uart3-data-b", x2600_uart3_data_b, 1),
+	INGENIC_PIN_GROUP("uart3-data-c", x2600_uart3_data_c, 3),
+	INGENIC_PIN_GROUP("uart4-data-b", x2600_uart4_data_b, 2),
+	INGENIC_PIN_GROUP("uart4-data-c", x2600_uart4_data_c, 3),
+	INGENIC_PIN_GROUP("uart5-data-b", x2600_uart5_data_b, 2),
+	INGENIC_PIN_GROUP("uart5-data-c", x2600_uart5_data_c, 3),
+	INGENIC_PIN_GROUP("uart6-data-c", x2600_uart6_data_c, 2),
+	INGENIC_PIN_GROUP("uart7-data-c", x2600_uart7_data_c, 1),
+	INGENIC_PIN_GROUP("uart7-data-e", x2600_uart7_data_e, 1),
+
+	/* WAIT */
+	INGENIC_PIN_GROUP("wait", x2600_wait, 3),
 };
 
-static const char * const x2600_uart0_groups[] = { "uart0-data", "uart0-hwflow", };
-static const char * const x2600_uart1_groups[] = { "uart1-data", "uart1-hwflow", };
-static const char * const x2600_uart2_groups[] = { "uart2-data-a", "uart2-data-b", };
-static const char * const x2600_uart3_groups[] = { "uart3-data-b", "uart3-data-d", };
+static const char * const x2600_cim_groups[] = { "cim-data", };
 
-static const char * const x2600_sfc_groups[] = { "sfc", };
+static const char * const x2600_clk_groups[] = { "ex-clk", };
 
-static const char * const x2600_ssi_groups[] = {
-	"ssi-dt-a", "ssi-dt-b",
-	"ssi-dr-a", "ssi-dr-b",
-	"ssi-clk-a", "ssi-clk-b",
-	"ssi-ce0-a", "ssi-ce0-b",
-	"ssi-ce1-a", "ssi-ce1-b",
+static const char * const x2600_dmic_groups[] = { "dmic-data", };
+
+static const char * const x2600_lcd_groups[] = { "lcd-16bit", "lcd-18bit",
+	"lcd-24bit", "lcd-sync-pins", "lcd-no-pins",
 };
 
-static const char * const x2600_mmc0_groups[] = { "mmc0-1bit-b", "mmc0-4bit-b",
-	"mmc0-1bit-c", "mmc0-4bit-c",
-};
-
-static const char * const x2600_mmc1_groups[] = { "mmc1-1bit", "mmc1-4bit", };
-
-static const char * const x2600_i2c0_groups[] = { "i2c0-data-a", "i2c0-data-b", };
-static const char * const x2600_i2c1_groups[] = { "i2c1-data-b-15", "i2c1-data-b-19", };
+static const char * const x2600_i2c0_groups[] = { "i2c0-data-c", "i2c0-data-d", };
+static const char * const x2600_i2c1_groups[] = { "i2c1-data-b", "i2c1-data-c", };
+static const char * const x2600_i2c2_groups[] = { "i2c2-data-b", "i2c2-data-c", };
+static const char * const x2600_i2c3_groups[] = { "i2c3-data-c", "i2c3-data-e", };
 
 static const char * const x2600_i2s_groups[] = {
 	"i2s-data-tx", "i2s-data-rx", "i2s-clk-rx", "i2s-clk-tx", "i2s-sysclk",
 };
 
-static const char * const x2600_cim_groups[] = { "cim-data", };
+static const char * const x2600_mac_groups[] = { "mac", };
 
-static const char * const x2600_lcd_groups[] = { "slcd-8bit", "slcd-16bit",
-	"lcd-16bit", "lcd-18bit", "lcd-24bit", "lcd-no-pins",
+static const char * const x2600_msc0_groups[] = { "mmc0-1bit", "mmc0-4bit",
+	"mmc0-1bit-c", "mmc0-4bit-c",
 };
+
+static const char * const x2600_msc1_groups[] = { "mmc1-1bit", "mmc1-4bit", };
+
+static const char * const x2600_otg_groups[] = { "otg-vbus", };
 
 static const char * const x2600_pwm0_groups[] = { "pwm0", };
 static const char * const x2600_pwm1_groups[] = { "pwm1", };
@@ -3743,23 +3879,45 @@ static const char * const x2600_pwm4_groups[] = { "pwm4", };
 static const char * const x2600_pwm5_groups[] = { "pwm5-b", "pwm5-c", };
 static const char * const x2600_pwm6_groups[] = { "pwm6-b9", "pwm6-b20", };
 static const char * const x2600_pwm7_groups[] = { "pwm7-b10", "pwm7-b21", };
+static const char * const x2600_pwm8_groups[] = { "pwm8", };
+static const char * const x2600_pwm9_groups[] = { "pwm9", };
+static const char * const x2600_pwm10_groups[] = { "pwm10-c", "pwm10-e", };
 
-static const char * const x2600_mac_groups[] = { "mac", };
+static const char * const x2600_sfc_groups[] = { "sfc", };
+
+static const char * const x2600_slcd_groups[] = { "slcd-8bit", "slcd-16bit",
+	"slcd-ctrl-pins",
+};
+
+static const char * const x2600_ssi_groups[] = {
+	"ssi-dt-a", "ssi-dt-b",
+	"ssi-dr-a", "ssi-dr-b",
+	"ssi-clk-a", "ssi-clk-b",
+	"ssi-ce0-a", "ssi-ce0-b",
+	"ssi-ce1-a", "ssi-ce1-b",
+};
+
+static const char * const x2600_uart0_groups[] = { "uart0-data", "uart0-hwflow", };
+static const char * const x2600_uart1_groups[] = { "uart1-data", "uart1-hwflow", };
+static const char * const x2600_uart2_groups[] = { "uart2-data", };
+static const char * const x2600_uart3_groups[] = { "uart3-data-b", "uart3-data-c", };
+static const char * const x2600_uart4_groups[] = { "uart4-data", };
+static const char * const x2600_uart5_groups[] = { "uart5-data", };
+static const char * const x2600_uart6_groups[] = { "uart6-data", };
+static const char * const x2600_uart7_groups[] = { "uart7-data-c", "uart7-data-e", };
 
 static const struct pinfunction x2600_functions[] = {
-	INGENIC_PIN_FUNCTION("uart0", x2600_uart0),
-	INGENIC_PIN_FUNCTION("uart1", x2600_uart1),
-	INGENIC_PIN_FUNCTION("uart2", x2600_uart2),
-	INGENIC_PIN_FUNCTION("uart3", x2600_uart3),
-	INGENIC_PIN_FUNCTION("sfc", x2600_sfc),
-	INGENIC_PIN_FUNCTION("ssi", x2600_ssi),
-	INGENIC_PIN_FUNCTION("mmc0", x2600_mmc0),
-	INGENIC_PIN_FUNCTION("mmc1", x2600_mmc1),
+	INGENIC_PIN_FUNCTION("cim", x2600_cim),
+	INGENIC_PIN_FUNCTION("exclk", x2600_clk),
+	INGENIC_PIN_FUNCTION("dmic", x2600_dmic),
 	INGENIC_PIN_FUNCTION("i2c0", x2600_i2c0),
 	INGENIC_PIN_FUNCTION("i2c1", x2600_i2c1),
 	INGENIC_PIN_FUNCTION("i2s", x2600_i2s),
-	INGENIC_PIN_FUNCTION("cim", x2600_cim),
 	INGENIC_PIN_FUNCTION("lcd", x2600_lcd),
+	INGENIC_PIN_FUNCTION("mac", x2600_mac),
+	INGENIC_PIN_FUNCTION("mmc0", x2600_msc0),
+	INGENIC_PIN_FUNCTION("mmc1", x2600_msc1),
+	INGENIC_PIN_FUNCTION("otg", x2600_otg),
 	INGENIC_PIN_FUNCTION("pwm0", x2600_pwm0),
 	INGENIC_PIN_FUNCTION("pwm1", x2600_pwm1),
 	INGENIC_PIN_FUNCTION("pwm2", x2600_pwm2),
@@ -3768,7 +3926,21 @@ static const struct pinfunction x2600_functions[] = {
 	INGENIC_PIN_FUNCTION("pwm5", x2600_pwm5),
 	INGENIC_PIN_FUNCTION("pwm6", x2600_pwm6),
 	INGENIC_PIN_FUNCTION("pwm7", x2600_pwm7),
-	INGENIC_PIN_FUNCTION("mac", x2600_mac),
+	INGENIC_PIN_FUNCTION("pwm8", x2600_pwm8),
+	INGENIC_PIN_FUNCTION("pwm9", x2600_pwm9),
+	INGENIC_PIN_FUNCTION("pwm10", x2600_pwm10),
+	INGENIC_PIN_FUNCTION("sfc", x2600_sfc),
+	INGENIC_PIN_FUNCTION("slcd", x2600_slcd),
+	INGENIC_PIN_FUNCTION("ssi", x2600_ssi),
+// tcu?
+	INGENIC_PIN_FUNCTION("uart0", x2600_uart0),
+	INGENIC_PIN_FUNCTION("uart1", x2600_uart1),
+	INGENIC_PIN_FUNCTION("uart2", x2600_uart2),
+	INGENIC_PIN_FUNCTION("uart3", x2600_uart3),
+	INGENIC_PIN_FUNCTION("uart4", x2600_uart4),
+	INGENIC_PIN_FUNCTION("uart5", x2600_uart5),
+	INGENIC_PIN_FUNCTION("uart6", x2600_uart6),
+	INGENIC_PIN_FUNCTION("uart7", x2600_uart7),
 };
 
 static const struct regmap_range x2600_access_ranges[] = {
