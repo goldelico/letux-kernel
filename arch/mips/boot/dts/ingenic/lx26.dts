@@ -167,17 +167,35 @@
 };
 
 &msc0 {
+#if 1
 	status = "okay";
 	broken-cd;	// there is a GPIO for CD
 	disable-wp;
 	bus-width = <4>;
+#else
+	status = "okay";
+	bus-width = <4>;
+	disable-wp;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc0>;
+	cd-gpios = <&gpc 8 GPIO_ACTIVE_LOW>;
+#endif
 };
 
 &msc1 {
+#if 0
 	status = "okay";
 	broken-cd;	// there is a GPIO for CD
 	disable-wp;
 	bus-width = <4>;
+#else
+	status = "okay";
+	bus-width = <4>;
+	disable-wp;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc1>;
+//	cd-gpios = <&gpc 9 GPIO_ACTIVE_LOW>;
+#endif
 };
 
 &pinctrl {
@@ -226,14 +244,16 @@
 
 &sfc {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_sfc>;
 #if 0 // FIXME
 	pinctrl-names = "default";
 	pinctrl-0 = <&sfc_pd1>;
-#endif
 	ingenic,sfc-max-frequency = <200000000>;
 	ingenic,sfc-init-frequency= <40000000>;
 	ingenic,use_ofpart_info  = /bits/ 8 <0>;
 	ingenic,spiflash_param_offset = <0>;
+#endif
 };
 
 &tcu0 {
@@ -302,37 +322,19 @@
 	};
 
 	gpio_keys: gpio_keys {
-		compatible = "gpio-keys";
+// machen Probleme mit Dual-Edge-IRQ		compatible = "gpio-keys";
 
-		wakeup {
-			label = "WAKEUP";
-			linux,code = <KEY_WAKEUP>;
-			gpios = <&gpe 31 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
-		   };
-
-		bootsel0 {
-			status = "disabled";	// is not independent of bootsel1 and always H
-			label = "bootsel0";
+		user {
+			label = "user";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpe 25 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpc 7 GPIO_ACTIVE_HIGH>;
 		   };
 
-#if 0	// something is broken in IRQ priority handling
 		bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpe 26 GPIO_ACTIVE_LOW>;
+			gpios = <&gpd 15 GPIO_ACTIVE_LOW>;
 		};
-#endif
 
-#if 0	// hard wired and always H
-		bootsel2 {
-			status = "disabled";
-			label = "bootsel2";
-			linux,code = <KEY_ENTER>;
-			gpios = <&gpe 27 GPIO_ACTIVE_HIGH>;
-		   };
-#endif
 	};
 };
