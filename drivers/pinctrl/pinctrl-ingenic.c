@@ -4349,11 +4349,9 @@ static inline void ingenic_shadow_config_pin(struct ingenic_pinctrl *jzpc,
 
 	if (is_soc_or_above(jzpc, ID_X2600)) {
 		u32 target_reg = (offt * jzpc->info->reg_offset) + X2600_GPIO_SHADOW_OFFSET + reg;
-		
 		regmap_write(jzpc->map, target_reg, BIT(idx));
 	} else
-		regmap_write(jzpc->map, REG_PZ_BASE(jzpc->info->reg_offset) +
-			     (set ? REG_SET(reg) : REG_CLEAR(reg)), BIT(idx));
+		regmap_write(jzpc->map, REG_PZ_BASE(jzpc->info->reg_offset) + reg, BIT(idx));
 }
 
 static inline void ingenic_shadow_config_pin_load(struct ingenic_pinctrl *jzpc,
@@ -4559,10 +4557,16 @@ static int ingenic_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 	dev_dbg(pctldev->dev, "set pin P%c%u to %sput\n",
 			'A' + offt, idx, input ? "in" : "out");
 
-	if (is_soc_or_above(jzpc, ID_X1000)) {
+	if (is_soc_or_above(jzpc, ID_X2600)) {
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
 		ingenic_shadow_config_pin(jzpc, pin, GPIO_MSK, true);
+		/* braucht es das PAT0 wirklich zusätzlich oder ist das Zufall? */
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT0, false);
+		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, input);
+		ingenic_shadow_config_pin_load(jzpc, pin);
+	} else if (is_soc_or_above(jzpc, ID_X1000)) {
+		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
+		ingenic_shadow_config_pin(jzpc, pin, GPIO_MSK, true);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, input);
 		ingenic_shadow_config_pin_load(jzpc, pin);
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
