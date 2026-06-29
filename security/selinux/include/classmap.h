@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
 #ifdef __APPLE__
-#undef __alloc_size
-# define __alloc_size(x, ...) __malloc
-#include <linux/compiler_types.h> // get define for __user
-#undef __alloc_size
-# define __alloc_size(x, ...) __malloc
-#include <uapi/linux/types.h> // get typedefs for __u16 etc.
-typedef _Bool bool; // get typedef for bool
-#define __ASSEMBLY__   // would conflict over fd_set, dev_t etc. from sys/types of HOSTCC
+#include <stdint.h>
+#include <stdbool.h>
+/* map expected Linux types to macOS standard types */
+typedef uint16_t __u16;
+typedef uint32_t __u32;
+#define __user
 #endif
 
 #define COMMON_FILE_SOCK_PERMS                                            \
