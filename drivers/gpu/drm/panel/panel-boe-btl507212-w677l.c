@@ -631,9 +631,10 @@ static int w677l_probe(struct mipi_dsi_device *dsi)
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
+	ctx = devm_drm_panel_alloc(dev, struct otm1283a, panel,
+				   & w677l_panel_funcs, DRM_MODE_CONNECTOR_DSI);
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
 
 	ctx->reset_gpio = devm_gpiod_get(&dsi->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -663,8 +664,6 @@ static int w677l_probe(struct mipi_dsi_device *dsi)
 	dsi->lp_rate = W677L_LP_CLOCK;
 
 	of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
-
-	drm_panel_init(&ctx->panel, dev, &w677l_panel_funcs, DRM_MODE_CONNECTOR_DSI);
 
 	ret = drm_panel_of_backlight(&ctx->panel);
 	if (ret)
