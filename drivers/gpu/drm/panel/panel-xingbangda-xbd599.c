@@ -254,9 +254,10 @@ static int xbd599_probe(struct mipi_dsi_device *dsi)
 	struct xbd599 *ctx;
 	int ret;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
+	ctx = devm_drm_panel_alloc(dev, struct xbd599, panel,
+				   &xbd599_drm_funcs, DRM_MODE_CONNECTOR_DSI);
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
 
 	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -275,9 +276,6 @@ static int xbd599_probe(struct mipi_dsi_device *dsi)
 	ctx->backlight = devm_of_find_backlight(dev);
 	if (IS_ERR(ctx->backlight))
 		return PTR_ERR(ctx->backlight);
-
-	drm_panel_init(&ctx->panel, dev, &xbd599_drm_funcs,
-		       DRM_MODE_CONNECTOR_DSI);
 
 	drm_panel_add(&ctx->panel);
 
