@@ -1544,7 +1544,7 @@ config SND_SOC_PCM1754
 
 config SND_SOC_PCM1773
 	tristate "Texas Instruments PCM1773 CODEC"
-	select GPIOLIB
+	depends on GPIOLIB
 
 config SND_SOC_PCM1789
 	tristate
