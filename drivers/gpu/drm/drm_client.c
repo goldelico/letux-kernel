@@ -223,7 +223,13 @@ drm_client_buffer_create(struct drm_client_dev *client, u32 width, u32 height,
 	struct drm_client_buffer *buffer;
 	struct drm_gem_object *obj;
 	struct drm_framebuffer *fb;
+	const struct drm_format_info *info = drm_format_info(format);
 	int ret;
+
+	if (!info) {
+		drm_dbg_kms(dev, "unsupported format 0x%08x\n", format);
+		return ERR_PTR(-EINVAL);
+	}
 
 	buffer = kzalloc_obj(*buffer);
 	if (!buffer)
