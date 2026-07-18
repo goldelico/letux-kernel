@@ -1,5 +1,5 @@
 #
-# Linux/mips 7.1.3 Kernel Configuration
+# Linux/mips 7.1.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3537,7 +3537,22 @@ CONFIG_DRM_PANEL=y
 # CONFIG_DRM_PANEL_XINPENG_XPP055C272 is not set
 # end of Display Panels
 
-# CONFIG_SGX is not set
+CONFIG_SGX=y
+# CONFIG_PVRSGX_1_7_862890 is not set
+# CONFIG_PVRSGX_1_8_869593 is not set
+# CONFIG_PVRSGX_1_9_2188537 is not set
+# CONFIG_PVRSGX_1_9_2253347 is not set
+# CONFIG_PVRSGX_1_10_2359475 is not set
+# CONFIG_PVRSGX_1_13_3341330 is not set
+# CONFIG_PVRSGX_1_14_3699939 is not set
+CONFIG_PVRSGX_1_14_3759903=y
+# CONFIG_PVRSGX_1_14_3841212 is not set
+# CONFIG_PVRSGX_1_15_4564147 is not set
+# CONFIG_PVRSGX_1_17_4948957 is not set
+# CONFIG_SGX_DEBUG is not set
+CONFIG_SGX_DRM=y
+CONFIG_SGX_JZ4780=m
+# CONFIG_SGX_GENERIC is not set
 # CONFIG_DRM_ST7571 is not set
 # CONFIG_DRM_ST7586 is not set
 # CONFIG_DRM_ST7735R is not set
