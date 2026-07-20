@@ -16,9 +16,11 @@ properties:
   compatible:
     oneOf:
       - enum:
+          - ingenic,jz4730-intc
           - ingenic,jz4740-intc
           - ingenic,jz4760-intc
           - ingenic,jz4780-intc
+          - ingenic,x1600-intc
       - items:
           - enum:
               - ingenic,jz4775-intc

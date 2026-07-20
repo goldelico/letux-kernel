@@ -281,6 +281,7 @@ static SIMPLE_DEV_PM_OPS(gab_pm_ops, gab_suspend, gab_resume);
 
 static const struct of_device_id gab_match[] = {
 	{ .compatible = "adc-battery" },
+	{ .compatible = "linux,generic-adc-battery", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gab_match);
