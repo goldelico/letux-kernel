@@ -1,5 +1,5 @@
 #
-# Linux/x86 5.10.260 Kernel Configuration
+# Linux/x86 5.10.261 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -7695,6 +7695,8 @@ CONFIG_VIPERBOARD_ADC=m
 CONFIG_HID_SENSOR_IIO_COMMON=y
 CONFIG_HID_SENSOR_IIO_TRIGGER=y
 # end of Hid Sensor IIO Common
+
+CONFIG_IIO_INV_SENSORS_TIMESTAMP=y
 
 #
 # SSP Sensor Common
