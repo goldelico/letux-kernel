@@ -1,5 +1,5 @@
 #
-# Linux/arm64 6.1.177 Kernel Configuration
+# Linux/arm64 6.1.178 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -1267,7 +1267,6 @@ CONFIG_BT_BREDR=y
 # CONFIG_BT_RFCOMM is not set
 # CONFIG_BT_BNEP is not set
 CONFIG_BT_HIDP=m
-# CONFIG_BT_HS is not set
 # CONFIG_BT_LE is not set
 CONFIG_BT_LEDS=y
 # CONFIG_BT_MSFTEXT is not set
@@ -6598,6 +6597,8 @@ CONFIG_IIO_CROS_EC_SENSORS=m
 # Hid Sensor IIO Common
 #
 # end of Hid Sensor IIO Common
+
+CONFIG_IIO_INV_SENSORS_TIMESTAMP=m
 
 #
 # IIO SCMI Sensors

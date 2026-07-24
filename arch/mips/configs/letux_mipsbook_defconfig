@@ -1,5 +1,5 @@
 #
-# Linux/mips 6.1.177 Kernel Configuration
+# Linux/mips 6.1.178 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -806,7 +806,6 @@ CONFIG_BT_BNEP=m
 # CONFIG_BT_BNEP_MC_FILTER is not set
 # CONFIG_BT_BNEP_PROTO_FILTER is not set
 CONFIG_BT_HIDP=m
-CONFIG_BT_HS=y
 CONFIG_BT_LE=y
 CONFIG_BT_LEDS=y
 # CONFIG_BT_MSFTEXT is not set
