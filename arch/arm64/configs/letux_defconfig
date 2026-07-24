@@ -1,5 +1,5 @@
 #
-# Linux/arm64 5.15.211 Kernel Configuration
+# Linux/arm64 5.15.212 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6277,6 +6277,8 @@ CONFIG_IIO_CROS_EC_SENSORS=m
 # Hid Sensor IIO Common
 #
 # end of Hid Sensor IIO Common
+
+CONFIG_IIO_INV_SENSORS_TIMESTAMP=m
 
 #
 # IIO SCMI Sensors

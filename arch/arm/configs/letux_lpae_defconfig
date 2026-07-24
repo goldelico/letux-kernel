@@ -1,5 +1,5 @@
 #
-# Linux/arm 5.15.211 Kernel Configuration
+# Linux/arm 5.15.212 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -4615,6 +4615,7 @@ CONFIG_SND_SEQUENCER=m
 CONFIG_SND_SEQ_HRTIMER_DEFAULT=y
 CONFIG_SND_SEQ_MIDI_EVENT=m
 CONFIG_SND_SEQ_MIDI=m
+# CONFIG_SND_SEQ_UMP is not set
 CONFIG_SND_DRIVERS=y
 # CONFIG_SND_DUMMY is not set
 # CONFIG_SND_ALOOP is not set
