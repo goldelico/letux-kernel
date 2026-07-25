@@ -158,7 +158,16 @@ static const struct cec_adap_ops hdmi5_cec_ops = {
 
 void hdmi5_cec_set_phys_addr(struct hdmi_core_data *core, u16 pa)
 {
+	struct omap_hdmi *hdmi = container_of(core, struct omap_hdmi, core);
+	int ret;
+
+	ret = dss_runtime_get(hdmi->dss);
+	if (ret < 0)
+		return;
+
 	cec_s_phys_addr(core->adap, pa, false);
+
+	dss_runtime_put(hdmi->dss);
 }
 
 int hdmi5_cec_init(struct platform_device *pdev, struct hdmi_core_data *core,
