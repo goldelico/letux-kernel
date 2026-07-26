@@ -1,5 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#ifdef __APPLE__
+#include <stdint.h>
+#include <stdbool.h>
+/* map expected Linux types to macOS standard types */
+typedef uint16_t __u16;
+typedef uint32_t __u32;
+#define __user
+#endif
+
 #define COMMON_FILE_SOCK_PERMS                                            \
 	"ioctl", "read", "write", "create", "getattr", "setattr", "lock", \
 		"relabelfrom", "relabelto", "append", "map"
@@ -185,7 +194,9 @@ const struct security_class_mapping secclass_map[] = {
 };
 
 #ifdef __KERNEL__ /* avoid this check when building host programs */
+#ifndef __APPLE__
 #include <linux/socket.h>
+#endif
 
 #if PF_MAX > 46
 #error New address family defined, please update secclass_map.
