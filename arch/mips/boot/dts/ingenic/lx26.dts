@@ -232,6 +232,12 @@
 		groups = "mmc2-1bit", "mmc2-4bit";
 		bias-disable;
 	};
+
+	pinctrl_gpio_keys: gpio_keys {
+		pins = "PC7";	/* USER button */
+		bias-pull-up;
+	};
+
 };
 
 &pwm {
@@ -322,18 +328,21 @@
 	};
 
 	gpio_keys: gpio_keys {
-// machen Probleme mit Dual-Edge-IRQ		compatible = "gpio-keys";
+		compatible = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
 
 		user {
 			label = "user";
 			linux,code = <KEY_HOME>;
-			gpios = <&gpc 7 GPIO_ACTIVE_HIGH>;
-		   };
+			gpios = <&gpc 7 GPIO_ACTIVE_LOW>;
+		};
 
 		bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpd 15 GPIO_ACTIVE_LOW>;
+			gpios = <&gpd 15 GPIO_ACTIVE_HIGH>;
 		};
 
 	};
