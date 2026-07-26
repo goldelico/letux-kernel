@@ -70,6 +70,7 @@
 #define X2000_GPIO_SR				0xd0
 #define X2000_GPIO_SMT				0xe0
 
+#define X2600_GPIO_FLAG_CLR			0x58	/* write only */
 #define X2600_GPIO_SHADOW_OFFSET		0x800
 #define X2600_GPIO_PAGLD			(X2600_GPIO_SHADOW_OFFSET + 0xf0)
 
@@ -4108,6 +4109,12 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		break;
 	}
 
+	if (is_soc_or_above(jzgc->jzpc, ID_X2600)) {
+		if (type == IRQ_TYPE_EDGE_BOTH || type == IRQ_TYPE_EDGE_RISING || type == IRQ_TYPE_EDGE_FALLING)
+			val2 = true; /* PAT1 must be set for edge interrupts */
+		val3 = true;     /* EDG must be 1 for all interrupt types */
+	}
+
 	if (is_soc_or_above(jzgc->jzpc, ID_JZ4770)) {
 		reg1 = JZ4770_GPIO_PAT1;
 		reg2 = JZ4770_GPIO_PAT0;
@@ -4217,7 +4224,11 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 			irq_set_type(jzgc, irq, IRQ_TYPE_LEVEL_HIGH);
 	}
 
-	if (is_soc_or_above(jzgc->jzpc, ID_JZ4770))
+	if (is_soc_or_above(jzgc->jzpc, ID_X2600))
+		regmap_write(jzgc->jzpc->map, jzgc->reg_base + X2600_GPIO_FLAG_CLR, BIT(irq));
+	else if (is_soc_or_above(jzgc->jzpc, ID_X2000))
+		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, true);
+	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4770))
 		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, false);
 	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4740))
 		ingenic_gpio_set_bit(jzgc, JZ4740_GPIO_DATA, irq, true);
