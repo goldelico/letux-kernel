@@ -150,7 +150,7 @@
 };
 
 &otg {
-	dr_mode = "otg"; // host,peripheral,otg
+	dr_mode = "otg"; // host, peripheral, otg
 	status = "okay";
 };
 
@@ -167,35 +167,31 @@
 };
 
 &msc0 {
-#if 1
-	status = "okay";
-	broken-cd;	// there is a GPIO for CD
-	disable-wp;
-	bus-width = <4>;
-#else
 	status = "okay";
 	bus-width = <4>;
 	disable-wp;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_msc0>;
+	pinctrl-0 = <&pins_msc0>, <&pins_msc0_cd>;
+
 	cd-gpios = <&gpc 8 GPIO_ACTIVE_LOW>;
-#endif
+
+	/* Force classic 3.3V highspeed mode */
+	cap-sd-highspeed;
+	no-1-8v;
 };
 
 &msc1 {
-#if 0
-	status = "okay";
-	broken-cd;	// there is a GPIO for CD
-	disable-wp;
-	bus-width = <4>;
-#else
 	status = "okay";
 	bus-width = <4>;
 	disable-wp;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_msc1>;
-//	cd-gpios = <&gpc 9 GPIO_ACTIVE_LOW>;
-#endif
+	pinctrl-0 = <&pins_msc1>, <&pins_msc1_cd>;
+
+	cd-gpios = <&gpc 9 GPIO_ACTIVE_LOW>;
+
+	/* can not switch to 1.8V mode (making >= sdr50 inoperable) */
+	cap-sd-highspeed;
+	no-1-8v;
 };
 
 &pinctrl {
@@ -221,15 +217,25 @@
 		bias-disable;
 	};
 
+	pins_msc0_cd: msc0_cd {
+		pins = "PC8";
+		bias-pull-up;
+	};
+
 	pins_msc1: msc1 {
 		function = "mmc1";
-		groups = "mmc1-1bit", "mmc1-4bit";
+		groups = "mmc1-1bit-c", "mmc1-4bit-c";
 		bias-disable;
 	};
 
+	pins_msc1_cd: msc1_cd {
+		pins = "PC9";
+		bias-pull-up;
+	};
+
 	pins_sfc: sfc {
-		function = "mmc2";
-		groups = "mmc2-1bit", "mmc2-4bit";
+		function = "sfc";
+		groups = "sfc-d6";
 		bias-disable;
 	};
 
