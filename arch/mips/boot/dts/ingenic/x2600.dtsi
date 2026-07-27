@@ -512,11 +512,6 @@
 			sd-uhs-sdr104;
 
 			status = "disabled";
-#if 0	// FIXME
-			pinctrl-names ="default", "default";
-			pinctrl-0 = <&msc0_8bit_low>;
-			pinctrl-1 = <&msc0_8bit_high>;
-#endif
 		};
 
 		msc1: msc@13460000 {
@@ -536,10 +531,6 @@
 			sd-uhs-sdr104;
 
 			status = "disabled";
-#if 0	// FIXME
-			pinctrl-names ="default";
-			pinctrl-0 = <&msc1_4bit>;
-#endif
 		};
 
 		sfc: sfc@13440000 {
