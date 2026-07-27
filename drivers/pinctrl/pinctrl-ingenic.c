@@ -3742,10 +3742,10 @@ static const struct group_desc x2600_groups[] = {
 	INGENIC_PIN_GROUP("mmc0-1bit", x2600_msc0_1bit, 0),
 	INGENIC_PIN_GROUP("mmc0-4bit", x2600_msc0_4bit, 0),
 	INGENIC_PIN_GROUP("mmc0-8bit", x2600_msc0_8bit, 0),
-	INGENIC_PIN_GROUP("mmc1-1bit_c", x2600_msc1_1bit_c, 0),
-	INGENIC_PIN_GROUP("mmc1-4bit_c", x2600_msc1_4bit_c, 0),
-	INGENIC_PIN_GROUP("mmc1-1bit_d", x2600_msc1_1bit_d, 1),
-	INGENIC_PIN_GROUP("mmc1-4bit_d", x2600_msc1_4bit_d, 1),
+	INGENIC_PIN_GROUP("mmc1-1bit-c", x2600_msc1_1bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-4bit-c", x2600_msc1_4bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-1bit-d", x2600_msc1_1bit_d, 1),
+	INGENIC_PIN_GROUP("mmc1-4bit-d", x2600_msc1_4bit_d, 1),
 
 	/* OTG (Vbus driver) */
 	INGENIC_PIN_GROUP("otg-vbus", x2600_otg, 1),
@@ -3862,7 +3862,7 @@ static const char * const x2600_mac_groups[] = { "mac", };
 
 static const char * const x2600_msc0_groups[] = { "mmc0-1bit", "mmc0-4bit", "mmc0-8bit", };
 
-static const char * const x2600_msc1_groups[] = { "mmc1-1bit_c", "mmc1-4bit_c", "mmc1-1bit_d", "mmc1-4bit_d", };
+static const char * const x2600_msc1_groups[] = { "mmc1-1bit-c", "mmc1-4bit-c", "mmc1-1bit-d", "mmc1-4bit-d", };
 
 static const char * const x2600_otg_groups[] = { "otg-vbus", };
 
@@ -4109,10 +4109,11 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		break;
 	}
 
-	if (is_soc_or_above(jzgc->jzpc, ID_X2600)) {
+	if (is_soc_or_above(jzgc->jzpc, ID_X2000) ||
+	    ((is_soc_or_above(jzgc->jzpc, ID_X1600) && !is_soc_or_above(jzgc->jzpc, ID_X1830)))) {
 		if (type == IRQ_TYPE_EDGE_BOTH || type == IRQ_TYPE_EDGE_RISING || type == IRQ_TYPE_EDGE_FALLING)
-			val2 = true; /* PAT1 must be set for edge interrupts */
-		val3 = true;     /* EDG must be 1 for all interrupt types */
+			val2 = true; /* PAT1 must be 1 for all edge-triggered interrupts */
+		val3 = true;     /* EDG must be 1 for all interrupt types on these SoCs */
 	}
 
 	if (is_soc_or_above(jzgc->jzpc, ID_JZ4770)) {
@@ -4132,12 +4133,14 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
-		// NOTE: we could use this feature also for X1600?
 		ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else if (is_soc_or_above(jzgc->jzpc, ID_X1000)) {
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
+
+		if (is_soc_or_above(jzgc->jzpc, ID_X1600) && !is_soc_or_above(jzgc->jzpc, ID_X1830))
+			ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else {
 		ingenic_gpio_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_set_bit(jzgc, reg1, offset, val2);
@@ -4212,7 +4215,8 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 	bool high;
 
 	if ((irqd_get_trigger_type(irqd) == IRQ_TYPE_EDGE_BOTH) &&
-	    !is_soc_or_above(jzgc->jzpc, ID_X2000)) {
+	    (!is_soc_or_above(jzgc->jzpc, ID_X1600) ||
+	    (is_soc_or_above(jzgc->jzpc, ID_X1830) && !is_soc_or_above(jzgc->jzpc, ID_X2000)))) {
 		/*
 		 * Switch to an interrupt for the opposite edge to the one that
 		 * triggered the interrupt being ACKed.
@@ -4226,8 +4230,6 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 
 	if (is_soc_or_above(jzgc->jzpc, ID_X2600))
 		regmap_write(jzgc->jzpc->map, jzgc->reg_base + X2600_GPIO_FLAG_CLR, BIT(irq));
-	else if (is_soc_or_above(jzgc->jzpc, ID_X2000))
-		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, true);
 	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4770))
 		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, false);
 	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4740))
@@ -4256,7 +4258,9 @@ static int ingenic_gpio_irq_set_type(struct irq_data *irqd, unsigned int type)
 		irq_set_handler_locked(irqd, handle_bad_irq);
 	}
 
-	if ((type == IRQ_TYPE_EDGE_BOTH) && !is_soc_or_above(jzgc->jzpc, ID_X2000)) {
+	if ((type == IRQ_TYPE_EDGE_BOTH) &&
+	    (!is_soc_or_above(jzgc->jzpc, ID_X1600) ||
+	    (is_soc_or_above(jzgc->jzpc, ID_X1830) && !is_soc_or_above(jzgc->jzpc, ID_X2000)))) {
 		/*
 		 * The hardware does not support interrupts on both edges. The
 		 * best we can do is to set up a single-edge interrupt and then
