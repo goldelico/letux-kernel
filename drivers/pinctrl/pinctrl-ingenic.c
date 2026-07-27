@@ -3742,10 +3742,10 @@ static const struct group_desc x2600_groups[] = {
 	INGENIC_PIN_GROUP("mmc0-1bit", x2600_msc0_1bit, 0),
 	INGENIC_PIN_GROUP("mmc0-4bit", x2600_msc0_4bit, 0),
 	INGENIC_PIN_GROUP("mmc0-8bit", x2600_msc0_8bit, 0),
-	INGENIC_PIN_GROUP("mmc1-1bit_c", x2600_msc1_1bit_c, 0),
-	INGENIC_PIN_GROUP("mmc1-4bit_c", x2600_msc1_4bit_c, 0),
-	INGENIC_PIN_GROUP("mmc1-1bit_d", x2600_msc1_1bit_d, 1),
-	INGENIC_PIN_GROUP("mmc1-4bit_d", x2600_msc1_4bit_d, 1),
+	INGENIC_PIN_GROUP("mmc1-1bit-c", x2600_msc1_1bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-4bit-c", x2600_msc1_4bit_c, 0),
+	INGENIC_PIN_GROUP("mmc1-1bit-d", x2600_msc1_1bit_d, 1),
+	INGENIC_PIN_GROUP("mmc1-4bit-d", x2600_msc1_4bit_d, 1),
 
 	/* OTG (Vbus driver) */
 	INGENIC_PIN_GROUP("otg-vbus", x2600_otg, 1),
@@ -3862,7 +3862,7 @@ static const char * const x2600_mac_groups[] = { "mac", };
 
 static const char * const x2600_msc0_groups[] = { "mmc0-1bit", "mmc0-4bit", "mmc0-8bit", };
 
-static const char * const x2600_msc1_groups[] = { "mmc1-1bit_c", "mmc1-4bit_c", "mmc1-1bit_d", "mmc1-4bit_d", };
+static const char * const x2600_msc1_groups[] = { "mmc1-1bit-c", "mmc1-4bit-c", "mmc1-1bit-d", "mmc1-4bit-d", };
 
 static const char * const x2600_otg_groups[] = { "otg-vbus", };
 
