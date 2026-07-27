@@ -177,6 +177,11 @@
 		groups = "mmc2-1bit", "mmc2-4bit";
 		bias-disable;
 	};
+
+	pinctrl_gpio_keys: gpio_keys {
+		pins = "PE31";	/* WKUP button */
+		bias-pull-up;
+	};
 };
 
 #if MATERIAL	// from lx16.dts
@@ -724,6 +729,9 @@
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_keys>;
+
 		wakeup {
 			label = "WAKEUP";
 			linux,code = <KEY_WAKEUP>;
@@ -731,29 +739,11 @@
 			gpio-key,wakeup;
 		   };
 
-		bootsel0 {
-			status = "disabled";	// is not independent of bootsel1 and always H
-			label = "bootsel0";
-			linux,code = <KEY_HOME>;
-			gpios = <&gpe 25 GPIO_ACTIVE_HIGH>;
-		   };
-
-#if 0	// something is broken in IRQ priority handling
 		bootsel1 {
 			label = "bootsel1";
 			linux,code = <KEY_BACK>;
-			gpios = <&gpe 26 GPIO_ACTIVE_LOW>;
+			gpios = <&gpe 26 GPIO_ACTIVE_HIGH>;
 		};
-#endif
-
-#if 0	// hard wired and always H
-		bootsel2 {
-			status = "disabled";
-			label = "bootsel2";
-			linux,code = <KEY_ENTER>;
-			gpios = <&gpe 27 GPIO_ACTIVE_HIGH>;
-		   };
-#endif
 	};
 
 #if 0
