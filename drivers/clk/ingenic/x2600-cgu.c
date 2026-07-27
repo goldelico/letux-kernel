@@ -260,6 +260,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { -1, X2600_CLK_SCLKA, X2600_CLK_MPLL, -1 },
 		.mux = { CGU_REG_CLOCKCONTROL, 26, 2 },
 		.div = { CGU_REG_CLOCKCONTROL, 8, 1, 4, 21, -1, -1 },
+/* FIXME */
 		.gate = { CGU_REG_CLKGR0, 29 },
 	},
 
@@ -291,7 +292,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { -1, X2600_CLK_SCLKA, X2600_CLK_MPLL, -1 },
 		.mux = { CGU_REG_DDRCDR, 30, 2 },
 		.div = { CGU_REG_DDRCDR, 0, 1, 4, 29, 28, 27 },
-		.gate = { CGU_REG_CLKGR0, 31 },
+		.gate = { CGU_REG_CLKGR1, 23 },
 	},
 
 	[X2600_CLK_I2S0] = {
@@ -311,7 +312,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_LPCDR, 30, 2 },
 		.div = { CGU_REG_LPCDR, 0, 1, 8, 28, 27, 26 },
-		.gate = { CGU_REG_CLKGR0, 23 },
+		.gate = { CGU_REG_CLKGR1, 14 },
 	},
 
 	[X2600_CLK_MAC] = {
@@ -320,7 +321,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_MACCDR, 30, 2 },
 		.div = { CGU_REG_MACCDR, 0, 1, 8, 28, 27, 26 },
-		.gate = { CGU_REG_CLKGR1, 23 },
+		.gate = { CGU_REG_CLKGR1, 6 },
 	},
 
 	[X2600_CLK_MSC0] = {
@@ -328,8 +329,8 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_MSC0CDR, 30, 2 },
-		.div = { CGU_REG_MSC0CDR, 0, 2, 8, 29, 28, 27 },
-		.gate = { CGU_REG_CLKGR0, 4 },
+		.div = { CGU_REG_MSC0CDR, 0, 2, 8, 28, 27, 29 },
+		.gate = { CGU_REG_CLKGR0, 2 },
 	},
 
 	[X2600_CLK_MSC1] = {
@@ -337,8 +338,8 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_MSC1CDR, 30, 2 },
-		.div = { CGU_REG_MSC1CDR, 0, 2, 8, 29, 28, 27 },
-		.gate = { CGU_REG_CLKGR0, 5 },
+		.div = { CGU_REG_MSC1CDR, 0, 2, 8, 28, 27, 29 },
+		.gate = { CGU_REG_CLKGR0, 3 },
 	},
 
 	[X2600_CLK_SSI0] = {
@@ -347,7 +348,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_SSICDR, 30, 2 },
 		.div = { CGU_REG_SSICDR, 0, 1, 8, 29, 28, 27 },
-		.gate = { CGU_REG_CLKGR0, 19 },
+		.gate = { CGU_REG_CLKGR0, 20 },
 	},
 
 	[X2600_CLK_CIMMCLK] = {
@@ -356,7 +357,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_CIMCDR, 30, 2 },
 		.div = { CGU_REG_CIMCDR, 0, 1, 8, 30, 29, 28 },
-		.gate = { CGU_REG_CLKGR0, 22 },
+		.gate = { CGU_REG_CLKGR1, 13 },
 	},
 
 	/* Custom (SoC-specific) OTG PHY */
@@ -488,7 +489,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	},
 
 
-#if 0	// missing definitions
+#if 0	// FIXME: missing definitions
 	[X2600_CLK_GATE_SSI0] =
 	[X2600_CLK_GATE_SSI1] =
 	[X2600_CLK_DIV_SSI] =
@@ -498,7 +499,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	[X2600_CLK_GATE_USB] =
 	[X2600_CLK_DIV_CIM] =
 	[X2600_CLK_GATE_CIM_MCLK] =
-	X2600_CLK_UART4..7
+	// there are many more clock gates like FELIX or ROTATE
 #endif
 };
 
