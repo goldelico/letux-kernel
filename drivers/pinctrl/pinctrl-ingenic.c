@@ -4109,10 +4109,11 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		break;
 	}
 
-	if (is_soc_or_above(jzgc->jzpc, ID_X2600)) {
+	if (is_soc_or_above(jzgc->jzpc, ID_X2000) ||
+	    ((is_soc_or_above(jzgc->jzpc, ID_X1600) && !is_soc_or_above(jzgc->jzpc, ID_X1830)))) {
 		if (type == IRQ_TYPE_EDGE_BOTH || type == IRQ_TYPE_EDGE_RISING || type == IRQ_TYPE_EDGE_FALLING)
-			val2 = true; /* PAT1 must be set for edge interrupts */
-		val3 = true;     /* EDG must be 1 for all interrupt types */
+			val2 = true; /* PAT1 must be 1 for all edge-triggered interrupts */
+		val3 = true;     /* EDG must be 1 for all interrupt types on these SoCs */
 	}
 
 	if (is_soc_or_above(jzgc->jzpc, ID_JZ4770)) {
@@ -4132,12 +4133,14 @@ static void irq_set_type(struct ingenic_gpio_chip *jzgc,
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
-		// NOTE: we could use this feature also for X1600?
 		ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else if (is_soc_or_above(jzgc->jzpc, ID_X1000)) {
 		ingenic_gpio_shadow_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_shadow_set_bit(jzgc, reg1, offset, val2);
 		ingenic_gpio_shadow_set_bit_load(jzgc);
+
+		if (is_soc_or_above(jzgc->jzpc, ID_X1600) && !is_soc_or_above(jzgc->jzpc, ID_X1830))
+			ingenic_gpio_set_bit(jzgc, X2000_GPIO_EDG, offset, val3);
 	} else {
 		ingenic_gpio_set_bit(jzgc, reg2, offset, val1);
 		ingenic_gpio_set_bit(jzgc, reg1, offset, val2);
@@ -4212,7 +4215,8 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 	bool high;
 
 	if ((irqd_get_trigger_type(irqd) == IRQ_TYPE_EDGE_BOTH) &&
-	    !is_soc_or_above(jzgc->jzpc, ID_X2000)) {
+	    (!is_soc_or_above(jzgc->jzpc, ID_X1600) ||
+	    (is_soc_or_above(jzgc->jzpc, ID_X1830) && !is_soc_or_above(jzgc->jzpc, ID_X2000)))) {
 		/*
 		 * Switch to an interrupt for the opposite edge to the one that
 		 * triggered the interrupt being ACKed.
@@ -4226,8 +4230,6 @@ static void ingenic_gpio_irq_ack(struct irq_data *irqd)
 
 	if (is_soc_or_above(jzgc->jzpc, ID_X2600))
 		regmap_write(jzgc->jzpc->map, jzgc->reg_base + X2600_GPIO_FLAG_CLR, BIT(irq));
-	else if (is_soc_or_above(jzgc->jzpc, ID_X2000))
-		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, true);
 	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4770))
 		ingenic_gpio_set_bit(jzgc, JZ4770_GPIO_FLAG, irq, false);
 	else if (is_soc_or_above(jzgc->jzpc, ID_JZ4740))
@@ -4256,7 +4258,9 @@ static int ingenic_gpio_irq_set_type(struct irq_data *irqd, unsigned int type)
 		irq_set_handler_locked(irqd, handle_bad_irq);
 	}
 
-	if ((type == IRQ_TYPE_EDGE_BOTH) && !is_soc_or_above(jzgc->jzpc, ID_X2000)) {
+	if ((type == IRQ_TYPE_EDGE_BOTH) &&
+	    (!is_soc_or_above(jzgc->jzpc, ID_X1600) ||
+	    (is_soc_or_above(jzgc->jzpc, ID_X1830) && !is_soc_or_above(jzgc->jzpc, ID_X2000)))) {
 		/*
 		 * The hardware does not support interrupts on both edges. The
 		 * best we can do is to set up a single-edge interrupt and then
