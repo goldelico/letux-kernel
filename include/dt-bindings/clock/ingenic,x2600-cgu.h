@@ -13,9 +13,11 @@
 #define __DT_BINDINGS_CLOCK_X2600_CGU_H__
 
 #define X2600_CLK_EXCLK			0
+
 #define X2600_CLK_APLL			1
 #define X2600_CLK_EPLL			2
 #define X2600_CLK_MPLL			3
+
 #define X2600_CLK_SCLKA			4
 #define X2600_CLK_CPUMUX		5
 #define X2600_CLK_CPU			6
@@ -23,11 +25,13 @@
 #define X2600_CLK_AHB0			8
 #define X2600_CLK_AHB2PMUX		9
 #define X2600_CLK_AHB2			10
+
 #define X2600_CLK_PCLK			11
 #define X2600_CLK_DDR			12
-#define X2600_CLK_I2S0			13
-#define X2600_CLK_LCDPIXCLK		14
 #define X2600_CLK_MAC			15
+#define X2600_CLK_I2S			13
+#define X2600_CLK_PCM			14
+#define X2600_CLK_LCDPIXCLK		15
 #define X2600_CLK_MSC0			16
 #define X2600_CLK_MSC1			17
 #define X2600_CLK_SFC			18
