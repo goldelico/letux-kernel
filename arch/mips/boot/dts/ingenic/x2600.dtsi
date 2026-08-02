@@ -429,15 +429,6 @@
 
 	};
 
-#if 0
-	ahb1 {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <>;
-	};
-#endif
-
 	ahb2 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -500,8 +491,12 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
 
-			clocks = <&cgu X2600_CLK_MSC0>;
-			clock-names = "sdhci";
+#if 0
+			clocks = <&cgu X2600_CLK_SCLKA>, <&cgu X2600_CLK_MSC0>;
+#else
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_MSC0>;
+#endif
+			clock-names = "ext", "sdhci";
 
 			cap-sd-highspeed;
 			cap-sdio-irq;
@@ -520,8 +515,13 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
 
-			clocks = <&cgu X2600_CLK_MSC1>;
-			clock-names = "sdhci";
+#if 0
+			clocks = <&cgu X2600_CLK_SCLKA>, <&cgu X2600_CLK_MSC1>;
+#else
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_MSC1>;
+#endif
+			clock-names = "ext", "sdhci";
+
 			cap-sd-highspeed;
 			cap-sdio-irq;
 
@@ -539,7 +539,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SFC>;
 
-	// FIXME:		clocks = <&cgu X2600_CLK_SFC>;
+			clocks = <&cgu X2600_CLK_SFC>;
 			clock-names = "sfc";
 
 			status = "disabled";
@@ -551,6 +551,8 @@
 			interrupt-parent = <&intc>;
 			interrupt-names = "pdma", "pdmad";
 			interrupts = <IRQ_PDMA>, <IRQ_PDMAD>;
+			clocks = <&cgu X2600_CLK_GATE_PDMA>;
+			clock-names = "gate_pdma";
 			ingenic,bus-ctrl = <INGENIC_DMA_CTRL_AHB2_BUS>;
 			#dma-channels = <32>;
 			#dma-cells = <1>;
@@ -592,6 +594,7 @@
 		efuse: efuse@13480000 {
 			compatible = "ingenic,x2600-efuse";
 			reg = <0x13480000 0x10000>;
+			// clock gate?
 			status = "okay";
 		};
 
@@ -752,7 +755,7 @@
 			reg = <0x10043000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SSI0>;
-			clocks = <&cgu X2600_CLK_GATE_SSI0> , <&cgu X2600_CLK_SSI>;
+			clocks = <&cgu X2600_CLK_GATE_SSI0>, <&cgu X2600_CLK_SSI>;
 			clock-names = "gate_ssi0", "ssi";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_TX)>,
 				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI0_RX)>;
@@ -767,7 +770,7 @@
 			reg = <0x10044000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SSI1>;
-			clocks = <&cgu X2600_CLK_GATE_SSI1> , <&cgu X2600_CLK_SSI>;
+			clocks = <&cgu X2600_CLK_GATE_SSI1>, <&cgu X2600_CLK_SSI>;
 			clock-names = "gate_ssi1", "ssi";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_TX)>,
 				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SSI1_RX)>;
@@ -782,7 +785,7 @@
 			reg = <0x10045000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SSI_SLAVE>;
-			clocks = <&cgu X2600_CLK_GATE_SSI_SLV> , <&cgu X2600_CLK_SSI>;
+			clocks = <&cgu X2600_CLK_GATE_SSI_SLV>, <&cgu X2600_CLK_SSI>;
 			clock-names = "gate_ssi_slv", "ssi";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_TX)>,
 				   <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_SLV0_RX)>;
@@ -799,7 +802,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART0>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART0>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART0>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART0_RX)>;
@@ -815,7 +818,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART1>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART1>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART1>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART1_RX)>;
@@ -829,7 +832,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART2>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART2>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART2>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART2_RX)>;
@@ -843,7 +846,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART3>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART3>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART3>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART3_RX)>;
@@ -857,7 +860,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART4>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART4>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART4>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART4_RX)>;
@@ -871,7 +874,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART5>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART5>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART5>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART5_RX)>;
@@ -885,7 +888,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART6>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART6>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART6>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART6_RX)>;
@@ -899,7 +902,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART7>;
 			status = "disabled";
-			clocks = <&ext>, <&cgu X2600_CLK_GATE_UART7>;
+			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_GATE_UART7>;
 			clock-names = "baud", "module";
 			dmas = <&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_TX)>,
 				<&pdma INGENIC_DMA_TYPE(INGENIC_DMA_REQ_UART7_RX)>;
