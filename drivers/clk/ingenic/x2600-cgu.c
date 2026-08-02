@@ -233,6 +233,20 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.mux = { CGU_REG_CLOCKCONTROL, 28, 2 },
 	},
 
+#if 0
+	[X2600_CLK_H0PLL] = {
+		"cpumux", CGU_CLK_MUX,
+		.parents = { -1, X2600_CLK_SCLKA, X2600_CLK_MPLL, -1 },
+		.mux = { CGU_REG_CLOCKCONTROL, 26, 2 },
+	},
+
+	[X2600_CLK_H2PLL] = {
+		"cpumux", CGU_CLK_MUX,
+		.parents = { -1, X2600_CLK_SCLKA, X2600_CLK_MPLL, -1 },
+		.mux = { CGU_REG_CLOCKCONTROL, 24, 2 },
+	},
+#endif
+
 	[X2600_CLK_CPU] = {
 		"cpu", CGU_CLK_DIV,
 		/*
@@ -352,8 +366,9 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_MSC0CDR, 30, 2 },
-		.div = { CGU_REG_MSC0CDR, 0, 2, 8, 29, 28, 27 },
+		.div = { CGU_REG_MSC0CDR, 0, 4, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 2 },
+		.flags = CLK_GET_RATE_NOCACHE,
 	},
 
 	[X2600_CLK_MSC1] = {
@@ -361,8 +376,9 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_MSC1CDR, 30, 2 },
-		.div = { CGU_REG_MSC1CDR, 0, 2, 8, 29, 28, 27 },
+		.div = { CGU_REG_MSC1CDR, 0, 4, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 3 },
+		.flags = CLK_GET_RATE_NOCACHE,
 	},
 
 	[X2600_CLK_SFC] = {
@@ -370,7 +386,7 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_SFCCDR, 30, 2 },
-		.div = { CGU_REG_SFCCDR, 0, 2, 8, 29, 28, 27 },
+		.div = { CGU_REG_SFCCDR, 0, 1, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 3 },
 	},
 
@@ -383,12 +399,23 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.div = { CGU_REG_SSICDR, 0, 1, 8, 29, 28, 27 },
 	},
 
+#if 0
+	[X2600_CLK_PWM] = {
+		"pwm", CGU_CLK_MUX | CGU_CLK_DIV,
+		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
+			     X2600_CLK_EPLL, -1 },
+		.mux = { CGU_REG_PWMCDR, 30, 2 },
+		.div = { CGU_REG_PWMCDR, 0, 1, 4, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR1, 6 },
+	},
+#endif
+
 	[X2600_CLK_TPC] = {
 		"tpc", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
 		.parents = { X2600_CLK_SCLKA, X2600_CLK_MPLL,
 			     X2600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_TPCCDR, 30, 2 },
-		.div = { CGU_REG_TPCCDR, 0, 2, 8, 29, 28, 27 },
+		.div = { CGU_REG_TPCCDR, 0, 1, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 7 },
 	},
 
@@ -601,11 +628,13 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR1, 3 },
 	},
+#if 1
 	[X2600_CLK_GATE_PWM] = {
 		"gate_pwm", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR1, 6 },
 	},
+#endif
 	[X2600_CLK_GATE_TCU0] = {
 		"gate_tcu0", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB0, -1, -1, -1 },
