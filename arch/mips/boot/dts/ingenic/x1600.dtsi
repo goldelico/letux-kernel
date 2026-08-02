@@ -259,7 +259,7 @@
 			reg = <0x10030000 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART0>;
-			clocks = <&ext>, <&cgu X1600_CLK_UART0>;
+			clocks = <&cgu X1600_CLK_EXCLK>, <&cgu X1600_CLK_UART0>;
 			clock-names = "baud", "module";
 			dmas = <&dma X1600_DMA_UART0_TX 0xffffffff>,
 				   <&dma X1600_DMA_UART0_RX 0xffffffff>;
@@ -271,7 +271,7 @@
 			reg = <0x10031000 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART1>;
-			clocks = <&ext>, <&cgu X1600_CLK_UART1>;
+			clocks = <&cgu X1600_CLK_EXCLK>, <&cgu X1600_CLK_UART1>;
 			clock-names = "baud", "module";
 			dmas = <&dma X1600_DMA_UART1_TX 0xffffffff>,
 				   <&dma X1600_DMA_UART1_RX 0xffffffff>;
@@ -283,7 +283,7 @@
 			reg = <0x10032000 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART2>;
-			clocks = <&ext>, <&cgu X1600_CLK_UART2>;
+			clocks = <&cgu X1600_CLK_EXCLK>, <&cgu X1600_CLK_UART2>;
 			clock-names = "baud", "module";
 			dmas = <&dma X1600_DMA_UART2_TX 0xffffffff>,
 				   <&dma X1600_DMA_UART2_RX 0xffffffff>;
@@ -295,7 +295,7 @@
 			reg = <0x10033000 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_UART3>;
-			clocks = <&ext>, <&cgu X1600_CLK_UART3>;
+			clocks = <&cgu X1600_CLK_EXCLK>, <&cgu X1600_CLK_UART3>;
 			clock-names = "baud", "module";
 			dmas = <&dma X1600_DMA_UART3_TX 0xffffffff>,
 				   <&dma X1600_DMA_UART3_RX 0xffffffff>;
