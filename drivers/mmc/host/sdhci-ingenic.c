@@ -1,4 +1,4 @@
-#include <linux/module.h>
+#include <linux/clk-provider.h>
 #include <linux/of_address.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm.h>
@@ -10,9 +10,9 @@
 #define CAPABILITIES1_SW	0x276dc898
 #define CAPABILITIES2_SW	0
 
-#define CPM_MSC0_CLK_R		(0xB0000068)
-#define CPM_MSC1_CLK_R		(0xB00000a4)
-#define CPM_MSC2_CLK_R		(0xB00000a8)
+#define CGU_MSC0_OFFSET		0x68
+#define CGU_MSC1_OFFSET		0xa4
+#define CGU_MSC2_OFFSET		0xa8
 
 struct sdhci_ingenic_pdata {
 	unsigned int    host_caps;
@@ -35,18 +35,23 @@ struct sdhci_ingenic {
 
 static unsigned int sdhci_ingenic_get_cpm_msc(struct sdhci_host *host)
 {
-	char msc_ioaddr[16];
-	unsigned int cpm_msc;
-	sprintf(msc_ioaddr, "0x%x", (unsigned int)host->ioaddr);
+	struct sdhci_ingenic *sdhci_ing = sdhci_priv(host);
+	const char *clk_name;
+	unsigned int offset = 0;
 
-	if (!strcmp(msc_ioaddr ,"0xb3450000"))
-		cpm_msc = CPM_MSC0_CLK_R;
-	if (!strcmp(msc_ioaddr ,"0xb3460000"))
-		cpm_msc = CPM_MSC1_CLK_R;
-	if (!strcmp(msc_ioaddr ,"0xb3490000"))
-		cpm_msc = CPM_MSC2_CLK_R;
+	if (!sdhci_ing || !sdhci_ing->clk_cgu)
+		return 0;
 
-	return cpm_msc;
+	clk_name = __clk_get_name(sdhci_ing->clk_cgu);
+
+	if (!strcmp(clk_name, "msc0"))
+		offset = CGU_MSC0_OFFSET;
+	else if (!strcmp(clk_name, "msc1"))
+		offset = CGU_MSC1_OFFSET;
+	else if (!strcmp(clk_name, "msc2"))
+		offset = CGU_MSC2_OFFSET;
+
+	return offset;
 }
 
 /**
@@ -54,12 +59,45 @@ static unsigned int sdhci_ingenic_get_cpm_msc(struct sdhci_host *host)
  *
  * Tuning rx phase
  * */
-static void sdhci_ingenic_en_msc_tuning(struct sdhci_host *host, unsigned int cpm_msc)
+static void sdhci_ingenic_en_msc_tuning(struct sdhci_host *host, unsigned int msc_offset)
 {
-	if (host->mmc->ios.timing & MMC_TIMING_UHS_SDR50 ||
-		host->mmc->ios.timing & MMC_TIMING_UHS_SDR104 ||
-		host->mmc->ios.timing & MMC_TIMING_MMC_HS400)
-		*(volatile unsigned int*)cpm_msc &= ~(0x1 << 20);
+	struct platform_device *pdev = to_platform_device(host->mmc->parent);
+	struct device_node *np = pdev->dev.of_node;
+
+	if (!msc_offset || !np)
+		return;
+
+	if (1 || host->mmc->ios.timing & MMC_TIMING_UHS_SDR50 ||
+	    host->mmc->ios.timing & MMC_TIMING_UHS_SDR104 ||
+	    host->mmc->ios.timing & MMC_TIMING_MMC_HS400) {
+
+		struct device_node *cgu_np;
+		struct resource res;
+		void __iomem *cgu_base;
+		u32 val;
+
+		cgu_np = of_parse_phandle(np, "clocks", 0);
+		if (!cgu_np)
+			return;
+
+		if (of_address_to_resource(cgu_np, 0, &res)) {
+			of_node_put(cgu_np);
+			return;
+		}
+		of_node_put(cgu_np);
+
+		cgu_base = ioremap(res.start, resource_size(&res));
+		if (!cgu_base)
+			return;
+
+		val = readl(cgu_base + msc_offset);
+
+		/* rotate between TRIM values */
+		val = (val & ~(BIT(24) | GENMASK(21, 20))) | ((val + BIT(20)) & GENMASK(21, 20));
+		writel(val | BIT(29), cgu_base + msc_offset);
+
+		iounmap(cgu_base); /* Löscht das temporäre Mapping sauber aus dem Kernel-RAM */
+	}
 }
 
 /**
