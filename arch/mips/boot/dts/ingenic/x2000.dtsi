@@ -286,7 +286,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART0>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART0>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART0>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -299,7 +299,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART1>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART1>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART1>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -312,7 +312,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART2>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART2>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART2>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -325,7 +325,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART3>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART3>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART3>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -338,7 +338,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART4>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART4>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART4>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -351,7 +351,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART5>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART5>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART5>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -364,7 +364,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART6>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART6>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART6>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -377,7 +377,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART7>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART7>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART7>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -390,7 +390,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART8>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART8>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART8>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
@@ -403,7 +403,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <IRQ_UART9>;
 
-		clocks = <&exclk>, <&cgu X2000_CLK_UART9>;
+		clocks = <&cgu X2000_CLK_EXCLK>, <&cgu X2000_CLK_UART9>;
 		clock-names = "baud", "module";
 
 		status = "disabled";
