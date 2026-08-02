@@ -1036,7 +1036,7 @@ static struct esp_adapter *init_adapter(void)
 	memset(&adapter, 0, sizeof(adapter));
 
 	/* Prepare interface RX work */
-	adapter.if_rx_workqueue = alloc_workqueue("ESP_IF_RX_WORK_QUEUE", 0, 0);
+	adapter.if_rx_workqueue = alloc_workqueue("ESP_IF_RX_WORK_QUEUE", WQ_PERCPU, 0);
 
 	if (!adapter.if_rx_workqueue) {
 		deinit_adapter();
@@ -1047,7 +1047,7 @@ static struct esp_adapter *init_adapter(void)
 
 	skb_queue_head_init(&adapter.events_skb_q);
 
-	adapter.events_wq = alloc_workqueue("ESP_EVENTS_WORKQUEUE", WQ_HIGHPRI, 0);
+	adapter.events_wq = alloc_workqueue("ESP_EVENTS_WORKQUEUE", WQ_HIGHPRI | WQ_PERCPU, 0);
 
 	if (!adapter.events_wq) {
 		deinit_adapter();
