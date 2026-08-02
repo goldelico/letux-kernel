@@ -76,6 +76,7 @@ static void sdhci_ingenic_en_msc_tuning(struct sdhci_host *host, unsigned int ms
 		void __iomem *cgu_base;
 		u32 val;
 
+		/* get CGU address range from device tree */
 		cgu_np = of_parse_phandle(np, "clocks", 0);
 		if (!cgu_np)
 			return;
@@ -91,12 +92,13 @@ static void sdhci_ingenic_en_msc_tuning(struct sdhci_host *host, unsigned int ms
 			return;
 
 		val = readl(cgu_base + msc_offset);
-
+// CHECKME: does the x2000 and x2600 differ with 2 and 3 trim angle bits?
 		/* rotate between TRIM values */
-		val = (val & ~(BIT(24) | GENMASK(21, 20))) | ((val + BIT(20)) & GENMASK(21, 20));
-		writel(val | BIT(29), cgu_base + msc_offset);
+		val = (val & ~GENMASK(19, 17)) | ((val + BIT(17)) & GENMASK(19, 17));
+		val |= BIT(20);  // TUNING_DIS
+		writel(val, cgu_base + msc_offset);
 
-		iounmap(cgu_base); /* Löscht das temporäre Mapping sauber aus dem Kernel-RAM */
+		iounmap(cgu_base);
 	}
 }
 
@@ -108,6 +110,9 @@ static void sdhci_ingenic_en_msc_tuning(struct sdhci_host *host, unsigned int ms
  * When the card's clock is going to be changed, look at the new frequency
  * and find the best clock source to go with it.
 */
+
+#include <linux/clk-provider.h>
+
 static void sdhci_ingenic_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_ingenic *sdhci_ing = sdhci_priv(host);
@@ -118,16 +123,19 @@ static void sdhci_ingenic_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	sdhci_set_clock(host, clock);
 
+#if 0	// not needed if we have automatic parent selection in CGU
 	if (clock > 400000) {
 		clk_disable_unprepare(sdhci_ing->clk_cgu);
 		clk_set_parent(sdhci_ing->clk_cgu, sdhci_ing->parent);
 		clk_prepare_enable(sdhci_ing->clk_cgu);
 	} else {
 		clk_disable_unprepare(sdhci_ing->clk_cgu);
-		if (!IS_ERR(sdhci_ing->clk_ext))
+		if (!IS_ERR(sdhci_ing->clk_ext)) {
 			clk_set_parent(sdhci_ing->clk_cgu, sdhci_ing->clk_ext);
+		}
 		clk_prepare_enable(sdhci_ing->clk_cgu);
 	}
+#endif
 
 	clk_set_rate(sdhci_ing->clk_cgu, clock);
 
@@ -206,9 +214,8 @@ static int sdhci_ingenic_probe(struct platform_device *pdev)
 	/* Software redefinition caps */
 // does not exist in 6.15:	host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
 	sdhci_read_caps(host);
-	host->caps = CAPABILITIES1_SW;	// sdhci-caps in device tree?
-	host->caps1 = CAPABILITIES2_SW;	// sdhci-caps-mask in device tree?
-
+	host->caps = CAPABILITIES1_SW;	// provide sdhci-caps in device tree?
+	host->caps1 = CAPABILITIES2_SW;	// provide sdhci-caps-mask in device tree?
 	/* not check wp */
 	host->quirks |= SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 
