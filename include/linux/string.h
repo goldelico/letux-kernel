@@ -64,6 +64,9 @@ void *vmemdup_array_user(const void __user *src, size_t n, size_t size)
  */
 #include <asm/string.h>
 
+/* HACK to avoid reworking some staging drivers now */
+#define strncpy(DEST, SRC, SIZE) strscpy_pad(DEST, SRC, SIZE)
+
 #ifndef __HAVE_ARCH_STRCPY
 extern char * strcpy(char *,const char *);
 #endif
