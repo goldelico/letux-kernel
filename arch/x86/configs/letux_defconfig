@@ -1,5 +1,5 @@
 #
-# Linux/x86 6.18.40 Kernel Configuration
+# Linux/x86 6.18.42 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="i486-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -4481,6 +4481,7 @@ CONFIG_AGP_VIA=y
 CONFIG_AGP_EFFICEON=y
 CONFIG_INTEL_GTT=y
 CONFIG_VGA_SWITCHEROO=y
+CONFIG_GPU_BUDDY=y
 CONFIG_DRM=y
 
 #
