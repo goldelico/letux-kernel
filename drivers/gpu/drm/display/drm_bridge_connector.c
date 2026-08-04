@@ -263,7 +263,6 @@ static void drm_bridge_connector_destroy(struct drm_connector *connector)
 {
 	struct drm_bridge_connector *bridge_connector =
 		to_drm_bridge_connector(connector);
-	struct drm_bridge *bridge;
 
 	drm_for_each_bridge_in_chain_scoped(bridge_connector->encoder, bridge)
 		if (bridge->funcs->connector_detach)
