@@ -224,6 +224,8 @@
 		reg = <0x70>;
 		interrupts-extended = <&gpio3 27 IRQ_TYPE_LEVEL_LOW>;
 
+		#sound-dai-cells = <0>;
+
 		ports {
 			port {
 				hdmi: endpoint {
@@ -559,7 +561,9 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "HDMI Audio";
 
-		/* broken - emits compiler warnings */
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		simple-audio-card,dai-link@0 {		/* I2S - HDMI */
 			reg = <0>;
 			format = "i2s";
@@ -567,7 +571,7 @@
 				sound-dai = <&ssi2 0>;
 			};
 			codec {
-				sound-dai = <&display0 0>;
+				sound-dai = <&display0>;
 			};
 		};
 	};
