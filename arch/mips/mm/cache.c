@@ -215,14 +215,6 @@ void cpu_cache_init(void)
 		r4k_cache_init();
 	}
 
-#if 0	// not upstream - seems to come from TX3922 and TX3927
-	if (cpu_has_tx39_cache) {
-		extern void __weak tx39_cache_init(void);
-
-		tx39_cache_init();
-	}
-#endif
-
 	if (IS_ENABLED(CONFIG_CPU_CAVIUM_OCTEON) && cpu_has_octeon_cache)
 		octeon_cache_init();
 
