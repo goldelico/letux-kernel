@@ -491,11 +491,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC0>;
 
-#if 0
-			clocks = <&cgu X2600_CLK_SCLKA>, <&cgu X2600_CLK_MSC0>;
-#else
 			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_MSC0>;
-#endif
 			clock-names = "ext", "sdhci";
 
 			cap-sd-highspeed;
@@ -515,11 +511,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_MSC1>;
 
-#if 0
-			clocks = <&cgu X2600_CLK_SCLKA>, <&cgu X2600_CLK_MSC1>;
-#else
 			clocks = <&cgu X2600_CLK_EXCLK>, <&cgu X2600_CLK_MSC1>;
-#endif
 			clock-names = "ext", "sdhci";
 
 			cap-sd-highspeed;
