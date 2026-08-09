@@ -1,5 +1,5 @@
 #
-# Linux/arm 7.2.0-rc6 Kernel Configuration
+# Linux/arm 7.2.0-rc7 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -5826,6 +5826,7 @@ CONFIG_SND_SOC_PCM512x_I2C=m
 # CONFIG_SND_SOC_RT5616 is not set
 # CONFIG_SND_SOC_RT5631 is not set
 # CONFIG_SND_SOC_RT5640 is not set
+# CONFIG_SND_SOC_RT5645 is not set
 # CONFIG_SND_SOC_RT5659 is not set
 # CONFIG_SND_SOC_RT9120 is not set
 # CONFIG_SND_SOC_RT9123 is not set
