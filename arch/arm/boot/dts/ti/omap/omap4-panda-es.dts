@@ -80,3 +80,7 @@
 &gpio1_target {
 	 ti,no-reset-on-init;
 };
+
+&mcbsp1 {
+	#sound-dai-cells = <0>;
+};

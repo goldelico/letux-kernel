@@ -71,7 +71,7 @@ exports_grep_trailer := --include='*.[ch]' -nrw $(srctree)/virt/kvm $(srctree)/a
 # a.k.a. --NUM.  Simply request zero lines.  Print the separator only after
 # filtering out expected exports to avoid extra newlines in the error message.
 define get_kvm_exports
-$(shell grep "$(1)" -C0 $(exports_grep_trailer) | grep "$(1)" -C0 --group-separator="!SEP!")
+$(shell grep "$(1)" -C0 $(exports_grep_trailer) | sed 's/^--$$/!SEP!/')
 endef
 
 define check_kvm_exports
