@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0
 
 # Paths to driver headers
-ccflags-y += -I$(PWD)/drivers/net/wireless/espressif/esp_hosted_ng
-ccflags-y += -I$(PWD)/drivers/net/wireless/espressif/esp_hosted_ng/include
-ccflags-y += -I$(PWD)/include -I$(PWD)
+ccflags-y += -I$(srctree)/drivers/net/wireless/espressif/esp_hosted_ng
+ccflags-y += -I$(srctree)/drivers/net/wireless/espressif/esp_hosted_ng/include
+ccflags-y += -I$(srctree)/include -I$(srctree)
 
 # Core objects for esp-hosted-ng
 esp-hosted-ng-core := main.o esp_bt.o esp_cmd.o esp_utils.o esp_cfg80211.o \
