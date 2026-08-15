@@ -24,7 +24,7 @@
 letux/scripts
 
 # we need some compile fixes for MacOS X cross-compiler
-letux/compile-fixes
+-letux/compile-fixes	# no longer needed!
 
 # Letux base code
 letux/Letux
