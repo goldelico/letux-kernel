@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/phy/pcie.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
@@ -99,7 +100,9 @@
 #define PCIE_CLIENT_LTSSM_STATUS	0x300
 #define  PCIE_LINKUP			0x3
 #define  PCIE_LINKUP_MASK		GENMASK(17, 16)
-#define  PCIE_LTSSM_STATUS_MASK		GENMASK(5, 0)
+#define PCIE_LEGACY_INT_ENABLE		GENMASK(3, 0)
+#define PCIE_LTSSM_ENABLE_ENHANCE	BIT(4)
+#define PCIE_LTSSM_STATUS_MASK		GENMASK(5, 0)
 
 #define PCIE_TYPE0_HDR_DBI2_OFFSET      0x100000
 
@@ -112,6 +115,8 @@ struct rockchip_pcie {
 	struct reset_control *rst;
 	struct gpio_desc *rst_gpio;
 	struct irq_domain *irq_domain;
+	raw_spinlock_t irq_lock;
+	bool bifurcation;
 	const struct rockchip_pcie_of_data *data;
 	bool supports_clkreq;
 	struct delayed_work trace_work;
@@ -143,7 +148,7 @@ static void rockchip_pcie_intx_handler(struct irq_desc *desc)
 
 	reg = rockchip_pcie_readl_apb(rockchip, PCIE_CLIENT_INTR_STATUS_LEGACY);
 
-	for_each_set_bit(hwirq, &reg, 4)
+	for_each_set_bit(hwirq, &reg, 8)
 		generic_handle_domain_irq(rockchip->irq_domain, hwirq);
 
 	chained_irq_exit(chip, desc);
@@ -187,6 +192,8 @@ static int rockchip_pcie_init_irq_domain(struct rockchip_pcie *rockchip)
 {
 	struct device *dev = rockchip->pci.dev;
 	struct device_node *intc;
+
+	raw_spin_lock_init(&rockchip->irq_lock);
 
 	intc = of_get_child_by_name(dev->of_node, "legacy-interrupt-controller");
 	if (!intc) {
@@ -610,6 +617,12 @@ static int rockchip_pcie_phy_init(struct rockchip_pcie *rockchip)
 		return dev_err_probe(dev, PTR_ERR(rockchip->phy),
 				     "missing PHY\n");
 
+	if (rockchip->bifurcation) {
+		ret = phy_set_mode_ext(rockchip->phy, PHY_MODE_PCIE, PHY_MODE_PCIE_BIFURCATION);
+		if (ret)
+			return ret;
+	}
+
 	ret = phy_init(rockchip->phy);
 	if (ret < 0)
 		return ret;
@@ -788,6 +801,9 @@ static int rockchip_pcie_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENODEV)
 		return dev_err_probe(dev, ret,
 				     "failed to enable vpcie3v3 regulator\n");
+
+	if (device_property_read_bool(dev, "rockchip,bifurcation"))
+		rockchip->bifurcation = true;
 
 	ret = rockchip_pcie_phy_init(rockchip);
 	if (ret)
