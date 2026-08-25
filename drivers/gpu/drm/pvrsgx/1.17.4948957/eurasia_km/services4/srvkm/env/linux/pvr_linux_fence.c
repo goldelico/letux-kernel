@@ -546,7 +546,7 @@ static int update_dma_resv_fences_src(struct pvr_fence_frame *pvr_fence_frame,
 
 	if (!pvr_fence_frame->have_blocking_fences)
 	{
-		ret = dma_resv_reserve_shared(resv, 1);
+		ret = dma_resv_reserve_fences(resv, 1);
 		if (ret)
 		{
 			return ret;
@@ -594,7 +594,7 @@ static int update_dma_resv_fences_src(struct pvr_fence_frame *pvr_fence_frame,
 
 	if (reserve)
 	{
-		ret = dma_resv_reserve_shared(resv, 1);
+		ret = dma_resv_reserve_fences(resv, 1);
 		if (ret)
 		{
 			return ret;
