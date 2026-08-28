@@ -396,6 +396,15 @@ properties:
       '#pwm-cells':
         const: 2
 
+      ti,twl4030-pwm-frame-64:
+        type: boolean
+        description:
+          TWL4030 only; not supported by TWL6030 PWM.
+          Select the short 64-clock-cycle PWM frame instead of the
+          default 128-cycle frame, doubling the PWM frequency. Required
+          for dimming inputs requiring short PWM low intervals during
+          startup mode detection (e.g. TI TPS61160/61).
+
     required:
       - compatible
       - '#pwm-cells'
