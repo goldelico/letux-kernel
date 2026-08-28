@@ -7,6 +7,7 @@
 
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -18,6 +19,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
+/* extra time added above enable_guard_period_us for usleep_range() */
+#define PWM_BL_GUARD_SLACK_US	2000
+
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	struct device		*dev;
@@ -26,6 +30,7 @@ struct pwm_bl_data {
 	bool			enabled;
 	struct regulator	*power_supply;
 	struct gpio_desc	*enable_gpio;
+	unsigned int		enable_guard_period_us;
 	unsigned int		scale;
 	unsigned int		post_pwm_on_delay;
 	unsigned int		pwm_off_delay;
@@ -93,15 +98,61 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	struct pwm_bl_data *pb = bl_get_data(bl);
 	int brightness = backlight_get_brightness(bl);
 	struct pwm_state state;
+	int ret;
 
 	if (pb->notify)
 		brightness = pb->notify(pb->dev, brightness);
 
 	if (brightness > 0) {
 		pwm_get_state(pb->pwm, &state);
+
+		/*
+		 * Some LED drivers with a PWM dimming input switch to a
+		 * one-wire command mode when the dimming input is held
+		 * high continuously for longer than a given time (e.g.
+		 * TI TPS61160/TPS61161: ~2.5 ms). Such devices require
+		 * their sensitivity calibration to run at startup, which
+		 * is performed at 100% duty cycle (= constant high).
+		 *
+		 * Present 100% duty cycle for the configured guard period
+		 * before applying the requested brightness whenever the
+		 * backlight was off. The PWM state alone is not sufficient
+		 * to determine whether the LED driver was powered.
+		 */
+		if (pb->enable_guard_period_us && !pb->enabled) {
+			struct pwm_state guard = state;
+
+			guard.duty_cycle = guard.period;
+			guard.enabled = true;
+			ret = pwm_apply_might_sleep(pb->pwm, &guard);
+			if (ret)
+				return ret;
+
+			/* Ensure the LED driver is powered during calibration. */
+			pwm_backlight_power_on(pb);
+
+			usleep_range(pb->enable_guard_period_us,
+				     pb->enable_guard_period_us +
+				     PWM_BL_GUARD_SLACK_US);
+		}
+
+		pwm_get_state(pb->pwm, &state);
 		state.duty_cycle = compute_duty_cycle(pb, brightness, &state);
+		/* Keep normal dimming below full duty after the startup guard. */
+		if (pb->enable_guard_period_us && state.duty_cycle == state.period)
+			state.duty_cycle = state.period - 1;
 		state.enabled = true;
-		pwm_apply_might_sleep(pb->pwm, &state);
+		ret = pwm_apply_might_sleep(pb->pwm, &state);
+		if (ret) {
+			/* Do not leave a failed startup at constant high. */
+			if (pb->enable_guard_period_us) {
+				state.duty_cycle = 0;
+				state.enabled = false;
+				pwm_apply_might_sleep(pb->pwm, &state);
+				pwm_backlight_power_off(pb);
+			}
+			return ret;
+		}
 
 		pwm_backlight_power_on(pb);
 	} else {
@@ -239,7 +290,8 @@ static int pwm_backlight_parse_dt(struct device *dev,
 	of_property_read_u32(node, "post-pwm-on-delay-ms",
 			     &data->post_pwm_on_delay);
 	of_property_read_u32(node, "pwm-off-delay-ms", &data->pwm_off_delay);
-
+	of_property_read_u32(node, "pwm-enable-guard-period-us",
+			     &data->enable_guard_period_us);
 	/*
 	 * Determine the number of brightness levels, if this property is not
 	 * set a default table of brightness levels will be used.
@@ -467,6 +519,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
+	pb->enable_guard_period_us = data->enable_guard_period_us;
 	pb->notify = data->notify;
 	pb->notify_after = data->notify_after;
 	pb->exit = data->exit;
