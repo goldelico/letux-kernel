@@ -37,6 +37,20 @@
  * There are also two LED pins used sometimes as output-only GPIOs.
  */
 
+#define TWL4030_GPIO_LED_A		TWL4030_GPIO_MAX
+#define TWL4030_GPIO_LED_B		(TWL4030_GPIO_MAX + 1)
+#define TWL4030_GPIO_REGEN		(TWL4030_GPIO_MAX + 2)
+
+/* PM_RECEIVER: REGEN_DEV_GRP */
+#define TWL4030_REGEN_DEV_GRP		0x7f
+#define TWL4030_REGEN_DEV_GRP_P1	BIT(5)
+#define TWL4030_REGEN_DEV_GRP_P2	BIT(6)
+#define TWL4030_REGEN_DEV_GRP_P3	BIT(7)
+
+/* POWERPM_RECEIVER: DC/DC_GLOBAL_CFG */
+#define TWL4030_DC_DC_GLOBAL_CFG	0x06
+#define TWL4030_REGEN_PU_DISABLE	BIT(5)
+
 /* genirq interfaces are not available to modules */
 #ifdef MODULE
 #define is_module()	true
@@ -136,6 +150,79 @@ static int twl4030_led_set_value(int led, int value)
 				TWL4030_LED_LEDEN_REG);
 }
 
+static int twl4030_regen_get(void)
+{
+	u8 value;
+	int ret;
+
+	ret = twl_i2c_read_u8(TWL_MODULE_PM_RECEIVER, &value,
+			      TWL4030_REGEN_DEV_GRP);
+	if (ret < 0)
+		return ret;
+
+	return !!(value & TWL4030_REGEN_DEV_GRP_P1);
+}
+
+static int twl4030_regen_set(int value)
+{
+	u8 reg;
+	int ret;
+
+	ret = twl_i2c_read_u8(TWL_MODULE_PM_RECEIVER, &reg,
+			      TWL4030_REGEN_DEV_GRP);
+	if (ret < 0)
+		return ret;
+
+	if (value)
+		reg |= TWL4030_REGEN_DEV_GRP_P1;
+	else
+		reg &= ~(TWL4030_REGEN_DEV_GRP_P1 |
+			 TWL4030_REGEN_DEV_GRP_P2 |
+			 TWL4030_REGEN_DEV_GRP_P3);
+
+	return twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, reg,
+				TWL4030_REGEN_DEV_GRP);
+}
+
+static int twl4030_regen_set_pullup(bool enable)
+{
+	u8 value;
+	int ret;
+
+	ret = twl_i2c_read_u8(TWL_MODULE_PM_RECEIVER, &value,
+			      TWL4030_DC_DC_GLOBAL_CFG);
+	if (ret < 0)
+		return ret;
+
+	if (enable)
+		value &= ~TWL4030_REGEN_PU_DISABLE;
+	else
+		value |= TWL4030_REGEN_PU_DISABLE;
+
+	return twl_i2c_write_u8(TWL_MODULE_PM_RECEIVER, value,
+				TWL4030_DC_DC_GLOBAL_CFG);
+}
+
+static int twl4030_set_config(struct gpio_chip *chip,
+			      unsigned int offset, unsigned long config)
+{
+	unsigned int param;
+
+	if (offset != TWL4030_GPIO_REGEN)
+		return -ENOTSUPP;
+
+	param = pinconf_to_config_param(config);
+
+	switch (param) {
+	case PIN_CONFIG_BIAS_PULL_UP:
+		return twl4030_regen_set_pullup(true);
+	case PIN_CONFIG_BIAS_DISABLE:
+		return twl4030_regen_set_pullup(false);
+	default:
+		return -ENOTSUPP;
+	}
+}
+
 static int twl4030_set_gpio_direction(int gpio, int is_input)
 {
 	u8 d_bnk = gpio >> 3;
@@ -143,6 +230,9 @@ static int twl4030_set_gpio_direction(int gpio, int is_input)
 	u8 reg = 0;
 	u8 base = REG_GPIODATADIR1 + d_bnk;
 	int ret = 0;
+
+	if (gpio >= TWL4030_GPIO_MAX)
+		return -EINVAL;
 
 	ret = gpio_twl4030_read(base);
 	if (ret >= 0) {
@@ -211,8 +301,16 @@ static int twl_request(struct gpio_chip *chip, unsigned offset)
 
 	mutex_lock(&priv->mutex);
 
+	/*
+	 * REGEN is controlled through the power-management registers
+	 * and does not require enabling the GPIO module.
+	 */
+	if (offset == TWL4030_GPIO_REGEN)
+		goto done;
+
 	/* Support the two LED outputs as output-only GPIOs. */
-	if (offset >= TWL4030_GPIO_MAX) {
+	if (offset >= TWL4030_GPIO_LED_A &&
+	    offset <= TWL4030_GPIO_LED_B) {
 		u8	ledclr_mask = LEDEN_LEDAON | LEDEN_LEDAEXT
 				| LEDEN_LEDAPWM | LEDEN_PWM_LENGTHA;
 		u8	reg = TWL4030_PWMAON_REG;
@@ -249,6 +347,15 @@ static int twl_request(struct gpio_chip *chip, unsigned offset)
 		goto done;
 	}
 
+	/*
+	 * Offsets 18/19 are reserved for the optional LEDs.  If the LEDs
+	 * aren't enabled, they must not be treated as LED GPIOs.
+	 */
+	if (offset >= TWL4030_GPIO_MAX) {
+		status = -EINVAL;
+		goto done;
+	}
+
 	/* on first use, turn GPIO module "on" */
 	if (!priv->usage_count) {
 		struct twl4030_gpio_platform_data *pdata;
@@ -277,8 +384,18 @@ static void twl_free(struct gpio_chip *chip, unsigned offset)
 	struct gpio_twl4030_priv *priv = gpiochip_get_data(chip);
 
 	mutex_lock(&priv->mutex);
+	if (offset == TWL4030_GPIO_REGEN)
+		goto out;
+
+	if (offset >= TWL4030_GPIO_LED_A &&
+	    offset <= TWL4030_GPIO_LED_B) {
+		WARN_ON_ONCE(twl4030_led_set_value(offset -
+				TWL4030_GPIO_LED_A, 1));
+		goto out;
+	}
+
 	if (offset >= TWL4030_GPIO_MAX) {
-		WARN_ON_ONCE(twl4030_led_set_value(offset - TWL4030_GPIO_MAX, 1));
+		WARN_ON_ONCE(true);
 		goto out;
 	}
 
@@ -301,7 +418,7 @@ static int twl_direction_in(struct gpio_chip *chip, unsigned offset)
 	if (offset < TWL4030_GPIO_MAX)
 		ret = twl4030_set_gpio_direction(offset, 1);
 	else
-		ret = -EINVAL;	/* LED outputs can't be set as input */
+		ret = -EINVAL; /* LED and REGEN outputs cannot be inputs */
 
 	if (!ret)
 		priv->direction &= ~BIT(offset);
@@ -323,10 +440,14 @@ static int twl_get(struct gpio_chip *chip, unsigned offset)
 		goto out;
 	}
 
-	if (priv->direction & BIT(offset))
+	if (offset == TWL4030_GPIO_REGEN)
+		status = twl4030_regen_get();
+	else if (priv->direction & BIT(offset))
 		status = priv->out_state & BIT(offset);
-	else
+	else if (offset < TWL4030_GPIO_MAX)
 		status = twl4030_get_gpio_datain(offset);
+	else
+		status = -EINVAL;
 
 	ret = (status < 0) ? status : !!status;
 out:
@@ -342,13 +463,20 @@ static int twl_set(struct gpio_chip *chip, unsigned int offset, int value)
 	mutex_lock(&priv->mutex);
 	if (offset < TWL4030_GPIO_MAX)
 		ret = twl4030_set_gpio_dataout(offset, value);
+	else if (offset >= TWL4030_GPIO_LED_A &&
+		 offset <= TWL4030_GPIO_LED_B)
+		ret = twl4030_led_set_value(offset - TWL4030_GPIO_LED_A, value);
+	else if (offset == TWL4030_GPIO_REGEN)
+		ret = twl4030_regen_set(value);
 	else
-		ret = twl4030_led_set_value(offset - TWL4030_GPIO_MAX, value);
+		ret = -EINVAL;
 
-	if (value)
-		priv->out_state |= BIT(offset);
-	else
-		priv->out_state &= ~BIT(offset);
+	if (!ret) {
+		if (value)
+			priv->out_state |= BIT(offset);
+		else
+			priv->out_state &= ~BIT(offset);
+	}
 
 	mutex_unlock(&priv->mutex);
 
@@ -361,20 +489,28 @@ static int twl_direction_out(struct gpio_chip *chip, unsigned offset, int value)
 	int ret = 0;
 
 	mutex_lock(&priv->mutex);
+
 	if (offset < TWL4030_GPIO_MAX) {
 		ret = twl4030_set_gpio_direction(offset, 0);
-		if (ret) {
-			mutex_unlock(&priv->mutex);
-			return ret;
-		}
+		if (ret)
+			goto out;
+	} else if (offset == TWL4030_GPIO_REGEN) {
+		/* REGEN is an output-only signal. */
+	} else if (offset >= TWL4030_GPIO_LED_A &&
+		   offset <= TWL4030_GPIO_LED_B) {
+		/* LED GPIOs are output-only. */
+	} else {
+		ret = -EINVAL;
+		goto out;
 	}
 
-	/*
-	 *  LED gpios i.e. offset >= TWL4030_GPIO_MAX are always output
-	 */
-
 	priv->direction |= BIT(offset);
+
+out:
 	mutex_unlock(&priv->mutex);
+
+	if (ret)
+		return ret;
 
 	return twl_set(chip, offset, value);
 }
@@ -395,7 +531,14 @@ static int twl_get_direction(struct gpio_chip *chip, unsigned offset)
 			mutex_unlock(&priv->mutex);
 			return ret;
 		}
+	} else if (offset == TWL4030_GPIO_REGEN ||
+		   (offset >= TWL4030_GPIO_LED_A &&
+		    offset <= TWL4030_GPIO_LED_B)) {
+		ret = GPIO_LINE_DIRECTION_OUT;
+	} else {
+		ret = -EINVAL;
 	}
+
 	mutex_unlock(&priv->mutex);
 
 	return ret;
@@ -420,6 +563,7 @@ static const struct gpio_chip template_chip = {
 	.get_direction		= twl_get_direction,
 	.get			= twl_get,
 	.set			= twl_set,
+	.set_config		= twl4030_set_config,
 	.to_irq			= twl_to_irq,
 	.can_sleep		= true,
 };
@@ -478,6 +622,7 @@ static struct twl4030_gpio_platform_data *of_gpio_twl4030(struct device *dev)
 
 	omap_twl_info->use_leds = of_property_read_bool(dev->of_node,
 			"ti,use-leds");
+	omap_twl_info->use_regen = of_property_read_bool(dev->of_node, "ti,use-regen");
 
 	of_property_read_u32(dev->of_node, "ti,debounce",
 			     &omap_twl_info->debounce);
@@ -567,7 +712,9 @@ no_irqs:
 	 * is (still) clear if use_leds is set.
 	 */
 	if (pdata->use_leds)
-		priv->gpio_chip.ngpio += 2;
+		priv->gpio_chip.ngpio = TWL4030_GPIO_LED_B + 1;
+	if (pdata->use_regen)
+		priv->gpio_chip.ngpio = TWL4030_GPIO_REGEN + 1;
 
 	ret = devm_gpiochip_add_data(&pdev->dev, &priv->gpio_chip, priv);
 	if (ret < 0) {
