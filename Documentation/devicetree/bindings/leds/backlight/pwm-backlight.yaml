@@ -49,6 +49,29 @@ properties:
       having to list out every possible value in the brightness-level array.
     $ref: /schemas/types.yaml#/definitions/uint32
 
+  pwm-enable-guard-period-us:
+    description: >
+      Duration in microseconds for which the PWM is set to a full duty
+      cycle (duty_cycle == period) before the requested brightness level
+      is applied, whenever this follows a period where the output was
+      disabled or held at a constant inactive level (power-up, resume,
+      transition from brightness 0).
+
+      Needed by LED drivers whose PWM dimming input switches into a
+      different control mode when held continuously high beyond a
+      device-specific time. Example: TI TPS61160/TPS61161 enter one-wire
+      (EasyScale) command mode if CTRL stays high for >= 2.5 ms and need
+      a 100% duty cycle interval at startup for sensitivity calibration.
+      Use a value greater than the maximum detection window from the
+      datasheet (TPS61160/61: minimum recommended value 2500).
+
+      The guard is issued when the backlight transitions from off to on.
+      The PWM provider must support a full-duty request and the board
+      must ensure that the dimming input is in a defined inactive state
+      while the backlight is off.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 0
+
 dependencies:
   default-brightness-level: [brightness-levels]
   num-interpolated-steps: [brightness-levels]
