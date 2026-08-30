@@ -450,6 +450,10 @@ static int td043mtea1_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	ret = drm_panel_of_backlight(&lcd->panel);
+	if (ret)
+		return ret;
+
 	ret = sysfs_create_group(&spi->dev.kobj, &td043mtea1_attr_group);
 	if (ret < 0) {
 		dev_err(&spi->dev, "failed to create sysfs files\n");
