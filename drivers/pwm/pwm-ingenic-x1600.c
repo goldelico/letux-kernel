@@ -253,10 +253,12 @@ static void pwm_clk_config(struct ingenic_pwm_chip *ingenic_pwm,
 	pwm_writel(ingenic_pwm, prescale, PWM_CCFG(channel));
 }
 
+#ifdef UNUSED
 static int pwm_get_prescale(struct ingenic_pwm_chip *ingenic_pwm, unsigned int channel)
 {
 	return pwm_readl(ingenic_pwm, PWM_CCFG(channel));
 }
+#endif
 
 static void pwm_enable_hw(struct ingenic_pwm_chip *ingenic_pwm, unsigned int channel)
 {
@@ -396,6 +398,7 @@ static void pwm_dma_fifo_flush(struct ingenic_pwm_chip *ingenic_pwm, unsigned in
 	pwm_writel(ingenic_pwm, 1 << channel, PWM_DCFF);
 }
 
+#ifdef PWM_DBUG
 static void dump_pwm_reg(struct ingenic_pwm_chip *ingenic_pwm)
 {
 	int i;
@@ -425,6 +428,7 @@ static void dump_pwm_reg(struct ingenic_pwm_chip *ingenic_pwm)
 		printk("PWM_ON(%08x)  = %08x\n\n", PWM_ON(i),pwm_readl(ingenic_pwm, PWM_ON(i)));
 	}
 }
+#endif
 
 static inline struct ingenic_pwm_chip *to_ingenic_pwm(struct pwm_chip *chip)
 {
@@ -562,7 +566,9 @@ static int ingenic_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		tx_config.dst_maxburst = 4;
 		tx_config.src_maxburst = 4;
 		tx_config.dst_addr = (dma_addr_t)(ingenic_pwm->phys+PWM_DR(channel));
-// FIXME:		tx_config.slave_id = 0;
+#ifdef FIXME
+		tx_config.slave_id = 0;
+#endif
 		tx_config.direction = DMA_MEM_TO_DEV;
 		dmaengine_slave_config(txchan, &tx_config);
 
@@ -630,7 +636,9 @@ static int ingenic_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 			DMA_MODE_CYCLIC == ingenic_chan->mode)
 		pwm_dma_enable_hw(ingenic_pwm, channel);
 	pwm_enable_hw(ingenic_pwm, channel);
-//	dump_pwm_reg(ingenic_pwm);
+#ifdef PWM_DBUG
+	dump_pwm_reg(ingenic_pwm);
+#endif
 	mutex_unlock(&ingenic_pwm->mutex);
 
 	return 0;
@@ -671,7 +679,7 @@ static int ingenic_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 {
 	int err;
 	bool enabled = pwm->state.enabled;
-#if FIXME
+#ifdef FIXME
 	if (state->polarity != pwm->state.polarity) {
 		if (enabled) {
 			ingenic_pwm_disable(chip, pwm);
@@ -1058,12 +1066,14 @@ static struct device_attribute pwm_device_attributes[] = {
 	__ATTR(channels, S_IRUGO, pwm_show_requested_channel, NULL),
 };
 
+#ifdef UNUSED
 static bool pwm_dma_chan_filter(struct dma_chan *chan, void *param)
 {
 	struct ingenic_pwm_chan *pwm_chan = param;
 
 	return (INGENIC_DMA_REQ_PWM0_TX + pwm_chan->id) == (int)chan->private;
 }
+#endif
 
 static irqreturn_t ingenic_pwm_interrupt(int irq, void *dev_id)
 {
@@ -1241,7 +1251,7 @@ MODULE_DEVICE_TABLE(of, ingenic_pwm_matches);
 #ifdef CONFIG_PM_SLEEP
 static int ingenic_pwm_suspend(struct device *dev)
 {
-	struct ingenic_pwm_chip *ingenic_pwm = dev_get_drvdata(dev);
+	__maybe_unused struct ingenic_pwm_chip *ingenic_pwm = dev_get_drvdata(dev);
 	unsigned int i;
 
 	/*
@@ -1250,7 +1260,7 @@ static int ingenic_pwm_suspend(struct device *dev)
 	 * passed to pwm_config() next time.
 	 */
 	for (i = 0; i < INGENIC_PWM_NUM; ++i) {
-#if FIXME
+#ifdef FIXME
 		struct pwm_device *pwm = &ingenic_pwm->chip->pwms[i];
 		struct ingenic_pwm_channel *chan = pwm_get_chip_data(pwm);
 
