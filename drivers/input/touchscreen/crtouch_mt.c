@@ -217,7 +217,7 @@ struct crtouch_data {
 	bool status_pressed;
 };
 
-void report_single_touch(struct crtouch_data *crtouch, int x, int y)
+static void report_single_touch(struct crtouch_data *crtouch, int x, int y)
 {
 	input_event(crtouch->input_dev, EV_ABS, ABS_X, x);
 	input_event(crtouch->input_dev, EV_ABS, ABS_Y, y);
@@ -228,7 +228,7 @@ void report_single_touch(struct crtouch_data *crtouch, int x, int y)
 	crtouch->status_pressed = CRICS_TOUCHED;
 }
 
-void free_touch(struct crtouch_data *crtouch)
+static void free_touch(struct crtouch_data *crtouch)
 {
 	input_event(crtouch->input_dev, EV_KEY, BTN_TOUCH, 0);
 	input_report_abs(crtouch->input_dev, ABS_PRESSURE, 0);
@@ -352,7 +352,7 @@ static void tsc_poll_handler(struct timer_list *arg)
 	add_timer(&crtouch->tsc_poll_timer);
 }
 
-int read_resolution(struct crtouch_data *crtouch)
+static int read_resolution(struct crtouch_data *crtouch)
 {
 	char resolution[LEN_RESOLUTION_BYTES];
 	int horizontal, vertical, ret;
