@@ -253,7 +253,7 @@ static struct mmc_host *devm_mmc_get_mmc_by_phandle(struct device *dev,
 static int txs_probe(struct platform_device *dev)
 {
 	struct txs_data *data;
-	int port;
+	__maybe_unused int port;
 	int err;
 
 	dev_err(&dev->dev, "probe\n");
@@ -292,7 +292,7 @@ static int txs_probe(struct platform_device *dev)
 
 	mutex_init(&data->lock);
 
-#if 0	// if we keep this enabled despite manual switch mode __mmc_stop_host() will fail to stop these virtual mmc hosts and loop in cancel_delayed_work_sync()
+#ifdef FIXME	// if we keep this enabled despite manual switch mode __mmc_stop_host() will fail to stop these virtual mmc hosts and loop in cancel_delayed_work_sync()
 	if (!IS_ERR_OR_NULL(data->host)) {
 		/* setup our client ports */
 
@@ -320,6 +320,7 @@ static int txs_probe(struct platform_device *dev)
 
 	return 0;
 
+#ifdef UNUSED
 mmc_error:
 	mutex_destroy(&data->lock);
 
@@ -328,6 +329,8 @@ mmc_error:
 		mmc_remove_host(data->mmc[port]);
 		mmc_free_host(data->mmc[port]);
 	}
+#endif
+
 out:
 	pr_debug("%s() error %d\n", __func__, err);
 
@@ -351,14 +354,14 @@ static void txs_remove(struct platform_device *dev)
 
 static int txs_suspend(struct device *dev)
 {
-	struct txs_data *data = dev_get_drvdata(dev);
+	__maybe_unused struct txs_data *data = dev_get_drvdata(dev);
 
 	return 0;
 }
 
 static int txs_resume(struct device *dev)
 {
-	struct txs_data *data = dev_get_drvdata(dev);
+	__maybe_unused struct txs_data *data = dev_get_drvdata(dev);
 
 	return 0;
 }
