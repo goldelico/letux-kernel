@@ -170,16 +170,19 @@ static ssize_t enable_power_store(struct device *dev,
 	struct mmc_pwrseq *pwrseq = dev_get_drvdata(dev);
 	unsigned int value = 0;
 	int err;
-	struct mmc_host dummy = {
-		.pwrseq = pwrseq,
-		.ios.power_delay_ms = 10,
-		.ios.power_mode = MMC_POWER_UNDEFINED
-	};
-	struct mmc_host *host = &dummy;
+	struct mmc_host *host;
 
 	err = kstrtouint(buf, 10, &value);
 	if (err < 0)
 		return err;
+
+	host = kzalloc(sizeof(*host), GFP_KERNEL);
+	if (!host)
+		return -ENOMEM;
+
+	host->pwrseq = pwrseq;
+	host->ios.power_delay_ms = 10;
+	host->ios.power_mode = MMC_POWER_UNDEFINED;
 
 	if (value) { /* power on */
 		if (pwrseq->ops->pre_power_on)
@@ -194,6 +197,7 @@ static ssize_t enable_power_store(struct device *dev,
 		mmc_delay(1);
 	}
 
+	kfree(host);
 	return count;
 }
 static DEVICE_ATTR_RW(enable_power);
