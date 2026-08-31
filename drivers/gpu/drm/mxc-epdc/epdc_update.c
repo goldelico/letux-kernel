@@ -14,6 +14,7 @@
 #include "mxc_epdc.h"
 #include "epdc_hw.h"
 #include "epdc_regs.h"
+#include "epdc_update.h"
 #include "epdc_waveform.h"
 
 #define EPDC_V2_NUM_LUTS	64
@@ -543,8 +544,8 @@ static void epdc_submit_work_func(struct work_struct *work)
 	struct drm_rect adj_update_region, *upd_region;
 	bool end_merge = false;
 	u32 update_addr;
-	uint8_t *update_addr_virt;
-	int ret;
+	__maybe_unused uint8_t *update_addr_virt;
+	__maybe_unused int ret;
 
 	/* Protect access to buffer queues and to update HW */
 	mutex_lock(&priv->queue_mutex);
@@ -809,7 +810,7 @@ void mxc_epdc_flush_updates(struct mxc_epdc *priv)
 
 void mxc_epdc_draw_mode0(struct mxc_epdc *priv)
 {
-	u32 *upd_buf_ptr;
+	__maybe_unused u32 *upd_buf_ptr;
 	int i;
 	u32 xres, yres;
 
@@ -841,7 +842,6 @@ void mxc_epdc_draw_mode0(struct mxc_epdc *priv)
 
 	dev_err(priv->drm.dev, "Mode0 init failed!\n");
 }
-
 
 int mxc_epdc_send_single_update(struct drm_rect *clip, int pitch, void *vaddr,
 				struct mxc_epdc *priv)
@@ -911,9 +911,9 @@ static void epdc_intr_work_func(struct work_struct *work)
 	u32 lut;
 	bool ignore_collision = false;
 	int i;
-	bool wb_lut_done = false;
+	__maybe_unused bool wb_lut_done = false;
 	bool free_update = true;
-	u32 epdc_luts_active, epdc_wb_busy, epdc_luts_avail, epdc_lut_cancelled;
+	u32 epdc_luts_active, epdc_wb_busy, __maybe_unused epdc_luts_avail, epdc_lut_cancelled;
 	u32 epdc_collision;
 	u64 epdc_irq_stat;
 	bool epdc_waiting_on_wb;
