@@ -541,8 +541,9 @@ static int w677l_enable(struct drm_panel *panel)
 static int w677l_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+#ifdef UNUSED
 	struct otm1283a *ctx = panel_to_otm1283a(panel);
-
+#endif
 	dev_dbg(panel->dev, "%s\n", __func__);
 
 	mode = drm_mode_duplicate(connector->dev, &default_mode);
