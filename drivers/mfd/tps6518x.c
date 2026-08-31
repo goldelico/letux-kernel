@@ -364,7 +364,9 @@ int tps6518x_chip_power(struct tps6518x *tps6518x,int iIsON,int iIsWakeup)
 #ifdef CONFIG_OF
 static int tps6518x_i2c_parse_dt_pdata(struct device *dev)
 {
+#ifdef UNUSED
 	struct tps6518x_platform_data *pdata;
+#endif
 	struct device_node *pmic_np;
 	struct tps6518x *tps6518x = dev_get_drvdata(dev);
 	int ret;
