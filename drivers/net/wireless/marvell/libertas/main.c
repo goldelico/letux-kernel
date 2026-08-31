@@ -752,6 +752,7 @@ static void lbs_tx_lockup_handler(struct timer_list *t)
 	spin_unlock_irqrestore(&priv->driver_lock, flags);
 }
 
+#ifdef UNUSED
 /**
  * auto_deepsleep_timer_fn - put the device back to deep sleep mode when
  * timer expires and no activity (command, event, data etc.) is detected.
@@ -781,6 +782,7 @@ static void auto_deepsleep_timer_fn(struct timer_list *t)
 	mod_timer(&priv->auto_deepsleep_timer , jiffies +
 				(priv->auto_deep_sleep_timeout * HZ)/1000);
 }
+#endif
 
 int lbs_enter_auto_deep_sleep(struct lbs_private *priv)
 {
