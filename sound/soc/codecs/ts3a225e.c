@@ -109,9 +109,11 @@ static void ts3a225_state_changed(struct device *dev)
 
 static irqreturn_t ts3a225_isr(int irq, void *devid)
 {
+#ifdef FIXME
 	struct ts3a225e *data = devid;
 
-//	complete(&data->done);
+	complete(&data->done);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -159,7 +161,7 @@ static struct regmap_config ts3a225_regmap_config = {
 	// define IRQ register as volatile
 };
 
-int ts3a225_probe(struct device *dev, struct regmap *regmap, int irq)
+static int ts3a225_probe(struct device *dev, struct regmap *regmap, int irq)
 {
 	struct ts3a225e *data;
 	int err = 0;
@@ -188,7 +190,7 @@ int ts3a225_probe(struct device *dev, struct regmap *regmap, int irq)
 	}
 
 
-#if OLD
+#if 0	// OLDs
 
 	/* Register sysfs hooks */
 	err = sysfs_create_group(&dev->kobj, &ts3a225_attr_group);
