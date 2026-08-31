@@ -112,7 +112,9 @@ struct mxc_epdc {
 	/* elements related to EPDC updates */
 	int num_luts;
 	int max_num_updates;
+#ifdef FIXME	// what is this warning good for?
 #warning take of init of in_init hw_ready, hw_initializing
+#endif
 	bool in_init;
 	bool hw_ready;
 	bool hw_initializing;
