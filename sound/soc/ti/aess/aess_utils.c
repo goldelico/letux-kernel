@@ -176,7 +176,7 @@ int omap_aess_write_event_generator(struct omap_aess *aess, u32 e)
 		return 0;
 	case EVENT_44100:
 		counter = EVENT_GENERATOR_COUNTER_44100;
-		/* Fall through */
+		fallthrough;
 	case EVENT_TIMER:
 		selection = EVENT_SOURCE_COUNTER;
 		event = 0;
