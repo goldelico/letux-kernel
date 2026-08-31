@@ -61,11 +61,11 @@ SND_SOC_DAILINK_DEFS(link_mcbsp2,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));	// NOTE: of_node of aesss inserted by code
 
-#if FIXME
+#ifdef FIXME
 // mcbsp1 & 3?
 #endif
 
-#if FIXME
+#ifdef FIXME
 /* do we need this??? */
 SND_SOC_DAILINK_DEFS(link_mcasp,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()),
@@ -135,7 +135,7 @@ SND_SOC_DAILINK_DEFS(link_be_mcbsp2,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("omap-aess")));
 
-#if FIXME
+#ifdef FIXME
 SND_SOC_DAILINK_DEFS(link_be_mcbsp3,
 	DAILINK_COMP_ARRAY(COMP_CPU("omap-mcbsp.3")),	// NOTE: will be overwritten by OF node
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -144,7 +144,7 @@ SND_SOC_DAILINK_DEFS(link_be_mcbsp3,
 
 SND_SOC_DAILINK_DEFS(link_be_dmic,
 	DAILINK_COMP_ARRAY(COMP_CPU("dmic.0")),
-#if FIXME
+#ifdef FIXME
 // dmic.1 dmic.2?
 #endif
 	DAILINK_COMP_ARRAY(COMP_CODEC("dmic-codec",
@@ -155,7 +155,7 @@ SND_SOC_DAILINK_DEFS(link_be_dmic,
 // from https://git.ti.com/cgit/ti-linux-kernel/ti-linux-kernel/tree/sound/soc/omap/omap-abe-twl6040.c?id=41b605f2887879d5e428928b197e24ffb44d9b82
 // and https://kernel.googlesource.com/pub/scm/linux/kernel/git/lrg/asoc/+/omap/v3.10%5E2..omap/v3.10/
 
-#if FIXME
+#ifdef FIXME
 // the stream_name may not be necessary to be initialized and can likely be removed
 // or replaced by _name or NULL
 #endif
@@ -173,7 +173,7 @@ SND_SOC_DAILINK_DEFS(link_be_dmic,
 #define SND_SOC_DAI_FE_TRIGGER(_play, _capture) \
 	.trigger = {_play, _capture }
 
-#if FIXME
+#ifdef FIXME
 #define SND_SOC_DAI_LINK_NO_HOST	.no_host_mode = 1
 #endif
 
@@ -206,7 +206,7 @@ static struct snd_soc_dai_link legacy_mcbsp_dai = {
 	SND_SOC_DAI_IGNORE_SUSPEND,
 };
 
-#if FIXME
+#ifdef FIXME
 /* do we need this??? */
 static struct snd_soc_dai_link legacy_mcasp_dai = {
 	/* Legacy SPDIF */
@@ -253,7 +253,7 @@ static struct snd_soc_dai_link abe_fe_dai[] = {
 	SND_SOC_DAI_FE_TRIGGER(SND_SOC_DPCM_TRIGGER_BESPOKE, SND_SOC_DPCM_TRIGGER_BESPOKE),
 	SND_SOC_DAI_OPS(NULL, omap_abe_twl6040_fe_init),
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
-#if FIXME
+#ifdef FIXME
 	SND_SOC_DAI_LINK_NO_HOST,
 #endif
 },
@@ -302,7 +302,7 @@ static struct snd_soc_dai_link abe_be_mcpdm_dai[] = {
 };
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
-#if FIXME
+#ifdef FIXME
 // this is not actively used but likely needed
 #endif
 static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
@@ -313,7 +313,7 @@ static struct snd_soc_dai_link abe_be_mcbsp1_dai = {
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
 };
 
-#if FIXME
+#ifdef FIXME
 // this is not actively used but likely needed
 #endif
 static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
@@ -324,7 +324,7 @@ static struct snd_soc_dai_link abe_be_mcbsp2_dai = {
 	SND_SOC_DAI_IGNORE_SUSPEND, SND_SOC_DAI_IGNORE_PMDOWN,
 };
 
-#if FIXME
+#ifdef FIXME
 static struct snd_soc_dai_link abe_be_mcbsp3_dai = {
 	/* McBSP 3 - MODEM */
 	SND_SOC_DAI_CONNECT("McBSP-3", "mcbsp-3", link_be_mcbsp3),
@@ -606,7 +606,7 @@ static const struct snd_soc_dapm_route aess_audio_map[] = {
 	{"40124000.mcbsp Playback", NULL, "MM_EXT_DL"},
 	{"MM_EXT_UL", NULL, "40124000.mcbsp Capture"},
 
-#if FIXME	/* for direct modem access? Likely needs firmware modifications. */
+#ifdef FIXME	/* for direct modem access? Likely needs firmware modifications. */
 	/* Modem <--> ABE*/
 	{"40126000.mcbsp Playback", NULL, "PH_EXT_DL"},
 	{"PH_EXT_UL", NULL, "40126000.mcbsp Capture"},
@@ -630,7 +630,7 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
 	struct snd_soc_card *card = rtd->card;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	__maybe_unused struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset;
 
 	/* DC offset cancellation computation */
@@ -646,9 +646,9 @@ static int omap_abe_twl6040_dl2_init(struct snd_soc_pcm_runtime *rtd)
 
 static int omap_abe_twl6040_fe_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
-	struct snd_soc_card *card = rtd->card;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	__maybe_unused struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
+	__maybe_unused struct snd_soc_card *card = rtd->card;
+	__maybe_unused struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 
 	return 0;
 }
@@ -692,11 +692,11 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
 	struct snd_soc_card *card = rtd->card;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	__maybe_unused struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	u32 hfotrim, left_offset, right_offset, step_mV;
 	int ret;
 
-#if FIXME	// REVISIT
+#ifdef FIXME	// REVISIT
 	/* allow audio paths from the audio modem to run during suspend */
 	snd_soc_dapm_ignore_suspend(card->dapm, "Ext Spk");
 // AFML/AFMR belong to the codec twl6040.c and will not be found by card->dapm
@@ -761,8 +761,8 @@ static const struct snd_soc_dapm_widget dmic_dapm_widgets[] = {
 static int omap_abe_dmic_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_card_to_dapm(rtd->card);
-	struct snd_soc_card *card = rtd->card;
-	struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
+	__maybe_unused struct snd_soc_card *card = rtd->card;
+	__maybe_unused struct abe_twl6040 *priv = snd_soc_card_get_drvdata(card);
 	int ret;
 
 	ret = snd_soc_dapm_new_controls(dapm, dmic_dapm_widgets,
@@ -863,7 +863,7 @@ static int omap_abe_add_legacy_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 
-#if FIXME	// is already added somewhere? Or not?
+#ifdef FIXME	// is already added somewhere? Or not?
 	/* Add the Legacy McASP */
 	dai_node = of_parse_phandle(node, "ti,mcasp", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, &legacy_mcasp_dai, 1, dai_node, dai_node);
@@ -897,7 +897,7 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 
-#if FIXME	// not done in https://git.goldelico.com/?p=letux-kernel.git;a=blob;f=sound/soc/omap/omap-abe-twl6040.c;h=208e93cdde40944d6e717e5a1db0e56877516d05;hb=refs/heads/omap-audio-3.15#l694
+#ifdef FIXME	// not done in https://git.goldelico.com/?p=letux-kernel.git;a=blob;f=sound/soc/omap/omap-abe-twl6040.c;h=208e93cdde40944d6e717e5a1db0e56877516d05;hb=refs/heads/omap-audio-3.15#l694
 	dai_node = of_parse_phandle(node, "ti,mcpdm", 0);
 #endif
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_mcpdm_dai, ARRAY_SIZE(abe_be_mcpdm_dai), NULL, aess_node);
@@ -917,7 +917,7 @@ static int omap_abe_add_aess_dai_links(struct snd_soc_card *card)
 	if (ret < 0)
 		return ret;
 
-#if FIXME	// this requires a ti,dmic node and fails if it is missing rather than using an internal fallback
+#ifdef FIXME	// this requires a ti,dmic node and fails if it is missing rather than using an internal fallback
 	dai_node = of_parse_phandle(node, "ti,dmic", 0);
 	ret = snd_soc_card_new_dai_links_with_nodes(card, abe_be_dmic_dai, ARRAY_SIZE(abe_be_dmic_dai), dai_node, aess_node);
 
@@ -987,7 +987,7 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-#if FIXME	/*
+#ifdef FIXME	/*
 		 * we must not set fully_routed since this disables
 		 * dapm_update_widget_flags() to set the is_ep flags
 		 * for BE:OUT if AESS is loaded
