@@ -675,7 +675,6 @@ err_request_irq:
 err_input_register:
 err_regulator_enable:
 	idr_remove(&pandora_nub_proc_id, ddata->proc_id);
-err_idr:
 	return ret;
 }
 
