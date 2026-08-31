@@ -134,6 +134,7 @@ void aess_set_opp_processing(struct omap_aess *aess, enum opp_level level)
 		break;
 	default:
 		dev_warn(aess->dev, "Bad OPP value requested (%d)\n", level);
+		fallthrough;
 	case OMAP_AESS_OPP_100:
 		/* OPP100% */
 		dOppMode32 = DOPPMODE32_OPP100;
