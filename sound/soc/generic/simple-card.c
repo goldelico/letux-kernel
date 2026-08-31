@@ -23,8 +23,10 @@
 #define CELL	"#sound-dai-cells"
 #define PREFIX	"simple-audio-card,"
 
+#ifdef UNUSED
 static int simple_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params);
+#endif
 
 static const struct snd_soc_ops simple_ops = {
 	.startup	= simple_util_startup,
@@ -65,6 +67,7 @@ static int simple_parse_platform(struct simple_util_priv *priv,
 	return 0;
 }
 
+#ifdef UNUSED
 static int simple_set_clkdiv(struct snd_soc_dai *dai,
 				  struct simple_util_dai *simple_dai)
 {
@@ -109,6 +112,7 @@ err:
 	return ret;
 #endif
 }
+#endif
 
 static int simple_parse_dai(struct simple_util_priv *priv,
 			    struct device_node *node,
