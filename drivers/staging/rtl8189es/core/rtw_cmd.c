@@ -2054,7 +2054,7 @@ exit:
 
 }
 
-void free_assoc_resources_hdl(_adapter *padapter, u8 lock_scanned_queue)
+static void free_assoc_resources_hdl(_adapter *padapter, u8 lock_scanned_queue)
 {
 	rtw_free_assoc_resources(padapter, lock_scanned_queue);
 }
@@ -2217,7 +2217,7 @@ exit:
 	return res;
 }
 
-u8 _rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, const struct country_chplan *country_ent, u8 swconfig)
+static u8 _rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, const struct country_chplan *country_ent, u8 swconfig)
 {
 	struct cmd_obj *cmdobj;
 	struct	SetChannelPlan_param *parm;
@@ -2489,7 +2489,8 @@ u8 rtw_periodic_tsf_update_end_cmd(_adapter *adapter)
 exit:
 	return res;
 }
-u8 rtw_ssmps_wk_hdl(_adapter *adapter, struct ssmps_cmd_parm *ssmp_param)
+
+static u8 rtw_ssmps_wk_hdl(_adapter *adapter, struct ssmps_cmd_parm *ssmp_param)
 {
 	u8 res = _SUCCESS;
 	struct sta_info *sta = ssmp_param->sta;
@@ -3265,7 +3266,8 @@ void rtw_iface_dynamic_chk_wk_hdl(_adapter *padapter)
 
 
 }
-void rtw_dynamic_chk_wk_hdl(_adapter *padapter)
+
+static void rtw_dynamic_chk_wk_hdl(_adapter *padapter)
 {
 	rtw_mi_dynamic_chk_wk_hdl(padapter);
 #ifdef CONFIG_MP_INCLUDED
@@ -3314,7 +3316,7 @@ struct lps_ctrl_wk_parm {
 	#endif
 };
 
-void lps_ctrl_wk_hdl(_adapter *padapter, u8 lps_ctrl_type, u8 *buf)
+static void lps_ctrl_wk_hdl(_adapter *padapter, u8 lps_ctrl_type, u8 *buf)
 {
 	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
@@ -3487,13 +3489,13 @@ u8 rtw_lps_ctrl_leave_set_level_cmd(_adapter *adapter, u8 lps_level, u8 flags)
 }
 
 #ifdef CONFIG_LPS_1T1R
-u8 rtw_lps_ctrl_leave_set_1t1r_cmd(_adapter *adapter, u8 lps_1t1r, u8 flags)
+static u8 rtw_lps_ctrl_leave_set_1t1r_cmd(_adapter *adapter, u8 lps_1t1r, u8 flags)
 {
 	return _rtw_lps_ctrl_wk_cmd(adapter, LPS_CTRL_LEAVE_SET_OPTION, -1, lps_1t1r, flags);
 }
 #endif
 
-void rtw_dm_in_lps_hdl(_adapter *padapter)
+static void rtw_dm_in_lps_hdl(_adapter *padapter)
 {
 	rtw_hal_set_hwreg(padapter, HW_VAR_DM_IN_LPS_LCLK, NULL);
 }
@@ -3534,7 +3536,7 @@ exit:
 
 }
 
-void rtw_lps_change_dtim_hdl(_adapter *padapter, u8 dtim)
+static void rtw_lps_change_dtim_hdl(_adapter *padapter, u8 dtim)
 {
 	struct pwrctrl_priv *pwrpriv = adapter_to_pwrctl(padapter);
 
@@ -3616,12 +3618,12 @@ exit:
 }
 
 #if (RATE_ADAPTIVE_SUPPORT == 1)
-void rpt_timer_setting_wk_hdl(_adapter *padapter, u16 minRptTime)
+static void rpt_timer_setting_wk_hdl(_adapter *padapter, u16 minRptTime)
 {
 	rtw_hal_set_hwreg(padapter, HW_VAR_RPT_TIMER_SETTING, (u8 *)(&minRptTime));
 }
 
-u8 rtw_rpt_timer_cfg_cmd(_adapter *padapter, u16 minRptTime)
+static u8 rtw_rpt_timer_cfg_cmd(_adapter *padapter, u16 minRptTime)
 {
 	struct cmd_obj		*ph2c;
 	struct drvextra_cmd_parm	*pdrvextra_cmd_parm;
@@ -3658,12 +3660,12 @@ exit:
 #endif
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
-void antenna_select_wk_hdl(_adapter *padapter, u8 antenna)
+static void antenna_select_wk_hdl(_adapter *padapter, u8 antenna)
 {
 	rtw_hal_set_odm_var(padapter, HAL_ODM_ANTDIV_SELECT, &antenna, _TRUE);
 }
 
-u8 rtw_antenna_select_cmd(_adapter *padapter, u8 antenna, u8 enqueue)
+static u8 rtw_antenna_select_cmd(_adapter *padapter, u8 antenna, u8 enqueue)
 {
 	struct cmd_obj		*ph2c;
 	struct drvextra_cmd_parm	*pdrvextra_cmd_parm;
@@ -3713,7 +3715,7 @@ exit:
 }
 #endif
 
-void rtw_dm_ra_mask_hdl(_adapter *padapter, struct sta_info *psta)
+static void rtw_dm_ra_mask_hdl(_adapter *padapter, struct sta_info *psta)
 {
 	if (psta)
 		set_sta_rate(padapter, psta);
@@ -3755,13 +3757,13 @@ exit:
 
 }
 
-void power_saving_wk_hdl(_adapter *padapter)
+static void power_saving_wk_hdl(_adapter *padapter)
 {
 	rtw_ps_processor(padapter);
 }
 
 /* add for CONFIG_IEEE80211W, none 11w can use it */
-void reset_securitypriv_hdl(_adapter *padapter)
+static void reset_securitypriv_hdl(_adapter *padapter)
 {
 	rtw_reset_securitypriv(padapter);
 }
@@ -4023,7 +4025,7 @@ exit:
 }
 
 #ifdef CONFIG_DFS
-void rtw_dfs_ch_switch_hdl(struct dvobj_priv *dvobj)
+static void rtw_dfs_ch_switch_hdl(struct dvobj_priv *dvobj)
 {
 	struct rf_ctl_t *rfctl = dvobj_to_rfctl(dvobj);
 	_adapter *pri_adapter = dvobj_get_primary_adapter(dvobj);
@@ -4187,7 +4189,7 @@ exit:
 }
 
 #ifdef CONFIG_DFS_MASTER
-u8 rtw_dfs_rd_hdl(_adapter *adapter)
+static u8 rtw_dfs_rd_hdl(_adapter *adapter)
 {
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
@@ -4276,7 +4278,7 @@ exit:
 	return H2C_SUCCESS;
 }
 
-u8 rtw_dfs_rd_cmd(_adapter *adapter, bool enqueue)
+static u8 rtw_dfs_rd_cmd(_adapter *adapter, bool enqueue)
 {
 	struct cmd_obj *cmdobj;
 	struct drvextra_cmd_parm *parm;
@@ -4310,7 +4312,7 @@ exit:
 	return res;
 }
 
-void rtw_dfs_rd_timer_hdl(void *ctx)
+static void rtw_dfs_rd_timer_hdl(void *ctx)
 {
 	struct rf_ctl_t *rfctl = (struct rf_ctl_t *)ctx;
 	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
@@ -4399,7 +4401,7 @@ static void rtw_dfs_rd_disable(struct rf_ctl_t *rfctl, u8 ch, u8 bw, u8 offset, 
 	}
 }
 
-void rtw_dfs_rd_en_decision(_adapter *adapter, u8 mlme_act, u8 excl_ifbmp)
+static void rtw_dfs_rd_en_decision(_adapter *adapter, u8 mlme_act, u8 excl_ifbmp)
 {
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
@@ -4511,7 +4513,7 @@ apply:
 		rtw_dfs_rd_disable(rfctl, u_ch, u_bw, u_offset, ld_sta_in_dfs);
 }
 
-u8 rtw_dfs_rd_en_decision_cmd(_adapter *adapter)
+static u8 rtw_dfs_rd_en_decision_cmd(_adapter *adapter)
 {
 	struct cmd_obj *cmdobj;
 	struct drvextra_cmd_parm *parm;
@@ -4578,7 +4580,7 @@ struct btinfo {
 	u8 rsvd_7;
 };
 
-void btinfo_evt_dump(void *sel, void *buf)
+static void btinfo_evt_dump(void *sel, void *buf)
 {
 	struct btinfo *info = (struct btinfo *)buf;
 
@@ -4651,7 +4653,7 @@ static void rtw_btinfo_hdl(_adapter *adapter, u8 *buf, u16 buf_len)
 	rtw_btcoex_BtInfoNotify(adapter , len + 1, &buf[1]);
 }
 
-u8 rtw_btinfo_cmd(_adapter *adapter, u8 *buf, u16 len)
+static u8 rtw_btinfo_cmd(_adapter *adapter, u8 *buf, u16 len)
 {
 	struct cmd_obj *ph2c;
 	struct drvextra_cmd_parm *pdrvextra_cmd_parm;
@@ -4704,7 +4706,7 @@ static void rtw_btc_reduce_wl_txpwr_hdl(_adapter *adapter, u32 pwr_lvl)
 		 FUNC_ADPT_ARG(adapter), pwr_lvl);
 }
 
-u8 rtw_btc_reduce_wl_txpwr_cmd(_adapter *adapter, u32 val)
+static u8 rtw_btc_reduce_wl_txpwr_cmd(_adapter *adapter, u32 val)
 {
 	struct cmd_obj *pcmdobj;
 	struct drvextra_cmd_parm *pdrvextra_cmd_parm;
@@ -5051,7 +5053,7 @@ inline u8 rtw_customer_str_write_cmd(_adapter *adapter, const u8 *cstr)
 }
 #endif /* CONFIG_RTW_CUSTOMER_STR */
 
-u8 rtw_c2h_wk_cmd(PADAPTER padapter, u8 *pbuf, u16 length, u8 type)
+static u8 rtw_c2h_wk_cmd(PADAPTER padapter, u8 *pbuf, u16 length, u8 type)
 {
 	struct cmd_obj *ph2c;
 	struct drvextra_cmd_parm *pdrvextra_cmd_parm;
@@ -5165,7 +5167,7 @@ u8 rtw_run_in_thread_cmd_wait(_adapter *adapter, void (*func)(void *), void *con
 }
 
 #ifdef CONFIG_FW_C2H_REG
-s32 c2h_evt_hdl(_adapter *adapter, u8 *c2h_evt, c2h_id_filter filter)
+static s32 c2h_evt_hdl(_adapter *adapter, u8 *c2h_evt, c2h_id_filter filter)
 {
 	s32 ret = _FAIL;
 	u8 buf[C2H_REG_LEN] = {0};
@@ -5191,7 +5193,7 @@ exit:
 }
 #endif /* CONFIG_FW_C2H_REG */
 
-u8 session_tracker_cmd(_adapter *adapter, u8 cmd, struct sta_info *sta, u8 *local_naddr, u8 *local_port, u8 *remote_naddr, u8 *remote_port)
+static u8 session_tracker_cmd(_adapter *adapter, u8 cmd, struct sta_info *sta, u8 *local_naddr, u8 *local_port, u8 *remote_naddr, u8 *remote_port)
 {
 	struct cmd_priv	*cmdpriv = &adapter->cmdpriv;
 	struct cmd_obj *cmdobj;
@@ -5257,7 +5259,7 @@ inline u8 session_tracker_del_cmd(_adapter *adapter, struct sta_info *sta, u8 *l
 	return session_tracker_cmd(adapter, ST_CMD_DEL, sta, local_naddr, local_port, remote_naddr, remote_port);
 }
 
-void session_tracker_chk_for_sta(_adapter *adapter, struct sta_info *sta)
+static void session_tracker_chk_for_sta(_adapter *adapter, struct sta_info *sta)
 {
 	struct st_ctl_t *st_ctl = &sta->st_ctl;
 	int i;
@@ -5339,7 +5341,7 @@ exit:
 	return;
 }
 
-void session_tracker_chk_for_adapter(_adapter *adapter)
+static void session_tracker_chk_for_adapter(_adapter *adapter)
 {
 	struct sta_priv *stapriv = &adapter->stapriv;
 	struct sta_info *sta;
@@ -5371,7 +5373,7 @@ void session_tracker_chk_for_adapter(_adapter *adapter)
 #endif
 }
 
-void session_tracker_cmd_hdl(_adapter *adapter, struct st_cmd_parm *parm)
+static void session_tracker_cmd_hdl(_adapter *adapter, struct st_cmd_parm *parm)
 {
 	u8 cmd = parm->cmd;
 	struct sta_info *sta = parm->sta;
@@ -5497,7 +5499,7 @@ static s32 rtw_req_per_cmd_hdl(_adapter *adapter)
 	return ret;
 }
 
-u8 rtw_req_per_cmd(_adapter *adapter)
+static u8 rtw_req_per_cmd(_adapter *adapter)
 {
 	struct cmd_obj *cmdobj;
 	struct drvextra_cmd_parm *parm;
@@ -5728,6 +5730,7 @@ void rtw_survey_cmd_callback(_adapter	*padapter ,  struct cmd_obj *pcmd)
 	rtw_free_cmd_obj(pcmd);
 
 }
+
 void rtw_disassoc_cmd_callback(_adapter	*padapter,  struct cmd_obj *pcmd)
 {
 	_irqL	irqL;
@@ -5851,6 +5854,7 @@ exit:
 
 
 }
+
 void rtw_setassocsta_cmdrsp_callback(_adapter	*padapter,  struct cmd_obj *pcmd)
 {
 	_irqL	irqL;
