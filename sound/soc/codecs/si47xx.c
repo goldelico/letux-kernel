@@ -105,18 +105,18 @@ static const struct snd_soc_dapm_route si47xx_intercon[] = {
 	{"VOUTR", NULL, "DAC"},
 };
 
+#if 0
 static int si47xx_mute(struct snd_soc_dai *dai, int mute)
 {
-#if 0
 	struct snd_soc_component *component = dai->component;
 	u16 mute_reg = snd_soc_read(component, SI47XX_DACCTL);
 	if (mute)
 		snd_soc_write(component, SI47XX_DACCTL, mute_reg | 1);
 	else
 		snd_soc_write(component, SI47XX_DACCTL, mute_reg & ~1);
-#endif
 	return 0;
 }
+#endif
 
 static int si47xx_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params,
@@ -271,6 +271,7 @@ static struct snd_soc_component_driver soc_component_dev_si47xx = {
 	.endianness		= 1,
 };
 
+#if 0
 static int si47xx_suspend(struct snd_soc_component *component)
 {
 	printk("si47xx_suspend\n");
@@ -287,6 +288,7 @@ static int si47xx_resume(struct snd_soc_component *component)
 	/* tune to current frequency */
 	return 0;
 }
+#endif
 
 static const struct of_device_id si47xx_of_match[] = {
 	{ .compatible = "silicon-labs,si4721", },
