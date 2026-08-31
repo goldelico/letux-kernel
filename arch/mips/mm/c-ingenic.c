@@ -494,7 +494,7 @@ static struct notifier_block ingenic_cache_pm_notifier_block = {
 	.notifier_call = ingenic_cache_pm_notifier,
 };
 
-int __init ingenic_cache_init_pm(void)
+static int __init ingenic_cache_init_pm(void)
 {
 	return cpu_pm_register_notifier(&ingenic_cache_pm_notifier_block);
 }
