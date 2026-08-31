@@ -10,6 +10,7 @@
  */
 
 #define DEBUG
+// #define DEBUG_RX
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -856,7 +857,7 @@ static void link_check_worker(struct work_struct *work)
 	schedule_delayed_work(&np->check_work, msecs_to_jiffies(200));
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_RX
 /*
  * Display ethernet packet header
  * This routine is used for test function
@@ -1462,6 +1463,7 @@ static int jz_eth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCDEVPRIVATE:
 		data = (struct mii_ioctl_data *)&rq->ifr_data;
 		data->phy_id = np->valid_phy;
+		return 0;
 	case SIOCGMIIREG:
 	case SIOCDEVPRIVATE + 1:
 		data = (struct mii_ioctl_data *)&rq->ifr_data;
@@ -1548,10 +1550,8 @@ static void eth_rxready(struct net_device *dev)
 			memcpy(skb->data, pkt_ptr, pkt_len);
 			skb_put(skb, pkt_len);
 
-#ifdef DEBUG
-#if 0
+#ifdef DEBUG_RX
 			eth_dbg_rx(skb, pkt_len);
-#endif
 #endif
 			skb->protocol = eth_type_trans(skb, dev);
 			netif_rx(skb);	/* pass the packet to upper layers */
