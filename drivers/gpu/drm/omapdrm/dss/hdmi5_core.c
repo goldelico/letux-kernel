@@ -564,8 +564,8 @@ int hdmi5_core_handle_irqs(struct hdmi_core_data *core)
 		hdmi_write_reg(base, HDMI_CORE_IH_CEC_STAT0, stat);
 		hdmi5_cec_irq(core, stat);
 	}
-#if FIXME	// where do we now handle CEC interrupts?
-// FIXME: this was removed upstream
+#ifdef FIXME   // FIXME where do we now handle CEC interrupts?
+	// FIXME: this was removed upstream
 	/*
 	 * Clear all possible IRQ_CORE interrupts except for
 	 * HDMI_CORE_IH_I2CM_STAT0 (that interrupt is muted and
