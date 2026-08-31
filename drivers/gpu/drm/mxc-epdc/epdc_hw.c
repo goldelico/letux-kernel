@@ -172,7 +172,7 @@ static inline void epdc_set_screen_res(struct mxc_epdc *priv,
 }
 
 
-void epdc_init_settings(struct mxc_epdc *priv, struct drm_display_mode *m)
+static void epdc_init_settings(struct mxc_epdc *priv, struct drm_display_mode *m)
 {
 	u32 reg_val;
 	int num_ce;
