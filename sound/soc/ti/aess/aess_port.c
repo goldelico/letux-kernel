@@ -383,6 +383,7 @@ static u32 aess_dma_port_copy_subroutine_id(struct omap_aess *aess, u32 port_id)
 				sub_id = OMAP_AESS_COPY_FCT_DMIC_ID;
 				break;
 			}
+			fallthrough;
 		default:
 			sub_id = OMAP_AESS_COPY_FCT_NULL_ID;
 			break;
@@ -416,6 +417,7 @@ static u32 aess_dma_port_copy_subroutine_id(struct omap_aess *aess, u32 port_id)
 				sub_id = OMAP_AESS_COPY_FCT_MM_UL_ID;
 				break;
 			}
+			fallthrough;
 		case OMAP_AESS_FORMAT_THREE_MSB:
 		case OMAP_AESS_FORMAT_FOUR_MSB:
 		case OMAP_AESS_FORMAT_FIVE_MSB:
