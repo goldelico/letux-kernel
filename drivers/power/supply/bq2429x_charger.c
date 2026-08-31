@@ -766,8 +766,9 @@ static int bq2429x_get_otg_current_limit_uA(struct bq2429x_device_info *di)
 	if (ret < 0)
 		return ret;
 
-	if (is_mp2624(di))
+	if (is_mp2624(di)) {
 		; // FIXME: different bit(s) and values (500mA 1.3A) in MP2624 in REG02
+	}
 
 	return ret ? 1000000 : 1500000;	/* 1.0A or 1.5A */
 }
@@ -795,8 +796,9 @@ static int bq2429x_set_otg_current_limit_uA(struct bq2429x_device_info *di,
 	else
 		val = OTG_MODE_CURRENT_CONFIG_1300MA;	/* enable 1.5A */
 
-	if (is_mp2624(di))
+	if (is_mp2624(di)) {
 		; // FIXME: different bit(s) and values (500mA 1.3A) in MP2624 in REG02
+	}
 
 	ret = bq2429x_field_write(di, F_BOOST_LIM, val);
 	if (ret < 0) {
@@ -878,8 +880,9 @@ static int bq2429x_get_vendor_id(struct bq2429x_device_info *di)
 
 static inline bool bq2429x_battery_present(struct bq2429x_device_info *di)
 { /* assume if there is an NTC fault there is no battery  */
-	if (is_mp2624(di))
+	if (is_mp2624(di)) {
 		; // MP2624 has 3 NTC bits
+	}
 	return di->state.ntc_fault == 0;
 }
 
@@ -958,7 +961,7 @@ static void bq2429x_input_available(struct bq2429x_device_info *di, bool state)
 static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 {
 	struct bq2429x_state state;
-#if DEBUG
+#ifdef CONFIG_DEBUG
 	char string[200];
 #endif
 	int ret;
@@ -976,7 +979,7 @@ static int bq2429x_usb_detect(struct bq2429x_device_info *di)
 		return -EAGAIN;
 	}
 
-#if DEBUG
+#ifdef CONFIG_DEBUG
 	/* report changes to last state */
 	sprintf(string, "state changed: state->[");
 	switch (state.vbus_stat) {
