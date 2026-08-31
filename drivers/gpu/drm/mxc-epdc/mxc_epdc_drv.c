@@ -111,7 +111,7 @@ static const struct drm_connector_funcs mxc_epdc_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
-int mxc_epdc_output(struct drm_device *drm)
+static int mxc_epdc_output(struct drm_device *drm)
 {
 	struct mxc_epdc *priv = to_mxc_epdc(drm);
 	int ret;
