@@ -704,7 +704,9 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 { /* called by ov9655_s_stream() */
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
 	struct v4l2_mbus_framefmt *format = &ov9655->format;
+#ifdef FIXME
 	const struct v4l2_rect *crop = &ov9655->crop;
+#endif
 	int i;
 	int ret = 0;
 	int is_sxga;
@@ -763,8 +765,10 @@ static int ov9655_set_params(struct ov9655 *ov9655)
 	ret = ov9655_update_bits(client, REG_COM7, COM7_RES_MASK, ov9655_framesizes[i].resolution);
 
 	/* setup PLL and dividers */
-	if (format->code == MEDIA_BUS_FMT_SGRBG12_1X12)
-		;	/* adjust pixel clock for 12 bit wide (raw rgb) interface */
+	if (format->code == MEDIA_BUS_FMT_SGRBG12_1X12) {
+		// FIXME
+		/* adjust pixel clock for 12 bit wide (raw rgb) interface */
+	}
 	ret = ov9655_update_bits(client, REG_DBLV, DBLV_PLL_MASK, DBLV_PLL_4X);
 	ret = ov9655_write(client, REG_CLKRC, ov9655_framesizes[i].clkrc);
 
