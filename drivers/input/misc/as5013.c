@@ -67,7 +67,7 @@ struct as5013_drvdata {
 	} mbutton;
 };
 
-#if 0	// unused
+#ifdef UNUSED
 static int as5013_i2c_write(struct i2c_client *client,
 			    uint8_t aregaddr,
 			    uint8_t avalue)
@@ -698,9 +698,9 @@ static int as5013_probe(struct i2c_client *client)
 
 	ret = device_create_file(&client->dev, &dev_attr_reset);
 	if (ret)
-		;
+		return ret;
 
-#if 0	// dows not run well run with interrupts enabled
+#if 0	// does not run well run with interrupts enabled
 	ret = devm_request_threaded_irq(&client->dev, client->irq,
 				     NULL, as5013_axis_interrupt,
 				     IRQF_ONESHOT |
