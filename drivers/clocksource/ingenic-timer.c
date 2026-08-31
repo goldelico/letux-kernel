@@ -73,7 +73,7 @@ static u64 notrace ingenic_tcu_timer_read(void)
 // should use code similar to https://elixir.bootlin.com/linux/latest/source/drivers/clocksource/ingenic-ost.c#L86
 // to ioremap during probe or init
 
-		int timeout = 100;
+		__maybe_unused int timeout = 100;
 
 		count = tcu->soc_info->max_count - readl(tcu->base + TCU_JZ4730_REG_TCNTc(tcu->cs_channel));
 
