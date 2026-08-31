@@ -6,6 +6,7 @@
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
 #include "mxc_epdc.h"
+#include "epdc_waveform.h"
 
 #define DEFAULT_TEMP_INDEX      0
 #define DEFAULT_TEMP            20 /* room temp in deg Celsius */
@@ -127,7 +128,7 @@ int mxc_epdc_fb_get_temp_index(struct mxc_epdc *priv, int temp)
 int mxc_epdc_prepare_waveform(struct mxc_epdc *priv,
 			      const u8 *data, size_t size)
 {
-	int ret;
+	__maybe_unused int ret;
 	const struct mxcfb_waveform_data_file *wv_file;
 	int wv_data_offs;
 	int i;
