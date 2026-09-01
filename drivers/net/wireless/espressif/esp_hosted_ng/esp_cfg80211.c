@@ -482,7 +482,7 @@ static int esp_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 #else
 				struct cfg80211_mgmt_tx_params *params,
 #endif
-		u64 *cookie)
+		u64 cookie)
 {
 	struct esp_wifi_device *priv = NULL;
 
@@ -1012,8 +1012,8 @@ static void esp_cfg80211_mgmt_frame_registrations(struct wiphy *wiphy,
 }
 #endif
 
-static int esp_cfg80211_probe_client(struct wiphy *wiphy, struct net_device *dev,
-                                  const u8 *peer, u64 *cookie)
+static int esp_cfg80211_probe_peer(struct wiphy *wiphy, struct net_device *dev,
+                                  const u8 *peer, u64 cookie)
 {
 
 	if (!wiphy || !dev) {
@@ -1121,7 +1121,7 @@ static struct cfg80211_ops esp_cfg80211_ops = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
 	.update_mgmt_frame_registrations = esp_cfg80211_mgmt_frame_registrations,
 #endif
-	.probe_client = esp_cfg80211_probe_client,
+	.probe_peer = esp_cfg80211_probe_peer,
 	.del_station = esp_cfg80211_del_station,
 	.add_station = esp_cfg80211_add_station,
 	.change_station = esp_cfg80211_change_station,
@@ -1266,7 +1266,7 @@ int esp_add_wiphy(struct esp_adapter *adapter)
 	/* set caps */
 	wiphy->flags |= WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD;
 	wiphy->flags |= WIPHY_FLAG_REPORTS_OBSS;
-	//wiphy->features |= NL80211_CMD_PROBE_CLIENT;
+	//wiphy->features |= NL80211_CMD_PROBE_PEER;
 	wiphy->features |= NL80211_FEATURE_SK_TX_STATUS;
 
 	ret = wiphy_register(wiphy);
