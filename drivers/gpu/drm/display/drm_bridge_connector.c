@@ -264,7 +264,7 @@ static void drm_bridge_connector_destroy(struct drm_connector *connector)
 	struct drm_bridge_connector *bridge_connector =
 		to_drm_bridge_connector(connector);
 
-	drm_for_each_bridge_in_chain_scoped(bridge_connector->encoder, bridge)
+	drm_for_each_bridge_in_chain(bridge_connector->encoder, bridge)
 		if (bridge->funcs->connector_detach)
 			bridge->funcs->connector_detach(bridge, connector);
 
@@ -1142,7 +1142,7 @@ struct drm_connector *drm_bridge_connector_init(struct drm_device *drm,
 
 	ret = 0;
 	/* call connector_attach for all bridges */
-	drm_for_each_bridge_in_chain_scoped(encoder, bridge) {
+	drm_for_each_bridge_in_chain(encoder, bridge) {
 		if (!bridge->funcs->connector_attach)
 			continue;
 		ret = bridge->funcs->connector_attach(bridge, connector);
