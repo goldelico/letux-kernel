@@ -37,6 +37,7 @@
 
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_of.h>
 #include <drm/drm_panel.h>
 
 /* extended DCS commands (not defined in mipi_display.h) */
@@ -664,7 +665,11 @@ static int w677l_probe(struct mipi_dsi_device *dsi)
 	dsi->hs_rate = 105 * (W677L_HS_CLOCK / 100);	/* allow for 5% overclocking */
 	dsi->lp_rate = W677L_LP_CLOCK;
 
-	of_drm_get_panel_orientation(dev->of_node, &ctx->orientation);
+	ret = drm_of_get_panel_orientation(dev->of_node, &ctx->orientation);
+	if (ret) {
+		dev_err(&dsi->dev, "%pOF: failed to get orientation: %d\n",
+			dsi->dev.of_node, ret);
+	}
 
 	ret = drm_panel_of_backlight(&ctx->panel);
 	if (ret)
