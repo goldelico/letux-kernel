@@ -1292,6 +1292,7 @@ static void if_sdio_remove(struct sdio_func *func)
 	kfree(card);
 }
 
+#ifdef UNUSED
 static int if_sdio_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
@@ -1367,10 +1368,11 @@ static int if_sdio_resume(struct device *dev)
 
 	return ret;
 }
+#endif
 
 static const struct dev_pm_ops if_sdio_pm_ops = {
-	.suspend	= if_sdio_suspend,
-	.resume		= if_sdio_resume,
+	.suspend	= NULL /*if_sdio_suspend*/,
+	.resume		= NULL /*if_sdio_resume*/,
 };
 
 static struct sdio_driver if_sdio_driver = {
