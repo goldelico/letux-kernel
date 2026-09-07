@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/openpandora,omap3pandora-sound.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: OpenPandora OMAP3 Audio Complex
+
+maintainers:
+  - H. Nikolaus Schaller <hns@goldelico.com>
+
+description:
+  The OpenPandora audio subsystem describes the routing links between the
+  OMAP3 McBSP interface, the external PCM1773 DAC, and the TWL4030 audio codec,
+  alongside amplifiers and power supplies.
+
+properties:
+  compatible:
+    const: openpandora,omap3pandora-sound
+
+  label:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: User-visible name for this sound card.
+
+  amp-gpios:
+    maxItems: 1
+    description: GPIO pin controlling the amplifier power state.
+
+  amp-supply:
+    description: Regulator supplying power to the amplifier.
+
+  sound-dai:
+    $ref: /schemas/types.yaml#/definitions/phandle-array
+    minItems: 2
+    maxItems: 2
+    description:
+      Phandles to the audio CPU DAI (OMAP3 McBSP) and the codec DAI.
+
+  routing:
+    $ref: /schemas/types.yaml#/definitions/non-unique-string-array
+    description:
+      A list of the connections between audio components.
+      Each entry is a pair of strings, the first being the connection's sink,
+      the second being the connection's source.
+
+  widgets:
+    $ref: /schemas/types.yaml#/definitions/non-unique-string-array
+    description:
+      User-specified audio sound widgets.
+      Each entry is a pair of strings, the first being the widget type
+      (e.g., "Speaker", "Headphone", "Microphone", "Line") and the second being its name.
+
+required:
+  - compatible
+  - sound-dai
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    sound {
+        compatible = "openpandora,omap3pandora-sound";
+        status = "okay";
+
+        label = "OpenPandora";
+
+        amp-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+        amp-supply = <&regen>;
+
+        widgets =
+            "Line", "Line Out",
+            "Line", "Line In",
+            "Headphone", "Headphone Jack",
+            "Microphone", "Mic (internal)",
+            "Microphone", "Mic (external)";
+
+        routing =
+            "PCM1773 DAC", "APLL Enable",
+            "Headphone Amplifier", "PCM1773 DAC",
+            "Line Out", "PCM1773 DAC",
+            "Headphone Jack", "Headphone Amplifier",
+            "AUXL", "Line In",
+            "AUXR", "Line In",
+            "MAINMIC", "Mic (internal)",
+            "Mic (internal)", "Mic Bias 1",
+            "SUBMIC", "Mic (external)",
+            "Mic (external)", "Mic Bias 2";
+
+        sound-dai = <&mcbsp2>, <&dac>;
+    };

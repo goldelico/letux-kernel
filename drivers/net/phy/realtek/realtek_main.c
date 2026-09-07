@@ -11,6 +11,7 @@
 #include <linux/crc32.h>
 #include <linux/ethtool_netlink.h>
 #include <linux/firmware.h>
+#include <linux/etherdevice.h>
 #include <linux/of.h>
 #include <linux/phy.h>
 #include <linux/pm_wakeirq.h>
