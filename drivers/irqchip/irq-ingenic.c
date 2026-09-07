@@ -243,7 +243,8 @@ static int __init ingenic_intc_of_init(struct device_node *np,
 	if (IS_ERR(intc))
 		return PTR_ERR(intc);
 
-	domain = irq_domain_add_linear(np, num_chips * 32, &irq_generic_chip_ops, NULL);
+	domain = irq_domain_create_linear(of_fwnode_handle(np), num_chips * 32,
+					  &irq_generic_chip_ops, NULL);
 	if (!domain) {
 		ret = -ENOMEM;
 		goto out_unmap_irq;
