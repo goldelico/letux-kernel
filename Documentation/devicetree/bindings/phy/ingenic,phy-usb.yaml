@@ -20,11 +20,9 @@ properties:
       - ingenic,jz4775-phy
       - ingenic,jz4780-phy
       - ingenic,x1000-phy
+      - ingenic,x1600-phy
       - ingenic,x1830-phy
       - ingenic,x2000-phy
-
-  reg:
-    maxItems: 1
 
   clocks:
     maxItems: 1
@@ -41,6 +39,22 @@ required:
   - clocks
   - vcc-supply
   - '#phy-cells'
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: ingenic,x1600-phy
+    then:
+      properties:
+        reg:
+          minItems: 2
+          maxItems: 2
+    else:
+      properties:
+        reg:
+          maxItems: 1
 
 additionalProperties: false
 
