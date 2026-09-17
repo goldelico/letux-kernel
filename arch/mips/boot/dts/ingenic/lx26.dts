@@ -190,7 +190,7 @@
 
 	/* Force classic 3.3V highspeed mode */
 	cap-sd-highspeed;
-	no-1-8v;
+	no-1-8-v;
 };
 
 &msc1 {
@@ -204,7 +204,7 @@
 
 	/* can not switch to 1.8V mode (making >= sdr50 inoperable) */
 	cap-sd-highspeed;
-	no-1-8v;
+	no-1-8-v;
 };
 
 &pinctrl {
