@@ -162,12 +162,15 @@
 };
 
 &otg {
-	dr_mode = "otg"; // host, peripheral, otg
 	status = "okay";
+	external-id-pin;
+	external-vbus-detect;
+	dr_mode = "otg"; /* OTG supported by ID pin and power switch */
 };
 
 &usb {
 	status = "okay";
+	dr_mode = "peripheral";	/* Peripheral only (no 5V out) */
 };
 
 &otg_phy {
