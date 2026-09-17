@@ -675,47 +675,50 @@
 		};
 
 		i2c0: i2c@10050000 {
-			compatible = "ingenic,x2600-i2c";
+			compatible = "ingenic,x2600-i2c", "ingenic,x1000-i2c";
 			reg = <0x10050000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_I2C0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clk-always-enable;
+			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clock-frequency = <100000>;
 			status = "disabled";
 		};
 
 		i2c1: i2c@10051000 {
-			compatible = "ingenic,x2600-i2c";
+			compatible = "ingenic,x2600-i2c", "ingenic,x1000-i2c";
 			reg = <0x10051000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_I2C1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clk-always-enable;
+			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clock-frequency = <100000>;
 			status = "disabled";
 		};
 
 		i2c2: i2c@10052000 {
-			compatible = "ingenic,x2600-i2c";
+			compatible = "ingenic,x2600-i2c", "ingenic,x1000-i2c";
 			reg = <0x10052000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_I2C2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clk-always-enable;
+			clocks = <&cgu X2600_CLK_GATE_I2C0>;
 			status = "disabled";
 		};
 
 		i2c3: i2c@10053000 {
-			compatible = "ingenic,x2600-i2c";
+			compatible = "ingenic,x2600-i2c", "ingenic,x1000-i2c";
 			reg = <0x10053000 0x1000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_I2C3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clk-always-enable;
-			status = "okay";
+			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clock-frequency = <100000>;
+			status = "disabled";
 		};
 
 		otg_phy: otg_phy {
