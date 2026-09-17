@@ -359,6 +359,89 @@ static void x2000_usb_phy_init(struct phy *phy)
 	writel(reg, priv->base + REG_USBPCR_OFFSET);
 }
 
+// reg bis 0x1350003c beginnen lassen? für otg ?
+// und reg = <0x1000004c 0x1000 0x10078400 0x1000>; ?
+
+// dann hier 0x3c abziehen und die bekannten Offsets der anderen mitbenutzen
+
+#define CPM_USBPCR     0x3C
+#define CPM_USBRDT     0x40
+#define CPM_USBVBFIL   0x44
+#define CPM_USBPCR1    0x48
+
+#define CPM_USB1PCR     0x4C
+#define CPM_USB1RDT     0x50
+#define CPM_USB1VBFIL   0x58
+#define CPM_USB1PCR1    0xe8
+
+#define CPM_SRBC    0xC4
+// das hier wäre dann aber VOR dem reg-Block...
+#define CPM_OPCR    0x24
+// ===> Register in PM zwischen x1600, x2000, x2600 genau vergleichen
+
+#define OPCR_SPENDN0_BIT            7
+#define OPCR_SPENDN1_BIT            6
+
+#define OPCR_GATE_USBPHY_CLK_BIT    23
+#define SRBC_USB_SR                    14
+#define SRBC_USB1_SR                    15
+
+#define USBRDT_RESUME_IRQ_ENABLE            31
+#define USBRDT_RESUME_CLEAR_IRQ                30
+#define USBRDT_RESUME_SPEED                28
+#define USBRDT_RESUME_STATUS                27
+
+static void x2600_otg_phy_init(struct phy * phy)
+{
+	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
+	u32 reg;
+
+	writel(0x00000000, priv->base + CPM_USB1PCR1);
+	writel(0x80100000, priv->base + CPM_USB1PCR);
+	usleep_range(800, 800);
+	writel(0x80000000, priv->base + CPM_USB1PCR);
+	writel(0x30000000, priv->base + CPM_USB1PCR1);
+	usleep_range(800, 800);
+
+	/* Chirp K or SE0 resume enable */
+	reg = readl(priv->base + CPM_USB1RDT) | BIT(26);
+	writel(reg, priv->base + CPM_USB1RDT);
+
+#if FIXME
+	/* In fact, when the high-speed eye height is set to the highest,
+	   the register value should be 3'b110. The default value of 3'b111 in PM
+	   is the lowest. */
+	value = usb_phy_readl(usb_phy, 0x30);
+	value &= ~(0x1 << 4);
+	usb_phy_writel(usb_phy, value, 0x30);
+#endif
+}
+
+static void x2600_usb_phy_init(struct phy * phy)
+{
+	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
+	u32 reg;
+
+	reg = readl(priv->base + CPM_USB1RDT) | BIT(26);
+	writel(reg, priv->base + CPM_USB1RDT);
+
+	reg = readl(priv->base + CPM_SRBC) | SRBC_USB1_SR;
+	writel(reg, priv->base + CPM_SRBC);
+
+	udelay(10);
+
+	reg = readl(priv->base + CPM_SRBC) & ~SRBC_USB1_SR;
+	writel(reg, priv->base + CPM_SRBC);
+
+	reg = readl(priv->base + CPM_OPCR) | OPCR_SPENDN1_BIT;
+	writel(reg, priv->base + CPM_OPCR);
+
+#if FIXME
+	x2600_usb_phy1 = usb_phy;
+	register_syscore_ops(&x2600_phy_port1_syscore_ops);
+#endif
+}
+
 static const struct ingenic_soc_info jz4770_soc_info = {
 	.usb_phy_init = jz4770_usb_phy_init,
 };
@@ -385,6 +468,14 @@ static const struct ingenic_soc_info x1830_soc_info = {
 
 static const struct ingenic_soc_info x2000_soc_info = {
 	.usb_phy_init = x2000_usb_phy_init,
+};
+
+static const struct ingenic_soc_info x2600_otg_soc_info = {
+	.usb_phy_init = x2600_otg_phy_init,
+};
+
+static const struct ingenic_soc_info x2600_usb_soc_info = {
+	.usb_phy_init = x2600_usb_phy_init,
 };
 
 static int ingenic_usb_phy_probe(struct platform_device *pdev)
@@ -445,6 +536,8 @@ static const struct of_device_id ingenic_usb_phy_of_matches[] = {
 	{ .compatible = "ingenic,x1600-phy", .data = &x1600_soc_info },
 	{ .compatible = "ingenic,x1830-phy", .data = &x1830_soc_info },
 	{ .compatible = "ingenic,x2000-phy", .data = &x2000_soc_info },
+	{ .compatible = "ingenic,x2600-otg-phy", .data = &x2600_otg_soc_info },
+	{ .compatible = "ingenic,x2600-usb-phy", .data = &x2600_usb_soc_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ingenic_usb_phy_of_matches);
