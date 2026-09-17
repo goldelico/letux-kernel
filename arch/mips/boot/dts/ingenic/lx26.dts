@@ -188,9 +188,8 @@
 
 	cd-gpios = <&gpc 8 GPIO_ACTIVE_LOW>;
 
-	/* Force classic 3.3V highspeed mode */
 	cap-sd-highspeed;
-	no-1-8-v;
+	no-1-8-v;	/* hardware supports 3.3V only */
 };
 
 &msc1 {
@@ -202,9 +201,8 @@
 
 	cd-gpios = <&gpc 9 GPIO_ACTIVE_LOW>;
 
-	/* can not switch to 1.8V mode (making >= sdr50 inoperable) */
 	cap-sd-highspeed;
-	no-1-8-v;
+	no-1-8-v;	/* hardware supports 3.3V only */
 };
 
 &pinctrl {
