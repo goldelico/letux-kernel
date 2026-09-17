@@ -724,8 +724,9 @@
 		otg_phy: otg_phy {
 			#address-cells = <1>;
 			#size-cells = <1>;
-			compatible = "ingenic,usbphy0-x2600";
+			compatible = "ingenic,x2600-otg-phy";
 			reg = <0x10000000 0x1000 0x10078000 0x1000>;
+			clocks = <&cgu X2600_CLK_OTGPHY>;
 #ifdef CONFIG_USB_DWC2_EXT_VBUS_DETECT
 			external-vbus-detect;
 #endif
@@ -907,7 +908,7 @@
 		usb_phy: usb_phy {
 			#address-cells = <1>;
 			#size-cells = <1>;
-			compatible = "ingenic,usbphy1-x2600";
+			compatible = "ingenic,x2600-usb-phy";
 			reg = <0x10000000 0x1000 0x10078400 0x1000>;
 			external-vbus-detect;
 			disable-sw-switch-id;
