@@ -125,6 +125,19 @@
 
 };
 
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c0_pc>;
+	clock-frequency = <400000>;
+	status = "okay";
+
+	rtc: rtc@51 {
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+		quartz-load-femtofarads = <22000>;
+	};
+};
+
 &uart0 {
 	status = "okay";
 #if 0	// FIXME
@@ -199,6 +212,13 @@
 	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
 	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_1V8>;
 #endif
+
+	pins_i2c0_pc: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data-c";	/* RasPI ID */
+		bias-pull-up;
+	};
+
 	pins_uart2: uart2 {
 		function = "uart2";
 		groups = "uart2-data";
