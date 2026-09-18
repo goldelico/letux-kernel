@@ -20,12 +20,11 @@
 #include <linux/ctype.h>
 #include <linux/proc_fs.h>
 #include <linux/idr.h>
-#include <linux/gpio.h>
-#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
+#include <linux/gpio/legacy.h>
 
 #define PANDORA_NUB_INTERVAL		25
 
@@ -51,7 +50,9 @@ struct pandora_nub_drvdata {
 	struct regulator *reg;
 	struct delayed_work work;
 	struct gpio_desc *reset_gpio;
+#ifdef FIXME	/* nobody is setting this variable */
 	int irq_gpio;
+#endif
 	int mode;
 	int proc_id;
 	struct proc_dir_entry *proc_root;
@@ -109,9 +110,10 @@ static void pandora_nub_work(struct work_struct *work)
 
 	ddata = container_of(work, struct pandora_nub_drvdata, work.work);
 
+#ifdef FIXME	/* nobody is setting irq_gpio and gpio_get_value() is deprecated */
 	if (unlikely(gpio_get_value(ddata->irq_gpio)))
 		goto dosync;
-
+#endif
 	ret = i2c_master_recv(ddata->client, buff, sizeof(buff));
 	if (unlikely(ret != sizeof(buff))) {
 		dev_err(&ddata->client->dev, "read failed with %i\n", ret);
