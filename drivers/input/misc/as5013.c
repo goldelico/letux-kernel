@@ -21,7 +21,6 @@
 #include <linux/ctype.h>
 #include <linux/proc_fs.h>
 #include <linux/idr.h>
-#include <linux/gpio.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
