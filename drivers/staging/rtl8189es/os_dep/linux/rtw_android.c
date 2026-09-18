@@ -14,7 +14,7 @@
  *****************************************************************************/
 
 #ifdef CONFIG_GPIO_WAKEUP
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #endif
 
 #include <drv_types.h>
