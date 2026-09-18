@@ -14,7 +14,7 @@
  *****************************************************************************/
 #include <drv_types.h>
 #include <mach/wmt_iomux.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 
 extern void wmt_detect_sdio2(void);
 extern void force_remove_sdio2(void);

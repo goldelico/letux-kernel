@@ -19,7 +19,7 @@
 #ifdef PLATFORM_LINUX
 	#include <linux/platform_device.h>
 	#include <linux/spi/spi.h>
-	#include <linux/gpio.h>
+	#include <linux/gpio/consumer.h>
 	/* #include <mach/ldo.h> */
 	#include <asm/mach-types.h>
 	#include <asm/gpio.h>

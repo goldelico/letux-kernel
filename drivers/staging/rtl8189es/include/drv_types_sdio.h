@@ -23,7 +23,7 @@
 	#include <linux/mmc/card.h>
 
 	#ifdef CONFIG_PLATFORM_SPRD
-		#include <linux/gpio.h>
+		#include <linux/gpio/consumer.h>
 		#include <custom_gpio.h>
 	#endif /* CONFIG_PLATFORM_SPRD */
 #endif
