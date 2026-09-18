@@ -42,7 +42,6 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/ioctl.h>
-#include <linux/gpio.h>
 #include <linux/syscalls.h>
 #include <linux/device.h>
 #include <linux/of.h>
