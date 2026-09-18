@@ -18,7 +18,6 @@
 #include <linux/interrupt.h>
 #include <linux/timer.h>
 #include <linux/idr.h>
-#include <linux/gpio.h>
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
 
