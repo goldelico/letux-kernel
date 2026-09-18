@@ -9,7 +9,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/igmp.h>
 
 #include "esp.h"
@@ -1078,6 +1078,7 @@ static void deinit_adapter(void)
 static void esp_reset(void)
 {
 	if (resetpin != HOST_GPIO_PIN_INVALID) {
+#ifdef FIXME	// should use device tree reset pin
 		/* Check valid GPIO or not */
 		if (!gpio_is_valid(resetpin)) {
 			esp_warn("host resetpin (%d) configured is invalid GPIO\n", resetpin);
@@ -1097,6 +1098,7 @@ static void esp_reset(void)
 
 			esp_dbg("Triggering ESP reset.\n");
 		}
+#endif
 	}
 }
 
@@ -1142,9 +1144,11 @@ static void __exit esp_exit(void)
 	esp_deinit_interface_layer();
 	deinit_adapter();
 
+#ifdef FIXME	// should use device tree reset pin
 	if (resetpin != HOST_GPIO_PIN_INVALID) {
 		gpio_free(resetpin);
 	}
+#endif
 	debugfs_exit();
 }
 #undef __KBUILD_MODNAME
