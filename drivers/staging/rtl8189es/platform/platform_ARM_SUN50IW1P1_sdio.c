@@ -19,7 +19,7 @@
  */
 #include <drv_types.h>
 #ifdef CONFIG_GPIO_WAKEUP
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #endif
 
 #ifdef CONFIG_MMC
