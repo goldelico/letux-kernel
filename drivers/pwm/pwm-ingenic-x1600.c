@@ -26,7 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/slab.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/pwm.h>
 #include <linux/clk.h>
 #include <linux/ctype.h>
