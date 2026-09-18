@@ -31,7 +31,6 @@
 #include <linux/kdebug.h>
 #include <linux/arm-smccc.h>
 
-#include <linux/gpio.h>
 #include <linux/gpio/consumer.h>
 
 int sd_vqsw;
