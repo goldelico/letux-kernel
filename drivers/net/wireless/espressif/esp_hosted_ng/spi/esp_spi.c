@@ -5,7 +5,8 @@
  */
 #include "utils.h"
 #include <linux/spi/spi.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/gpio/legacy.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include "esp_spi.h"
