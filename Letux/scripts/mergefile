@@ -218,7 +218,7 @@ letux/gdepaper
 letux/charging_fixes
 letux/omap2plus
 letux/omap5-idle
-letux/mmc
+-letux/mmc
 letux/ubi-fs
 letux/extcon
 letux/misc
