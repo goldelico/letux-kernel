@@ -1,5 +1,5 @@
 #
-# Linux/mips 7.3.0-rc3 Kernel Configuration
+# Linux/mips 7.3.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3928,6 +3928,8 @@ CONFIG_SND_SOC_I2C_AND_SPI=m
 # CONFIG_SND_SOC_ADAU1701 is not set
 # CONFIG_SND_SOC_ADAU1761_I2C is not set
 # CONFIG_SND_SOC_ADAU1761_SPI is not set
+# CONFIG_SND_SOC_ADAU1977_SPI is not set
+# CONFIG_SND_SOC_ADAU1977_I2C is not set
 # CONFIG_SND_SOC_ADAU7002 is not set
 # CONFIG_SND_SOC_ADAU7118_HW is not set
 # CONFIG_SND_SOC_ADAU7118_I2C is not set
