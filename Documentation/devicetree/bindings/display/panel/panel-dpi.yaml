@@ -22,10 +22,17 @@ properties:
       - const: panel-dpi
 
   backlight: true
-  bpc: true
-  bus-flags: true	/* See DRM_BUS_FLAG_... defines. */
-  bus-format: true	/* See MEDIA_BUS_FMT_... defines. */
-  connector-type: true	/* See DRM_MODE_CONNECTOR_... defines. */
+  bpc:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [6, 8, 10]
+  # See DRM_BUS_FLAG_... defines.
+  bus-flags:
+    $ref: /schemas/types.yaml#/definitions/uint32
+  # See MEDIA_BUS_FMT_... defines.
+  bus-format:
+    $ref: /schemas/types.yaml#/definitions/uint32
+  connector-type:
+    $ref: /schemas/graph.yaml#/properties/endpoint
   enable-gpios: true
   height-mm: true
   label: true
