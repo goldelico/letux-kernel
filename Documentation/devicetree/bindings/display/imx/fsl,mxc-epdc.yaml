@@ -89,6 +89,7 @@ properties:
     description: V3P3 supply
 
   epd-thermal-zone:
+    $ref: /schemas/types.yaml#/definitions/string
     description: 
       Zone to get temperature of the EPD from, practically ambient temperature.
 
