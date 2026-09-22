@@ -35,19 +35,15 @@ properties:
     minItems: 1
 
   monitored-battery:
-    - description: |
-         phandle of battery characteristics node
-         The regulator uses the following battery properties if available:
-         - voltage-max-design-microvolt:
-           - default: 4200000
-         - voltage-min-design-microvolt:
-           - default: 3200000
-         - constant-charge-current-max-microamp:
-           - default: as defined by boot loader
-         - precharge-current-microamp:
-           - default: 128000
-         - charge-term-current-microamp:
-           - default: 128000
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: |
+      Phandle of battery characteristics node.
+      The regulator uses the following battery properties if available:
+      - voltage-max-design-microvolt (default: 4200000)
+      - voltage-min-design-microvolt (default: 3200000)
+      - constant-charge-current-max-microamp (default: as defined by boot loader)
+      - precharge-current-microamp (default: 128000)
+      - charge-term-current-microamp (default: 128000)
 
   regulators:
     minItems: 2
