@@ -3912,6 +3912,8 @@ static const struct pinfunction x2600_functions[] = {
 	INGENIC_PIN_FUNCTION("dmic", x2600_dmic),
 	INGENIC_PIN_FUNCTION("i2c0", x2600_i2c0),
 	INGENIC_PIN_FUNCTION("i2c1", x2600_i2c1),
+	INGENIC_PIN_FUNCTION("i2c2", x2600_i2c2),
+	INGENIC_PIN_FUNCTION("i2c3", x2600_i2c3),
 	INGENIC_PIN_FUNCTION("i2s", x2600_i2s),
 	INGENIC_PIN_FUNCTION("lcd", x2600_lcd),
 	INGENIC_PIN_FUNCTION("mac", x2600_mac),
