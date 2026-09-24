@@ -693,7 +693,7 @@
 			interrupts = <IRQ_I2C1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clocks = <&cgu X2600_CLK_GATE_I2C1>;
 			clock-frequency = <100000>;
 			status = "disabled";
 		};
@@ -705,7 +705,7 @@
 			interrupts = <IRQ_I2C2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clocks = <&cgu X2600_CLK_GATE_I2C2>;
 			status = "disabled";
 		};
 
@@ -716,7 +716,7 @@
 			interrupts = <IRQ_I2C3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&cgu X2600_CLK_GATE_I2C0>;
+			clocks = <&cgu X2600_CLK_GATE_I2C3>;
 			clock-frequency = <100000>;
 			status = "disabled";
 		};
