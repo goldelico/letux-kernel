@@ -128,13 +128,12 @@
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c0_pc>;
-	clock-frequency = <400000>;
 	status = "okay";
 
 	rtc: rtc@51 {
-		compatible = "nxp,pcf85063";
+		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
-		quartz-load-femtofarads = <22000>;
+		quartz-load-femtofarads = <12500>;
 	};
 };
 
@@ -185,7 +184,6 @@
 	disable-wp;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_msc0>, <&pins_msc0_cd>;
-
 	cd-gpios = <&gpc 8 GPIO_ACTIVE_LOW>;
 
 	cap-sd-highspeed;
@@ -213,7 +211,7 @@
 
 	pins_i2c0_pc: i2c0 {
 		function = "i2c0";
-		groups = "i2c0-data-c";	/* RasPI ID */
+		groups = "i2c0-data-c";	/* RasPI IDSC/IDSD */
 		bias-pull-up;
 	};
 
