@@ -125,12 +125,26 @@
 
 };
 
+/* opzional on early board revision */
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c0_pc>;
 	status = "okay";
 
-	rtc: rtc@51 {
+	rtc0: rtc@51 {
+		compatible = "nxp,pcf85063a";
+		reg = <0x51>;
+		quartz-load-femtofarads = <12500>;
+	};
+};
+
+/* alternate for future board revisions */
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c2_pc>;
+	status = "okay";
+
+	rtc2: rtc@51 {
 		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
 		quartz-load-femtofarads = <12500>;
@@ -207,14 +221,15 @@
 };
 
 &pinctrl {
-#if 0	// needs a new mechanism to control this
-	ingenic,gpa_voltage = <GPIO_VOLTAGE_1V8>;
-	ingenic,gpe_msc_voltage = <GPIO_VOLTAGE_1V8>;
-#endif
-
 	pins_i2c0_pc: i2c0 {
 		function = "i2c0";
 		groups = "i2c0-data-c";	/* RasPI IDSC/IDSD */
+		bias-pull-up;
+	};
+
+	pins_i2c2_pc: i2c2 {
+		function = "i2c2";
+		groups = "i2c2-data-c";	/* internal bus */
 		bias-pull-up;
 	};
 
