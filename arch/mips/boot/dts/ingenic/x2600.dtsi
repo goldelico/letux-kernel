@@ -706,6 +706,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			clocks = <&cgu X2600_CLK_GATE_I2C2>;
+			clock-frequency = <100000>;
 			status = "disabled";
 		};
 
