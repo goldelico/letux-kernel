@@ -21,6 +21,8 @@
 #include "cgu.h"
 #include "pm.h"
 
+// NOTE: comments are here indicating review...
+
 /* CGU register offsets */
 #define CGU_REG_CLOCKCONTROL	0x00
 #define CGU_REG_LCR		0x04
@@ -75,42 +77,84 @@
 #define CGU_REG_USB1PCR1	0xe8	// not in x1600
 #define CGU_REG_MESTSEL		0xec	// not in x1600
 
-/* x1600 only
+#if 0	// x1600 only
 #define CGU_REG_I2S1CDR		0x7c
 #define CGU_REG_I2S1CDR1	0x80
 #define CGU_REG_CDBUSCDR	0xac
-*/
+#endif
 
-/* bits within the OPCR register */
+/* x2600 bits within the OPCR register */
 #define OPCR_SPENDN0		BIT(7)
+#define OPCR_SPENDN1		BIT(6)
 #define OPCR_GATEUSBPHYCLK	BIT(23)
 
 static struct ingenic_cgu *cgu;
 
+static int x2600_phy_clk_enable(struct clk_hw *hw, unsigned int spendn)
+{
+        u32 reg = readl(cgu->base + CGU_REG_OPCR);
+
+        reg &= ~OPCR_GATEUSBPHYCLK;   /* Bit 23 = 0: clock not gated */
+        reg |= spendn;                /* SPENDN0 or SPENDN1 */
+
+        writel(reg, cgu->base + CGU_REG_OPCR);
+        return 0;
+}
+
+static void x2600_phy_clk_disable(struct clk_hw *hw, unsigned int spendn)
+{
+        u32 reg = readl(cgu->base + CGU_REG_OPCR);
+
+        reg &= ~spendn;
+        reg |= OPCR_GATEUSBPHYCLK;    /* Bit 23 = 1: gate ref clock */
+
+        writel(reg, cgu->base + CGU_REG_OPCR);
+}
+
+static bool x2600_phy_clk_is_enabled(struct clk_hw *hw, unsigned int spendn)
+{
+        u32 reg = readl(cgu->base + CGU_REG_OPCR);
+
+        return (reg & spendn) && !(reg & OPCR_GATEUSBPHYCLK);
+}
+
 static int x2600_otg_phy_enable(struct clk_hw *hw)
 {
-	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
-
-	writel((readl(reg_opcr) & ~OPCR_GATEUSBPHYCLK) | OPCR_SPENDN0, reg_opcr);
-
-	return 0;
+        return x2600_phy_clk_enable(hw, OPCR_SPENDN0);
 }
 
 static void x2600_otg_phy_disable(struct clk_hw *hw)
 {
-	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
-
-	writel((readl(reg_opcr) & ~OPCR_SPENDN0) | OPCR_GATEUSBPHYCLK, reg_opcr);
+        x2600_phy_clk_disable(hw, OPCR_SPENDN0);
 }
 
 static int x2600_otg_phy_is_enabled(struct clk_hw *hw)
 {
-	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
-
-	return (readl(reg_opcr) & (OPCR_SPENDN0 | OPCR_GATEUSBPHYCLK)) == OPCR_SPENDN0;
+        return x2600_phy_clk_is_enabled(hw, OPCR_SPENDN0);
 }
 
 static u8 x2600_otg_phy_get_parent(struct clk_hw *hw)
+{
+	(void) hw;
+	return 0;
+}
+
+static int x2600_usb_phy_enable(struct clk_hw *hw)
+{
+        return x2600_phy_clk_enable(hw, OPCR_SPENDN1);
+}
+
+static void x2600_usb_phy_disable(struct clk_hw *hw)
+{
+        x2600_phy_clk_disable(hw, OPCR_SPENDN1);
+}
+
+static int x2600_usb_phy_is_enabled(struct clk_hw *hw)
+{
+        return x2600_phy_clk_is_enabled(hw, OPCR_SPENDN1);
+}
+
+static u8 x2600_usb_phy_get_parent(struct clk_hw *hw)
 {
 	(void) hw;
 	return 0;
@@ -123,7 +167,12 @@ static const struct clk_ops x2600_otg_phy_ops = {
 	.get_parent	= x2600_otg_phy_get_parent,
 };
 
-// FIXME: might need something for x2600_usb_phy
+static const struct clk_ops x2600_usb_phy_ops = {
+	.enable		= x2600_usb_phy_enable,
+	.disable	= x2600_usb_phy_disable,
+	.is_enabled	= x2600_usb_phy_is_enabled,
+	.get_parent	= x2600_usb_phy_get_parent,
+};
 
 static void
 x2600_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
@@ -174,19 +223,6 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 	/* External clocks */
 
 	[X2600_CLK_EXCLK] = { "ext", CGU_CLK_EXT },
-#if 0
-// NOTE: there is an rtc32k_o signal which can be pinmuxed to PE00 according to Programming Guide but not mentioned in Data Sheet
-	[X2600_CLK_RTCLK] = { "rtc", CGU_CLK_EXT },
-
-	[X1600_CLK_EXCLK_DIV512] = {
-		"exclk_div512", CGU_CLK_FIXDIV,
-		.parents = { X1600_CLK_EXCLK },
-		.fixdiv = { 512 },
-	},
-
-// FIXME: there is no CLK12M? So let's pretend it is the same as EXCLK until we renumber the ingenic,x2600-cgu.h numbers
-	[X2600_CLK_12M] = { "ext" /* "clk12m" */, CGU_CLK_EXT },
-#endif
 
 	/* PLLs */
 
@@ -477,20 +513,20 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.gate = { CGU_REG_CLKGR1, 10 },
 	},
 
-// Review bis hier her
-
 	/* Custom (SoC-specific) OTG PHY */
 
 	[X2600_CLK_OTGPHY] = {
 		"otg_phy", CGU_CLK_CUSTOM,
-#if 0	// FIXME
-		.parents = { X2600_CLK_12M },
-#endif
 		.custom = { &x2600_otg_phy_ops },
 	},
 
+	[X2600_CLK_USBPHY] = {
+		"usb_phy", CGU_CLK_CUSTOM,
+		.custom = { &x2600_usb_phy_ops },
+	},
+
 	/* Gate-only clocks */
-// Parents prüfen!!!
+
 	[X2600_CLK_GATE_NEMC] = {
 		"gate_nemc", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
@@ -641,13 +677,11 @@ static const struct ingenic_cgu_clk_info x2600_cgu_clocks[] = {
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR1, 3 },
 	},
-#if 1
 	[X2600_CLK_GATE_PWM] = {
 		"gate_pwm", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR1, 6 },
 	},
-#endif
 	[X2600_CLK_GATE_TCU0] = {
 		"gate_tcu0", CGU_CLK_GATE,
 		.parents = { X2600_CLK_AHB0, -1, -1, -1 },
