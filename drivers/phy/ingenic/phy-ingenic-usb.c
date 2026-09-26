@@ -113,6 +113,9 @@
 
 struct ingenic_soc_info {
 	void (*usb_phy_init)(struct phy *phy);
+	bool shared_base;
+	bool has_extra;
+	int channel;
 };
 
 struct ingenic_usb_phy {
@@ -391,23 +394,26 @@ static void x2000_usb_phy_init(struct phy *phy)
 #define USBRDT_RESUME_SPEED                28
 #define USBRDT_RESUME_STATUS                27
 
-static void x2600_otg_phy_init(struct phy * phy)
+// maybe we can have a single init function using a local register offset table
+// indexed by priv->channel
+
+static void x2600_otg_phy_init(struct phy *phy)
 {
 	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
 	u32 reg;
 
-	writel(0x00000000, priv->base + CPM_USB1PCR1);
-	writel(0x80100000, priv->base + CPM_USB1PCR);
+	writel(0x00000000, priv->base + CPM_USBPCR1);
+	writel(0x80100000, priv->base + CPM_USBPCR);
 	usleep_range(800, 800);
-	writel(0x80000000, priv->base + CPM_USB1PCR);
-	writel(0x30000000, priv->base + CPM_USB1PCR1);
+	writel(0x80000000, priv->base + CPM_USBPCR);
+	writel(0x30000000, priv->base + CPM_USBPCR1);
 	usleep_range(800, 800);
 
 	/* Chirp K or SE0 resume enable */
-	reg = readl(priv->base + CPM_USB1RDT) | BIT(26);
-	writel(reg, priv->base + CPM_USB1RDT);
+	reg = readl(priv->base + CPM_USBRDT) | BIT(26);
+	writel(reg, priv->base + CPM_USBRDT);
 
-#if FIXME
+#ifdef FIXME
 	/* In fact, when the high-speed eye height is set to the highest,
 	   the register value should be 3'b110. The default value of 3'b111 in PM
 	   is the lowest. */
@@ -415,9 +421,13 @@ static void x2600_otg_phy_init(struct phy * phy)
 	value &= ~(0x1 << 4);
 	usb_phy_writel(usb_phy, value, 0x30);
 #endif
+#ifdef FIXME
+	// Adjustments in priv->extra like for x1600?
+	// but different registers and offsets!
+#endif
 }
 
-static void x2600_usb_phy_init(struct phy * phy)
+static void x2600_usb_phy_init(struct phy *phy)
 {
 	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
 	u32 reg;
@@ -436,7 +446,11 @@ static void x2600_usb_phy_init(struct phy * phy)
 	reg = readl(priv->base + CPM_OPCR) | OPCR_SPENDN1_BIT;
 	writel(reg, priv->base + CPM_OPCR);
 
-#if FIXME
+#ifdef FIXME
+	// Adjustments in priv->extra like for x1600?
+	// but different registers and offsets!
+#endif
+#ifdef FIXME
 	x2600_usb_phy1 = usb_phy;
 	register_syscore_ops(&x2600_phy_port1_syscore_ops);
 #endif
@@ -460,6 +474,7 @@ static const struct ingenic_soc_info x1000_soc_info = {
 
 static const struct ingenic_soc_info x1600_soc_info = {
 	.usb_phy_init = x1600_usb_phy_init,
+	.has_extra = true,
 };
 
 static const struct ingenic_soc_info x1830_soc_info = {
@@ -472,10 +487,16 @@ static const struct ingenic_soc_info x2000_soc_info = {
 
 static const struct ingenic_soc_info x2600_otg_soc_info = {
 	.usb_phy_init = x2600_otg_phy_init,
+	.has_extra = true,
+	.shared_base = true,
+	.channel = 0,
 };
 
 static const struct ingenic_soc_info x2600_usb_soc_info = {
 	.usb_phy_init = x2600_usb_phy_init,
+	.has_extra = true,
+	.shared_base = true,
+	.channel = 1,
 };
 
 static int ingenic_usb_phy_probe(struct platform_device *pdev)
@@ -495,14 +516,24 @@ static int ingenic_usb_phy_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	priv->base = devm_platform_ioremap_resource(pdev, 0);
+	if (priv->soc_info->shared_base) {
+		struct resource *res;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			return -EINVAL;
+
+		priv->base = devm_ioremap(dev, res->start,
+					  resource_size(res));
+	} else {
+		priv->base = devm_platform_ioremap_resource(pdev, 0);
+	}
 	if (IS_ERR(priv->base)) {
 		dev_err(dev, "Failed to map registers\n");
 		return PTR_ERR(priv->base);
 	}
 
-	/* only used by x1600 phy */
-	if (priv->soc_info->usb_phy_init == x1600_usb_phy_init)
+	if (priv->soc_info->has_extra)
 		priv->extra = devm_platform_ioremap_resource(pdev, 1);
 
 	priv->clk = devm_clk_get(dev, NULL);
