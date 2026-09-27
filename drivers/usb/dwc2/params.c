@@ -297,6 +297,7 @@ const struct of_device_id dwc2_of_match_table[] = {
 	{ .compatible = "ingenic,x1700-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "ingenic,x1830-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "ingenic,x2000-otg", .data = dwc2_set_x1600_params },
+	{ .compatible = "ingenic,x2600-otg", .data = dwc2_set_x1600_params },
 	{ .compatible = "rockchip,rk3066-usb", .data = dwc2_set_rk_params },
 	{ .compatible = "lantiq,danube-usb", .data = &dwc2_set_ltq_danube_params },
 	{ .compatible = "lantiq,ase-usb", .data = &dwc2_set_ltq_ase_params },
