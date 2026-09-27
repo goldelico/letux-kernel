@@ -25,6 +25,7 @@ properties:
       - const: ingenic,x1700-otg
       - const: ingenic,x1830-otg
       - const: ingenic,x2000-otg
+      - const: ingenic,x2600-otg
       - items:
           - const: rockchip,rk3066-usb
           - const: snps,dwc2
