@@ -30,6 +30,21 @@
 #define REG_PHY_SESSIONEND 		0x110
 #define REG_PHY_EYETUNE 		0x124
 
+/* X2600 Offsets */
+#define CPM_USBPCR			0x3c
+#define CPM_USBRDT			0x40
+#define CPM_USBVBFIL			0x44
+#define CPM_USBPCR1			0x48
+
+#define CPM_USB1PCR			0x4c
+#define CPM_USB1RDT			0x50
+#define CPM_USB1VBFIL			0x58
+#define CPM_USB1PCR1			0xe8
+
+/* X2600 PHY register offsets */
+#define X2600_PHY_REG12			0x30
+#define X2600_PHY_REG15			0x3c
+
 /* bits within the USBPCR register */
 #define USBPCR_USB_MODE			BIT(31)
 #define USBPCR_AVLD_REG			BIT(30)
@@ -110,6 +125,11 @@
 
 #define PHY_EYETUNE_HSEYETUNE		GENMASK(4, 2)
 #define PHY_EYETUNE_HSEYETUNE_1		BIT(2)
+
+/* bits within the X2600 PHY registers */
+
+#define X2600_PHY_REG12_HS_EYE_HEIGHT	BIT(4)
+#define X2600_PHY_REG15_BIT7_VBUSDETPWD	BIT(7)
 
 struct ingenic_soc_info {
 	void (*usb_phy_init)(struct phy *phy);
@@ -362,41 +382,6 @@ static void x2000_usb_phy_init(struct phy *phy)
 	writel(reg, priv->base + REG_USBPCR_OFFSET);
 }
 
-// reg bis 0x1350003c beginnen lassen? für otg ?
-// und reg = <0x1000004c 0x1000 0x10078400 0x1000>; ?
-
-// dann hier 0x3c abziehen und die bekannten Offsets der anderen mitbenutzen
-
-#define CPM_USBPCR     0x3C
-#define CPM_USBRDT     0x40
-#define CPM_USBVBFIL   0x44
-#define CPM_USBPCR1    0x48
-
-#define CPM_USB1PCR     0x4C
-#define CPM_USB1RDT     0x50
-#define CPM_USB1VBFIL   0x58
-#define CPM_USB1PCR1    0xe8
-
-#define CPM_SRBC    0xC4
-// das hier wäre dann aber VOR dem reg-Block...
-#define CPM_OPCR    0x24
-// ===> Register in PM zwischen x1600, x2000, x2600 genau vergleichen
-
-#define OPCR_SPENDN0_BIT            7
-#define OPCR_SPENDN1_BIT            6
-
-#define OPCR_GATE_USBPHY_CLK_BIT    23
-#define SRBC_USB_SR                    14
-#define SRBC_USB1_SR                    15
-
-#define USBRDT_RESUME_IRQ_ENABLE            31
-#define USBRDT_RESUME_CLEAR_IRQ                30
-#define USBRDT_RESUME_SPEED                28
-#define USBRDT_RESUME_STATUS                27
-
-// maybe we can have a single init function using a local register offset table
-// indexed by priv->channel
-
 static void x2600_otg_phy_init(struct phy *phy)
 {
 	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
@@ -410,20 +395,25 @@ static void x2600_otg_phy_init(struct phy *phy)
 	usleep_range(800, 800);
 
 	/* Chirp K or SE0 resume enable */
-	reg = readl(priv->base + CPM_USBRDT) | BIT(26);
+	reg = readl(priv->base + CPM_USBRDT);
+	reg |= USBRDT_HB_MASK;
 	writel(reg, priv->base + CPM_USBRDT);
 
+	/*
+	 * X2600 PHY tuning.
+	 *
+	 * Reference implementation clears bit 4 of PHY register 0x30.
+	 */
+	reg = readl(priv->extra + X2600_PHY_REG12);
+	reg &= ~X2600_PHY_REG12_HS_EYE_HEIGHT;
+	writel(reg, priv->extra + X2600_PHY_REG12);
+
 #ifdef FIXME
-	/* In fact, when the high-speed eye height is set to the highest,
-	   the register value should be 3'b110. The default value of 3'b111 in PM
-	   is the lowest. */
-	value = usb_phy_readl(usb_phy, 0x30);
-	value &= ~(0x1 << 4);
-	usb_phy_writel(usb_phy, value, 0x30);
-#endif
-#ifdef FIXME
-	// Adjustments in priv->extra like for x1600?
-	// but different registers and offsets!
+	if (priv->external_vbus_detect) {
+		reg = readl(priv->extra + X2600_PHY_REG15);
+		reg |= X2600_PHY_REG15_BIT7_VBUSDETPWD;
+		writel(reg, priv->extra + X2600_PHY_REG15);
+	}
 #endif
 }
 
@@ -432,28 +422,22 @@ static void x2600_usb_phy_init(struct phy *phy)
 	struct ingenic_usb_phy *priv = phy_get_drvdata(phy);
 	u32 reg;
 
-	reg = readl(priv->base + CPM_USB1RDT) | BIT(26);
+	writel(0x00000000, priv->base + CPM_USB1PCR1);
+	writel(0x80100000, priv->base + CPM_USB1PCR);
+	usleep_range(800, 800);
+	writel(0x80000000, priv->base + CPM_USB1PCR);
+	writel(0x30000000, priv->base + CPM_USB1PCR1);
+	usleep_range(800, 800);
+
+	/* Chirp K or SE0 resume enable */
+	reg = readl(priv->base + CPM_USB1RDT);
+	reg |= USBRDT_HB_MASK;
 	writel(reg, priv->base + CPM_USB1RDT);
 
-	reg = readl(priv->base + CPM_SRBC) | SRBC_USB1_SR;
-	writel(reg, priv->base + CPM_SRBC);
-
-	udelay(10);
-
-	reg = readl(priv->base + CPM_SRBC) & ~SRBC_USB1_SR;
-	writel(reg, priv->base + CPM_SRBC);
-
-	reg = readl(priv->base + CPM_OPCR) | OPCR_SPENDN1_BIT;
-	writel(reg, priv->base + CPM_OPCR);
-
-#ifdef FIXME
-	// Adjustments in priv->extra like for x1600?
-	// but different registers and offsets!
-#endif
-#ifdef FIXME
-	x2600_usb_phy1 = usb_phy;
-	register_syscore_ops(&x2600_phy_port1_syscore_ops);
-#endif
+	/* X2600 PHY tuning */
+	reg = readl(priv->extra + X2600_PHY_REG12);
+	reg &= ~X2600_PHY_REG12_HS_EYE_HEIGHT;
+	writel(reg, priv->extra + X2600_PHY_REG12);
 }
 
 static const struct ingenic_soc_info jz4770_soc_info = {
