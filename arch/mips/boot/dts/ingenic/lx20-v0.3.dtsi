@@ -64,5 +64,5 @@
 };
 
 &otg {
-	dr_mode = "otg"; // v0.3 has hardware for DRP/OTG mode
+	dr_mode = "otg"; // v0.3 has working hardware for DRP/OTG mode
 };
