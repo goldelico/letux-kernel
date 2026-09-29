@@ -106,12 +106,14 @@ static void x2600_phy_clk_disable(struct clk_hw *hw, unsigned int spendn)
         u32 reg = readl(cgu->base + CGU_REG_OPCR);
 
         reg &= ~spendn;
-        reg |= OPCR_GATEUSBPHYCLK;    /* Bit 23 = 1: gate ref clock */
+
+        if (!(reg & (OPCR_SPENDN0 | OPCR_SPENDN1)))
+                reg |= OPCR_GATEUSBPHYCLK;
 
         writel(reg, cgu->base + CGU_REG_OPCR);
 }
 
-static bool x2600_phy_clk_is_enabled(struct clk_hw *hw, unsigned int spendn)
+static int x2600_phy_clk_is_enabled(struct clk_hw *hw, unsigned int spendn)
 {
         u32 reg = readl(cgu->base + CGU_REG_OPCR);
 
