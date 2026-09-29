@@ -685,7 +685,6 @@
 
 &otg_phy {
 	status = "okay";
-//	ingenic,vbus-dete-gpio = <&gpc 24 GPIO_ACTIVE_LOW>;
 	vcc-supply = <&vcc>;
 	phy-supply = <&vcc>;
 };
