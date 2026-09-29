@@ -123,9 +123,21 @@
 		};
 	};
 
+	vbus_en: drvvbus_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "drive-vbus";
+
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+
+		gpio = <&gpe 1 GPIO_ACTIVE_HIGH>;
+
+		startup-delay-us = <70000>;
+		enable-active-high;
+	};
 };
 
-/* opzional on early board revision */
+/* optional on early board revision */
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c0_pc>;
@@ -177,9 +189,11 @@
 
 &otg {
 	status = "okay";
+	// ist das korrekt? wird das abgefragt?
 	external-id-pin;
 	external-vbus-detect;
 	dr_mode = "otg"; /* OTG supported by ID pin and power switch */
+	vbus-supply = <&vbus_en>;
 };
 
 &usb {
