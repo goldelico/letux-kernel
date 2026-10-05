@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bindings/sound/ti,pcm1773.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Texas Instruments pcm1773 audio codec
+
+maintainers:
+  - to-be-defined@openpandora.org
+
+description: |+
+  PCM1771 is a simple stereo audio codec with headphone driver
+  that can be enabled through a gpio.
+
+properties:
+  compatible:
+    const: ti,pcm1773
+
+  enable-gpios:
+    maxItems: 1
+    description:
+      active low GPIO used to enable all outputs
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    audio-codec {
+      compatible = "ti,pcm1773";
+      enable-gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
+    };
+
+...
