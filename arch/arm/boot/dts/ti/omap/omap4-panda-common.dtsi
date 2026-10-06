@@ -81,7 +81,7 @@
 		compatible = "ti,abe-twl6040";
 		ti,model = "PandaBoard";
 
-		ti,mclk-freq = <38400000>;	// CHECKME: 19200000?
+		ti,mclk-freq = <38400000>;
 
 		ti,mcpdm = <&mcpdm>;
 		ti,mcbsp1 = <&mcbsp1>;	/* bluetooth */
