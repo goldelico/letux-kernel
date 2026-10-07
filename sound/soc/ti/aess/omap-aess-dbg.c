@@ -361,7 +361,8 @@ static int aess_open_mem(struct inode *inode, struct file *file)
 }
 
 static ssize_t aess_read_mem(struct file *file, char __user *user_buf,
-			     size_t count, loff_t *ppos, void *mem, int size)
+			     size_t count, loff_t *ppos, void __iomem *mem,
+			     int size)
 {
 	struct omap_aess *aess = file->private_data;
 	ssize_t ret = 0;
@@ -372,15 +373,31 @@ static ssize_t aess_read_mem(struct file *file, char __user *user_buf,
 	if (*ppos >= size)
 		goto out;
 
-	if (*ppos + count > size)
+	if (count > size - *ppos)
 		count = size - *ppos;
 
-	if (copy_to_user(user_buf, mem + *ppos, count)) {
-		ret = -EFAULT;
-		goto out;
+	while (count) {
+		u32 value;
+		u8 *p;
+		size_t offset, todo;
+
+		offset = *ppos & 3;
+		todo = min_t(size_t, count, sizeof(value) - offset);
+
+		value = readl(mem + (*ppos & ~3));
+		p = (u8 *)&value + offset;
+
+		if (copy_to_user(user_buf, p, todo)) {
+			ret = ret ? ret : -EFAULT;
+			goto out;
+		}
+
+		*ppos += todo;
+		user_buf += todo;
+		count -= todo;
+		ret += todo;
 	}
-	*ppos += count;
-	ret = count;
+
 out:
 	__set_current_state(TASK_RUNNING);
 	pm_runtime_put_sync(aess->dev);
