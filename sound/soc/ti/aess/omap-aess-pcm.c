@@ -606,7 +606,20 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 
 #endif	// IS_BUILTIN(CONFIG_SND_SOC_OMAP_AESS)
 
+// #define KEEPME_DESPITE_PROBLEM
+#ifdef KEEPME_DESPITE_PROBLEM
+/* if we keep this we would see
+ * [   87.945251] omap-aess 401f1000.aess: Unbalanced pm_runtime_enable!
+ * when starting AESS for the first time
+ * this may either be a relict from porting firmware load code
+ * or it may be necessary if firmware load depends on this being a kernel module or not
+ *
+ * if we remove this, we often see
+ * [   65.326293] omap-abe-twl6040 sound: ASoC: CPU DAI mcpdm-abe not registered
+ */
+
 	pm_runtime_enable(aess->dev);
+#endif
 	pm_runtime_irq_safe(aess->dev);
 
 	ret = request_threaded_irq(aess->irq, NULL,
@@ -623,7 +636,9 @@ static int omap_aess_pcm_probe(struct snd_soc_component *component)
 	return 0;
 
 out:
+#ifdef KEEPME_DESPITE_PROBLEM
 	pm_runtime_disable(aess->dev);
+#endif
 	release_firmware(aess->fw);
 	return ret;
 }
@@ -634,7 +649,9 @@ static void omap_aess_pcm_remove(struct snd_soc_component *component)
 
 	free_irq(aess->irq, aess);
 	aess_cleanup_debugfs(aess);
+#ifdef KEEPME_DESPITE_PROBLEM
 	pm_runtime_disable(aess->dev);
+#endif
 	release_firmware(aess->fw);
 	aess->fw = NULL;
 	aess->fw_data = NULL;
