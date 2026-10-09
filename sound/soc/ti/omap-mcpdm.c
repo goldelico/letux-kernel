@@ -734,8 +734,6 @@ static int asoc_mcpdm_probe(struct platform_device *pdev)
 	if (!mcpdm)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, mcpdm);
-
 	mutex_init(&mcpdm->mutex);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
@@ -758,6 +756,7 @@ static int asoc_mcpdm_probe(struct platform_device *pdev)
 
 	mcpdm->dev = &pdev->dev;
 
+	platform_set_drvdata(pdev, mcpdm);
 	ret =  devm_snd_soc_register_component(&pdev->dev,
 					       &omap_mcpdm_component,
 					       omap_mcpdm_dai, ARRAY_SIZE(omap_mcpdm_dai));
