@@ -105,7 +105,6 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 	aess = devm_kzalloc(&pdev->dev, sizeof(struct omap_aess), GFP_KERNEL);
 	if (aess == NULL)
 		return -ENOMEM;
-	platform_set_drvdata(pdev, aess);
 
 	aess->ops.port_open = omap_aess_port_open;
 	aess->ops.port_close = omap_aess_port_close;
@@ -198,6 +197,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 
 	put_device(aess->dev);
 
+	platform_set_drvdata(pdev, aess);
 	ret = devm_snd_soc_register_component(&pdev->dev, &omap_aess_component, omap_aess_dai,
 					 ARRAY_SIZE(omap_aess_dai));
 	if (ret < 0) {
