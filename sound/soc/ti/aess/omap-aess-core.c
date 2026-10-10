@@ -134,6 +134,7 @@ static int omap_aess_engine_probe(struct platform_device *pdev)
 					     aess_memory_bank[i]))
 			return -EBUSY;
 
+		aess->io_size[i] = resource_size(res);
 		aess->io_base[i] = devm_ioremap(&pdev->dev, res->start,
 					       resource_size(res));
 		if (!aess->io_base[i])

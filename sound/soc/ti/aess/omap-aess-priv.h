@@ -337,6 +337,7 @@ struct omap_aess {
 
 	struct clk *clk;
 	void __iomem *io_base[OMAP_AESS_IO_RESOURCES];
+	u32 io_size[OMAP_AESS_IO_RESOURCES];
 	u32 dmem_l4;
 	u32 dmem_l3;
 	u32 aess_config_l3;
