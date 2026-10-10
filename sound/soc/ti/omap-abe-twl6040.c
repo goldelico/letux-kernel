@@ -739,7 +739,7 @@ static int omap_abe_twl6040_aess_init(struct snd_soc_pcm_runtime *rtd)
 			return ret;
 	}
 
-	/* add the aess rudio mapping here */
+	/* add the aess audio mapping here */
 	if (omap_aess_pdev) {
 		ret = snd_soc_dapm_add_routes(card->dapm, aess_audio_map,
 					ARRAY_SIZE(aess_audio_map));
