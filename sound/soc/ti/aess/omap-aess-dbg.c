@@ -436,7 +436,7 @@ static loff_t aess_llseek_cmem(struct file *file, loff_t off, int whence)
 {
 	struct omap_aess *aess = file->private_data;
 
-	return aess_llseek(file, off, whence, aess->fw_hdr.cmem_size);
+	return aess_llseek(file, off, whence, aess->io_size[OMAP_AESS_BANK_CMEM]);
 }
 
 static ssize_t aess_read_cmem(struct file *file, char __user *user_buf,
@@ -446,7 +446,7 @@ static ssize_t aess_read_cmem(struct file *file, char __user *user_buf,
 
 	return aess_read_mem(file, user_buf, count, ppos,
 			     (void __force *)aess->io_base[OMAP_AESS_BANK_CMEM],
-			     aess->fw_hdr.cmem_size);
+			     aess->io_size[OMAP_AESS_BANK_CMEM]);
 }
 
 static const struct file_operations omap_aess_cmem_fops = {
@@ -459,7 +459,7 @@ static loff_t aess_llseek_pmem(struct file *file, loff_t off, int whence)
 {
 	struct omap_aess *aess = file->private_data;
 
-	return aess_llseek(file, off, whence, aess->fw_hdr.pmem_size);
+	return aess_llseek(file, off, whence, aess->io_size[OMAP_AESS_BANK_PMEM]);
 }
 
 static ssize_t aess_read_pmem(struct file *file, char __user *user_buf,
@@ -469,7 +469,7 @@ static ssize_t aess_read_pmem(struct file *file, char __user *user_buf,
 
 	return aess_read_mem(file, user_buf, count, ppos,
 			     (void __force *)aess->io_base[OMAP_AESS_BANK_PMEM],
-			     aess->fw_hdr.pmem_size);
+			     aess->io_size[OMAP_AESS_BANK_PMEM]);
 }
 
 static const struct file_operations omap_aess_pmem_fops = {
@@ -482,7 +482,7 @@ static loff_t aess_llseek_smem(struct file *file, loff_t off, int whence)
 {
 	struct omap_aess *aess = file->private_data;
 
-	return aess_llseek(file, off, whence, aess->fw_hdr.smem_size);
+	return aess_llseek(file, off, whence, aess->io_size[OMAP_AESS_BANK_SMEM]);
 }
 
 static ssize_t aess_read_smem(struct file *file, char __user *user_buf,
@@ -492,7 +492,7 @@ static ssize_t aess_read_smem(struct file *file, char __user *user_buf,
 
 	return aess_read_mem(file, user_buf, count, ppos,
 			     (void __force *)aess->io_base[OMAP_AESS_BANK_SMEM],
-			     aess->fw_hdr.smem_size);
+			     aess->io_size[OMAP_AESS_BANK_SMEM]);
 }
 
 static const struct file_operations omap_aess_smem_fops = {
@@ -505,7 +505,7 @@ static loff_t aess_llseek_dmem(struct file *file, loff_t off, int whence)
 {
 	struct omap_aess *aess = file->private_data;
 
-	return aess_llseek(file, off, whence, aess->fw_hdr.dmem_size);
+	return aess_llseek(file, off, whence, aess->io_size[OMAP_AESS_BANK_DMEM]);
 }
 
 static ssize_t aess_read_dmem(struct file *file, char __user *user_buf,
@@ -515,7 +515,7 @@ static ssize_t aess_read_dmem(struct file *file, char __user *user_buf,
 
 	return aess_read_mem(file, user_buf, count, ppos,
 			     (void __force *)aess->io_base[OMAP_AESS_BANK_DMEM],
-			     aess->fw_hdr.dmem_size);
+			     aess->io_size[OMAP_AESS_BANK_DMEM]);
 }
 
 static const struct file_operations omap_aess_dmem_fops = {
