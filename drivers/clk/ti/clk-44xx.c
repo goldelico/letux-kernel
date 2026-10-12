@@ -826,5 +826,11 @@ int __init omap4xxx_dt_clk_init(void)
 	if (rc)
 		pr_err("%s: failed to configure ABE DPLL!\n", __func__);
 
+	abe_dpll = clk_get_sys(NULL, "dpll_abe_m2x2_ck");
+	if (!rc)
+		rc = clk_set_rate(abe_dpll, OMAP4_DPLL_ABE_DEFFREQ * 2);
+	if (rc)
+		pr_err("%s: failed to configure ABE m2x2 DPLL!\n", __func__);
+
 	return 0;
 }
