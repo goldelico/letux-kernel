@@ -10,14 +10,11 @@
  *
  */
 
-#define uintptr_t host_uintptr_t
-#define intptr_t host_intptr_t
-#define mode_t host_mode_t
-#define dev_t host_dev_t
-#define blkcnt_t host_blkcnt_t
-typedef int int32_t;
-typedef unsigned int __uint32_t;
-struct timespec { int seconds; };
+#include <stdint.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 /*
  * Default Coefficients for amicEQ.

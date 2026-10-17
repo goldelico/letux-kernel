@@ -138,6 +138,10 @@ static int import_tlv(struct soc_fw_priv *soc_fw,
 {
 	struct snd_ctl_tlv *tlv = (struct snd_ctl_tlv *)kcontrol->tlv.p;
 
+fprintf(stderr, "%s %d: name=%s\n", __func__, __LINE__, kcontrol->name);
+int v=soc_fw->verbose;
+soc_fw->verbose=1;
+
 	tc->type = 0;
 	tc->size = 0;
 	if (tlv && tlv->length) {
@@ -148,7 +152,7 @@ static int import_tlv(struct soc_fw_priv *soc_fw,
 		memcpy(tc->data, tlv, tlv->length*sizeof(tc->data[0]));
 		verbose(soc_fw, " tlv: type %d length %d\n", tc->type, tc->size);
 	}
-
+soc_fw->verbose=v;
 	return 0;
 }
 
