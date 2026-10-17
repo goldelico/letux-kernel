@@ -3,14 +3,9 @@
 AM_CFLAGS = \
 	-I$(top_srcdir)/src \
 	-I$(top_srcdir)/coeffs \
-	-I $(LINUX_DIR)/ \
+	-I $(LINUX_DIR)/include \
 	-I $(LINUX_DIR)/arch/arm/include \
 	-I $(LINUX_DIR)/arch/arm/include/generated \
-	-I $(LINUX_DIR)/include \
-	-I $(LINUX_DIR)/arch/arm/include/uapi \
-	-I $(LINUX_DIR)/arch/arm/include/generated/uapi \
-	-I $(LINUX_DIR)/include/uapi \
-	-I $(LINUX_DIR)/include/generated/uapi \
 	-D__KERNEL__ \
 	-D__LINUX_ARM_ARCH__=7 \
 	-D__iomem= \
@@ -22,7 +17,7 @@ AM_CFLAGS = \
 
 AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
-MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
+MODULE_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version $(LDFLAGS_NOUNDEFINED)
 
 if HAVE_OMAP
 
