@@ -3,14 +3,9 @@ COMPATNUM=@LIBTOOL_VERSION_INFO@
 
 AM_CFLAGS = \
 	-I$(top_srcdir)/src -Wall -Werror \
-	-I $(LINUX_DIR)/ \
+	-I $(LINUX_DIR)/include \
 	-I $(LINUX_DIR)/arch/arm/include \
 	-I $(LINUX_DIR)/arch/arm/include/generated \
-	-I $(LINUX_DIR)/include \
-	-I $(LINUX_DIR)/arch/arm/include/uapi \
-	-I $(LINUX_DIR)/arch/arm/include/generated/uapi \
-	-I $(LINUX_DIR)/include/uapi \
-	-I $(LINUX_DIR)/include/generated/uapi \
 	-D__KERNEL__ \
 	-D__LINUX_ARM_ARCH__=7 \
 	-D_SYS_STAT_H \
