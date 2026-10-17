@@ -3,6 +3,6 @@
 
 // surrogate definitions to avoid name clashes
 
-// struct list_head { struct list_head *next, *prev; };
+struct list_head { struct list_head *next, *prev; };
 
 #endif
