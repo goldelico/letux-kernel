@@ -5,7 +5,7 @@ AM_CFLAGS = \
 
 AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
-MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
+MODULE_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version $(LDFLAGS_NOUNDEFINED)
 
 abe009590dir = $(libdir)/abe/
 abe009590_LTLIBRARIES = abe009590.la
