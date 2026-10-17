@@ -12,12 +12,9 @@ AM_CFLAGS = \
 	-I $(LINUX_DIR)/arch/arm/include/generated/uapi \
 	-I $(LINUX_DIR)/include/uapi \
 	-I $(LINUX_DIR)/include/generated/uapi \
-	-include $(LINUX_DIR)/include/linux/compiler-version.h \
-	-include $(LINUX_DIR)/include/linux/kconfig.h \
-	-include $(LINUX_DIR)/include/linux/compiler_types.h \
-	-include $(LINUX_DIR)/include/linux/types.h \
 	-D__KERNEL__ \
 	-D__LINUX_ARM_ARCH__=7 \
+	-D__iomem= \
 	-D_SYS_STAT_H \
 	-D_SYS_TYPES_H \
 	-D_LINUX_WAIT_H \
@@ -29,8 +26,6 @@ AM_LDFLAGS = $(NODELETE_LDFLAGS)
 MODULE_LDFLAGS = $(AM_LDFLAGS) -module -disable-static -avoid-version $(LDFLAGS_NOUNDEFINED)
 
 modlibexecdir = $(libdir)/plugins
-OMAP4CFLAGS = -I $(LINUX_DIR)/include/uapi -I $(LINUX_DIR)/include -I $(LINUX_DIR)/sound/soc/ti/aess -I $(LINUX_DIR)/sound/soc/ti/
-
 
 if HAVE_OMAP
 modlibexec_LTLIBRARIES = \
@@ -39,6 +34,6 @@ modlibexec_LTLIBRARIES = \
 abe_dl1dl2_twl6040_la_SOURCES = abe-dl1dl2-twl6040.c
 abe_dl1dl2_twl6040_la_LDFLAGS = $(MODULE_LDFLAGS)
 abe_dl1dl2_twl6040_la_LIBADD = $(MODULE_LIBADD)
-abe_dl1dl2_twl6040_la_CFLAGS = $(AM_CFLAGS) $(OMAP4CFLAGS)
+abe_dl1dl2_twl6040_la_CFLAGS = $(AM_CFLAGS)
 
 endif
