@@ -19,21 +19,7 @@
   in the file called LICENSE.GPL.
 */
 
-#define uintptr_t host_uintptr_t
-#define intptr_t host_intptr_t
-#define mode_t host_mode_t
-#define dev_t host_dev_t
-#define blkcnt_t host_blkcnt_t
-typedef int int32_t;
-typedef unsigned int __uint32_t;
-
-#define _SYS_TYPES_H 1
 #include <stdlib.h>
-#undef __always_inline
-#undef __extern_always_inline
-#undef __attribute_const__
-#define __attribute_const__
-#define noreturn
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -44,7 +30,6 @@ typedef unsigned int __uint32_t;
 #include <sys/stat.h>
 #include <dlfcn.h>
 
-#undef __OMAP_AESS_PRIV_H__
 #include "socfw.h"
 
 #define CHUNK_SIZE 	4096
@@ -145,11 +130,11 @@ soc_fw->verbose=1;
 	tc->type = 0;
 	tc->size = 0;
 	if (tlv && tlv->length) {
-		tc->size = tlv->length;
+		tc->size = tlv->length;	/* in bytes aligned to 4 */
 		tc->type = tlv->numid;
-		if (tc->size > ARRAY_SIZE(tc->data))
-			tc->size = ARRAY_SIZE(tc->data);
-		memcpy(tc->data, tlv, tlv->length*sizeof(tc->data[0]));
+		if (tc->size > sizeof(tc->data))	/* should be == SND_SOC_TPLG_TLV_SIZE */
+			tc->size = sizeof(tc->data);
+		memcpy(tc->data, tlv, tc->size);
 		verbose(soc_fw, " tlv: type %d length %d\n", tc->type, tc->size);
 	}
 soc_fw->verbose=v;
