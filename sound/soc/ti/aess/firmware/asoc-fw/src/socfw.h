@@ -535,11 +535,15 @@ struct snd_soc_file_coeff_data {
 #endif	// __LINUX_UAPI_SND_ASOC_SOCFW_H
 
 // we should #include <sound/soc.h> for
-// struct soc_mixer_control
-// struct soc_enum
-// but this is NOT uapi!
+// struct soc_mixer_control - used in lib.c
+// struct soc_enum - used in lib.c and abe-dl1dl2-twl6040.c
+// but this is NOT uapi and tries to source many <linux/*.h>
 // hence we add a copy for the moment
 // beware: this must be synced to the kernel (but is quite unlikely to change often)
+// last check against v7.3-rc7
+
+#define CONFIG_SND_SOC_TOPOLOGY y
+#include <sound/soc-topology.h>
 
 #ifndef __LINUX_SND_SOC_H
 #define __LINUX_SND_SOC_H
@@ -550,6 +554,7 @@ struct soc_mixer_control {
 	int reg, rreg;
 	unsigned int shift, rshift;
 	unsigned int sign_bit;
+	u32 num_channels;
 	unsigned int invert:1;
 	unsigned int autodisable:1;
 #ifdef CONFIG_SND_SOC_TOPOLOGY
@@ -562,7 +567,7 @@ struct soc_enum {
 	int reg;
 	unsigned char shift_l;
 	unsigned char shift_r;
-	unsigned int max;
+	unsigned int items;
 	unsigned int mask;
 	const char * const *texts;
 	const unsigned int *values;
