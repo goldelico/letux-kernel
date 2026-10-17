@@ -33,10 +33,33 @@ yes | apt-get -y install build-essential bison flex bc libssl-dev git autogen au
 echo +++ create and go to $THIS/aess
 mkdir -p aess && cd aess || exit 1
 
-LINUX="$PWD/letux-kernel"			# full source tree (for headers)
-DEST="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware
+LINUX="/root/aess/letux-kernel"			# full source tree (for making headers)
+HEADERS="/root/aess/linux-headers"		# user-space headers made from source tree
+FIRMWARE="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware sources
 
-if [ "$1" != -n ]
+CLEAN=false
+UPDATE=true
+
+while [ "$1" ]
+do
+	case "$1" in
+		-n ) UPDATE=false;;
+		-c ) CLEAN=true;;
+		-* ) echo "unknown option $1"; exit 1;;
+	esac
+	shift
+done
+
+rm -f $FIRMWARE/asoc-fw/omap4_abe_new
+
+if $CLEAN
+then
+	echo "+++ cleaning $HEADERS and $FIRMWARE"
+	rm -f "$HEADERS/Makefile"	# force rebuild
+	find $FIRMWARE -name .libs -o -name .deps -o -name '*.la' -o -name '*.lo' -o -name '*.o' -name '*.mod.c' | xargs rm -rf
+fi
+
+if $UPDATE
 then
 #
 # getting source trees
@@ -60,7 +83,7 @@ function gitfetch { # $1 = "options and repo", $2 = subdir
 }
 
 echo "+++ make sure we have the (complete) kernel source tree ($BRANCH)"
-( gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel && [ -r "$DEST" ] ) ||
+( gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel && [ -r "$FIRMWARE" ] ) ||
 ( echo "--- retry $BRANCH from scratch"; rm -rf letux-kernel; gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel ) ||
 ( echo "--- fallback to $FALLBACK"; rm -rf letux-kernel; gitfetch "--depth 1 -b $FALLBACK https://github.com/goldelico/letux-kernel.git" letux-kernel ) || exit 1
 
@@ -73,7 +96,7 @@ fi
 # ls -l $LINUX/../linux-headers/Makefile $LINUX/../linux-headers/Makefile
 # well, this detection rule may not be 100% precise and sufficient if some important header file is changed but not the Makefile
 
-if [ ! -r $LINUX/../linux-headers/Makefile ] || ! diff -q $LINUX/Makefile $LINUX/../linux-headers/Makefile
+if [ ! -r $HEADERS/Makefile ] || ! diff -q $LINUX/Makefile $HEADERS/Makefile
 then
 (
 	cd $LINUX || exit
@@ -82,18 +105,12 @@ then
 	uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
 
 	echo +++ rebuild headers for arm $DEFCONFIG
-	make ARCH=arm $DEFCONFIG clean modules_prepare headers_install INSTALL_HDR_PATH=../linux-headers &&
+	make $DEFCONFIG clean modules_prepare headers_install INSTALL_HDR_PATH=$HEADERS &&
 		ln -sf asm-generic include/asm &&
-		cp Makefile ../linux-headers/Makefile
+		cp Makefile $HEADERS/Makefile
 
 ) || exit
 fi
-
-# patch issue with host defined __attribute_alloc_size__
-# there is a note that __alloc_size__ should not be used - but it may be...
-
-sed -i.bak 's|^#define __alloc_size__(x, ...)|// #define __alloc_size__(x, ...)|' $LINUX/include/linux/compiler_attributes.h
-fgrep '#define __alloc_size__' $LINUX/include/linux/compiler_attributes.h
 
 #
 # build firmware tools and firmware
@@ -101,7 +118,7 @@ fgrep '#define __alloc_size__' $LINUX/include/linux/compiler_attributes.h
 
 echo +++ configure abefw
 (
-cd $DEST/abefw || exit
+cd $FIRMWARE/abefw || exit
 
 echo +++ autogen the Makefiles
 LC_ALL=C ./autogen.sh || exit 1
@@ -109,7 +126,7 @@ LC_ALL=C ./autogen.sh || exit 1
 echo +++ configure
 # the configure option --with-hal-dir does not exist "(contrary to README)"
 # ./configure --with-linux-dir=$LINUX --with-hal-dir=$PWD/hal || exit 1
-./configure --with-linux-dir=$LINUX || exit 1
+./configure --with-linux-dir=$HEADERS --disable-static --enable-omap4=yes || exit 1
 
 echo +++ make and install
 make || exit 1
@@ -121,13 +138,13 @@ scripts/abe-tool.sh $VERSION || exit 1
 
 echo +++ configure asoc-fw
 (
-cd $DEST/asoc-fw || exit
+cd $FIRMWARE/asoc-fw || exit
 
 echo +++ autogen the Makefiles
 LC_ALL=C ./autogen.sh || exit
 
 echo +++ configure
-./configure --with-linux-dir=$LINUX --enable-omap4 || exit
+./configure --with-linux-dir=$HEADERS --disable-static --enable-omap4=yes || exit 1
 
 echo +++ make and install
 make || exit 1
@@ -135,7 +152,7 @@ make install || exit 1
 
 echo "+++ finally generate firmware binary"
 
-scripts/abegen.sh || exit 1
+LC_ALL=C scripts/abegen.sh || exit 1
 
 echo "+++ install as omap_aess-adfw.bin"
 cp omap4_abe_new /lib/firmware/omap_aess-adfw.bin || exit 1
