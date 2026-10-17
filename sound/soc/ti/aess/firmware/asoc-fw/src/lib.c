@@ -123,10 +123,6 @@ static int import_tlv(struct soc_fw_priv *soc_fw,
 {
 	struct snd_ctl_tlv *tlv = (struct snd_ctl_tlv *)kcontrol->tlv.p;
 
-fprintf(stderr, "%s %d: name=%s\n", __func__, __LINE__, kcontrol->name);
-int v=soc_fw->verbose;
-soc_fw->verbose=1;
-
 	tc->type = 0;
 	tc->size = 0;
 	if (tlv && tlv->length) {
@@ -137,7 +133,6 @@ soc_fw->verbose=1;
 		memcpy(tc->data, tlv, tc->size);
 		verbose(soc_fw, " tlv: type %d length %d\n", tc->type, tc->size);
 	}
-soc_fw->verbose=v;
 	return 0;
 }
 
@@ -253,9 +248,9 @@ fprintf(stdout, "%s info=%d\n", __func__, kcontrol->info);
 	ec.channel[1].shift =  menum->shift_r;
 	ec.channel[1].id = SNDRV_CHMAP_FR;
 
-	ec.items = menum->max;
+	ec.items = menum->items;
 	ec.mask = menum->mask;
-	ec.count = menum->max;
+	ec.count = menum->items;
 
 	import_enum_control_data(soc_fw, ec.items, &ec, menum);
 
