@@ -19,6 +19,7 @@
   in the file called LICENSE.GPL.
 */
 
+#ifdef OLD
 #define uintptr_t host_uintptr_t
 #define intptr_t host_intptr_t
 #define mode_t host_mode_t
@@ -28,12 +29,16 @@ typedef int int32_t;
 typedef unsigned int __uint32_t;
 
 #define _SYS_TYPES_H 1
+#endif
+
 #include <stdlib.h>
+#ifdef OLD
 #undef __always_inline
 #undef __extern_always_inline
 #undef __attribute_const__
 #define __attribute_const__
 #define noreturn
+#endif
 #include <stdio.h>
 #include <stdint.h>
 #include <fcntl.h>
@@ -42,6 +47,11 @@ typedef unsigned int __uint32_t;
 #include <string.h>
 #include <sys/stat.h>
 #include <dlfcn.h>
+
+#ifdef OLD
+#include <linux/compiler_types.h>
+#include <linux/compiler.h>
+#endif
 
 #include "socfw.h"
 
