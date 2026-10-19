@@ -1,0 +1,164 @@
+#!/bin/bash
+#
+# run this on destination device (e.g. PandaBoard, OMAP5EVM, Pyra, ...) to build AESS firmware
+#
+# NOTES:
+# - cross-compile may/will need different approach
+# - tested on Debian 9.13 and later on LetuxOS devices
+# - firmware source code comes originally from https://github.com/omap-audio
+#   but is now part of the LetuxOS kernel trees
+#
+# Options:
+#   -n	do not fetch/update source
+#
+
+THIS="$PWD"
+BRANCH=letux-$(uname -r | sed -e 's/-letux.*+//' -e 's/\([0-9]*\.[0-9]\)*\.0/\1/')
+FALLBACK=letux-6.1.y
+case "$BRANCH" in
+	letux-[1-4].* | letux-5.[0-9] | letux-5.[0-9].* | letux-5.[0-9]-rc )
+		BRANCH=$FALLBACK
+		;;
+esac
+VERSION=009590
+
+#
+# preparation of build host
+#
+
+echo +++ make sure we have the required build tools
+apt-get update
+yes | apt-get -y install build-essential bison flex bc libssl-dev git autogen automake libtool || exit 1
+
+echo +++ create and go to $THIS/aess
+mkdir -p aess && cd aess || exit 1
+
+LINUX="/root/aess/letux-kernel"			# full source tree (for making headers)
+HEADERS="/root/aess/linux-headers"		# user-space headers made from source tree
+FIRMWARE="$LINUX/sound/soc/ti/aess/firmware"	# subtree where we find the firmware sources
+
+CLEAN=false
+UPDATE=true
+
+while [ "$1" ]
+do
+	case "$1" in
+		-n ) UPDATE=false;;
+		-c ) CLEAN=true;;
+		-* ) echo "unknown option $1"; exit 1;;
+	esac
+	shift
+done
+
+rm -f $FIRMWARE/asoc-fw/omap4_abe_new
+
+if $CLEAN
+then
+	echo "+++ cleaning $HEADERS and $FIRMWARE"
+	rm -f "$HEADERS/Makefile"	# force rebuild
+	find $FIRMWARE -name .libs -o -name .deps -o -name '*.la' -o -name '*.lo' -o -name '*.o' -name '*.mod.c' | xargs rm -rf
+fi
+
+if $UPDATE
+then
+#
+# getting source trees
+#
+
+function gitfetch { # $1 = "options and repo", $2 = subdir
+# ls -l "$2/.git"
+	if ! [ -d "$2/.git" ]
+	then
+		rm -rf "$2.tmp"
+		echo "+++ fetch $BRANCH from $1 to $2";
+		git clone --depth 1 -b $BRANCH $1 "$2.tmp" && mv -f "$2.tmp" "$2"
+	else
+		(
+		cd "$2"
+		git remote update
+		echo "+++ switch $PWD to $BRANCH";
+		git checkout --force $BRANCH
+		)
+	fi
+}
+
+echo "+++ make sure we have the (complete) kernel source tree ($BRANCH)"
+( gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel && [ -r "$FIRMWARE" ] ) ||
+( echo "--- retry $BRANCH from scratch"; rm -rf letux-kernel; gitfetch "--depth 1 -b $BRANCH https://github.com/goldelico/letux-kernel.git" letux-kernel ) ||
+( echo "--- fallback to $FALLBACK"; rm -rf letux-kernel; gitfetch "--depth 1 -b $FALLBACK https://github.com/goldelico/letux-kernel.git" letux-kernel ) || exit 1
+
+fi
+
+#
+# build generated kernel headers
+#
+
+# ls -l $LINUX/../linux-headers/Makefile $LINUX/../linux-headers/Makefile
+# well, this detection rule may not be 100% precise and sufficient if some important header file is changed but not the Makefile
+
+if [ ! -r $HEADERS/Makefile ] || ! diff -q $LINUX/Makefile $HEADERS/Makefile
+then
+(
+	cd $LINUX || exit
+
+	DEFCONFIG=letux_defconfig
+	uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
+
+	echo +++ rebuild headers for arm $DEFCONFIG
+	make $DEFCONFIG clean modules_prepare headers_install INSTALL_HDR_PATH=$HEADERS &&
+		ln -sf asm-generic include/asm &&
+		cp Makefile $HEADERS/Makefile
+
+) || exit
+fi
+
+#
+# build firmware tools and firmware
+#
+
+echo +++ configure abefw
+(
+cd $FIRMWARE/abefw || exit
+
+echo +++ autogen the Makefiles
+LC_ALL=C ./autogen.sh || exit 1
+
+echo +++ configure
+# the configure option --with-hal-dir does not exist "(contrary to README)"
+# ./configure --with-linux-dir=$LINUX --with-hal-dir=$PWD/hal || exit 1
+./configure --with-linux-dir=$HEADERS --disable-static --enable-omap4=yes || exit 1
+
+echo +++ make and install
+make || exit 1
+make install || exit 1
+
+echo +++ generate data files
+scripts/abe-tool.sh $VERSION || exit 1
+) || exit
+
+echo +++ configure asoc-fw
+(
+cd $FIRMWARE/asoc-fw || exit
+
+echo +++ autogen the Makefiles
+LC_ALL=C ./autogen.sh || exit
+
+echo +++ configure
+./configure --with-linux-dir=$HEADERS --disable-static --enable-omap4=yes || exit 1
+
+echo +++ make and install
+make || exit 1
+make install || exit 1
+
+echo "+++ finally generate firmware binary"
+
+LC_ALL=C scripts/abegen.sh || exit 1
+
+echo "+++ install as omap_aess-adfw.bin"
+cp omap4_abe_new /lib/firmware/omap_aess-adfw.bin || exit 1
+
+echo "+++ success ++"
+ls -l /lib/firmware/omap_aess-adfw.bin
+) || exit
+
+# FIXME: build audio tools as/if needed
