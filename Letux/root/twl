@@ -65,6 +65,9 @@ do
 	"-" | "-stdin" )
 		FILE="-"
 		;;
+	-v )
+		VERBOSE=true
+		;;
 	-s )
 		STRACE=strace
 		;;
@@ -78,6 +81,7 @@ do
 		echo "-lp	low power mode"
 		echo "-nhf	keep handsfree off"
 		echo "-t fmt	define format"
+		echo "-v	more verbose"
 		echo "-		play data from stdin (use with -t)"
 		echo "file...	play files"
 		exit 1
@@ -248,7 +252,7 @@ REMIX_STEREO=""
 
 fi
 
-echo using $AUDIOCARDDEV
+[ "$VERBOSE" ] && echo using $AUDIOCARDDEV
 
 if [ "$DEMO" ] # demo
 then
@@ -261,6 +265,7 @@ then
 	if [ "$FILE" ]
 	then
 		echo play $FILE
+		[ "$VERBOSE" ] && echo AUDIODEV=hw:$CARD,$DEV play $FILE
 		AUDIODEV=hw:$CARD,$DEV play $FILE
 	fi
 	exit 0
@@ -275,8 +280,10 @@ then
 	do
 		if [ "$STRACE" ]
 		then
+			[ "$VERBOSE" ] && echo AUDIODEV=hw:$CARD,$DEV strace play ${FORMAT:+-t} ${FORMAT:+$FORMAT} -v 0.98 $FILE $REMIX "2>$DEV.out"
 			AUDIODEV=hw:$CARD,$DEV strace play ${FORMAT:+-t} ${FORMAT:+$FORMAT} -v 0.98 $FILE $REMIX 2>$DEV.out
 		else
+			[ "$VERBOSE" ] && echo AUDIODEV=hw:$CARD,$DEV play ${FORMAT:+-t} ${FORMAT:+$FORMAT} -v 0.98 $FILE $REMIX
 			AUDIODEV=hw:$CARD,$DEV play ${FORMAT:+-t} ${FORMAT:+$FORMAT} -v 0.98 $FILE $REMIX
 		fi
 	done
