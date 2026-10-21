@@ -164,7 +164,7 @@ static void omap_mcpdm_stop(struct omap_mcpdm *mcpdm)
 	ctrl |= (MCPDM_SW_DN_RST | MCPDM_SW_UP_RST);
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl);
 
-	ctrl &= ~(link_mask);
+	ctrl &= ~(link_mask | MCPDM_CMD_INT);
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl);
 
 	ctrl &= ~(MCPDM_SW_DN_RST | MCPDM_SW_UP_RST);
