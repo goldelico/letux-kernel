@@ -30,7 +30,7 @@ Build Instructions
 After checking out from git :-
 
 ./autogen.sh
-./configure --with-linux-dir=/path/to/linux.git --enable-omap4
+./configure --with-linux-dir=/path/to/linux.git
 make
 sudo make install
 

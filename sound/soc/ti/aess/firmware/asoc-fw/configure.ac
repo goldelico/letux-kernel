@@ -39,16 +39,6 @@ AC_ARG_WITH(
         [LINUX_DIR=$withval], [LINUX_DIR="~/source/linux.git"])
 AC_SUBST(LINUX_DIR)
 
-AC_ARG_ENABLE([omap4],
-    AS_HELP_STRING([--enable-omap4],[Enable optional OMAP4+ output support]))
-
-AS_IF([test "x$enable_omap4" = "xyes"],
-    HAVE_OMAP=1,
-    HAVE_OMAP=0)
-
-AC_SUBST(HAVE_OMAP)
-AM_CONDITIONAL([HAVE_OMAP], [test "x$enable_omap4" = "xyes"])
-
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
