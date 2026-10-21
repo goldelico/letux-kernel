@@ -375,6 +375,8 @@ static int omap_mcpdm_dai_hw_params(struct snd_pcm_substream *substream,
 		mcpdm->config[SNDRV_PCM_STREAM_CAPTURE].link_mask =
 				MCPDM_PDM_UPLINK_EN(1) | MCPDM_PDM_UPLINK_EN(2);
 		dma_data->maxburst = 16;
+		mcpdm->latency[stream] = 0;
+		mcpdm->restart = true;
 		return 0;
 	}
 
