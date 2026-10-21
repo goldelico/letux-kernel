@@ -22,7 +22,6 @@ MODULE_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version $(LDFLAGS_NOUNDEFINED)
 
 modlibexecdir = $(libdir)/plugins
 
-if HAVE_OMAP
 modlibexec_LTLIBRARIES = \
 		abe-dl1dl2-twl6040.la
 
@@ -30,5 +29,3 @@ abe_dl1dl2_twl6040_la_SOURCES = abe-dl1dl2-twl6040.c
 abe_dl1dl2_twl6040_la_LDFLAGS = $(MODULE_LDFLAGS)
 abe_dl1dl2_twl6040_la_LIBADD = $(MODULE_LIBADD)
 abe_dl1dl2_twl6040_la_CFLAGS = $(AM_CFLAGS)
-
-endif
