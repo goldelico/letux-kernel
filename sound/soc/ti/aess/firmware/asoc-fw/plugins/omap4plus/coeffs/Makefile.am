@@ -19,8 +19,6 @@ AM_LDFLAGS = $(NODELETE_LDFLAGS)
 
 MODULE_LDFLAGS = $(AM_LDFLAGS) -module -avoid-version $(LDFLAGS_NOUNDEFINED)
 
-if HAVE_OMAP
-
 dl1dir = $(libdir)/abe/coeffs
 dl1_LTLIBRARIES = dl1.la
 dl1_la_SOURCES = dl1.c
@@ -62,5 +60,3 @@ sdt_la_SOURCES = sdt.c
 sdt_la_LDFLAGS = $(MODULE_LDFLAGS)
 sdt_la_LIBADD = $(MODULE_LIBADD)
 sdt_la_CFLAGS = $(AM_CFLAGS)
-
-endif
