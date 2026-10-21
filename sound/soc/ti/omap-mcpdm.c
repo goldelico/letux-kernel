@@ -138,7 +138,8 @@ static void omap_mcpdm_reg_dump(struct omap_mcpdm *mcpdm) {}
 static void omap_mcpdm_start(struct omap_mcpdm *mcpdm)
 {
 	u32 ctrl = omap_mcpdm_read(mcpdm, MCPDM_REG_CTRL);
-	u32 link_mask = mcpdm->config[0].link_mask | mcpdm->config[1].link_mask;
+	u32 link_mask = mcpdm->config[SNDRV_PCM_STREAM_PLAYBACK].link_mask |
+			mcpdm->config[SNDRV_PCM_STREAM_CAPTURE].link_mask;
 
 	ctrl |= (MCPDM_SW_DN_RST | MCPDM_SW_UP_RST);
 	omap_mcpdm_write(mcpdm, MCPDM_REG_CTRL, ctrl);
@@ -340,8 +341,8 @@ static void omap_mcpdm_dai_shutdown(struct snd_pcm_substream *substream,
 #endif
 			}
 
-			mcpdm->config[0].link_mask = 0;
-			mcpdm->config[1].link_mask = 0;
+			mcpdm->config[SNDRV_PCM_STREAM_PLAYBACK].link_mask = 0;
+			mcpdm->config[SNDRV_PCM_STREAM_CAPTURE].link_mask = 0;
 		}
 	}
 
