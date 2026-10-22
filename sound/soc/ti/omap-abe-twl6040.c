@@ -589,19 +589,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"AFML", NULL, "Line In"},
 	{"AFMR", NULL, "Line In"},
-
-	/* Connections between twl6040 and ABE */
-	{"Headset Playback", NULL, "PDM_DL1"},
-	{"Handsfree Playback", NULL, "PDM_DL2"},
-	{"PDM_UL1", NULL, "Analog Capture"},
-
-	/* Bluetooth <--> ABE*/
-	{"omap-mcbsp.1 Playback", NULL, "BT_VX_DL"},
-	{"BT_VX_UL", NULL, "omap-mcbsp.1 Capture"},
-
-	/* FM <--> ABE */
-	{"omap-mcbsp.2 Playback", NULL, "MM_EXT_DL"},
-	{"MM_EXT_UL", NULL, "omap-mcbsp.2 Capture"},
 };
 
 #if IS_ENABLED(CONFIG_SND_SOC_OMAP_AESS)
@@ -978,44 +965,19 @@ static int omap_abe_twl6040_probe(struct platform_device *pdev)
 	snd_soc_card_set_drvdata(card, priv);
 	platform_set_drvdata(pdev, priv);
 
-	if (snd_soc_of_parse_card_name(card, "ti,model")) {
-		dev_err(&pdev->dev, "Card name is not provided\n");
-		return -ENODEV;
-	}
-
+	ret = snd_soc_of_parse_card_name(card, "ti,model");
+	if (ret)
+		return ret;
 
 	/* mapping (static) */
 	ret = snd_soc_of_parse_audio_routing(card, "ti,audio-routing");
-	if (ret) {
-		dev_err(&pdev->dev, "Error while parsing DAPM routing\n");
+	if (ret)
 		return ret;
-	}
 
 	/* fall back to default routing (static) */
 	if (card->num_of_dapm_routes == 0) {
 		card->dapm_routes = audio_map;	/* default map */
 		card->num_dapm_routes = ARRAY_SIZE(audio_map);
-	}
-
-	dai_node = of_parse_phandle(node, "ti,mcbsp", 0);
-	if (dai_node)
-		ADD_DAILINK(link_mcbsp, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-
-	dai_node = of_parse_phandle(node, "ti,mcasp", 0);
-	if (dai_node)
-		ADD_DAILINK(link_mcasp, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-
-	dai_node = of_parse_phandle(node, "ti,mcbsp2", 0);
-	if (dai_node)
-		ADD_DAILINK(link_mcasp, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-
-	dai_node = of_parse_phandle(node, "ti,aess", 0);
-	if (dai_node) {
-		ADD_DAILINK(link_fe, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-		ADD_DAILINK(link_be_mcpdm, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-		ADD_DAILINK(link_be_mcbsp1, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-		ADD_DAILINK(link_be_mcbsp2, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
-		ADD_DAILINK(link_be_dmic, "TWL6040", "DMIC Capture", dai_node, omap_abe_dmic_init, omap_abe_dmic_ops);
 	}
 
 	priv->jack_detection = of_property_read_bool(node, "ti,jack-detection");
