@@ -104,8 +104,8 @@ then
 	DEFCONFIG=letux_defconfig
 	uname -r | fgrep -q lpae && DEFCONFIG=letux_lpae_defconfig
 
-	echo +++ rebuild headers for arm $DEFCONFIG
-	make $DEFCONFIG clean modules_prepare headers_install INSTALL_HDR_PATH=$HEADERS &&
+	echo +++ rebuild headers for $DEFCONFIG
+	make clean $DEFCONFIG modules_prepare headers_install INSTALL_HDR_PATH=$HEADERS &&
 		ln -sf asm-generic include/asm &&
 		cp Makefile $HEADERS/Makefile
 
