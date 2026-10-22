@@ -250,6 +250,7 @@ struct snd_soc_fw_plugin {
 // this includes kernel sound/control.h but we need private defs for some structs
 #define snd_kcontrol_new kernel_snd_kcontrol_new
 #define snd_soc_dapm_widget kernel_snd_soc_dapm_widget
+#include <linux/rwsem.h>
 #include <sound/soc-dapm.h>
 #undef snd_kcontrol_new
 #undef snd_soc_dapm_widget
