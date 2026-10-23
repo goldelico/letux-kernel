@@ -651,9 +651,16 @@ static int cs43130_set_sp_fmt(int dai_id, unsigned int bitwidth_sclk,
 		return -EINVAL;
 	}
 
-	frm_size = bitwidth_sclk * params_channels(params);
-	loc_ch1 = 0;
-	loc_ch2 = bitwidth_sclk * (params_channels(params) - 1);
+	if (cs43130->dais[dai_id].slots) {
+		/* The layout set with set_tdm_slot() */
+		frm_size = bitwidth_sclk * cs43130->dais[dai_id].slots;
+		loc_ch1 = cs43130->dais[dai_id].slot_loc[0];
+		loc_ch2 = cs43130->dais[dai_id].slot_loc[1];
+	} else {
+		frm_size = bitwidth_sclk * params_channels(params);
+		loc_ch1 = 0;
+		loc_ch2 = bitwidth_sclk * (params_channels(params) - 1);
+	}
 
 	frm_data = frm_delay & CS43130_SP_FSD_MASK;
 	frm_data |= (frm_phase << CS43130_SP_STP_SHIFT) & CS43130_SP_STP_MASK;
@@ -952,18 +959,24 @@ static int cs43130_hw_params(struct snd_pcm_substream *substream,
 		break;
 	}
 
-	if (!sclk && cs43130->dais[dai->id].dai_mode == SND_SOC_DAIFMT_CBP_CFP)
-		/* Calculate SCLK in master mode if unassigned */
-		sclk = params_rate(params) * bitwidth_dai *
-		       params_channels(params);
+	if (cs43130->dais[dai->id].slot_width) {
+		/* The slot width set with set_tdm_slot() */
+		bitwidth_sclk = cs43130->dais[dai->id].slot_width;
+	} else {
+		if (!sclk && cs43130->dais[dai->id].dai_mode == SND_SOC_DAIFMT_CBP_CFP)
+			/* Calculate SCLK in master mode if unassigned */
+			sclk = params_rate(params) * bitwidth_dai *
+			       params_channels(params);
 
-	if (!sclk) {
-		/* at this point, SCLK must be set */
-		dev_err(cs43130->dev, "SCLK freq is not set\n");
-		return -EINVAL;
+		if (!sclk) {
+			/* at this point, SCLK must be set */
+			dev_err(cs43130->dev, "SCLK freq is not set\n");
+			return -EINVAL;
+		}
+
+		bitwidth_sclk = (sclk / params_rate(params)) /
+				params_channels(params);
 	}
-
-	bitwidth_sclk = (sclk / params_rate(params)) / params_channels(params);
 	if (bitwidth_sclk < bitwidth_dai) {
 		dev_err(cs43130->dev, "Format not supported: SCLK freq is too low\n");
 		return -EINVAL;
@@ -1618,6 +1631,41 @@ static const u64 cs43130_selectable_formats =
 	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
 	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
 	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+/*
+ * Sets the frame layout directly, which then takes precedence over the one
+ * derived from the set_sysclk() frequency: generic sound cards pass MCLK to
+ * set_sysclk(), not SCLK. The two channels go to the first and second slots
+ * set in tx_mask (both to the same slot for one), within frames of 16 to 64
+ * bits, the sizes the serial port clock tables cover. The PCM DAI only
+ * plays, so rx_mask is not used. Zero slots go back to the derived layout.
+ */
+static int cs43130_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
+				unsigned int rx_mask, int slots, int slot_width)
+{
+	struct snd_soc_component *component = dai->component;
+	struct cs43130_private *cs43130 = snd_soc_component_get_drvdata(component);
+	struct cs43130_dai *cs_dai = &cs43130->dais[dai->id];
+	unsigned int frm_size = slots * slot_width;
+
+	if (!slots) {
+		cs_dai->slots = 0;
+		cs_dai->slot_width = 0;
+		return 0;
+	}
+	if (slots < 0 || slot_width < 16 || slot_width > 32 ||
+	    frm_size > 64 || frm_size % 16)
+		return -EINVAL;
+	if (!tx_mask || hweight32(tx_mask) > 2 || tx_mask >= BIT(slots))
+		return -EINVAL;
+
+	cs_dai->slot_loc[0] = __ffs(tx_mask) * slot_width;
+	tx_mask &= tx_mask - 1;
+	cs_dai->slot_loc[1] = tx_mask ? __ffs(tx_mask) * slot_width :
+					cs_dai->slot_loc[0];
+	cs_dai->slots = slots;
+	cs_dai->slot_width = slot_width;
+	return 0;
+}
 
 static const struct snd_soc_dai_ops cs43130_pcm_ops = {
 	.startup	= cs43130_pcm_startup,
@@ -1627,6 +1675,7 @@ static const struct snd_soc_dai_ops cs43130_pcm_ops = {
 	.set_fmt	= cs43130_pcm_set_fmt,
 	.auto_selectable_formats	= &cs43130_selectable_formats,
 	.num_auto_selectable_formats	= 1,
+	.set_tdm_slot	= cs43130_set_tdm_slot,
 };
 
 static const struct snd_soc_dai_ops cs43130_dop_ops = {
