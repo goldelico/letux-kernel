@@ -4,13 +4,12 @@
 # the MMC or USB device name where we did boot from is not
 # very stable especially for devices with more than one slot
 #
-# so try to find out and mount the boot partition
-# and mount to /boot
+# so try to find out and mount the boot partition to /boot
 #
 
 SCRIPTPATH="$(dirname "$0")"
 
-ROOTFS=$(mount | fgrep "on / type" | cut -d ' ' -f 1)
+ROOTFS=$(mount | fgrep "on / type" | cut -d ' ' -f 1 | head -1)
 
 case "$ROOTFS" in
 	/dev/mmcblk*p* )
@@ -38,6 +37,8 @@ case "$ROOTPART" in
 		;;
 	2 | 3 | 4 | 5 | 6 | 7 )
 		# assume we did boot from partition 1
+		umount ${ROOTDEV}1
+		fsck -y -f ${ROOTDEV}1
 		echo mount ${ROOTDEV}1 /boot
 		mount ${ROOTDEV}1 /boot
 		;;
