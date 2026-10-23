@@ -68,6 +68,7 @@ allOf:
           compatible:
             contains:
               enum:
+                - x-powers,axp2101
                 - x-powers,axp15060
                 - x-powers,axp305
                 - x-powers,axp313a
@@ -84,6 +85,7 @@ allOf:
             enum:
               - x-powers,axp313a
               - x-powers,axp323
+              - x-powers,axp2101
               - x-powers,axp15060
               - x-powers,axp717
 
@@ -108,6 +110,7 @@ properties:
           - x-powers,axp806
           - x-powers,axp809
           - x-powers,axp813
+          - x-powers,axp2101
           - x-powers,axp15060
       - items:
           - const: x-powers,axp228
