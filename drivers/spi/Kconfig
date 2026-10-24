@@ -535,6 +535,17 @@ config SPI_IMX
 	help
 	  This enables support for the Freescale i.MX SPI controllers.
 
+config SPI_INGENIC_SFC
+	tristate "Ingenic SPI flash controller"
+	depends on MACH_INGENIC || COMPILE_TEST
+	depends on SPI_MEM
+	help
+	  The SPI flash controller (SFC) of the Ingenic X1600, which holds
+	  its boot flash, through the spi-mem interface.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called spi-ingenic-sfc.
+
 config SPI_INGENIC
 	tristate "Ingenic SoCs SPI controller"
 	depends on MACH_INGENIC || COMPILE_TEST
