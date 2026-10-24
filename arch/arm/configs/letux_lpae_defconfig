@@ -1,5 +1,5 @@
 #
-# Linux/arm 6.6.159 Kernel Configuration
+# Linux/arm 6.6.160 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="arm-linux-gnueabihf-gcc (GCC) 6.3.0"
 CONFIG_CC_IS_GCC=y
@@ -6953,7 +6953,6 @@ CONFIG_BOSCH_BNO055_I2C=m
 # CONFIG_ISL29125 is not set
 # CONFIG_JSA1212 is not set
 # CONFIG_ROHM_BU27008 is not set
-# CONFIG_ROHM_BU27034 is not set
 # CONFIG_RPR0521 is not set
 # CONFIG_LTR501 is not set
 # CONFIG_LTRF216A is not set
@@ -7245,6 +7244,7 @@ CONFIG_ANDROID_BINDER_DEVICES="binder"
 CONFIG_DAX=m
 CONFIG_NVMEM=y
 CONFIG_NVMEM_SYSFS=y
+CONFIG_NVMEM_LAYOUTS=y
 
 #
 # Layout Types
@@ -7386,9 +7386,6 @@ CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
 # CONFIG_FAT_DEFAULT_UTF8 is not set
 CONFIG_EXFAT_FS=m
 CONFIG_EXFAT_DEFAULT_IOCHARSET="utf8"
-CONFIG_NTFS_FS=m
-# CONFIG_NTFS_DEBUG is not set
-CONFIG_NTFS_RW=y
 # CONFIG_NTFS3_FS is not set
 # end of DOS/FAT/EXFAT/NT Filesystems
 
