@@ -206,6 +206,7 @@ obj-$(CONFIG_DRM_STM) += stm/
 obj-$(CONFIG_DRM_STI) += sti/
 obj-y 			+= imx/
 obj-$(CONFIG_DRM_INGENIC) += ingenic/
+obj-$(CONFIG_DRM_INGENIC_X1600) += ingenic/
 obj-$(CONFIG_DRM_LOGICVC) += logicvc/
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek/
 obj-$(CONFIG_DRM_MESON)	+= meson/
