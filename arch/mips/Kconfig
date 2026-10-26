@@ -2924,7 +2924,20 @@ config UHI_BOOT
 	bool
 
 config BUILTIN_DTB
-	bool
+	bool "Enable builtin DTB fallback support"
+	depends on USE_OF
+	help
+	  Enable support for a Device Tree Blob built into the kernel.
+	  The built-in DTB can be used when no suitable Device Tree is
+	  supplied by the boot firmware or by another supported mechanism.
+
+	  The DTB to embed is selected using BUILTIN_DTB_NAME. If no
+	  built-in DTB is needed, for example because the bootloader
+	  supplies one, this option can be disabled.
+
+	  This option is independent of the appended-DTB selection below.
+
+	  If unsure, say N.
 
 choice
 	prompt "Kernel appended dtb support"
