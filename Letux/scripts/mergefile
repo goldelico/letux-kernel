@@ -23,9 +23,6 @@
 # scripts (incl. ./merge)
 letux/scripts
 
-# we need some compile fixes for MacOS X cross-compiler
--letux/compile-fixes	# no longer needed!
-
 # Letux base code
 letux/Letux
 
@@ -130,7 +127,7 @@ letux/pvrsrvkm-1.15.4564147
 letux/pvrsrvkm-1.17.4948957
 letux/pvrsrvkm-ddk-core
 letux/pvrsrvkm-generic
-letux/pvrsrvkm-defconfig	# for omap2plus_defconfig und ci20_defconfig
+letux/pvrsrvkm-defconfig	# for omap2plus_defconfig and ci20_defconfig
 letux/pvr-demo
 
 # unfinished, almost empty or untested...
@@ -159,31 +156,62 @@ letux/aess-asoc-fw
 letux/aess-audio-test
 letux/aess-abefw
 
+# Ingenic upstreaming in progress
+upstream-ingenic-phy-regulator-warning
+upstream-ingenic-platform
+upstream-ingenic-cgu
+# Ingenic upstreaming planned next
+upstream-ingenic-tcu+clocksource	# contains some unrelated bindings updates (interrupt, rtc, serial, sound, spi)
+upstream-ingenic-interrupts
+upstream-ingenic-pinctrl
+# not yet ready for upstreaming
+upstream-ingenic-drm
+upstream-ingenic-wdt
+upstream-ingenic-sound
+upstream-ingenic-serial
+upstream-ingenic-dma
+upstream-ingenic-pwm
+upstream-ingenic-usb+phy
+upstream-ingenic-mmc+sdhci
+upstream-ingenic-spi
+upstream-ingenic-net
+upstream-ingenic-mm+cache
+upstream-ingenic-smp
+upstream-ingenic-i2c
+upstream-ingenic-R2-emulation
+upstream-ingenic-misc	# bindings without driver changes...
+
+# generic for Ingenic
+upstream-ingenic-dtsi	# not before it passes all the dtb checks...
+
 # Alpha400 / JZ4730
-letux/jz4730
-letux/alpha400
+letux/dt-jz4730
 letux/dt-alpha400
+letux/alpha400		# contains PM MCU and Alpha400 panel drivers
 
 # CI20 / JZ4780
+letux/dt-jz4780
 letux/dt-ci20
-letux/jz4780
-letux/jz4780-hdmi
-letux/jz4780-smp
-#letux/jz4780-efuse
 letux/ci20_defconfig
-letux/jz4780-sound	# contains defconfig fixes...
 
 # LX16/20/26 and X1600/X2000/X2600
-letux/x1600
 letux/dt-lx16
-letux/x2000
 letux/dt-lx20
-letux/x2600
 letux/dt-lx26
 letux/esp-hosted-ng
 
-# generic for Ingenic
-letux/ingenic
+letux/ingenic	# mainly for building all relevant Letux device DTBs
+
+# to be obsoleted by moving patches to the subsystems where they really belong to
+letux/jz4730		# still contains nemc/nand bindings (where are the drivers?)
+#-letux/jz4780		# empty
+#-letux/jz4780-hdmi	# empty
+#-letux/jz4780-smp	# empty
+#-letux/jz4780-efuse	# empty
+#-letux/jz4780-sound	# empty
+#-letux/x1600		# empty
+#-letux/x2000		# empty
+#-letux/x2600		# effectively empty...
 
 # E-Book reader
 letux/kobolino/backlight
@@ -204,7 +232,6 @@ letux/odroid-m1
 letux/dwavtouch
 
 # hacks and fixes - we should consider upstreaming...
-letux/hacks
 letux/twl4030
 letux/hwmon-fixes
 letux/libertas
@@ -218,12 +245,12 @@ letux/gdepaper
 letux/charging_fixes
 letux/omap2plus
 letux/omap5-idle
--letux/mmc
 letux/ubi-fs
 letux/extcon
-letux/misc
 letux/drivers-keyboard
+letux/misc
+letux/hacks
 
 # not merged in by default, but carried along and regularily rebased
+-letux/mmc
 -letux/omap-hsmmc
--letux/android
