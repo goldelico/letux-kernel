@@ -97,8 +97,6 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 	    new_state->fb);
 
 	memset(&info, 0, sizeof(info));
-	info.rotation_type = OMAP_DSS_ROT_NONE;
-	info.rotation = DRM_MODE_ROTATE_0;
 	info.global_alpha = new_state->alpha >> 8;
 	info.zorder = new_state->normalized_zpos;
 	if (new_state->pixel_blend_mode == DRM_MODE_BLEND_PREMULTI)
@@ -107,6 +105,19 @@ static void omap_plane_atomic_update(struct drm_plane *plane,
 		info.pre_mult_alpha = 0;
 	info.color_encoding = new_state->color_encoding;
 	info.color_range = new_state->color_range;
+
+	/* take rotation from DRM state */
+	info.rotation = new_state->rotation;
+
+	/* check if framebuffer exists and uses tiler memory */
+	if (new_state->fb && new_state->fb->obj[0] &&
+	    (new_state->fb->obj[0]->import_attach ||
+	     (new_state->fb->obj[0]->size > 0 && (info.rotation & DRM_MODE_ROTATE_90)))) {
+		info.rotation_type = OMAP_DSS_ROT_TILER;
+	} else {
+		info.rotation_type = OMAP_DSS_ROT_NONE;
+		info.rotation = DRM_MODE_ROTATE_0;
+	}
 
 	r_info = info;
 
