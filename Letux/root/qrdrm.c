@@ -4,7 +4,7 @@
 
 // compile:
 //   apt-get install libdrm-dev libqrencode-dev
-//   gcc -o qrdrm qrdrm.c -I/usr/include/libdrm -ldrm -lqrencode
+//   gcc -std=c11 -o qrdrm qrdrm.c -I/usr/include/libdrm -ldrm -lqrencode
 //
 // usage:
 //   qrdrm "Hello World"
