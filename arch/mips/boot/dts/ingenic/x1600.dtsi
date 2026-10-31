@@ -127,14 +127,16 @@
 		};
 
 		sadc: sadc@10070000 {
-			compatible = "ingenic,x1600-sadc";
-			reg = <0x10070000 0x32>;
+			compatible = "ingenic,x1600-adc";
+			reg = <0x10070000 0x30>;
+
+			clocks = <&cgu X1600_CLK_SADC>;
+			clock-names = "adc";
+
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SADC>;
-			// CHECKME!
-			interrupt-controller;
-			#interrupt-cells = <1>;
-			status = "okay";
+
+			#io-channel-cells = <1>;
 		};
 
 		tcu: timer@10002000 {
@@ -445,6 +447,8 @@
 			status = "okay";
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_CAN0>;
+			clocks = <&cgu X1600_CLK_CAN0>;
+			clock-names = "can";
 			dmas = <&dma X1600_DMA_CAN0_TX 0xffffffff>,
 				   <&dma X1600_DMA_CAN0_RX 0xffffffff>;
 			dma-names = "tx", "rx";
@@ -458,6 +462,8 @@
 			status = "okay";
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_CAN1>;
+			clocks = <&cgu X1600_CLK_CAN1>;
+			clock-names = "can";
 			dmas = <&dma X1600_DMA_CAN1_TX 0xffffffff>,
 				   <&dma X1600_DMA_CAN1_RX 0xffffffff>;
 			dma-names = "tx", "rx";
@@ -470,6 +476,8 @@
 			reg = <0x13550000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_CDBUS>;
+			clocks = <&cgu X1600_CLK_CDBUS>;
+			clock-names = "cdbus";
 			status = "okay";
 		};
 
@@ -478,6 +486,8 @@
 			reg = <0x13430000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_AES>;
+			clocks = <&cgu X1600_CLK_AES>;
+			clock-names = "aes";
 			status = "okay";
 		};
 
@@ -486,6 +496,8 @@
 			reg = <0x13470000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_HASH>;
+			clocks = <&cgu X1600_CLK_HASH>;
+			clock-names = "hash";
 			status = "okay";
 		};
 
@@ -494,7 +506,9 @@
 			reg = <0x134b0000 0x2000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_GMAC0>;
-			ingenic,rst-ms = <10>;
+			clocks = <&cgu X1600_CLK_MAC>;
+			clock-names = "mac";
+			// ingenic,rst-ms = <10>;
 		};
 
 		sfc: sfc@13440000 {
@@ -502,6 +516,8 @@
 			reg = <0x13440000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SFC>;
+			clocks = <&cgu X1600_CLK_SFC>;
+			clock-names = "sfc";
 		};
 
 		dma: dma-controller@13420000 {
@@ -528,10 +544,16 @@
 
 		pwm: pwm@134c0000 {
 			compatible = "ingenic,x1600-pwm";
-			#pwm-cells = <2>;
 			reg = <0x134c0000 0x10000>;
+
+			clocks = <&cgu X1600_CLK_PWM>;
+			clock-names = "pwm";
+
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_PWM>;
+
+			#pwm-cells = <2>;
+
 			dmas = <&dma X1600_DMA_PWM0_TX 0xffffffff>,
 				   <&dma X1600_DMA_PWM1_TX 0xffffffff>,
 				   <&dma X1600_DMA_PWM2_TX 0xffffffff>,
@@ -566,6 +588,8 @@
 		efuse: efuse@13540000 {
 			compatible = "ingenic,x1600-efuse";
 			reg = <0x13540000 0x10000>;
+			clocks = <&cgu X1600_CLK_EFUSE>;
+			clock-names = "efuse";
 			status = "okay";
 		};
 
@@ -574,20 +598,24 @@
 			reg = <0x13060000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_CIM>;
-			clocks = <&cgu X1600_CLK_CIMMCLK>, <&cgu X1600_CLK_GATE_CIM>, <&cgu X1600_CLK_GATE_MIPI_CSI>;
-			clock-names = "div_cim", "gate_cim", "gate_mipi";
+			clocks = <&cgu X1600_CLK_CIMMCLK> /*, <&cgu X1600_CLK_GATE_CIM>, <&cgu X1600_CLK_GATE_MIPI_CSI>*/;
+			clock-names = "div_cim"/*, "gate_cim", "gate_mipi" */;
 			status = "disabled";
 		};
 
 		dpu: dpu@13050000 {
-			compatible = "ingenic,x1600-dpu";
+			compatible = "ingenic,x1600-lcd", "ingenic,dpu";
 			reg = <0x13050000 0x10000>;
+
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_LCD>;
-			status = "disabled";
+
+			clocks = <&cgu X1600_CLK_LCDPIXCLK>;
+			clock-names = "lcd";
+
+//		status = "disabled";
 		};
 
 	};
 
 };
-
