@@ -1666,10 +1666,17 @@ static int cfg80211_rtw_add_key(struct wiphy *wiphy, struct wireless_dev *wdev
 #endif
 	, u8 key_index
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(7, 4, 0))
 	, bool pairwise
+#else
+	, enum nl80211_key_type key_type
+#endif
 #endif
 	, const u8 *mac_addr, struct key_params *params)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 4, 0))
+	bool pairwise = (key_type == NL80211_KEYTYPE_PAIRWISE);
+#endif
 	struct net_device *ndev = wdev->netdev;
 	char *alg_name;
 	u32 param_len;
@@ -1814,11 +1821,18 @@ static int cfg80211_rtw_get_key(struct wiphy *wiphy, struct wireless_dev *wdev
 #endif
 	, u8 keyid
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(7, 4, 0))
 	, bool pairwise
+#else
+	, enum nl80211_key_type key_type
+#endif
 #endif
 	, const u8 *mac_addr, void *cookie
 	, void (*callback)(void *cookie, struct key_params *))
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 4, 0))
+	bool pairwise = (key_type == NL80211_KEYTYPE_PAIRWISE);
+#endif
 	struct net_device *ndev = wdev->netdev;
 #define GET_KEY_PARAM_FMT_S " keyid=%d"
 #define GET_KEY_PARAM_ARG_S , keyid
@@ -1982,11 +1996,18 @@ static int cfg80211_rtw_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	int link_id,
 #endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) || defined(COMPAT_KERNEL_RELEASE)
-				u8 key_index, bool pairwise, const u8 *mac_addr)
-#else	/* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) */
-				u8 key_index, const u8 *mac_addr)
+				u8 key_index
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(7, 4, 0))
+	, bool pairwise
+#else
+	, enum nl80211_key_type key_type
+#endif
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)) */
+	, const u8 *mac_addr)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 4, 0))
+	bool pairwise = (key_type == NL80211_KEYTYPE_PAIRWISE);
+#endif
 	struct net_device *ndev = wdev->netdev;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(ndev);
 	struct security_priv *psecuritypriv = &padapter->securitypriv;
