@@ -1822,7 +1822,7 @@ static const struct net_device_ops jz4730_eth_ops = {
 	.ndo_start_xmit		= jz_eth_send_packet,
 	.ndo_tx_timeout		= jz_eth_tx_timeout,
 	.ndo_set_rx_mode	= jz_set_multicast_list,
-	.ndo_do_ioctl		= jz_eth_ioctl,
+	.ndo_eth_ioctl		= jz_eth_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= NULL,
 };
