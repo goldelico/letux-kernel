@@ -299,7 +299,7 @@ static int txs_probe(struct platform_device *dev)
 		// alternatively loop over OF children we do find
 
 		for (port = 0; port < 2; port++) {
-			data->mmc[port] = mmc_alloc_host(sizeof(struct mmc_host), &dev->dev);
+			data->mmc[port] = devm_mmc_alloc_host(sizeof(struct mmc_host), &dev->dev);
 			// error check?
 			data->mmc[port]->ops = &txs02612_ops;
 
@@ -309,7 +309,6 @@ static int txs_probe(struct platform_device *dev)
 			err = mmc_add_host(data->mmc[port]);
 			if (err < 0) {
 				dev_err(&dev->dev, "could not create port %d err=%d\n", port, err);
-				mmc_free_host(data->mmc[port]);
 				goto mmc_error;
 			}
 		}
@@ -327,7 +326,6 @@ mmc_error:
 	/* error handling - remove and free other port(s) */
 	while (--port >= 0) {
 		mmc_remove_host(data->mmc[port]);
-		mmc_free_host(data->mmc[port]);
 	}
 #endif
 
@@ -342,10 +340,8 @@ static void txs_remove(struct platform_device *dev)
 	struct txs_data *data = platform_get_drvdata(dev);
 	int port;
 
-	for (port = 0; port < 2; port++) {
+	for (port = 0; port < 2; port++)
 		mmc_remove_host(data->mmc[port]);
-		mmc_free_host(data->mmc[port]);
-	}
 
 	sysfs_remove_group(&dev->dev.kobj, &txs_attr_group);
 
