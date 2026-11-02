@@ -1296,8 +1296,10 @@ static const struct snd_soc_dai_ops mcbsp_dai_ops = {
 	.set_fmt	= omap_mcbsp_dai_set_dai_fmt,
 	.set_clkdiv	= omap_mcbsp_dai_set_clkdiv,
 	.set_sysclk	= omap_mcbsp_dai_set_dai_sysclk,
+#if 0	/* broken with AESS */
 	.auto_selectable_formats	= &mcbsp_mcbsp_selectable_formats,
 	.num_auto_selectable_formats	= 1,
+#endif
 };
 
 static struct snd_soc_dai_driver omap_mcbsp_dai = {
