@@ -539,17 +539,18 @@ static int esp_cfg80211_set_default_mgmt_key(struct wiphy *wiphy,
 }
 
 static int esp_cfg80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-				INT_LINK_ID u8 key_index, bool pairwise,
-				const u8 *mac_addr)
+                                int link_id, u8 key_index, enum nl80211_key_type type,
+                                const u8 *mac_addr)
 {
 	return 0;
 }
 
 static int esp_cfg80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
-				INT_LINK_ID u8 key_index, bool pairwise,
-				const u8 *mac_addr, struct key_params *params)
+                                int link_id, u8 key_index, enum nl80211_key_type type,
+                                const u8 *mac_addr, struct key_params *params)
 {
 	struct esp_wifi_device *priv = NULL;
+	bool pairwise = (type == NL80211_KEYTYPE_PAIRWISE);
 
 	if (!wiphy || !wdev || !params) {
 		esp_err("%u invalid params\n", __LINE__);
