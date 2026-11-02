@@ -994,8 +994,8 @@ static void ov9655_get_default_format(struct v4l2_mbus_framefmt *mf)
 }
 
 static int ov9655_get_format(struct v4l2_subdev *subdev,
-			      struct v4l2_subdev_state *sd_state,
-			      struct v4l2_subdev_format *fmt)
+			     struct v4l2_subdev_state *sd_state,
+			     struct v4l2_subdev_format *fmt)
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
@@ -1010,8 +1010,9 @@ static int ov9655_get_format(struct v4l2_subdev *subdev,
 }
 
 static int ov9655_set_format(struct v4l2_subdev *subdev,
-				struct v4l2_subdev_state *sd_state,
-				struct v4l2_subdev_format *fmt)
+			     const struct v4l2_subdev_client_info *client_info,
+			     struct v4l2_subdev_state *sd_state,
+			     struct v4l2_subdev_format *fmt)
 {
 	unsigned int index = ARRAY_SIZE(ov9655_formats);
 	struct v4l2_mbus_framefmt *mf = &fmt->format;
@@ -1044,8 +1045,9 @@ static int ov9655_set_format(struct v4l2_subdev *subdev,
 }
 
 static int ov9655_get_selection(struct v4l2_subdev *subdev,
-			    struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_selection *sel)
+				const struct v4l2_subdev_client_info *client_info,
+				struct v4l2_subdev_state *sd_state,
+				struct v4l2_subdev_selection *sel)
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct i2c_client *client = v4l2_get_subdevdata(&ov9655->subdev);
@@ -1060,8 +1062,9 @@ static int ov9655_get_selection(struct v4l2_subdev *subdev,
 }
 
 static int ov9655_set_selection(struct v4l2_subdev *subdev,
-			    struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_selection *sel)
+				const struct v4l2_subdev_client_info *client_info,
+				struct v4l2_subdev_state *sd_state,
+				struct v4l2_subdev_selection *sel)
 {
 	struct ov9655 *ov9655 = to_ov9655(subdev);
 	struct v4l2_mbus_framefmt *__format;
