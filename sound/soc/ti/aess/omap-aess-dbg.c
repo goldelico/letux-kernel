@@ -275,8 +275,8 @@ static int aess_dbg_start_dma(struct omap_aess *aess, int circular)
 		return -EBUSY;
 	}
 
-	debug->chan = dma_request_slave_channel(aess->dev,
-						OMAP_AESS_DBG_DMA_NAME);
+	debug->chan = dma_request_chan(aess->dev,
+				       OMAP_AESS_DBG_DMA_NAME);
 	if (!debug->chan) {
 		dev_err(aess->dev, "Failed to request debug DMA\n");
 		return -ENODEV;
