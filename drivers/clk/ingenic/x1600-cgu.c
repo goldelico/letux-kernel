@@ -71,6 +71,7 @@ static int x1600_otg_phy_enable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
 
+// lock?
 	writel((readl(reg_opcr) & ~OPCR_GATEUSBPHYCLK) | OPCR_SPENDN0, reg_opcr);
 
 	return 0;
@@ -80,6 +81,7 @@ static void x1600_otg_phy_disable(struct clk_hw *hw)
 {
 	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
 
+// lock?
 	writel((readl(reg_opcr) & ~OPCR_SPENDN0) | OPCR_GATEUSBPHYCLK, reg_opcr);
 }
 
@@ -341,7 +343,7 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
 			     X1600_CLK_EPLL, -1 },
 		.mux = { CGU_REG_CIMCDR, 30, 2 },
-		.div = { CGU_REG_CIMCDR, 0, 1, 8, 30, 29, 28 },
+		.div = { CGU_REG_CIMCDR, 0, 1, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 22 },
 	},
 
@@ -355,13 +357,59 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		"rtc_ercs", CGU_CLK_MUX | CGU_CLK_GATE,
 		.parents = { X1600_CLK_EXCLK_DIV512, X1600_CLK_RTCLK },
 		.mux = { CGU_REG_OPCR, 2, 1},
+		.gate = { CGU_REG_CLKGR0, 27 },
+	},
+
+	[X1600_CLK_SFC] = {
+		"sfc", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
+			     X1600_CLK_EPLL, -1 },
+		.mux = { CGU_REG_SFCCDR, 30, 2 },
+		.div = { CGU_REG_SFCCDR, 0, 2, 8, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR0, 2 },
+	},
+
+	[X1600_CLK_CDBUS] = {
+		"cdbus", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
+			     X1600_CLK_EPLL, -1 },
+		.mux = { CGU_REG_CDBUSCDR, 30, 2 },
+		.div = { CGU_REG_CDBUSCDR, 0, 2, 8, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR1, 2 },
+	},
+
+	[X1600_CLK_CAN0] = {
+		"can0", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
+			     X1600_CLK_EPLL, X1600_CLK_EXCLK },
+		.mux = { CGU_REG_CAN0CDR, 30, 2 },
+		.div = { CGU_REG_CAN0CDR, 0, 2, 8, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR1, 0 },
+	},
+
+	[X1600_CLK_CAN1] = {
+		"can1", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
+			     X1600_CLK_EPLL, X1600_CLK_EXCLK },
+		.mux = { CGU_REG_CAN1CDR, 30, 2 },
+		.div = { CGU_REG_CAN1CDR, 0, 2, 8, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR1, 1 },
+	},
+
+	[X1600_CLK_PWM] = {
+		"pwm", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		.parents = { X1600_CLK_SCLKA, X1600_CLK_MPLL,
+			     X1600_CLK_EPLL, -1 },
+		.mux = { CGU_REG_PWMCDR, 30, 2 },
+		.div = { CGU_REG_PWMCDR, 0, 2, 4, 29, 28, 27 },
+		.gate = { CGU_REG_CLKGR1, 5 },
 	},
 
 	/* Custom (SoC-specific) OTG PHY */
 
 	[X1600_CLK_OTGPHY] = {
 		"otg_phy", CGU_CLK_CUSTOM,
-		.parents = { X1600_CLK_12M },
+		.parents = { X1600_CLK_12M, -1, -1, -1 },
 		.custom = { &x1600_otg_phy_ops },
 	},
 
@@ -371,6 +419,12 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		"nemc", CGU_CLK_GATE,
 		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR0, 0 },
+	},
+
+	[X1600_CLK_EFUSE] = {
+		"efuse", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 1 },
 	},
 
 	[X1600_CLK_OTG0] = {
@@ -391,28 +445,22 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		.gate = { CGU_REG_CLKGR0, 8 },
 	},
 
+	[X1600_CLK_SSI_SLV] = {
+		"ssi_slv", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 10 },
+	},
+
 	[X1600_CLK_AIC] = {
 		"aic", CGU_CLK_GATE,
 		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR0, 11 },
 	},
 
-	[X1600_CLK_I2S0_RX] = {
-		"i2s0_rx", CGU_CLK_GATE,
-		.parents = { X1600_CLK_I2S0, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 8 },
-	},
-
-	[X1600_CLK_I2S0_TX] = {
-		"i2s0_tx", CGU_CLK_GATE,
-		.parents = { X1600_CLK_I2S1, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 9 },
-	},
-
 	[X1600_CLK_SADC] = {
 		"sadc", CGU_CLK_GATE,
 		.parents = { X1600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 14 },
+		.gate = { CGU_REG_CLKGR0, 13 },
 	},
 
 	[X1600_CLK_UART0] = {
@@ -433,10 +481,22 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		.gate = { CGU_REG_CLKGR0, 16 },
 	},
 
-	[X1600_CLK_UART3] = {
-		"uart3", CGU_CLK_GATE,
-		.parents = { X1600_CLK_EXCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 16 },
+	[X1600_CLK_DTRNG] = {
+		"dtrng", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 17 },
+	},
+
+	[X1600_CLK_TCU] = {
+		"tcu", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 18 },
+	},
+
+	[X1600_CLK_OST] = {
+		"ost", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 20 },
 	},
 
 	[X1600_CLK_PDMA] = {
@@ -448,7 +508,55 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 	[X1600_CLK_AES] = {
 		"aes", CGU_CLK_GATE,
 		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR1, 24 },
+		.gate = { CGU_REG_CLKGR0, 24 },
+	},
+
+	[X1600_CLK_APB0] = {
+		"apb0", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR0, 28 },
+	},
+
+	[X1600_CLK_HASH] = {
+		"hash", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 6 },
+	},
+
+	[X1600_CLK_I2S0_RX] = {
+		"i2s0_rx", CGU_CLK_GATE,
+		.parents = { X1600_CLK_I2S0, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 8 },
+	},
+
+	[X1600_CLK_I2S0_TX] = {
+		"i2s0_tx", CGU_CLK_GATE,
+		.parents = { X1600_CLK_I2S1, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 9 },
+	},
+
+	[X1600_CLK_UART3] = {
+		"uart3", CGU_CLK_GATE,
+		.parents = { X1600_CLK_EXCLK, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 16 },
+	},
+
+	[X1600_CLK_INTC] = {
+		"intc", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 26 },
+	},
+
+	[X1600_CLK_MIPI_CSI] = {
+		"mipi_csi", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 28 },
+	},
+
+	[X1600_CLK_ARB] = {
+		"arb", CGU_CLK_GATE,
+		.parents = { X1600_CLK_AHB2, -1, -1, -1 },
+		.gate = { CGU_REG_CLKGR1, 30 },
 	},
 
 };

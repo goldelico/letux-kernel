@@ -12,14 +12,6 @@
 #ifndef __DT_BINDINGS_CLOCK_X1600_CGU_H__
 #define __DT_BINDINGS_CLOCK_X1600_CGU_H__
 
-/*
- * beware of unwritten rules:
- * - list must start with 0
- * - list must not have "holes"
- * - all clock parents must have lower number than a clock itself so that
- *   parents are initialized before
- */
-
 #define X1600_CLK_EXCLK			0
 #define X1600_CLK_RTCLK			1
 #define X1600_CLK_12M			2
@@ -43,24 +35,37 @@
 #define X1600_CLK_MSC1			20
 #define X1600_CLK_SSI0			21
 #define X1600_CLK_CIMMCLK		22
-#define X1600_CLK_GATE_CIM	(0 + 3 + 3 + 19 + 21 + 6)
-#define X1600_CLK_GATE_MIPI_CSI	(0 + 3 + 3 + 19 + 21 + 27)
 #define X1600_CLK_EXCLK_DIV512		23
 #define X1600_CLK_RTC			24
-#define X1600_CLK_OTGPHY		25
-#define X1600_CLK_NEMC			26
-#define X1600_CLK_OTG0			27
-#define X1600_CLK_SMB0			28
-#define X1600_CLK_SMB1			29
-#define X1600_CLK_AIC			30
-#define X1600_CLK_SADC			31
-#define X1600_CLK_UART0			32
-#define X1600_CLK_UART1			33
-#define X1600_CLK_UART2			34
-#define X1600_CLK_UART3			35
-#define X1600_CLK_PDMA			36
-#define X1600_CLK_AES			37
-#define X1600_CLK_I2S0_RX		38
-#define X1600_CLK_I2S0_TX		39
+#define X1600_CLK_SFC			25
+#define X1600_CLK_CDBUS			26
+#define X1600_CLK_CAN0			27
+#define X1600_CLK_CAN1			28
+#define X1600_CLK_PWM			29
+#define X1600_CLK_OTGPHY		30
+#define X1600_CLK_NEMC			31
+#define X1600_CLK_EFUSE			32
+#define X1600_CLK_OTG0			33
+#define X1600_CLK_SMB0			34
+#define X1600_CLK_SMB1			35
+#define X1600_CLK_SSI_SLV		36
+#define X1600_CLK_AIC			37
+#define X1600_CLK_UART0			38
+#define X1600_CLK_UART1			39
+#define X1600_CLK_UART2			40
+#define X1600_CLK_SADC			41
+#define X1600_CLK_DTRNG			42
+#define X1600_CLK_TCU			43
+#define X1600_CLK_OST			44
+#define X1600_CLK_PDMA			45
+#define X1600_CLK_AES			46
+#define X1600_CLK_APB0			47
+#define X1600_CLK_HASH			48
+#define X1600_CLK_I2S0_RX		49
+#define X1600_CLK_I2S0_TX		50
+#define X1600_CLK_UART3			51
+#define X1600_CLK_INTC			52
+#define X1600_CLK_MIPI_CSI		53
+#define X1600_CLK_ARB			54
 
 #endif /* __DT_BINDINGS_CLOCK_X1600_CGU_H__ */
