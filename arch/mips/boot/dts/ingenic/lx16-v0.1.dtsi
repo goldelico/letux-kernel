@@ -712,3 +712,45 @@
 #endif
 };
 
+&dpu {
+
+	status = "okay";
+
+	port {
+		lcd_out: endpoint {
+			remote-endpoint = <&panel_in>;
+		};
+	};
+};
+
+&pinctrl {
+	pins_lcd: pins-lcd {
+		function = "lcd";
+		groups = "lcd-18bit-msb";
+	};
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel@0 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_lcd>;
+
+		compatible = "hiby,lg35583";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+ //           vcc-supply = <&vcc_lcd>;
+ //           vccio-supply = <&vccio_lcd>;
+ //           reset-gpios = <&gpa 31 GPIO_ACTIVE_LOW>;
+ //           backlight = <&backlight>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&lcd_out>;
+			};
+		};
+	};
+};
