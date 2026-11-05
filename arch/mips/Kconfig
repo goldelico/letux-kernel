@@ -127,7 +127,6 @@ config MACH_INGENIC
 	select GPIOLIB
 	select COMMON_CLK
 	select GENERIC_IRQ_CHIP
-	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
 	select USE_OF
 	select CPU_SUPPORTS_CPUFREQ
 	select MIPS_EXTERNAL_TIMER
@@ -2194,7 +2193,7 @@ config CPU_R4K_FPU
 
 config CPU_R4K_CACHE_TLB
 	bool
-	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON)
+	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON || MACH_INGENIC)
 
 config MIPS_MT_SMP
 	bool "MIPS MT SMP support (1 TC on each available VPE)"
@@ -2924,7 +2923,28 @@ config UHI_BOOT
 	bool
 
 config BUILTIN_DTB
-	bool
+	bool "Enable builtin DTB fallback support"
+	help
+	  Compiles a Device Tree Blob (DTB) directly into the kernel image
+	  and enables the kernel to use it as a fallback during boot.
+
+	  This option:
+	  a) Links the DTB specified by BUILTIN_DTB_NAME into the
+	     kernel binary.
+	  b) Instructs the boot code (get_fdt()) to return this internal
+	     DTB if no dynamic DTB from the bootloader or appended DTB
+	     image data is detected.
+
+	  Note on MIPS boot strategy:
+	  MIPS kernels check for a DTB in the following order inside get_fdt():
+	  1. An appended DTB image (if CONFIG_MIPS_*_APPENDED_DTB is set).
+	  2. The built-in DTB fallback controlled by this option.
+
+	  If your bootloader provides a valid DTB dynamically and you do not
+	  rely on appended or built-in DTBs, you should enable
+	  MIPS_NO_APPENDED_DTB and disable BUILTIN_DTB.
+
+	  If unsure, say Y.
 
 choice
 	prompt "Kernel appended dtb support"

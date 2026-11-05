@@ -2017,8 +2017,10 @@ static const struct snd_soc_dai_ops davinci_mcasp_dai_ops = {
 	.set_clkdiv	= davinci_mcasp_set_clkdiv,
 	.set_sysclk	= davinci_mcasp_set_sysclk,
 	.set_tdm_slot	= davinci_mcasp_set_tdm_slot,
+#if 0	/* broken with AESS */
 	.auto_selectable_formats	= &davinci_mcasp_selectable_formats,
 	.num_auto_selectable_formats	= 1,
+#endif
 };
 
 #define DAVINCI_MCASP_RATES	SNDRV_PCM_RATE_8000_192000
