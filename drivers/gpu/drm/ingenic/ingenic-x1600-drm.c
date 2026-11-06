@@ -723,14 +723,14 @@ static void x1600_lcd_shutdown(struct platform_device *pdev)
 }
 
 static const struct of_device_id x1600_lcd_of_match[] = {
-	{ .compatible = "ingenic,x1600-lcd" },
+	{ .compatible = "ingenic,x1600-dpu" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, x1600_lcd_of_match);
 
 static struct platform_driver x1600_lcd_platform_driver = {
 	.driver = {
-		.name = "ingenic-x1600-drm",
+		.name = "ingenic-x1600-dpu",
 		.of_match_table = x1600_lcd_of_match,
 	},
 	.probe = x1600_lcd_probe,
