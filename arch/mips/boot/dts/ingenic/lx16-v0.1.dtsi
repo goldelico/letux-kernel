@@ -730,6 +730,7 @@
 	};
 };
 
+#if 0
 &spi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -754,3 +755,24 @@
 		};
 	};
 };
+#endif
+
+#if 1
+/ {
+	lcd: lcd {
+		compatible =	"sharp,lq070y3dg3b",
+				"panel-dpi";
+		label = "lcd";
+//		enable-gpios = <&gpio1 12 0>;
+
+//		backlight = <&backlight>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&lcd_out>;
+			};
+		};
+	};
+};
+
+#endif
