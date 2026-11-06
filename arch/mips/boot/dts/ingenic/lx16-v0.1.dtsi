@@ -723,6 +723,7 @@
 	};
 };
 
+#if 0
 &pinctrl {
 	pins_lcd: pins-lcd {
 		function = "lcd";
@@ -730,7 +731,6 @@
 	};
 };
 
-#if 0
 &spi0 {
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -758,8 +758,18 @@
 #endif
 
 #if 1
+&pinctrl {
+	pins_lcd: pins-lcd {
+		function = "lcd";
+		groups = "lcd-18bit-msb";
+	};
+};
+
 / {
 	lcd: lcd {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_lcd>;
+
 		compatible =	"sharp,lq070y3dg3b",
 				"panel-dpi";
 		label = "lcd";
