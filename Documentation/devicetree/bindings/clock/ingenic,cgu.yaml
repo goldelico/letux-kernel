@@ -31,6 +31,7 @@ select:
           - ingenic,x1600-cgu
           - ingenic,x1830-cgu
           - ingenic,x2000-cgu
+          - ingenic,x2600-cgu
   required:
     - compatible
 
@@ -63,6 +64,7 @@ properties:
           - ingenic,x1600-cgu
           - ingenic,x1830-cgu
           - ingenic,x2000-cgu
+          - ingenic,x2600-cgu
       - const: simple-mfd
     minItems: 1
 
