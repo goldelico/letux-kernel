@@ -673,7 +673,7 @@ static const struct ingenic_cgu_clk_info jz4780_cgu_clocks[] = {
 	[JZ4780_CLK_SMB2] = {
 		"smb2", CGU_CLK_GATE,
 		.parents = { JZ4780_CLK_PCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 24 },
+		.gate = { CGU_REG_CLKGR0, 25 },
 	},
 
 	[JZ4780_CLK_CIM] = {
