@@ -20,6 +20,28 @@ config DRM_INGENIC
 
 	  If M is selected the module will be called ingenic-drm.
 
+config DRM_INGENIC_X1600
+	tristate "DRM support for the Ingenic X1600 LCD controller"
+	depends on MIPS || COMPILE_TEST
+	depends on DRM
+	depends on OF
+	depends on COMMON_CLK
+	select APERTURE_HELPERS
+	select DRM_BRIDGE
+	select DRM_CLIENT_SELECTION
+	select DRM_PANEL_BRIDGE
+	select DRM_KMS_HELPER
+	select DRM_DISPLAY_HELPER
+	select DRM_BRIDGE_CONNECTOR
+	select DRM_GEM_DMA_HELPER
+	help
+	  Choose this option for DRM support for the display controller of
+	  the Ingenic X1600 SoC. It drives parallel RGB panels on a 24-bit
+	  bus from one full-screen RGB565 plane; the controller's smart panel
+	  interface is not supported.
+
+	  If M is selected the module will be called ingenic-x1600-drm.
+
 if DRM_INGENIC
 
 config DRM_INGENIC_IPU

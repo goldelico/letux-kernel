@@ -2193,7 +2193,7 @@ static int dsi_vc_write_common(struct omap_dss_device *dssdev, int vc,
 		return r;
 
 	if (mipi_dsi_packet_format_is_short(msg->type))
-		r = dsi_vc_send_short(dsi, vc, msg);
+		return dsi_vc_send_short(dsi, vc, msg);
 	else
 		r = dsi_vc_send_long(dsi, vc, msg);
 
@@ -2206,7 +2206,23 @@ static int dsi_vc_write_common(struct omap_dss_device *dssdev, int vc,
 	if (r)
 		return r;
 
-	/* TODO: find out if more needs to be done for MIPI_DSI_MSG_REQ_ACK */
+	/* wait for IRQ for long packet transmission confirmation */
+	r = dsi_register_isr_vc(dsi, vc, dsi_completion_handler,
+			&completion, DSI_VC_IRQ_PACKET_SENT);
+	if (r)
+		return r;
+
+	if (wait_for_completion_timeout(&completion,
+			msecs_to_jiffies(500)) == 0)
+		r = -EIO;
+
+	dsi_unregister_isr_vc(dsi, vc, dsi_completion_handler,
+			      &completion, DSI_VC_IRQ_PACKET_SENT);
+
+	if (r)
+		return r;
+
+	/* TODO: find out if more needs to be done for MIPI_DIS_MSG_REQ_ACK */
 
 	if (msg->flags & MIPI_DSI_MSG_REQ_ACK) {
 		r = dsi_vc_send_bta_sync(dssdev, vc);
@@ -3261,7 +3277,7 @@ static int dsi_update_channel(struct omap_dss_device *dssdev, int vc)
 	 * updates stop working. This is probably related to DSI spec stating
 	 * that the DSI host should transition to LP at least once per frame.
 	 */
-	r = dsi_vc_send_bta_sync(dssdev, VC_CMD);
+	r = dsi_vc_send_bta_sync(dssdev, vc);
 	if (r < 0) {
 		DSSWARN("failed to send bta sync between frames: %d\n", r);
 		goto err;
@@ -4400,7 +4416,9 @@ static int omap_dsi_host_detach(struct mipi_dsi_host *host,
 {
 	struct dsi_data *dsi = host_to_omap(host);
 
-	if (WARN_ON(dsi->dsidev != client))
+printk("%s\n", __func__);
+
+	if (!dsi->dsidev || WARN_ON(dsi->dsidev != client))
 		return -EINVAL;
 
 	cancel_delayed_work_sync(&dsi->dsi_disable_work);
