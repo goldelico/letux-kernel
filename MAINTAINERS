@@ -13176,6 +13176,7 @@ INGENIC X1600 DRM DRIVER
 M:	Olivier Louvignes <olivier@mgcrea.io>
 S:	Maintained
 F:	Documentation/devicetree/bindings/display/ingenic,x1600-dpu.yaml
+F:	drivers/gpu/drm/ingenic/ingenic-dpu-x1600.c
 
 INJOINIC IP5xxx POWER BANK IC DRIVER
 M:	Samuel Holland <samuel@sholland.org>
