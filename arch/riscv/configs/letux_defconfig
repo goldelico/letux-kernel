@@ -1,5 +1,5 @@
 #
-# Linux/riscv 7.4.0-rc1 Kernel Configuration
+# Linux/riscv 7.4.0-rc2 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3999,6 +3999,7 @@ CONFIG_DRM_PANEL=m
 # CONFIG_DRM_PANEL_FOCALTECH_OTA7290B is not set
 # CONFIG_DRM_PANEL_DSI_CM is not set
 # CONFIG_DRM_PANEL_LVDS is not set
+# CONFIG_DRM_PANEL_HIBY_LG35583 is not set
 # CONFIG_DRM_PANEL_HIMAX_HX8279 is not set
 # CONFIG_DRM_PANEL_HIMAX_HX83102 is not set
 # CONFIG_DRM_PANEL_HIMAX_HX83112A is not set
