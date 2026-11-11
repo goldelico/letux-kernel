@@ -20,7 +20,9 @@
 #include <linux/cpuhotplug.h>
 
 #include <asm/io.h>
+#if IS_ENABLED(CONFIG_SMP)
 #include <asm/mach-ingenic/smp.h>
+#endif
 
 #define JZ_REG_INTC_STATUS		0x00
 #define JZ_REG_INTC_MASK		0x04
@@ -102,9 +104,10 @@ static irqreturn_t ingenic_intc_cascade(int irq, void *data)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_SMP)
 	if (intc->version == ID_JZ4780)
-		IF_ENABLED(CONFIG_SMP, jz4780_smp_switch_irqcpu(smp_processor_id()));
-
+		jz4780_smp_switch_irqcpu(smp_processor_id());
+#endif
 	return IRQ_HANDLED;
 }
 
