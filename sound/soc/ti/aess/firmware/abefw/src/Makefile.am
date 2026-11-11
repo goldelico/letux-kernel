@@ -1,0 +1,17 @@
+
+AM_CFLAGS = \
+	-I$(top_srcdir)/src \
+	-I$(top_srcdir)/tasks
+
+bin_PROGRAMS = abegen
+
+abegen_SOURCES = abegen.c abegen.h
+
+#todo move abe_asrc to versioned directory
+abegen_CFLAGS = $(AM_CFLAGS) -Werror -Wall \
+	-I $(LINUX_DIR)/include \
+	-I $(LINUX_DIR)/arch/arm/include \
+	-I $(LINUX_DIR)/arch/arm/include/generated \
+	-D__KERNEL__ \
+	-D__LINUX_ARM_ARCH__=7 \
+	-D_LINUX_STAT_H
