@@ -232,6 +232,7 @@ letux/odroid-m1
 letux/dwavtouch
 
 # hacks and fixes - we should consider upstreaming...
+letux/hacks
 letux/twl4030
 letux/hwmon-fixes
 letux/libertas
@@ -245,12 +246,13 @@ letux/gdepaper
 letux/charging_fixes
 letux/omap2plus
 letux/omap5-idle
+-letux/mmc
 letux/ubi-fs
 letux/extcon
-letux/drivers-keyboard
 letux/misc
-letux/hacks
+letux/drivers-keyboard
 
 # not merged in by default, but carried along and regularily rebased
--letux/mmc
 -letux/omap-hsmmc
+
+-letux/android
