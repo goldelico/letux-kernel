@@ -29,7 +29,6 @@
 #define cpu_has_mips3d 0
 #define cpu_has_smartmips 0
 #define kernel_uses_llsc	1
-#define cpu_has_vtag_icache	1
 #define cpu_has_dc_aliases	0
 #define cpu_has_ic_fills_f_dc	0
 #define cpu_has_pindexed_dcache 0
