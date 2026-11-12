@@ -4588,7 +4588,6 @@ static int ingenic_pinmux_gpio_set_direction(struct pinctrl_dev *pctldev,
 	if (is_soc_or_above(jzpc, ID_X1000)) {
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_INT, false);
 		ingenic_shadow_config_pin(jzpc, pin, GPIO_MSK, true);
-		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT0, false);
 		ingenic_shadow_config_pin(jzpc, pin, JZ4770_GPIO_PAT1, input);
 		ingenic_shadow_config_pin_load(jzpc, pin);
 	} else if (is_soc_or_above(jzpc, ID_JZ4770)) {
