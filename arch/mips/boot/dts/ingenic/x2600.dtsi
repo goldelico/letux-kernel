@@ -384,7 +384,7 @@
 		};
 
 		dpu: dpu@13050000 {
-			compatible = "ingenic,dpu";
+			compatible = "ingenic,x1600-dpu";
 			reg = <0x13050000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_LCD>,<IRQ_ROTATE>,<IRQ_MIPI_DSI>;
