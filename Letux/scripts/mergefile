@@ -73,6 +73,8 @@ letux/omap2plus_defconfig
 letux/debian-build
 
 # upstreaming in progress
+upstream-pandora-sound+bl
+upstream-omap-fixes	# by Andreas Kemnade
 letux/omap3-opp
 letux/w2sg-serdev
 #letux/sirf-gps
