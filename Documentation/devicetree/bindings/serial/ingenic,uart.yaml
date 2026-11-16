@@ -24,6 +24,7 @@ properties:
           - ingenic,jz4760-uart
           - ingenic,jz4780-uart
           - ingenic,x1000-uart
+          - ingenic,x1600-uart
       - items:
           - enum:
               - ingenic,jz4770-uart
