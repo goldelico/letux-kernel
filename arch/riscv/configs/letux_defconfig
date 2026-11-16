@@ -1,5 +1,5 @@
 #
-# Linux/riscv 7.3.3 Kernel Configuration
+# Linux/riscv 7.3.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1771,7 +1771,6 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_PVPANIC is not set
 # CONFIG_GP_PCI1XXXX is not set
 # CONFIG_MISC_RP1 is not set
-# CONFIG_INTEL_SSEI is not set
 # CONFIG_W2CBW003 is not set
 # CONFIG_TRS3386 is not set
 # end of Misc devices
@@ -1882,7 +1881,6 @@ CONFIG_SATA_AHCI_PLATFORM=y
 # CONFIG_AHCI_DWC is not set
 # CONFIG_AHCI_CEVA is not set
 # CONFIG_AHCI_SUNXI is not set
-# CONFIG_SATA_INIC162X is not set
 # CONFIG_SATA_ACARD_AHCI is not set
 # CONFIG_SATA_SIL24 is not set
 CONFIG_ATA_SFF=y

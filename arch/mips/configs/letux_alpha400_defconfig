@@ -1,5 +1,5 @@
 #
-# Linux/mips 7.3.3 Kernel Configuration
+# Linux/mips 7.3.4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="mipsel-linux-gnu-gcc (GCC) 8.2.0"
 CONFIG_CC_IS_GCC=y
@@ -1235,7 +1235,6 @@ CONFIG_EEPROM_93CX6=y
 # CONFIG_ALTERA_STAPL is not set
 # CONFIG_MISC_RTSX_USB is not set
 # CONFIG_PVPANIC is not set
-# CONFIG_INTEL_SSEI is not set
 # CONFIG_W2CBW003 is not set
 # CONFIG_TRS3386 is not set
 # end of Misc devices
