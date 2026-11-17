@@ -4632,7 +4632,16 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 	unsigned int bias, reg;
 	bool pull, pullup, pulldown;
 
-	if (is_soc_or_above(jzpc, ID_X2000)) {
+	if (is_soc(jzpc, ID_X2600) && offt == 4) {
+		pull = ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPU);
+		pullup = pull &&
+			 ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPD) &&
+			 (jzpc->info->pull_ups[offt] & BIT(idx));
+		pulldown = pull &&
+			   !ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPD) &&
+			   (jzpc->info->pull_downs[offt] & BIT(idx));
+
+	} else if (is_soc_or_above(jzpc, ID_X2000)) {
 		pullup = ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPU) &&
 				!ingenic_get_pin_config(jzpc, pin, X2000_GPIO_PEPD) &&
 				(jzpc->info->pull_ups[offt] & BIT(idx));
@@ -4724,7 +4733,25 @@ static int ingenic_pinconf_get(struct pinctrl_dev *pctldev,
 static void ingenic_set_bias(struct ingenic_pinctrl *jzpc,
 		unsigned int pin, unsigned int bias)
 {
-	if (is_soc_or_above(jzpc, ID_X2000)) {
+	if (is_soc(jzpc, ID_X2600) && pin / PINS_PER_GPIO_CHIP == 4) {
+		/* X2600 Port E: PEPS selects direction, PEPE enables pull */
+		switch (bias) {
+		case GPIO_PULL_UP:
+			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPD, true);
+			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPU, true);
+			break;
+
+		case GPIO_PULL_DOWN:
+			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPD, false);
+			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPU, true);
+			break;
+
+		case GPIO_PULL_DIS:
+		default:
+			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPU, false);
+			break;
+		}
+	} else if (is_soc_or_above(jzpc, ID_X2000)) {
 		switch (bias) {
 		case GPIO_PULL_UP:
 			ingenic_config_pin(jzpc, pin, X2000_GPIO_PEPD, false);
