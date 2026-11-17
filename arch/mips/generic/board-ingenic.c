@@ -24,6 +24,8 @@
 static __init char *ingenic_get_system_type(unsigned long machtype)
 {
 	switch (machtype) {
+	case MACH_INGENIC_X2600:
+		return "X2600";
 	case MACH_INGENIC_X2100:
 		return "X2100";
 	case MACH_INGENIC_X2000H:
@@ -34,6 +36,8 @@ static __init char *ingenic_get_system_type(unsigned long machtype)
 		return "X2000";
 	case MACH_INGENIC_X1830:
 		return "X1830";
+	case MACH_INGENIC_X1600:
+		return "X1600";
 	case MACH_INGENIC_X1000E:
 		return "X1000E";
 	case MACH_INGENIC_X1000:
@@ -146,11 +150,13 @@ static const struct of_device_id ingenic_of_match[] __initconst = {
 	{ .compatible = "ingenic,jz4780", .data = (void *)MACH_INGENIC_JZ4780 },
 	{ .compatible = "ingenic,x1000", .data = (void *)MACH_INGENIC_X1000 },
 	{ .compatible = "ingenic,x1000e", .data = (void *)MACH_INGENIC_X1000E },
+	{ .compatible = "ingenic,x1600", .data = (void *)MACH_INGENIC_X1600 },
 	{ .compatible = "ingenic,x1830", .data = (void *)MACH_INGENIC_X1830 },
 	{ .compatible = "ingenic,x2000", .data = (void *)MACH_INGENIC_X2000 },
 	{ .compatible = "ingenic,x2000e", .data = (void *)MACH_INGENIC_X2000E },
 	{ .compatible = "ingenic,x2000h", .data = (void *)MACH_INGENIC_X2000H },
 	{ .compatible = "ingenic,x2100", .data = (void *)MACH_INGENIC_X2100 },
+	{ .compatible = "ingenic,x2600", .data = (void *)MACH_INGENIC_X2600 },
 	{}
 };
 
@@ -188,7 +194,7 @@ static const struct platform_suspend_ops ingenic_pm_ops = {
 
 static int __init ingenic_pm_init(void)
 {
-	if (boot_cpu_type() == CPU_XBURST) {
+	if (boot_cpu_type() == CPU_XBURST || boot_cpu_type() == CPU_XBURST2) {
 		if (IS_ENABLED(CONFIG_PM_SLEEP))
 			suspend_set_ops(&ingenic_pm_ops);
 		_machine_halt = ingenic_halt;

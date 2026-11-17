@@ -19,8 +19,8 @@
 #include "pm.h"
 
 /* CGU register offsets */
-#define CGU_REG_CLOCKCONTROL	0x00
-#define CGU_REG_LCR				0x04
+#define CGU_REG_CLOCKCONTROL		0x00
+#define CGU_REG_LCR			0x04
 #define CGU_REG_APLL			0x10
 #define CGU_REG_MPLL			0x14
 #define CGU_REG_EPLL			0x18
@@ -55,31 +55,31 @@
 
 /* bits within the USBPCR register */
 #define USBPCR_USB_MODE			BIT(31)
-#define USBPCR_IDPULLUP_MASK	(0x3 << 28)
+#define USBPCR_IDPULLUP_MASK		(0x3 << 28)
 #define USBPCR_COMMONONN		BIT(25)
 #define USBPCR_VBUSVLDEXT		BIT(24)
-#define USBPCR_VBUSVLDEXTSEL	BIT(23)
-#define USBPCR_POR				BIT(22)
+#define USBPCR_VBUSVLDEXTSEL		BIT(23)
+#define USBPCR_POR			BIT(22)
 #define USBPCR_SIDDQ			BIT(21)
 #define USBPCR_OTG_DISABLE		BIT(20)
-#define USBPCR_COMPDISTUNE_MASK	(0x7 << 17)
+#define USBPCR_COMPDISTUNE_MASK		(0x7 << 17)
 #define USBPCR_OTGTUNE_MASK		(0x7 << 14)
-#define USBPCR_SQRXTUNE_MASK	(0x7 << 11)
-#define USBPCR_TXFSLSTUNE_MASK	(0xf << 7)
-#define USBPCR_TXPREEMPHTUNE	BIT(6)
-#define USBPCR_TXHSXVTUNE_MASK	(0x3 << 4)
-#define USBPCR_TXVREFTUNE_MASK	0xf
+#define USBPCR_SQRXTUNE_MASK		(0x7 << 11)
+#define USBPCR_TXFSLSTUNE_MASK		(0xf << 7)
+#define USBPCR_TXPREEMPHTUNE		BIT(6)
+#define USBPCR_TXHSXVTUNE_MASK		(0x3 << 4)
+#define USBPCR_TXVREFTUNE_MASK		0xf
 
 /* bits within the USBPCR1 register */
-#define USBPCR1_REFCLKSEL_SHIFT	26
-#define USBPCR1_REFCLKSEL_MASK	(0x3 << USBPCR1_REFCLKSEL_SHIFT)
-#define USBPCR1_REFCLKSEL_CORE	(0x2 << USBPCR1_REFCLKSEL_SHIFT)
-#define USBPCR1_REFCLKDIV_SHIFT	24
-#define USBPCR1_REFCLKDIV_MASK	(0x3 << USBPCR1_REFCLKDIV_SHIFT)
-#define USBPCR1_REFCLKDIV_19_2	(0x3 << USBPCR1_REFCLKDIV_SHIFT)
-#define USBPCR1_REFCLKDIV_48	(0x2 << USBPCR1_REFCLKDIV_SHIFT)
-#define USBPCR1_REFCLKDIV_24	(0x1 << USBPCR1_REFCLKDIV_SHIFT)
-#define USBPCR1_REFCLKDIV_12	(0x0 << USBPCR1_REFCLKDIV_SHIFT)
+#define USBPCR1_REFCLKSEL_SHIFT		26
+#define USBPCR1_REFCLKSEL_MASK		(0x3 << USBPCR1_REFCLKSEL_SHIFT)
+#define USBPCR1_REFCLKSEL_CORE		(0x2 << USBPCR1_REFCLKSEL_SHIFT)
+#define USBPCR1_REFCLKDIV_SHIFT		24
+#define USBPCR1_REFCLKDIV_MASK		(0x3 << USBPCR1_REFCLKDIV_SHIFT)
+#define USBPCR1_REFCLKDIV_19_2		(0x3 << USBPCR1_REFCLKDIV_SHIFT)
+#define USBPCR1_REFCLKDIV_48		(0x2 << USBPCR1_REFCLKDIV_SHIFT)
+#define USBPCR1_REFCLKDIV_24		(0x1 << USBPCR1_REFCLKDIV_SHIFT)
+#define USBPCR1_REFCLKDIV_12		(0x0 << USBPCR1_REFCLKDIV_SHIFT)
 #define USBPCR1_USB_SEL			BIT(28)
 #define USBPCR1_WORD_IF0		BIT(19)
 #define USBPCR1_WORD_IF1		BIT(18)
@@ -89,18 +89,46 @@
 #define USBRDT_USBRDT_MASK		0x7fffff
 
 /* bits within the USBVBFIL register */
-#define USBVBFIL_IDDIGFIL_SHIFT	16
-#define USBVBFIL_IDDIGFIL_MASK	(0xffff << USBVBFIL_IDDIGFIL_SHIFT)
-#define USBVBFIL_USBVBFIL_MASK	(0xffff)
+#define USBVBFIL_IDDIGFIL_SHIFT		16
+#define USBVBFIL_IDDIGFIL_MASK		(0xffff << USBVBFIL_IDDIGFIL_SHIFT)
+#define USBVBFIL_USBVBFIL_MASK		(0xffff)
 
 /* bits within the LCR register */
-#define LCR_PD_SCPU				BIT(31)
-#define LCR_SCPUS				BIT(27)
+#define LCR_PD_SCPU			BIT(31)
+#define LCR_SCPUS			BIT(27)
 
 /* bits within the CLKGR1 register */
 #define CLKGR1_CORE1			BIT(15)
 
 static struct ingenic_cgu *cgu;
+
+static int jz4780_usb_phy_enable(struct clk_hw *hw)
+{
+	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
+
+	writel(readl(reg_opcr) | OPCR_SPENDN1, reg_opcr);
+	return 0;
+}
+
+static void jz4780_usb_phy_disable(struct clk_hw *hw)
+{
+	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
+
+	writel(readl(reg_opcr) & ~OPCR_SPENDN1, reg_opcr);
+}
+
+static int jz4780_usb_phy_is_enabled(struct clk_hw *hw)
+{
+	void __iomem *reg_opcr		= cgu->base + CGU_REG_OPCR;
+
+	return (readl(reg_opcr) & OPCR_SPENDN1) != 0;
+}
+
+static const struct clk_ops jz4780_usb_phy_ops = {
+	.enable		= jz4780_usb_phy_enable,
+	.disable	= jz4780_usb_phy_disable,
+	.is_enabled	= jz4780_usb_phy_is_enabled,
+};
 
 static unsigned long jz4780_otg_phy_recalc_rate(struct clk_hw *hw,
 						unsigned long parent_rate)
@@ -188,6 +216,10 @@ static int jz4780_otg_phy_enable(struct clk_hw *hw)
 
 	writel(readl(reg_opcr) | OPCR_SPENDN0, reg_opcr);
 	writel(readl(reg_usbpcr) & ~USBPCR_OTG_DISABLE & ~USBPCR_SIDDQ, reg_usbpcr);
+
+	/* assume we also need the HOST port */
+	jz4780_usb_phy_ops.enable(hw);
+
 	return 0;
 }
 
@@ -472,6 +504,9 @@ static const struct ingenic_cgu_clk_info jz4780_cgu_clocks[] = {
 		.mux = { CGU_REG_UHCCDR, 30, 2 },
 		.div = { CGU_REG_UHCCDR, 0, 1, 8, 29, 28, 27 },
 		.gate = { CGU_REG_CLKGR0, 24 },
+/* CHECKME: ends in kernel panic during boot
+		.custom = { &jz4780_usb_phy_ops },
+*/
 	},
 
 	[JZ4780_CLK_SSIPLL] = {
@@ -673,7 +708,7 @@ static const struct ingenic_cgu_clk_info jz4780_cgu_clocks[] = {
 	[JZ4780_CLK_SMB2] = {
 		"smb2", CGU_CLK_GATE,
 		.parents = { JZ4780_CLK_PCLK, -1, -1, -1 },
-		.gate = { CGU_REG_CLKGR0, 24 },
+		.gate = { CGU_REG_CLKGR0, 25 },
 	},
 
 	[JZ4780_CLK_CIM] = {

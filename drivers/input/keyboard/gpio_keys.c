@@ -417,7 +417,7 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 	if (bdata->button->wakeup) {
 		const struct gpio_keys_button *button = bdata->button;
 
-		pm_stay_awake(bdata->input->dev.parent);
+		pm_wakeup_event(bdata->input->dev.parent, 1000);
 		if (bdata->suspended  &&
 		    (button->type == 0 || button->type == EV_KEY)) {
 			/*
@@ -471,7 +471,7 @@ static irqreturn_t gpio_keys_irq_isr(int irq, void *dev_id)
 
 	if (!bdata->key_pressed) {
 		if (bdata->button->wakeup)
-			pm_wakeup_event(bdata->input->dev.parent, 0);
+			pm_wakeup_event(bdata->input->dev.parent, 1000);
 
 		input_report_key(input, *bdata->code, 1);
 		input_sync(input);
@@ -554,12 +554,16 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		bool active_low = gpiod_is_active_low(bdata->gpiod);
 
 		if (button->debounce_interval) {
-			error = gpiod_set_debounce(bdata->gpiod,
+			/* do not rely on non-gpio irqs being subject to debouncing measures */
+			if ((button->irq || button->wakeirq)) {
+				bdata->software_debounce = button->debounce_interval;
+			} else {
+				error = gpiod_set_debounce(bdata->gpiod,
 					button->debounce_interval * 1000);
-			/* use timer if gpiolib doesn't provide debounce */
-			if (error < 0)
-				bdata->software_debounce =
-						button->debounce_interval;
+				/* use timer if gpiolib doesn't provide debounce */
+				if (error < 0)
+					bdata->software_debounce = button->debounce_interval;
+			}
 
 			/*
 			 * If reading the GPIO won't sleep, we can use a
