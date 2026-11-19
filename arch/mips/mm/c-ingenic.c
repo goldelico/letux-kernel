@@ -202,6 +202,9 @@ static void ingenic_flush_icache_user_range(unsigned long start, unsigned long e
 
 static void ingenic_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 {
+	if (!size)
+		return;
+
 	preempt_disable();
 
 	if (size >= dcache_size)
@@ -221,6 +224,9 @@ static void ingenic_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 
 static void ingenic_xburst_dma_cache_inv(unsigned long addr, unsigned long size)
 {
+	if (!size)
+		return;
+
 	preempt_disable();
 	write_c0_ingenic_errctl(XBURST_ERRCTL_WST_EN);
 
@@ -239,6 +245,9 @@ static void ingenic_xburst2_dma_cache_inv(unsigned long addr, unsigned long size
 {
 	unsigned long lsize = cpu_scache_line_size();
 	unsigned long almask = ~(lsize - 1);
+
+	if (!size)
+		return;
 
 	preempt_disable();
 
