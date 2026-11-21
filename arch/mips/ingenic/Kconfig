@@ -87,6 +87,10 @@ config X1600_LX16
 	bool "Letux X1600 based SBC"
 	select MACH_X1600
 
+config X1600_HIBY_R1
+	bool "HiBy R1 music player"
+	select MACH_X1600
+
 config X1830_CU1830_NEO
 	bool "YSH & ATIL CU1830 Module with Neo backplane"
 	select MACH_X1830

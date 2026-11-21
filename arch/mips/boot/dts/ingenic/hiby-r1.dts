@@ -1,0 +1,698 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "x1600.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "hiby,r1", "ingenic,x1600";
+	model = "HiBy R1";
+
+	/*
+	 * The SD card stays mmc0 (and mmcblk0, which init mounts) now that
+	 * MSC0, which probes first, has the Wi-Fi chip.
+	 */
+	aliases {
+		mmc0 = &mmc1;
+		mmc1 = &mmc0;
+	};
+
+	chosen {
+		/* clk_ignore_unused: no clock driver may gate what the display uses. */
+		bootargs = "console=tty0 loglevel=8 clk_ignore_unused";
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x4000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/*
+		 * Until its driver takes over, the display controller keeps
+		 * scanning out what the stock kernel set up: two 480x800
+		 * RGB565 pages, through a frame descriptor the controller
+		 * rereads every frame. The stock kernel allocates that
+		 * descriptor anywhere, so before the jump the loader chains
+		 * it to a self-linked copy at 0x02776f00, in the last row of
+		 * page 1: memory the stock kernel won't hand out, and which
+		 * nothing shows here.
+		 */
+		lcd_pages: framebuffer@2600000 {
+			reg = <0x02600000 0x177000>;
+			no-map;
+		};
+
+		/*
+		 * The last kernel log and any oops, kept across a watchdog
+		 * reset (RAM keeps its contents) for the next boot to read in
+		 * /sys/fs/pstore.
+		 */
+		ramoops@3ff0000 {
+			compatible = "ramoops";
+			reg = <0x03ff0000 0x10000>;
+			record-size = <0x4000>;
+			console-size = <0x8000>;
+		};
+	};
+
+	framebuffer@2600000 {
+		compatible = "simple-framebuffer";
+		reg = <0x02600000 0xbb800>;
+		width = <480>;
+		height = <800>;
+		stride = <960>;
+		format = "r5g6b5";
+
+		/* Keeps the display's pixel clock on. */
+		clocks = <&cgu X1600_CLK_LCDPIXCLK>;
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm 0 33333 0>;
+
+		brightness-levels = <0 100>;
+		num-interpolated-steps = <100>;
+		default-brightness-level = <60>;
+	};
+
+	/* The panel's set-up bus: bit-banged, write only. */
+	spi-lcd {
+		compatible = "spi-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <&gpa 0 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpa 1 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpa 30 GPIO_ACTIVE_LOW>;
+		num-chipselects = <1>;
+
+		panel@0 {
+			compatible = "hiby,lg35583";
+			reg = <0>;
+			spi-max-frequency = <1000000>;
+
+			vcc-supply = <&vcc_lcd>;
+			vccio-supply = <&vccio_lcd>;
+			reset-gpios = <&gpa 31 GPIO_ACTIVE_LOW>;
+			backlight = <&backlight>;
+
+			port {
+				panel_in: endpoint {
+					remote-endpoint = <&lcd_out>;
+				};
+			};
+		};
+	};
+
+	/* Three buttons share ADC channel 0, each pulling it to its own level. */
+	keys-adc {
+		compatible = "adc-keys";
+		io-channels = <&adc 0>;
+		io-channel-names = "buttons";
+		keyup-threshold-microvolt = <3300000>;
+		poll-interval = <50>;
+
+		button-play-pause {
+			label = "Play/Pause";
+			linux,code = <KEY_PLAYPAUSE>;
+			press-threshold-microvolt = <0>;
+		};
+
+		button-volume-down {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			press-threshold-microvolt = <1000000>;
+		};
+
+		button-volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			press-threshold-microvolt = <1650000>;
+		};
+	};
+
+	keys-gpio {
+		compatible = "gpio-keys";
+
+		key-power {
+			label = "Power";
+			gpios = <&gpc 31 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_POWER>;
+			wakeup-source;
+		};
+
+		key-next {
+			label = "Next";
+			gpios = <&gpc 28 GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_NEXTSONG>;
+		};
+	};
+
+	/*
+	 * The charge settings of the stock firmware: 700 mA, 4.4 V, 100 mA
+	 * termination and precharge.
+	 */
+	battery: battery {
+		compatible = "simple-battery";
+		constant-charge-current-max-microamp = <700000>;
+		constant-charge-voltage-max-microvolt = <4400000>;
+		charge-term-current-microamp = <100000>;
+		precharge-current-microamp = <100000>;
+	};
+
+	/* PB2 powers the DAC; which of its rails it switches isn't known. */
+	vdac: regulator-dac {
+		compatible = "regulator-fixed";
+		regulator-name = "dac";
+		gpio = <&gpb 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <10000>;
+	};
+
+	/*
+	 * PC25 switches the SD card slot's power. It has a pull-down: after a
+	 * reset the card is off until something drives it high, which the
+	 * stock kernel did.
+	 */
+	vmmc: regulator-sd {
+		compatible = "regulator-fixed";
+		regulator-name = "sd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpc 25 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <1000>;
+	};
+
+	/*
+	 * WL_REG_ON (PB3), which powers the Wi-Fi half of the AP6212. Its 32 kHz
+	 * sleep clock is Bluetooth's (PC26).
+	 */
+	wlan_pwrseq: pwrseq-wlan {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpb 3 GPIO_ACTIVE_LOW>;
+		post-power-on-delay-ms = <200>;
+	};
+
+	/* The DAC's bus is bit-banged, as on the stock firmware. */
+	i2c-dac {
+		compatible = "i2c-gpio";
+		scl-gpios = <&gpb 30 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpb 31 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,delay-us = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dac: audio-codec@30 {
+			compatible = "cirrus,cs43131";
+			reg = <0x30>;
+			#sound-dai-cells = <0>;
+
+			/*
+			 * Active low, but the driver drives 1 to take the DAC
+			 * out of reset, so it's described as active high.
+			 */
+			reset-gpios = <&gpb 21 GPIO_ACTIVE_HIGH>;
+
+			VA-supply = <&vdac>;
+			VP-supply = <&vdac>;
+			VCP-supply = <&vdac>;
+			VD-supply = <&vdac>;
+			VL-supply = <&vdac>;
+		};
+	};
+
+	sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HiBy R1";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&cpu_dai>;
+		simple-audio-card,frame-master = <&cpu_dai>;
+		/* 22.5792 MHz at 44.1 kHz, 24.576 MHz at 48 kHz, as stock. */
+		simple-audio-card,mclk-fs = <512>;
+
+		cpu_dai: simple-audio-card,cpu {
+			sound-dai = <&aic>;
+			/* The card sets the I2S clock to the MCLK rate. */
+			clocks = <&cgu X1600_CLK_I2S0_TX>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&dac>;
+			/*
+			 * The X1600 sends 64 bit clocks per frame. Said here
+			 * because the DAC driver otherwise derives the slot
+			 * width from MCLK.
+			 */
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <32>;
+		};
+	};
+};
+
+/*
+ * The USB-C port's TCS1421 takes its role from two pins, CFG0 (PA9) and
+ * CFG1 (PB24): both low is sink, both high (as the stock firmware leaves
+ * them) dual-role, which can attach as a source and leaves the host
+ * without VBUS. The USB controller is peripheral only: sink.
+ */
+&gpa {
+	usb-c-cfg0-hog {
+		gpio-hog;
+		gpios = <9 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "usb-c-cfg0";
+	};
+};
+
+&gpb {
+	usb-c-cfg1-hog {
+		gpio-hog;
+		gpios = <24 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "usb-c-cfg1";
+	};
+};
+
+&i2c0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c0>;
+
+	clock-frequency = <400000>;
+
+	pmic: pmic@34 {
+		compatible = "x-powers,axp2101";
+		reg = <0x34>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_pmic_irq>;
+
+		interrupt-parent = <&gpb>;
+		interrupts = <23 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		usb_power: usb-power {
+			compatible = "x-powers,axp2101-usb-power-supply";
+		};
+
+		/* Programs the charger from the battery's settings. */
+		battery-power {
+			compatible = "x-powers,axp2101-battery-power-supply";
+			monitored-battery = <&battery>;
+		};
+
+		/*
+		 * The rails that are on under the stock firmware, at its
+		 * voltages, and always on: a described rail no driver claims
+		 * is switched off at boot. The others aren't described, so
+		 * they are left alone.
+		 */
+		regulators {
+			dcdc1 {
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			dcdc2 {
+				regulator-min-microvolt = <1100000>;
+				regulator-max-microvolt = <1100000>;
+				regulator-always-on;
+			};
+
+			dcdc3 {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				regulator-always-on;
+			};
+
+			dcdc4 {
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+				regulator-always-on;
+			};
+
+			/* Always on: the touch driver takes no supply. */
+			aldo2 {
+				regulator-name = "vcc-touch";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			/* On under the stock firmware; its consumer isn't known. */
+			aldo3 {
+				regulator-min-microvolt = <1100000>;
+				regulator-max-microvolt = <1100000>;
+				regulator-always-on;
+			};
+
+			aldo4 {
+				regulator-name = "vcc-headset-remote";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-always-on;
+			};
+
+			vcc_lcd: bldo1 {
+				regulator-name = "vcc-lcd";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+
+			vccio_lcd: bldo2 {
+				regulator-name = "vccio-lcd";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+		};
+	};
+
+	battery-gauge@62 {
+		compatible = "cellwise,cw2015";
+		reg = <0x62>;
+		/* Charging while USB power is present. */
+		power-supplies = <&usb_power>;
+		/* The stock firmware's profile for the R1's battery. */
+		cellwise,battery-profile = /bits/ 8 <
+			0x18 0x0A 0x65 0x65 0x69 0x6A 0x6A 0x68
+			0x66 0x61 0x5F 0x59 0x53 0x4F 0x4A 0x46
+			0x42 0x3B 0x33 0x29 0x24 0x33 0x45 0x4B
+			0x27 0x21 0x0C 0xCD 0x20 0x40 0x43 0x4A
+			0x4F 0x4D 0x4E 0x4E 0x3C 0x1A 0x65 0x30
+			0x09 0x43 0x11 0x38 0x70 0x9A 0xB5 0x1E
+			0x44 0x77 0x97 0x9B 0x80 0xCD 0xFF 0xCB
+			0x2F 0x00 0x64 0xA5 0xB5 0x08 0x40 0x99
+		>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2c1>;
+
+	clock-frequency = <400000>;
+
+	touchscreen@15 {
+		compatible = "hynitron,cst816s";
+		reg = <0x15>;
+
+		interrupt-parent = <&gpa>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+
+		reset-gpios = <&gpa 17 GPIO_ACTIVE_LOW>;
+	};
+};
+
+/*
+ * The AP6212 module's Bluetooth (a BCM43430A1) on UART0, PB7-PB10 with
+ * RTS/CTS. BT_REG_ON is PB4 and the host's wake line to it PB5, from the
+ * stock kernel's GPIO labels. Its 32 kHz clock comes out on PC26, which the
+ * stock kernel sets up and nothing here touches yet. The stock firmware runs
+ * the link at 3 Mbaud with the UART at 8 clocks a bit (UMR); 8250_ingenic
+ * keeps 16, so 24 MHz / 16 is the limit here.
+ */
+&uart0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_uart0>;
+	uart-has-rtscts;
+
+	bluetooth {
+		compatible = "brcm,bcm43430a1-bt";
+		/* Its 32 kHz sleep clock, which the chip needs to run. */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pins_rtc32k>;
+		shutdown-gpios = <&gpb 4 GPIO_ACTIVE_HIGH>;
+		device-wakeup-gpios = <&gpb 5 GPIO_ACTIVE_HIGH>;
+		max-speed = <1500000>;
+	};
+};
+
+&aic {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_i2s>;
+};
+
+/*
+ * The AP6212's Wi-Fi (a BCM43430A1) over SDIO, on the stock tree's MSC0
+ * pins (PB12-PB17, function 0). No line from the chip's host-wake output is
+ * known: its interrupts come in band, over DAT1.
+ */
+&mmc0 {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc0>;
+
+	bus-width = <4>;
+	max-frequency = <50000000>;
+	cap-sd-highspeed;
+	cap-sdio-irq;
+	non-removable;
+	keep-power-in-suspend;
+	mmc-pwrseq = <&wlan_pwrseq>;
+
+	wifi@1 {
+		compatible = "brcm,bcm4329-fmac";
+		reg = <1>;
+	};
+};
+
+/* The SD card slot. */
+&mmc1 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_msc1>;
+
+	vmmc-supply = <&vmmc>;
+	bus-width = <4>;
+	max-frequency = <50000000>;
+	cap-sd-highspeed;
+	/* The card-detect GPIO isn't known yet: poll. */
+	broken-cd;
+};
+
+/*
+ * The parents the stock kernel gave these clocks; after a reset they run
+ * from SCLK_A (1104 MHz), and the backlight flickers. Set here rather than
+ * in the consumers, since the CGU can't switch these muxes while a clock
+ * is on, and simple-framebuffer holds the LCD's from early on. The rate
+ * makes the CGU write PWM's divider with its change enable.
+ */
+&cgu {
+	assigned-clocks = <&cgu X1600_CLK_LCDPIXCLK>, <&cgu X1600_CLK_MSC1>,
+			  <&cgu X1600_CLK_PWM>;
+	assigned-clock-parents = <&cgu X1600_CLK_MPLL>, <&cgu X1600_CLK_MPLL>,
+				 <&cgu X1600_CLK_EPLL>;
+	assigned-clock-rates = <0>, <0>, <300000000>;
+};
+
+/*
+ * The 128 MiB SPI-NAND (stock's partitions). No pinctrl: the boot loader
+ * already set PC17-PC22 up to load the kernel, and pinctrl's "sfc" group
+ * would also take PB4, the Bluetooth chip's power. 37.5 MHz and quad
+ * reads, as Rockbox drives this chip (an SFC clock of 150 MHz).
+ */
+&sfc {
+	status = "okay";
+
+	flash@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <37500000>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <1>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/*
+			 * Only the flash kernel's slot and the root filesystem's
+			 * can be written: the boot loader, HiBy's recovery, the
+			 * OTA flags, the stock user data and HiBy's own data
+			 * stay read-only.
+			 */
+			partition@0 {
+				label = "uboot";
+				reg = <0x0 0x80000>;
+				read-only;
+			};
+
+			partition@80000 {
+				label = "kernel";
+				reg = <0x80000 0x500000>;
+			};
+
+			partition@580000 {
+				label = "rootfs";
+				reg = <0x580000 0x2d00000>;
+			};
+
+			/* HiBy's recovery system. */
+			partition@3280000 {
+				label = "kernel2";
+				reg = <0x3280000 0x500000>;
+				read-only;
+			};
+
+			partition@3780000 {
+				label = "rootfs2";
+				reg = <0x3780000 0x1800000>;
+				read-only;
+			};
+
+			partition@4f80000 {
+				label = "ota";
+				reg = <0x4f80000 0x80000>;
+				read-only;
+			};
+
+			partition@5000000 {
+				label = "userdata";
+				reg = <0x5000000 0x2d00000>;
+				read-only;
+			};
+
+			/*
+			 * HiBy's MAC, serial number and licence data, which the
+			 * vendor kernel hides from its MTD device.
+			 */
+			partition@7d00000 {
+				label = "hiby";
+				reg = <0x7d00000 0x300000>;
+				read-only;
+			};
+		};
+	};
+};
+
+&otg_phy {
+	status = "okay";
+};
+
+&otg {
+	status = "okay";
+
+	/*
+	 * Peripheral only: host mode would need the USB-C controller as a
+	 * source and VBUS switched on through PC24.
+	 */
+	dr_mode = "peripheral";
+};
+
+&dpu {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_lcd>;
+
+	status = "okay";
+
+	port {
+		lcd_out: endpoint {
+			remote-endpoint = <&panel_in>;
+		};
+	};
+};
+
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_pwm0>;
+
+	status = "okay";
+};
+
+&pinctrl {
+	pins_i2c0: i2c0 {
+		function = "i2c0";
+		groups = "i2c0-data-a";
+		bias-disable;
+	};
+
+	pins_i2c1: i2c1 {
+		function = "i2c1";
+		groups = "i2c1-data-b-19";
+		bias-disable;
+	};
+
+	/* Transmit only. PB22, the receive MCLK, is an interrupt input here. */
+	pins_i2s: i2s {
+		function = "i2s";
+		groups = "i2s-data-tx", "i2s-clk-tx", "i2s-sysclk-tx";
+		bias-disable;
+	};
+
+	/*
+	 * The PMIC's interrupt output is open drain with no pull-up on the
+	 * board: without this PB23 reads low and the interrupt never stops.
+	 */
+	pins_pmic_irq: pmic-irq {
+		pins = "PB23";
+		bias-pull-up;
+	};
+
+	pins_lcd: lcd {
+		function = "lcd";
+		groups = "lcd-18bit-msb";
+	};
+
+	pins_pwm0: pwm0 {
+		function = "pwm0";
+		groups = "pwm0";
+	};
+
+	pins_uart0: uart0 {
+		function = "uart0";
+		groups = "uart0-data", "uart0-hwflow";
+		bias-disable;
+	};
+
+	pins_msc0: msc0 {
+		function = "mmc0";
+		groups = "mmc0-1bit-b", "mmc0-4bit-b";
+		bias-pull-up;
+	};
+
+	pins_msc1: msc1 {
+		function = "mmc1";
+		groups = "mmc1-1bit", "mmc1-4bit";
+		bias-disable;
+	};
+
+	pins_rtc32k: rtc32k {
+		function = "rtc32k";
+		groups = "rtc32k";
+	};
+};
+
+/*
+ * Not yet: on the X1600 the watchdog ignores pings through TCNT, and its
+ * clock (the TCU's RTC input, EXCLK / 512) isn't described here yet. As
+ * it is, the jz4780 driver lets it reset the R1 a few seconds after
+ * userspace starts it. (hiby-r1-linux patches 0035 and 0039.)
+ */
+&watchdog {
+	status = "disabled";
+};
