@@ -6,6 +6,7 @@
  * Copyright (c) 2025 Stefan Kerkmann <s.kerkmann@pengutronix.de>
  */
 
+#include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
@@ -13,10 +14,35 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
+struct pcm1754_variant {
+	const char *dai_name;
+	unsigned int rate_min;
+	unsigned int rate_max;
+	u64 selectable_formats;
+};
+
 struct pcm1754_priv {
 	unsigned int format;
 	struct gpio_desc *gpiod_mute;
 	struct gpio_desc *gpiod_format;
+	struct gpio_desc *gpiod_enable;
+	const struct pcm1754_variant *variant;
+};
+
+static const struct pcm1754_variant pcm1754_variant = {
+	.dai_name = "pcm1754",
+	.rate_min = 5000,
+	.rate_max = 200000,
+	.selectable_formats = SND_SOC_POSSIBLE_DAIFMT_I2S |
+			      SND_SOC_POSSIBLE_DAIFMT_RIGHT_J,
+};
+
+static const struct pcm1754_variant pcm1773_variant = {
+	.dai_name = "pcm1773",
+	.rate_min = 8000,
+	.rate_max = 48000,
+	.selectable_formats = SND_SOC_POSSIBLE_DAIFMT_I2S |
+			      SND_SOC_POSSIBLE_DAIFMT_LEFT_J,
 };
 
 static int pcm1754_set_dai_fmt(struct snd_soc_dai *codec_dai,
@@ -40,31 +66,29 @@ static int pcm1754_hw_params(struct snd_pcm_substream *substream,
 
 	switch (priv->format & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_RIGHT_J:
-		switch (params_width(params)) {
-		case 16:
-			format = 1;
-			break;
-		default:
+		if (priv->variant != &pcm1754_variant ||
+		    params_width(params) != 16)
 			return -EINVAL;
-		}
+		format = 1;
+		break;
+	case SND_SOC_DAIFMT_LEFT_J:
+		if (priv->variant != &pcm1773_variant ||
+		    (params_width(params) != 16 && params_width(params) != 24))
+			return -EINVAL;
+		format = 0;
 		break;
 	case SND_SOC_DAIFMT_I2S:
-		switch (params_width(params)) {
-		case 16:
-			fallthrough;
-		case 24:
-			format = 0;
-			break;
-		default:
+		if (params_width(params) != 16 && params_width(params) != 24)
 			return -EINVAL;
-		}
+		format = priv->variant == &pcm1773_variant ? 1 : 0;
 		break;
 	default:
 		dev_err(component->dev, "Invalid DAI format\n");
 		return -EINVAL;
 	}
 
-	gpiod_set_value_cansleep(priv->gpiod_format, format);
+	if (priv->gpiod_format)
+		gpiod_set_value_cansleep(priv->gpiod_format, format);
 
 	return 0;
 }
@@ -73,22 +97,40 @@ static int pcm1754_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
 {
 	struct pcm1754_priv *priv = snd_soc_component_get_drvdata(dai->component);
 
-	gpiod_set_value_cansleep(priv->gpiod_mute, mute);
+	if (priv->gpiod_mute)
+		gpiod_set_value_cansleep(priv->gpiod_mute, mute);
 
 	return 0;
 }
-
-static const u64 pcm1754_selectable_formats =
-	SND_SOC_POSSIBLE_DAIFMT_I2S	|
-	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J;
 
 static const struct snd_soc_dai_ops pcm1754_dai_ops = {
 	.set_fmt = pcm1754_set_dai_fmt,
 	.hw_params = pcm1754_hw_params,
 	.mute_stream = pcm1754_mute_stream,
-	.auto_selectable_formats = &pcm1754_selectable_formats,
-	.num_auto_selectable_formats = 1,
 };
+
+static int pcm1754_enable_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct pcm1754_priv *priv = snd_soc_component_get_drvdata(component);
+
+	if (!priv->gpiod_enable)
+		return 0;
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		usleep_range(1000, 2000);
+		gpiod_set_value_cansleep(priv->gpiod_enable, 1);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		gpiod_set_value_cansleep(priv->gpiod_enable, 0);
+		usleep_range(1000, 2000);
+		break;
+	}
+
+	return 0;
+}
 
 static const struct snd_soc_dai_driver pcm1754_dai = {
 	.name = "pcm1754",
@@ -106,6 +148,9 @@ static const struct snd_soc_dai_driver pcm1754_dai = {
 
 static const struct snd_soc_dapm_widget pcm1754_dapm_widgets[] = {
 	SND_SOC_DAPM_REGULATOR_SUPPLY("VCC", 0, 0),
+	SND_SOC_DAPM_SUPPLY("Enable", SND_SOC_NOPM, 0, 0,
+			    pcm1754_enable_event,
+			    SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_DAC("DAC1", "Channel 1 Playback", SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_DAC("DAC2", "Channel 2 Playback", SND_SOC_NOPM, 0, 0),
@@ -118,8 +163,9 @@ static const struct snd_soc_dapm_route pcm1754_dapm_routes[] = {
 	{ "DAC1", NULL, "Playback" },
 	{ "DAC2", NULL, "Playback" },
 
-	{ "DAC1", NULL, "VCC" },
-	{ "DAC2", NULL, "VCC" },
+	{ "DAC1", NULL, "Enable" },
+	{ "DAC2", NULL, "Enable" },
+	{ "Enable", NULL, "VCC" },
 
 	{ "VOUTL", NULL, "DAC1" },
 	{ "VOUTR", NULL, "DAC2" },
@@ -137,7 +183,13 @@ static int pcm1754_probe(struct platform_device *pdev)
 	struct pcm1754_priv *priv;
 	struct device *dev = &pdev->dev;
 	struct snd_soc_dai_driver *dai_drv;
+	struct snd_soc_dai_ops *dai_ops;
+	const struct pcm1754_variant *variant;
 	int ret;
+
+	variant = device_get_match_data(dev);
+	if (!variant)
+		return -ENODEV;
 
 	dai_drv = devm_kmemdup(dev, &pcm1754_dai, sizeof(*dai_drv), GFP_KERNEL);
 	if (!dai_drv)
@@ -146,6 +198,8 @@ static int pcm1754_probe(struct platform_device *pdev)
 	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
+
+	priv->variant = variant;
 
 	priv->gpiod_mute = devm_gpiod_get_optional(dev, "mute", GPIOD_OUT_HIGH);
 	if (IS_ERR(priv->gpiod_mute))
@@ -156,6 +210,23 @@ static int pcm1754_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->gpiod_format))
 		return dev_err_probe(dev, PTR_ERR(priv->gpiod_format),
 					 "failed to get format gpio");
+
+	priv->gpiod_enable = devm_gpiod_get_optional(dev, "enable", GPIOD_OUT_LOW);
+	if (IS_ERR(priv->gpiod_enable))
+		return dev_err_probe(dev, PTR_ERR(priv->gpiod_enable),
+				     "failed to get enable gpio");
+
+	dai_ops = devm_kmemdup(dev, &pcm1754_dai_ops,
+			       sizeof(*dai_ops), GFP_KERNEL);
+	if (!dai_ops)
+		return -ENOMEM;
+
+	dai_ops->auto_selectable_formats = &variant->selectable_formats;
+	dai_ops->num_auto_selectable_formats = 1;
+	dai_drv->ops = dai_ops;
+	dai_drv->name = variant->dai_name;
+	dai_drv->playback.rate_min = variant->rate_min;
+	dai_drv->playback.rate_max = variant->rate_max;
 
 	dev_set_drvdata(dev, priv);
 
@@ -169,7 +240,8 @@ static int pcm1754_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id pcm1754_of_match[] = {
-	{ .compatible = "ti,pcm1754" },
+	{ .compatible = "ti,pcm1754", .data = &pcm1754_variant },
+	{ .compatible = "ti,pcm1773", .data = &pcm1773_variant },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pcm1754_of_match);
