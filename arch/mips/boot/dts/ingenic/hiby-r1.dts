@@ -472,8 +472,7 @@
 
 /*
  * The AP6212's Wi-Fi (a BCM43430A1) over SDIO, on the stock tree's MSC0
- * pins (PB12-PB17, function 0). No line from the chip's host-wake output is
- * known: its interrupts come in band, over DAT1.
+ * pins (PB12-PB17, function 0), with its host-wake output on PA8.
  */
 &mmc0 {
 	status = "okay";
@@ -495,6 +494,16 @@
 	wifi@1 {
 		compatible = "brcm,bcm4329-fmac";
 		reg = <1>;
+
+		/*
+		 * Host wake on PA8, level high, as the stock driver had it
+		 * (WL_HOST_WAKE=8, oob_irq_flags 0x414). Without it the chip's
+		 * in-band interrupt never arrives: frames are read only while the
+		 * R1 sends, so nothing reaches it unasked.
+		 */
+		interrupt-parent = <&gpa>;
+		interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "host-wake";
 	};
 };
 
