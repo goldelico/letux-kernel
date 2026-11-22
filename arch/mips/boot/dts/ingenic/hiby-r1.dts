@@ -687,12 +687,3 @@
 	};
 };
 
-/*
- * Not yet: on the X1600 the watchdog ignores pings through TCNT, and its
- * clock (the TCU's RTC input, EXCLK / 512) isn't described here yet. As
- * it is, the jz4780 driver lets it reset the R1 a few seconds after
- * userspace starts it. (hiby-r1-linux patches 0035 and 0039.)
- */
-&watchdog {
-	status = "disabled";
-};

@@ -164,7 +164,8 @@
 				compatible = "ingenic,x1600-watchdog", "ingenic,jz4780-watchdog";
 				reg = <0 0x10>;
 
-				clocks = <&cgu X1600_CLK_RTCLK>;
+				/* through the TCU, which sets TCSR's source and prescaler */
+				clocks = <&tcu TCU_CLK_WDT>;
 				clock-names = "wdt";
 
 			// data sheet mentions a "half interrupt"
