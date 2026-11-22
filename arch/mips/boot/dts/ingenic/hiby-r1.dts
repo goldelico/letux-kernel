@@ -20,6 +20,25 @@
 		mmc1 = &mmc0;
 	};
 
+	/*
+	 * CPM SLPC (0x100000cc): the boot ROM enters its USB boot mode (a108:eaef)
+	 * after a reset when this holds "BWS\2". So "reboot loader" (and adb's
+	 * "reboot bootloader") lands in the ROM's USB mode, from which
+	 * r1-usbboot.py loads U-Boot. A syscon of its own because the CGU node
+	 * isn't one; the register is a word the CGU driver never touches.
+	 */
+	slpc: syscon@100000cc {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x100000cc 0x4>;
+
+		reboot-mode {
+			compatible = "syscon-reboot-mode";
+			offset = <0x0>;
+			mode-loader = <0x42575302>;
+			mode-bootloader = <0x42575302>;
+		};
+	};
+
 	chosen {
 		/* clk_ignore_unused: no clock driver may gate what the display uses. */
 		bootargs = "console=tty0 loglevel=8 clk_ignore_unused";
