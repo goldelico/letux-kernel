@@ -618,7 +618,6 @@
 			interrupts = <IRQ_LCD>;
 
 			clocks = <&cgu X1600_CLK_LCDPIXCLK>;
-			clock-names = "lcd";
 
 			status = "disabled";
 		};
