@@ -41,11 +41,15 @@ MODULE_PARM_DESC(heartbeat,
 		__stringify(MAX_HEARTBEAT) ", default "
 		__stringify(DEFAULT_HEARTBEAT));
 
+/* X1600: setting this zeroes the counter, which ignores writes to TCNT */
+#define TCU_WDT_TCSR_CLRZ	BIT(10)
+
 struct jz_wdt_soc_info {
 	const struct watchdog_ops *ops;
 	unsigned int counter;
 	unsigned int enable;
 	unsigned int enable_start;
+	bool clear_in_tcsr;
 };
 
 struct jz4740_wdt_drvdata {
@@ -56,11 +60,17 @@ struct jz4740_wdt_drvdata {
 	const struct jz_wdt_soc_info *soc_info;
 };
 
+static void jz4740_wdt_clear(struct jz4740_wdt_drvdata *drvdata)
+{
+	if (drvdata->soc_info->clear_in_tcsr)
+		regmap_set_bits(drvdata->map, TCU_REG_WDT_TCSR, TCU_WDT_TCSR_CLRZ);
+	else
+		regmap_write(drvdata->map, drvdata->soc_info->counter, 0);
+}
+
 static int jz4740_wdt_ping(struct watchdog_device *wdt_dev)
 {
-	struct jz4740_wdt_drvdata *drvdata = watchdog_get_drvdata(wdt_dev);
-
-	regmap_write(drvdata->map, drvdata->soc_info->counter, 0);
+	jz4740_wdt_clear(watchdog_get_drvdata(wdt_dev));
 
 	return 0;
 }
@@ -103,7 +113,7 @@ static int jz4740_wdt_set_timeout(struct watchdog_device *wdt_dev,
 	regmap_write(drvdata->map, soc_info->enable, 0);
 
 	regmap_write(drvdata->map, TCU_REG_WDT_TDR, timeout_value);
-	regmap_write(drvdata->map, soc_info->counter, 0);
+	jz4740_wdt_clear(drvdata);
 
 	if (tcer & soc_info->enable_start)
 		regmap_write(drvdata->map, soc_info->enable, soc_info->enable_start);
@@ -192,11 +202,20 @@ static const struct jz_wdt_soc_info jz4740_wdt_soc_info = {
 	.enable_start = TCU_WDT_TCER_TCEN,
 };
 
+static const struct jz_wdt_soc_info x1600_wdt_soc_info = {
+	.ops = &jz4740_wdt_ops,
+	.counter = TCU_REG_WDT_TCNT,
+	.enable = TCU_REG_WDT_TCER,
+	.enable_start = TCU_WDT_TCER_TCEN,
+	.clear_in_tcsr = true,
+};
+
 #ifdef CONFIG_OF
 static const struct of_device_id jz4740_wdt_of_matches[] = {
 	{ .compatible = "ingenic,jz4730-watchdog", .data = &jz4730_wdt_soc_info },
 	{ .compatible = "ingenic,jz4740-watchdog", .data = &jz4740_wdt_soc_info },
 	{ .compatible = "ingenic,jz4780-watchdog", .data = &jz4740_wdt_soc_info },
+	{ .compatible = "ingenic,x1600-watchdog", .data = &x1600_wdt_soc_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, jz4740_wdt_of_matches);
