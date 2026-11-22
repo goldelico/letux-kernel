@@ -96,7 +96,7 @@
 
 	backlight: backlight {
 		compatible = "pwm-backlight";
-		pwms = <&pwm 0 33333 0>;
+		pwms = <&pwm 0 33333>;	/* x1600.dtsi: #pwm-cells = <2> */
 
 		brightness-levels = <0 100>;
 		num-interpolated-steps = <100>;
