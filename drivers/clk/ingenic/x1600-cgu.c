@@ -357,7 +357,7 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 	},
 
 	[X1600_CLK_RTC] = {
-		"rtc_ercs", CGU_CLK_MUX | CGU_CLK_GATE,
+		"rtc", CGU_CLK_MUX | CGU_CLK_GATE,
 		.parents = { X1600_CLK_EXCLK_DIV512, X1600_CLK_RTCLK },
 		.mux = { CGU_REG_OPCR, 2, 1},
 		.gate = { CGU_REG_CLKGR0, 27 },

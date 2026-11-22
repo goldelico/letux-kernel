@@ -98,7 +98,7 @@
 
 	rtc: rtc {
 		compatible = "fixed-clock";
-		clock-output-names = "rtc";
+		clock-output-names = "rtc_osc";
 		#clock-cells = <0>;
 		clock-frequency = <32768>;
 	};
