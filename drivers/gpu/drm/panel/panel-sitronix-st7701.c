@@ -475,6 +475,57 @@ static void rg_arc_gip_sequence(struct st7701 *st7701)
 	msleep(120);
 }
 
+static void hiby_r1_gip_sequence(struct st7701 *st7701)
+{
+	st7701_switch_cmd_bkx(st7701, true, 3);
+	ST7701_WRITE(st7701, 0xEF, 0x08);
+
+	/*
+	 * The porches, inversion and VGH as HiBy's firmware sets them, where
+	 * they differ from what st7701_init_sequence() derives.
+	 */
+	st7701_switch_cmd_bkx(st7701, true, 0);
+	ST7701_WRITE(st7701, ST7701_CMD2_BK0_PORCTRL, 0x09, 0x0C);
+	ST7701_WRITE(st7701, ST7701_CMD2_BK0_INVSEL, 0x07, 0x08);
+	ST7701_WRITE(st7701, 0xCC, 0x30);
+
+	st7701_switch_cmd_bkx(st7701, true, 1);
+	ST7701_WRITE(st7701, ST7701_CMD2_BK1_VGHSS, 0x87);
+	ST7701_WRITE(st7701, 0xC0, 0x03);
+	ST7701_WRITE(st7701, 0xE0, 0x00, 0x00, 0x02);
+	ST7701_WRITE(st7701, 0xE1, 0x01, 0xA0, 0x03, 0xA0, 0x02, 0xA0, 0x04, 0xA0,
+		   0x00, 0x44, 0x44);
+	ST7701_WRITE(st7701, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		   0x00, 0x00, 0x00, 0x00);
+	ST7701_WRITE(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
+	ST7701_WRITE(st7701, 0xE4, 0x44, 0x44);
+	ST7701_WRITE(st7701, 0xE5, 0x01, 0x26, 0xA0, 0xA0, 0x03, 0x28, 0xA0, 0xA0,
+		   0x05, 0x2A, 0xA0, 0xA0, 0x07, 0x2C, 0xA0, 0xA0);
+	ST7701_WRITE(st7701, 0xE6, 0x00, 0x00, 0x33, 0x33);
+	ST7701_WRITE(st7701, 0xE7, 0x44, 0x44);
+	ST7701_WRITE(st7701, 0xE8, 0x02, 0x26, 0xA0, 0xA0, 0x04, 0x28, 0xA0, 0xA0,
+		   0x06, 0x2A, 0xA0, 0xA0, 0x08, 0x2C, 0xA0, 0xA0);
+	ST7701_WRITE(st7701, 0xEB, 0x00, 0x00, 0xE4, 0xE4, 0x44, 0x00, 0x40);
+	ST7701_WRITE(st7701, 0xED, 0xFF, 0xF7, 0x65, 0x4F, 0x0B, 0xA1, 0xCF, 0xFF,
+		   0xFF, 0xFC, 0x1A, 0xB0, 0xF4, 0x56, 0x7F, 0xFF);
+	ST7701_WRITE(st7701, 0xEF, 0x08, 0x08, 0x08, 0x45, 0x3F, 0x54);
+
+	st7701_switch_cmd_bkx(st7701, true, 3);
+	ST7701_WRITE(st7701, 0xE8, 0x00, 0x0E);
+
+	st7701_switch_cmd_bkx(st7701, false, 0);
+	ST7701_WRITE(st7701, MIPI_DCS_SET_PIXEL_FORMAT, 0x66);
+	ST7701_WRITE(st7701, MIPI_DCS_SET_ADDRESS_MODE, 0x08);
+	ST7701_WRITE(st7701, MIPI_DCS_EXIT_SLEEP_MODE);
+	msleep(120);
+
+	st7701_switch_cmd_bkx(st7701, true, 3);
+	ST7701_WRITE(st7701, 0xE8, 0x00, 0x0C);
+	msleep(20);
+	ST7701_WRITE(st7701, 0xE8, 0x00, 0x00);
+	ST7701_WRITE(st7701, 0xE6, 0x16, 0x7C);
+}
+
 static void rg28xx_gip_sequence(struct st7701 *st7701)
 {
 	st7701_switch_cmd_bkx(st7701, true, 3);
@@ -1067,6 +1118,50 @@ static const struct st7701_panel_desc rg_arc_desc = {
 	.gip_sequence = rg_arc_gip_sequence,
 };
 
+static const struct drm_display_mode hiby_r1_mode = {
+	.clock		= 28000,
+
+	.hdisplay	= 480,
+	.hsync_start	= 480 + 24,
+	.hsync_end	= 480 + 24 + 24,
+	.htotal		= 480 + 24 + 24 + 24,
+
+	.vdisplay	= 800,
+	.vsync_start	= 800 + 14,
+	.vsync_end	= 800 + 14 + 5,
+	.vtotal		= 800 + 14 + 5 + 8,
+
+	.flags		= DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC,
+
+	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
+};
+
+/* One of the HiBy R1's two panels, as HiBy's firmware sets it up. */
+static const struct st7701_panel_desc hiby_r1_desc = {
+	.mode = &hiby_r1_mode,
+	.bus_format = MEDIA_BUS_FMT_BGR666_1X18,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_DRIVE_POSEDGE,
+
+	.pv_gamma = { 0x00, 0x0D, 0x14, 0x0D, 0x11, 0x07, 0x04, 0x08,
+		      0x08, 0x20, 0x05, 0x14, 0x12, 0x25, 0x2D, 0x1C },
+	.nv_gamma = { 0x00, 0x0C, 0x14, 0x0D, 0x11, 0x06, 0x03, 0x08,
+		      0x08, 0x1F, 0x05, 0x14, 0x12, 0x25, 0x2E, 0x1C },
+	.nlinv = 7,
+	.vop_uv = 4637500,
+	.vcom_uv = 1025000,
+	.vgh_mv = 15000,
+	.vgl_mv = -11310,
+	.avdd_mv = 6600,
+	.avcl_mv = -4600,
+	.gamma_op_bias = OP_BIAS_MIDDLE,
+	.input_op_bias = OP_BIAS_MIDDLE,
+	.output_op_bias = OP_BIAS_MIDDLE,
+	.t2d_ns = 1600,
+	.t3d_ns = 10400,
+	.eot_en = true,
+	.gip_sequence = hiby_r1_gip_sequence,
+};
+
 static const struct drm_display_mode rg28xx_mode = {
 	.clock		= 22325,
 
@@ -1405,12 +1500,14 @@ MODULE_DEVICE_TABLE(of, st7701_dsi_of_match);
 
 static const struct of_device_id st7701_spi_of_match[] = {
 	{ .compatible = "anbernic,rg28xx-panel", .data = &rg28xx_desc },
+	{ .compatible = "hiby,r1-panel-st7701s", .data = &hiby_r1_desc },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, st7701_spi_of_match);
 
 static const struct spi_device_id st7701_spi_ids[] = {
 	{ "rg28xx-panel" },
+	{ "r1-panel-st7701s" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, st7701_spi_ids);
