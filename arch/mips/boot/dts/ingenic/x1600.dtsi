@@ -512,13 +512,17 @@
 			// ingenic,rst-ms = <10>;
 		};
 
-		sfc: sfc@13440000 {
+		sfc: spi@13440000 {
 			compatible = "ingenic,x1600-sfc";
 			reg = <0x13440000 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_SFC>;
 			clocks = <&cgu X1600_CLK_SFC>;
-			clock-names = "sfc";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disabled";
 		};
 
 		dma: dma-controller@13420000 {
