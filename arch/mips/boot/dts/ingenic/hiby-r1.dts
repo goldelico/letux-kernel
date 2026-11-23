@@ -588,56 +588,22 @@
 			#size-cells = <1>;
 
 			/*
-			 * Only the flash kernel's slot and the root filesystem's
-			 * can be written: the boot loader, HiBy's recovery, the
-			 * OTA flags, the stock user data and HiBy's own data
-			 * stay read-only.
+			 * Our layout (docs/ab-design.md): the boot loaders, raw;
+			 * one UBI device for the A/B slots, U-Boot's environment
+			 * and /data; and HiBy's last 3 MiB, left alone (its MAC,
+			 * serial number and licence data on R1s that have them).
 			 */
 			partition@0 {
-				label = "uboot";
-				reg = <0x0 0x80000>;
+				label = "boot";
+				reg = <0x0 0x100000>;
 				read-only;
 			};
 
-			partition@80000 {
-				label = "kernel";
-				reg = <0x80000 0x500000>;
+			partition@100000 {
+				label = "ubi";
+				reg = <0x100000 0x7c00000>;
 			};
 
-			partition@580000 {
-				label = "rootfs";
-				reg = <0x580000 0x2d00000>;
-			};
-
-			/* HiBy's recovery system. */
-			partition@3280000 {
-				label = "kernel2";
-				reg = <0x3280000 0x500000>;
-				read-only;
-			};
-
-			partition@3780000 {
-				label = "rootfs2";
-				reg = <0x3780000 0x1800000>;
-				read-only;
-			};
-
-			partition@4f80000 {
-				label = "ota";
-				reg = <0x4f80000 0x80000>;
-				read-only;
-			};
-
-			partition@5000000 {
-				label = "userdata";
-				reg = <0x5000000 0x2d00000>;
-				read-only;
-			};
-
-			/*
-			 * HiBy's MAC, serial number and licence data, which the
-			 * vendor kernel hides from its MTD device.
-			 */
 			partition@7d00000 {
 				label = "hiby";
 				reg = <0x7d00000 0x300000>;
