@@ -47,6 +47,10 @@ properties:
     type: boolean
     description: Enables LEDA and LEDB outputs if set
 
+  ti,use-regen:
+    type: boolean
+    description: Enables the REGEN output as a GPIO if set
+
 additionalProperties: false
 
 examples:

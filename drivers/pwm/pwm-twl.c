@@ -25,6 +25,9 @@
 #define TWL4030_GPBR1_REG	0x0c
 #define TWL4030_PMBR1_REG	0x0d
 
+/* Bit 7 of the PWMx_ON register selects the short (64 cycles) frame */
+#define TWL4030_PWM_ON_FRAME_64	BIT(7)
+
 /* GPBR1 register bits */
 #define TWL4030_PWMXCLK_ENABLE	(1 << 0)
 #define TWL4030_PWMX_ENABLE	(1 << 2)
@@ -49,6 +52,7 @@ struct twl_pwm_chip {
 	struct mutex mutex;
 	u8 twl6030_toggle3;
 	u8 twl4030_pwm_mux;
+	bool twl4030_frame_64;
 };
 
 static inline struct twl_pwm_chip *to_twl(struct pwm_chip *chip)
@@ -56,12 +60,47 @@ static inline struct twl_pwm_chip *to_twl(struct pwm_chip *chip)
 	return pwmchip_get_drvdata(chip);
 }
 
+/*
+ * Note: this hardware (and driver) does not honor arbitrary periods.
+ * Only the duty ratio is implemented; the frame length is either
+ * 128 clock cycles (default) or - if selected through device tree -
+ * 64 clock cycles. Consumers requiring an accurate period must verify
+ * the actually provided period.
+ */
 static int twl_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			  u64 duty_ns, u64 period_ns)
 {
+	struct twl_pwm_chip *twl = to_twl(chip);
 	int duty_cycle = DIV64_U64_ROUND_UP(duty_ns * TWL_PWM_MAX, period_ns) + 1;
+	bool frame_64 = twl_class_is_4030() && twl->twl4030_frame_64;
 	u8 pwm_config[2] = { 1, 0 };
 	int base, ret;
+
+	/* The 64-cycle encoding cannot represent zero duty while enabled. */
+	if (frame_64 && !duty_ns)
+		return -EINVAL;
+
+	if (frame_64)
+		pwm_config[0] |= TWL4030_PWM_ON_FRAME_64;
+
+	/*
+	 * TPS65950 SWCU050G, 8.4.2.2: ON = 0 is prohibited,
+	 * ON = OFF produces a constant high output, and both
+	 * positions must be in the range 0..63 for a 64-cycle frame.
+	 * Keep ON = 1; encode full duty with OFF = 1, otherwise
+	 * use OFF = 2..63 (always leaving a low interval).
+	 * A zero-duty request must be handled by disabling the PWM.
+	 */
+	if (frame_64) {
+		if (duty_ns >= period_ns)
+			duty_cycle = 1;
+		else
+			duty_cycle = min_t(int,
+				DIV64_U64_ROUND_UP(duty_ns * 62, period_ns) + 1,
+				63);
+		if (duty_cycle < 2 && duty_ns < period_ns)
+			duty_cycle = 2;
+	}
 
 	/*
 	 * To configure the duty period:
@@ -352,6 +391,17 @@ static int twl_pwm_probe(struct platform_device *pdev)
 		chip->ops = &twl4030_pwm_ops;
 	else
 		chip->ops = &twl6030_pwm_ops;
+
+	/*
+	 * Optional short PWM frame (64 instead of 128 clock cycles).
+	 * Doubles the output frequency; needed e.g. to drive LED
+	 * dimming inputs which interpret long constant-high phases
+	 * as protocol activity (TI TPS61160/61 one-wire detection).
+	 */
+	twl->twl4030_frame_64 =
+		twl_class_is_4030() &&
+		device_property_read_bool(&pdev->dev,
+					  "ti,twl4030-pwm-frame-64");
 
 	mutex_init(&twl->mutex);
 

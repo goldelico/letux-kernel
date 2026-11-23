@@ -8,8 +8,101 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/regulator/active-semi,8865-regulator.h>
 
+#define CI20_REV	2	// 1 = v1.0, 2 = v1.0
+#define SPI_BITBANG	0	// 1 = debug using bitbang gpio
+/* attached application */
+#define APPLICATION     0       // 0 = none
+
+/* map IO names or pin numbers of the 26 pin RasPi compatible connector to jz4780 GPIOs */
+
+// Mapping of RasPi functions to 40 pin RasPi connector (you can either use pin or signal names)
+#define SDA	PIN3
+#define SCL	PIN5
+#define IO4	PIN7
+#define TXD	PIN8
+#define RXD	PIN10
+#define IO17	PIN11
+#define PCM_CLK	PIN12
+#define IO18	PIN12
+#define IO27	PIN13
+#define IO22	PIN15
+#define IO23	PIN16
+#define IO24	PIN18
+#define MOSI	PIN19
+#define IO10	PIN19
+#define MISO	PIN21
+#define IO9	PIN21
+#define IO25	PIN22
+#define SCLK	PIN23
+#define IO11	PIN23
+#define CE0	PIN24
+#define IO8	PIN24
+#define CE1	PIN26
+#define IO7	PIN26
+#define IDSD	PIN27
+#define IDSC	PIN28
+#define IO5	PIN29
+#define IO6	PIN31
+#define IO12	PIN32
+#define IO13	PIN33
+#define IO19	PIN35
+#define IO16	PIN36
+#define IO26	PIN37
+#define IO20	PIN38
+#define IO21	PIN40
+
+// Mapping of J4 pins to CI20 signals (sheet 7/10)
+#define PIN3	I2C1_SDA
+#define PIN5	I2C1_SCL
+#define PIN7	GPIO1
+#define PIN8	UART0_TXD
+#define PIN10	UART0_RXD
+#define PIN11	GPIO2
+#define PIN12	PWM
+#define PIN13	GPIO3
+#define PIN15	GPIO4
+#define PIN16	GPIO5
+#define PIN18	GPIO6
+#define PIN19	SSI0_DT
+#define PIN21	SSI0_DR
+#define PIN22	GPIO7
+#define PIN23	SSI0_CLK
+#define PIN24	SSI0_CE0
+#define PIN26	SSI0_CE1
+
+// Mapping of CI20 signals to jz480 gpios/pins (sheet 2/10)
+#define GPIO1		&gpd 28
+#define GPIO2		&gpd 26
+#define GPIO5		&gpf 5
+#define GPIO6		&gpf 2
+#define I2C1_SDA	&gpe 30
+#define I2C1_SCL	&gpe 31
+#define PWM		&gpe 5
+#define SSI0_CE0	&gpe 16
+#define SSI0_DT		&gpe 17
+#define SSI0_DR		&gpe 14
+#define SSI0_CLK	&gpe 15
+#define UART0_TXD	&gpf 3
+#define UART0_RXD	&gpf 0
+
+// CHECKME:
+#if CI20_REV == 1
+#define GPIO3		&gpd 27
+#define GPIO4		&gpd 29
+#define GPIO7		&gpe 8
+#define SSI0_CE1	&gpe 18
+#endif
+#if CI20_REV == 2
+#define GPIO3		&gpd 27
+#define GPIO4		&gpd 29
+#define GPIO7		&gpe 8
+#define SSI0_CE1	&gpe 18
+#endif
+
 / {
 	compatible = "img,ci20", "ingenic,jz4780";
+
+	model = "Imagination creator CI20";
 
 	aliases {
 		serial0 = &uart0;
@@ -45,13 +138,13 @@
 		led-0 {
 			label = "ci20:red:led0";
 			gpios = <&gpc 3 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "none";
+			linux,default-trigger = "heartbeat";
 		};
 
 		led-1 {
 			label = "ci20:red:led1";
 			gpios = <&gpc 2 GPIO_ACTIVE_HIGH>;
-			linux,default-trigger = "nand-disk";
+			linux,default-trigger = "mmc0";
 		};
 
 		led-2 {
@@ -65,6 +158,46 @@
 			gpios = <&gpc 0 GPIO_ACTIVE_HIGH>;
 			linux,default-trigger = "cpu0";
 		};
+	};
+
+	sound {
+		compatible = "ingenic,ci20-audio";
+
+		ingenic,i2s-controller = <&i2s0>;
+		ingenic,codec = <&codec>;
+
+		ingenic,hp-det-gpio = <&gpe 7 GPIO_ACTIVE_HIGH>;	/* 135 */
+		ingenic,hp-mute-gpio = <&gpd 13 GPIO_ACTIVE_HIGH>;	/* 109 */
+		ingenic,mic-detect-gpio = <&gpf 14 GPIO_ACTIVE_HIGH>;	/* 174 */
+
+#if SIMPLE_AUDIO_CARD
+		simple-audio-card,name = "CI20";
+		simple-audio-card,format = "i2s";
+
+		simple-audio-card,widgets =
+			"Speaker", "Speaker",
+			"Microphone", "Mic";
+		simple-audio-card,routing =
+			"MIC", "Mic",
+			"Speaker", "OUTL",
+			"Speaker", "OUTR",
+			"INL", "LOUT",
+			"INR", "ROUT";
+
+		simple-audio-card,bitclock-master = <&dai_codec>;
+		simple-audio-card,frame-master = <&dai_codec>;
+
+		simple-audio-card,hp-det-gpio = <&gpe 7 GPIO_ACTIVE_LOW>;
+		/* can't handle mic detect gpio */
+
+		dai_cpu: simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		dai_codec: simple-audio-card,codec {
+			sound-dai = <&codec>;
+		};
+#endif
 	};
 
 	eth0_power: fixedregulator-0 {
@@ -109,6 +242,7 @@
 
 		gpio = <&gpb 19 0>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	otg_power: fixedregulator-2 {
@@ -194,10 +328,13 @@
 	status = "okay";
 
 	bus-width = <4>;
-	max-frequency = <50000000>;
+	max-frequency = <25000000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mmc0>;
+
+	vmmc-supply = <&vcc_33>;
+	vqmmc-supply = <&vcc_33>;	/* VDDIOMSC */
 
 	cd-gpios = <&gpf 20 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&vcc_33v>;
@@ -221,13 +358,20 @@
 	#size-cells = <0>;
 
 	wifi@1 {
-		compatible = "brcm,bcm4329-fmac";
+		compatible = "brcm,bcm4330-fmac";
 		reg = <1>;
 
 		interrupt-parent = <&gpd>;
 		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-names = "host-wake";
 	};
+};
+
+&rtc_dev {
+	clocks = <&extrtc 0>;
+	clock-names = "rtc";
+
+	system-power-controller;
 };
 
 &uart0 {
@@ -267,6 +411,9 @@
 		reset-gpios = <&gpf 8 GPIO_ACTIVE_LOW>;
 		device-wakeup-gpios = <&gpf 5 GPIO_ACTIVE_HIGH>;
 		shutdown-gpios = <&gpf 4 GPIO_ACTIVE_HIGH>;
+
+		max-speed = <115200>;	/* stay with default data rate */
+		brcm,bt-pcm-int-params = [01 02 00 01 01];
 	};
 };
 
@@ -298,8 +445,8 @@
 
 		regulators {
 			vddcore: DCDC1 {
-				regulator-min-microvolt = <1125000>;
-				regulator-max-microvolt = <1125000>;
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <1200000>;
 				vp1-supply = <&vcc_33v>;
 				regulator-always-on;
 			};
@@ -378,6 +525,43 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c2>;
 
+	camera: ov5640@3c {
+		compatible = "omnivision,ov5640";
+		reg = <0x3c>;
+
+		core-supply = <&cim_io_15>;
+		analog-supply = <&cim_io_28>;
+
+		gpio-enable = <&gpb 18 0>;
+		gpio-reset = <&gpb 26 0>;
+
+		remote = <&cim>;
+		port {
+			ov5640_1: endpoint {
+				bus-width = <8>;
+				remote-endpoint = <&camera_ep>;
+			};
+		};
+	};
+
+};
+
+&cim {
+	clock-frequency = <24000000>;
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Parallel bus endpoint */
+		camera_ep: endpoint@0 {
+			reg = <0>;		/* Local endpoint # */
+			remote-endpoint = <&ov5640_1>;
+			hsync-active = <1>;	/* Active high */
+			vsync-active = <1>;	/* Active high */
+			pclk-sample = <0>;	/* Falling */
+		};
+	};
 };
 
 &i2c3 {
@@ -396,8 +580,16 @@
 
 	clock-frequency = <400000>;
 
-		rtc@51 {
+		extrtc: rtc@51 {
+#ifdef BOARD_CI20_V1
+			compatible = "pericom,pt7c4338";
+			/* FIXME: clock out untested */
+			#clock-cells = <1>;
+			clock-output-names = "square", "clkout";
+#else
 			compatible = "nxp,pcf8563";
+			#clock-cells = <1>;
+#endif
 			reg = <0x51>;
 
 			interrupt-parent = <&gpf>;
@@ -477,6 +669,7 @@
 	dm9000@6 {
 		compatible = "davicom,dm9000";
 		davicom,no-eeprom;
+		local-mac-address = [00 00 de ad be ef];
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&pins_nemc_cs6>;
@@ -505,6 +698,12 @@
 	status = "okay";
 };
 
+&usb_phy {
+	status = "okay";
+
+	vcc-supply = <&otg_power>;
+};
+
 &otg_phy {
 	status = "okay";
 
@@ -513,6 +712,9 @@
 
 &otg {
 	status = "okay";
+
+	assigned-clocks = <&cgu JZ4780_CLK_OTGPHY>;
+	assigned-clock-rates = <48000000>;
 };
 
 &pinctrl {
@@ -611,6 +813,13 @@
 		groups = "mmc1-1bit-d", "mmc1-4bit-d";
 		bias-disable;
 	};
+
+	pins_cim: cim-pb {
+	/* see https://github.com/freebsd/freebsd/blob/master/sys/gnu/dts/mips/ingenic/jz4780.dtsi */
+		function = "cim";
+		// groups = "cim-???", "cim-???";
+		bias-disable;
+	};
 };
 
 &hdmi {
@@ -648,3 +857,46 @@
 		};
 	};
 };
+
+#if SPI_BITBANG
+/ {
+	spi_gpio: bitbang {
+#define SPI spi_gpio
+		compatible = "spi-gpio";
+		sck-gpios = <SCLK GPIO_ACTIVE_HIGH>;
+		miso-gpios = <MISO GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <MOSI GPIO_ACTIVE_HIGH>;
+		cs-gpios = <CE0 GPIO_ACTIVE_LOW>;
+		num-chipselects = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&spi0 {
+	status = "disabled";
+};
+
+#else
+
+&pinctrl {
+	spi0_data: spi0 {
+		function = "ssi0";
+		groups = "ssi0-dt-e", "ssi0-dr-e", "ssi0-clk-e" /*, "ssi0-ce0-e", "ssi0-ce1-e" */;
+		bias-disable;
+	};
+};
+
+&spi0 {
+#define SPI spi0
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_data>;
+
+	status = "okay";
+
+	/delete-node/ spidev@0;
+};
+
+#endif
+
+/* Application connected to RasPi compatible Header - append here with #if APPLICATION == number */

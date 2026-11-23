@@ -22,6 +22,7 @@
 
 	aliases {
 		display0 = &lcd;
+		display1 = &tv;
 	};
 
 	/* fixed 26MHz oscillator */
@@ -31,8 +32,49 @@
 		clock-frequency = <26000000>;
 	};
 
+	/* Shared 5V rail for headphone amplifier, early LCD and USB */
+	aux_5v: fixed-regulator-5v {
+		compatible = "regulator-fixed"; /* TPS61029DRC */
+		regulator-name = "aux_5v";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		startup-delay-us = <5000>;
+		enable-active-high;
+		gpio = <&twl_gpio 20 GPIO_ACTIVE_HIGH>; /* REGEN */
+		vin-supply = <&vaux1>; /* logical enable dependency */
+	};
+
+	/* LCD_5V: switched shared 5V on rev 5a, separate supply on rev 6d */
+	lcd_5v: fixed-regulator-lcd-5v {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd_5v";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		startup-delay-us = <5000>;
+		vin-supply = <&aux_5v>; /* logical enable dependency */
+	};
+
+	backlight: pwm-backlight {
+		compatible = "pwm-backlight";
+		pwms = <&twl_pwm 0 1922710>;
+		/*
+		 * TPS61161 analog dimming window: duty must stay above
+		 * ~20-25 % (below that the regulator drops out, LED off)
+		 * and normal PWM dimming must never produce a constant
+		 * high level, which could trigger one-wire detection.
+		 * The enable guard is the only intentional full-duty interval.
+		 * These levels were determined experimentally.
+		 */
+		brightness-levels = <
+			  0 24 30 36 42 49 58 68 80 94 110 129 255
+		>;
+		default-brightness-level = <11>;
+		/* TPS61161: 100% duty window > 2.5 ms one-wire detection */
+		pwm-enable-guard-period-us = <10000>;
+	};
+
 	tv: connector {
-		compatible = "connector-analog-tv";
+		compatible = "svideo-connector";
 		label = "tv";
 
 		port {
@@ -42,12 +84,85 @@
 		};
 	};
 
+	dac: pcm1773-codec {
+		compatible = "ti,pcm1773";
+		vcc-supply = <&vsim>;
+		enable-gpios = <&gpio4 22 GPIO_ACTIVE_HIGH>; /* GPIO 118 */
+		status = "okay";
+		#sound-dai-cells = <0>;
+	};
+
+	sound: sound {
+		compatible = "openpandora,omap3pandora-sound";
+		status = "okay";
+
+		label = "OpenPandora";
+
+		amp-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		amp-supply = <&aux_5v>;
+
+		widgets =
+			"Line", "Line Out",
+			"Line", "Line In",
+			"Headphone", "Headphone Jack",
+			"Microphone", "Mic (internal)",
+			"Microphone", "Mic (external)";
+
+		routing =
+			"DAC1", "APLL Enable",
+			"DAC2", "APLL Enable",
+			"Headphone Amplifier", "VOUTL",
+			"Headphone Amplifier", "VOUTR",
+			"Line Out", "VOUTL",
+			"Line Out", "VOUTR",
+			"Headphone Jack", "Headphone Amplifier",
+			"AUXL", "Line In",
+			"AUXR", "Line In",
+			"MAINMIC", "Mic (internal)",
+			"Mic (internal)", "Mic Bias 1",
+			"SUBMIC", "Mic (external)",
+			"Mic (external)", "Mic Bias 2";
+
+		sound-dai = <&mcbsp2>, <&dac>;
+	};
+
 	gpio-leds {
 
 		compatible = "gpio-leds";
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&led_pins>;
+
+/* twl leds are broken?
+
+		led_backlight {
+			label = "pandora::backlight";
+			gpios = <&twl_gpio 6 GPIO_ACTIVE_HIGH>; /* LED.6 * /
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+
+		led_charger {
+			label = "pandora::charger";
+			gpios = <&twl_gpio 7 GPIO_ACTIVE_HIGH>; /* LED.7 * /
+			linux,default-trigger = "heartbeat";
+			linux,default-trigger = "bq27500-0-charging-blink-full-solid";
+			default-state = "on";
+		};
+
+		led_keypad {
+			label = "pandora::keypad";
+			gpios = <&twl_gpio 18 GPIO_ACTIVE_HIGH>; /* LEDA * /
+			linux,default-trigger = "heartbeat";
+		};
+
+		led_power {
+			label = "pandora::power";
+			gpios = <&twl_gpio 19 GPIO_ACTIVE_HIGH>; /* LEDB * /
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+		};
+*/
 
 		led1 {
 			label = "pandora::sd1";
@@ -201,7 +316,17 @@
 			linux,code = <0x00>;    /* SW_LID lid shut */
 			linux,input-type = <0x05>;    /* EV_SW */
 			gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;   /* GPIO_108 */
+			gpio-key,wakeup;
 		};
+	};
+
+	madc-hwmon {
+		compatible = "ti,twl4030-madc-hwmon";
+	};
+
+	control: control@48002270 {
+		compatible = "ti,omap3-devconf1-syscon", "syscon";
+		reg = <0x48002270 0x74>;
 	};
 
 	/* HS USB Host PHY on PORT 2 */
@@ -212,15 +337,13 @@
 		#phy-cells = <0>;
 	};
 
-	/* HS USB Host VBUS supply
-	 * disabling this regulator causes current leakage, and LCD flicker
-	 * on earlier (CC) board revisions, so keep it always on */
+	/* HS USB Host VBUS supply */
 	usb_host_5v: fixed-regulator-usb_host_5v {
+		vin-supply = <&aux_5v>;
 		compatible = "regulator-fixed";
 		regulator-name = "usb_host_5v";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		regulator-always-on;
 		regulator-boot-on;
 		enable-active-high;
 		gpio = <&gpio6 4 GPIO_ACTIVE_HIGH>;	/* GPIO_164 */
@@ -247,9 +370,22 @@
 		enable-active-high;
 		gpio = <&twl_gpio 13 GPIO_ACTIVE_HIGH>;
 	};
+
+	/* standard OpenPandora battery (PB-4000-001) */
+	bat: battery {
+		compatible = "simple-battery", "openpandora-battery";
+		voltage-min-design-microvolt = <3200000>;
+		energy-full-design-microwatt-hours = <14800000>;
+		charge-full-design-microamp-hours = <4000000>;
+	};
 };
 
 &omap3_pmx_core {
+
+	pinctrl-names = "default";
+	pinctrl-0 = <
+		&hsusb2_pins
+	>;
 
 	mmc1_pins: mmc1-pins {
 		pinctrl-single,pins = <
@@ -356,6 +492,19 @@
 		>;
 	};
 
+	hsusb2_pins: hsusb2-pins {
+		pinctrl-single,pins = <
+			OMAP3_CORE1_IOPAD(0x21d4, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi1_cs3.hsusb2_data2 */
+			OMAP3_CORE1_IOPAD(0x21d6, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_clk.hsusb2_data7 */
+			OMAP3_CORE1_IOPAD(0x21d8, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_simo.hsusb2_data4 */
+			OMAP3_CORE1_IOPAD(0x21da, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_somi.hsusb2_data5 */
+			OMAP3_CORE1_IOPAD(0x21dc, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs0.hsusb2_data6 */
+			OMAP3_CORE1_IOPAD(0x21de, PIN_INPUT_PULLDOWN | MUX_MODE3)	/* mcspi2_cs1.hsusb2_data3 */
+			OMAP3_CORE1_IOPAD(0x219a, PIN_INPUT_PULLUP | MUX_MODE4) /* gpio_163 = !OC_USB5 (over current input) */
+			OMAP3_CORE1_IOPAD(0x219c, PIN_OUTPUT | MUX_MODE4) /* gpio_164 = EN_USB_5V */
+		>;
+	};
+
 };
 
 &omap3_pmx_core2 {
@@ -377,7 +526,7 @@
 
 		twl_power: power {
 			compatible = "ti,twl4030-power-reset";
-			ti,use_poweroff;
+			ti,system-power-controller;
 		};
 
 		twl_audio: audio {
@@ -434,13 +583,60 @@
 		MATRIX_KEY(6, 1, KEY_2)
 		MATRIX_KEY(6, 2, KEY_W)
 		MATRIX_KEY(6, 3, KEY_A)
-		MATRIX_KEY(6, 4, KEY_RIGHTBRACE)
+		MATRIX_KEY(6, 4, KEY_DOT)
 		MATRIX_KEY(7, 0, KEY_ENTER)
 		MATRIX_KEY(7, 1, KEY_1)
 		MATRIX_KEY(7, 2, KEY_Q)
 		MATRIX_KEY(7, 3, KEY_LEFTSHIFT)
-		MATRIX_KEY(7, 4, KEY_LEFTBRACE )
-	 >;
+		MATRIX_KEY(7, 4, KEY_COMMA)
+		MATRIX_KEY(8, 0, KEY_F9)
+		MATRIX_KEY(8, 1, KEY_F8)
+		MATRIX_KEY(8, 2, KEY_BRIGHTNESSUP)
+		MATRIX_KEY(8, 3, KEY_F13)           /* apostrophe, differs from Fn-A? */
+		MATRIX_KEY(8, 4, KEY_F22)
+		MATRIX_KEY(8, 5, KEY_F23)
+		MATRIX_KEY(9, 0, KEY_F10)
+		MATRIX_KEY(9, 1, KEY_F7)
+		MATRIX_KEY(9, 2, KEY_BRIGHTNESSDOWN)
+		MATRIX_KEY(9, 3, KEY_GRAVE)
+		MATRIX_KEY(9, 4, KEY_F14)           /* pipe/bar */
+		MATRIX_KEY(9, 5, KEY_TAB)
+		MATRIX_KEY(10, 0, KEY_INSERT)
+		MATRIX_KEY(10, 1, KEY_F6)
+		MATRIX_KEY(10, 2, KEY_F15)           /* dash */
+		MATRIX_KEY(10, 3, KEY_EQUAL)
+		MATRIX_KEY(10, 4, KEY_F16)           /* # (pound/hash) */
+		MATRIX_KEY(10, 5, KEY_FN)
+		MATRIX_KEY(11, 0, KEY_F11)
+		MATRIX_KEY(11, 1, KEY_F5)
+		MATRIX_KEY(11, 2, KEY_F17)           /* ! */
+		MATRIX_KEY(11, 3, KEY_KPPLUS)
+		MATRIX_KEY(11, 4, KEY_BACKSLASH)
+		MATRIX_KEY(12, 0, KEY_F12)
+		MATRIX_KEY(12, 1, KEY_F4)
+		MATRIX_KEY(12, 2, KEY_RIGHTBRACE)
+		MATRIX_KEY(12, 3, KEY_KPMINUS)
+		MATRIX_KEY(12, 4, KEY_QUESTION)
+		MATRIX_KEY(13, 0, KEY_F18)           /* £ (pound) */
+		MATRIX_KEY(13, 1, KEY_F3)
+		MATRIX_KEY(13, 2, KEY_LEFTBRACE)
+		MATRIX_KEY(13, 3, KEY_F19)           /* " */
+		MATRIX_KEY(13, 4, KEY_SLASH)
+		MATRIX_KEY(14, 0, KEY_YEN)
+		MATRIX_KEY(14, 1, KEY_F2)
+		MATRIX_KEY(14, 2, KEY_F20)           /* @ */
+		MATRIX_KEY(14, 3, KEY_APOSTROPHE)
+		MATRIX_KEY(14, 4, KEY_F21)           /* : */
+		MATRIX_KEY(15, 0, KEY_ENTER)
+		MATRIX_KEY(15, 1, KEY_F1)
+		MATRIX_KEY(15, 2, KEY_ESC)
+		MATRIX_KEY(15, 3, KEY_CAPSLOCK)
+		MATRIX_KEY(15, 4, KEY_SEMICOLON)
+	>;
+};
+
+&twl_pwm {
+	ti,twl4030-pwm-frame-64;
 };
 
 /* backup battery charger */
@@ -473,7 +669,7 @@
 	regulator-max-microvolt = <2800000>;
 };
 
-/* ADS7846 and nubs */
+/* ADS7846 and nubs and mma7455 */
 &vaux4 {
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
@@ -495,10 +691,42 @@
 	clock-frequency = <100000>;
 
 	bq27500@55 {
-		compatible = "ti,bq27500";
+		compatible = "ti,bq27500-1";
 		reg = <0x55>;
+		monitored-battery = <&bat>;
 	};
 
+	mma7455@1d {
+		compatible = "fsl,mma7455";
+		reg = <0x1d>;
+	};
+
+	vsense-left@66 {
+		compatible = "pandora,pandora-nub";
+		vcc-supply = <&vaux4>;
+		reg = <0x66>;
+		reset-gpio = <&gpio5 28 GPIO_ACTIVE_LOW>;	/* GPIO_156 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <1 IRQ_TYPE_EDGE_RISING>;	/* GPIO_161 low-to-high edge */
+	};
+
+	vsense-right@67 {
+		compatible = "pandora,pandora-nub";
+		vcc-supply = <&vaux4>;
+		reg = <0x67>;
+		reset-gpio = <&gpio5 28 GPIO_ACTIVE_LOW>;	/* GPIO_156 */
+		interrupt-parent = <&gpio6>;
+		interrupts = <2 IRQ_TYPE_EDGE_RISING>;	/* GPIO_162 low-to-high edge */
+	};
+
+};
+
+&hdqw1w {
+	status = "disabled";
+};
+
+&hdqw1w {
+	status = "disabled";
 };
 
 &usb_otg_hs {
@@ -520,7 +748,8 @@
 	pinctrl-0 = <&mmc1_pins>;
 	vmmc-supply = <&vmmc1>;
 	bus-width = <4>;
-	cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>;
+	broken-cd;
+	/*cd-gpios = <&twl_gpio 0 GPIO_ACTIVE_LOW>; */
 	/*wp-gpios = <&gpio4 30 GPIO_ACTIVE_HIGH>;*/	/* GPIO_126 */
 };
 
@@ -529,7 +758,8 @@
 	pinctrl-0 = <&mmc2_pins>;
 	vmmc-supply = <&vmmc2>;
 	bus-width = <4>;
-	cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_LOW>;
+	broken-cd;
+	/* cd-gpios = <&twl_gpio 1 GPIO_ACTIVE_LOW>;
 	/*wp-gpios = <&gpio4 31 GPIO_ACTIVE_HIGH>;*/	/* GPIO_127 */
 };
 
@@ -547,6 +777,8 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
+//	reset-gpios = <&gpio1 23 GPIO_ACTIVE_LOW>;	/* gpio_23 = reset means remove 
+
 	wlan: wifi@1 {
 		compatible = "ti,wl1251";
 
@@ -561,6 +793,12 @@
 
 /* bluetooth*/
 &uart1 {
+	pinctrl-names = "default";
+//	pinctrl-0 = <&uart1_pins &bt_pins>;
+	bluetooth: tiwi {
+		compatible = "ti,wl1251-bt";
+		enable-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;	/* GPIO_15 */
+	};
 };
 
 /* spare (expansion connector) */
@@ -644,20 +882,32 @@
 
 &mcspi1 {
 	tsc2046@0 {
-		reg = <0>;	/* CS0 */
 		compatible = "ti,tsc2046";
+		reg = <0>;	/* CS0 */
 		spi-max-frequency = <1000000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&penirq_pins>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <30 IRQ_TYPE_NONE>;	/* GPIO_94 */
+		panel = <&lcd>;
 		pendown-gpio = <&gpio3 30 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&vaux4>;
 
-		ti,x-min = /bits/ 16 <0>;
-		ti,x-max = /bits/ 16 <8000>;
-		ti,y-min = /bits/ 16 <0>;
-		ti,y-max = /bits/ 16 <4800>;
+		touchscreen-min-x = <0>;
+		touchscreen-min-y = <0>;
+		touchscreen-size-x = <800>;
+		touchscreen-size-y = <480>;
+		touchscreen-max-pressure = <1000>;
+		touchscreen-fuzz-x = <16>;
+		touchscreen-fuzz-y = <16>;
+		touchscreen-fuzz-pressure = <10>;
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+
+		ti,x-min = /bits/ 16 <160>;
+		ti,x-max = /bits/ 16 <3900>;
+		ti,y-min = /bits/ 16 <220>;
+		ti,y-max = /bits/ 16 <3750>;
 		ti,x-plate-ohms = /bits/ 16 <40>;
 		ti,pressure-max = /bits/ 16 <255>;
 
@@ -673,7 +923,9 @@
 
 		label = "lcd";
 		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;	/* GPIO_157 */
-		vcc-supply = <&vaux1>;
+		vcc-supply = <&lcd_5v>;
+
+		backlight = <&backlight>;
 
 		port {
 			lcd_in: endpoint {
@@ -685,20 +937,46 @@
 
 };
 
+/*
+ * Only mcspi1 is used on the pandora, the others do not surface on the board
+ * due to pinmux configuration. disable the unused ones so that they do not
+ * consume DMA channels
+ */
+&mcspi2 {
+	status = "disabled";
+};
+
+&mcspi3 {
+	status = "disabled";
+};
+
+&mcspi4 {
+	status = "disabled";
+};
+
 /* n/a - used as GPIOs */
 &mcbsp1 {
 };
 
 /* audio DAC */
 &mcbsp2 {
+	status = "okay";
+	#sound-dai-cells = <0>;
+	clocks = <&mcbsp2_fck>, <&mcbsp2_ick>;
+	clock-names = "fck", "ick";
 };
 
 /* bluetooth */
+&twl_gpio {
+	ti,use-regen;
+};
+
 &mcbsp3 {
 };
 
 /* to twl4030*/
 &mcbsp4 {
+	status = "okay";
 };
 
 &venc {
