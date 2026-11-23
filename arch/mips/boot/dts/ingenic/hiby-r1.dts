@@ -424,7 +424,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_i2c1>;
 
-	clock-frequency = <400000>;
+	clock-frequency = <100000>;
 
 	touchscreen@15 {
 		compatible = "hynitron,cst816s";
@@ -434,6 +434,9 @@
 		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
 
 		reset-gpios = <&gpa 17 GPIO_ACTIVE_LOW>;
+
+		touchscreen-size-x = <480>;
+		touchscreen-size-y = <800>;
 	};
 };
 
