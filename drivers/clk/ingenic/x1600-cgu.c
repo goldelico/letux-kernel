@@ -8,6 +8,7 @@
  * Copyright (c) 2023, 2024 Paul Boddie <paul@boddie.org.uk>
  */
 
+#include <linux/bitfield.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -38,15 +39,15 @@
 #define CGU_REG_USBPCR1		0x48
 #define CGU_REG_MACCDR		0x54
 #define CGU_REG_SSICDR		0x5c
-#define CGU_REG_I2S0CDR		0x60
+#define CGU_REG_I2SRCDR		0x60	/* I2S receive */
 #define CGU_REG_LPCDR		0x64
 #define CGU_REG_MSC0CDR		0x68
 #define CGU_REG_PWMCDR		0x6c
-#define CGU_REG_I2S0CDR1	0x70
+#define CGU_REG_I2SRCDR1	0x70
 #define CGU_REG_SFCCDR		0x74
 #define CGU_REG_CIMCDR		0x78
-#define CGU_REG_I2S1CDR		0x7c
-#define CGU_REG_I2S1CDR1	0x80
+#define CGU_REG_I2STCDR		0x7c	/* I2S transmit */
+#define CGU_REG_I2STCDR1	0x80
 #define CGU_REG_APLLFRAC	0x84
 #define CGU_REG_MPLLFRAC	0x88
 #define CGU_REG_EPLLFRAC	0x8c
@@ -148,6 +149,123 @@ x1600_pll_calc_m_n_od(const struct ingenic_cgu_pll_info *pll_info,
 	*pod = od;
 	*pod1 = od1;
 }
+
+/*
+ * I2S: transmit in I2STCDR (0x7c), receive in I2SRCDR (0x60). Each: a mux
+ * on bit 30 {SCLK_A, EPLL}, an output enable on bit 29, and a fractional
+ * divider, rate = parent * M / N, with M in bits 28:20 and N in 19:0
+ * (Olivier Louvignes' X1600 CGU driver, measured on the HiBy R1).
+ */
+#define X1600_I2SCDR_PARENT	BIT(30)
+#define X1600_I2SCDR_EN		BIT(29)
+#define X1600_I2SCDR_M		GENMASK(28, 20)
+#define X1600_I2SCDR_N		GENMASK(19, 0)
+
+static void __iomem *x1600_i2s_reg(struct clk_hw *hw)
+{
+	struct ingenic_clk *ingenic_clk = to_ingenic_clk(hw);
+
+	return ingenic_clk->cgu->base + (ingenic_clk->idx == X1600_CLK_I2S0 ?
+					 CGU_REG_I2STCDR : CGU_REG_I2SRCDR);
+}
+
+static void x1600_i2s_update(struct clk_hw *hw, u32 mask, u32 val)
+{
+	struct ingenic_cgu *cgu = to_ingenic_clk(hw)->cgu;
+	void __iomem *reg = x1600_i2s_reg(hw);
+	unsigned long flags;
+
+	spin_lock_irqsave(&cgu->lock, flags);
+	writel((readl(reg) & ~mask) | val, reg);
+	spin_unlock_irqrestore(&cgu->lock, flags);
+}
+
+static u8 x1600_i2s_get_parent(struct clk_hw *hw)
+{
+	return !!(readl(x1600_i2s_reg(hw)) & X1600_I2SCDR_PARENT);
+}
+
+static int x1600_i2s_set_parent(struct clk_hw *hw, u8 idx)
+{
+	x1600_i2s_update(hw, X1600_I2SCDR_PARENT, idx ? X1600_I2SCDR_PARENT : 0);
+	return 0;
+}
+
+static unsigned long x1600_i2s_recalc_rate(struct clk_hw *hw,
+					   unsigned long parent_rate)
+{
+	u32 cdr = readl(x1600_i2s_reg(hw));
+	unsigned int m = FIELD_GET(X1600_I2SCDR_M, cdr);
+	unsigned int n = FIELD_GET(X1600_I2SCDR_N, cdr);
+
+	if (!n)
+		return 0;
+	return div_u64((u64)parent_rate * m, n);
+}
+
+static void x1600_i2s_calc_m_n(unsigned long rate, unsigned long parent_rate,
+			       unsigned long *m, unsigned long *n)
+{
+	rational_best_approximation(rate, parent_rate,
+				    FIELD_MAX(X1600_I2SCDR_M),
+				    FIELD_MAX(X1600_I2SCDR_N), m, n);
+}
+
+static int x1600_i2s_determine_rate(struct clk_hw *hw,
+				    struct clk_rate_request *req)
+{
+	unsigned long m, n;
+
+	if (!req->best_parent_rate)
+		return -EINVAL;
+	req->rate = min(req->rate, req->best_parent_rate);
+	x1600_i2s_calc_m_n(req->rate, req->best_parent_rate, &m, &n);
+	if (!m || !n)
+		return -EINVAL;
+	req->rate = div_u64((u64)req->best_parent_rate * m, n);
+	return 0;
+}
+
+static int x1600_i2s_set_rate(struct clk_hw *hw, unsigned long rate,
+			      unsigned long parent_rate)
+{
+	unsigned long m, n;
+
+	x1600_i2s_calc_m_n(rate, parent_rate, &m, &n);
+	if (!m || !n)
+		return -EINVAL;
+	x1600_i2s_update(hw, X1600_I2SCDR_M | X1600_I2SCDR_N,
+			 FIELD_PREP(X1600_I2SCDR_M, m) |
+			 FIELD_PREP(X1600_I2SCDR_N, n));
+	return 0;
+}
+
+static int x1600_i2s_enable(struct clk_hw *hw)
+{
+	x1600_i2s_update(hw, X1600_I2SCDR_EN, X1600_I2SCDR_EN);
+	return 0;
+}
+
+static void x1600_i2s_disable(struct clk_hw *hw)
+{
+	x1600_i2s_update(hw, X1600_I2SCDR_EN, 0);
+}
+
+static int x1600_i2s_is_enabled(struct clk_hw *hw)
+{
+	return !!(readl(x1600_i2s_reg(hw)) & X1600_I2SCDR_EN);
+}
+
+static const struct clk_ops x1600_i2s_ops = {
+	.get_parent = x1600_i2s_get_parent,
+	.set_parent = x1600_i2s_set_parent,
+	.recalc_rate = x1600_i2s_recalc_rate,
+	.determine_rate = x1600_i2s_determine_rate,
+	.set_rate = x1600_i2s_set_rate,
+	.enable = x1600_i2s_enable,
+	.disable = x1600_i2s_disable,
+	.is_enabled = x1600_i2s_is_enabled,
+};
 
 static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 
@@ -276,24 +394,17 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 		.gate = { CGU_REG_CLKGR0, 31 },
 	},
 
+	/* I2S0: the transmit clock (I2STCDR, 0x7c); I2S1: receive (0x60) */
 	[X1600_CLK_I2S0] = {
-		"i2s0", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		"i2s0", CGU_CLK_CUSTOM,
 		.parents = { X1600_CLK_SCLKA, X1600_CLK_EPLL, -1, -1 },
-		.mux = { CGU_REG_I2S0CDR, 30, 1 },
-		.div = { CGU_REG_I2S0CDR, 20, 1, 9, -1, -1, -1 },
-		.mdiv = { CGU_REG_I2S0CDR, 0, 1, 20 },
-		.nddiv = { CGU_REG_I2S0CDR1, 31, 30 },
-		.gate = { CGU_REG_I2S0CDR, 29, true },
+		.custom = { &x1600_i2s_ops },
 	},
 
 	[X1600_CLK_I2S1] = {
-		"i2s1", CGU_CLK_MUX | CGU_CLK_DIV | CGU_CLK_GATE,
+		"i2s1", CGU_CLK_CUSTOM,
 		.parents = { X1600_CLK_SCLKA, X1600_CLK_EPLL, -1, -1 },
-		.mux = { CGU_REG_I2S1CDR, 30, 1 },
-		.div = { CGU_REG_I2S1CDR, 20, 1, 9, -1, -1, -1 },
-		.mdiv = { CGU_REG_I2S1CDR, 0, 1, 20 },
-		.nddiv = { CGU_REG_I2S1CDR1, 31, 30 },
-		.gate = { CGU_REG_I2S1CDR, 29, true },
+		.custom = { &x1600_i2s_ops },
 	},
 
 	[X1600_CLK_LCDPIXCLK] = {
@@ -528,7 +639,7 @@ static const struct ingenic_cgu_clk_info x1600_cgu_clocks[] = {
 
 	[X1600_CLK_I2S0_RX] = {
 		"i2s0_rx", CGU_CLK_GATE,
-		.parents = { X1600_CLK_I2S0, -1, -1, -1 },
+		.parents = { X1600_CLK_I2S1, -1, -1, -1 },
 		.gate = { CGU_REG_CLKGR1, 8 },
 	},
 
