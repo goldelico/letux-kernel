@@ -13,6 +13,7 @@
 #include <linux/bitfield.h>
 #include <linux/gpio/consumer.h>
 #include <linux/delay.h>
+#include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
@@ -105,6 +106,8 @@ struct st7701;
 
 struct st7701_panel_desc {
 	const struct drm_display_mode *mode;
+	u32 bus_format;		/* RGB panels: what the controller sends */
+	u32 bus_flags;
 	unsigned int lanes;
 	enum mipi_dsi_pixel_format format;
 	unsigned int panel_sleep_delay;
@@ -634,6 +637,12 @@ static int st7701_get_modes(struct drm_panel *panel,
 
 	connector->display_info.width_mm = desc_mode->width_mm;
 	connector->display_info.height_mm = desc_mode->height_mm;
+
+	if (st7701->desc->bus_format) {
+		drm_display_info_set_bus_formats(&connector->display_info,
+						 &st7701->desc->bus_format, 1);
+		connector->display_info.bus_flags = st7701->desc->bus_flags;
+	}
 
 	/*
 	 * TODO: Remove once all drm drivers call
