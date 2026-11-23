@@ -391,10 +391,12 @@
 			interrupt-parent = <&intc>;
 			interrupts = <IRQ_AUDIO>;
 
-			clocks = <&cgu X1600_CLK_AIC>,
-				 <&cgu X1600_CLK_I2S0_RX>,
-				 <&cgu X1600_CLK_I2S0_TX>;
-			clock-names = "aic", "rx", "tx";
+			/*
+			 * The X1600 has separate transmit and receive bit clocks;
+			 * the driver runs both directions from the transmit one.
+			 */
+			clocks = <&cgu X1600_CLK_AIC>, <&cgu X1600_CLK_I2S0_TX>;
+			clock-names = "aic", "i2s";
 
 			dmas = <&dma X1600_DMA_AIC_TX 0xffffffff>,
 			       <&dma X1600_DMA_AIC_RX 0xffffffff>;
