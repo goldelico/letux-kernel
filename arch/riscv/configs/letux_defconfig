@@ -1,5 +1,5 @@
 #
-# Linux/riscv 7.4.0-rc3 Kernel Configuration
+# Linux/riscv 7.4.0-rc4 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="riscv64-linux-gnu-gcc (GCC) 12.2.0"
 CONFIG_CC_IS_GCC=y
@@ -3513,7 +3513,6 @@ CONFIG_MFD_SYSCON=y
 # CONFIG_TPS6507X is not set
 # CONFIG_MFD_TPS65086 is not set
 # CONFIG_MFD_TPS65090 is not set
-# CONFIG_MFD_TPS6518X is not set
 # CONFIG_MFD_TPS65217 is not set
 # CONFIG_MFD_TI_LP873X is not set
 # CONFIG_MFD_TI_LP87565 is not set
@@ -4673,7 +4672,6 @@ CONFIG_SND_SOC_I2C_AND_SPI=y
 # CONFIG_SND_SOC_MSM8916_WCD_DIGITAL is not set
 # CONFIG_SND_SOC_PCM1681 is not set
 # CONFIG_SND_SOC_PCM1754 is not set
-# CONFIG_SND_SOC_PCM1773 is not set
 # CONFIG_SND_SOC_PCM1789_I2C is not set
 # CONFIG_SND_SOC_PCM179X_I2C is not set
 # CONFIG_SND_SOC_PCM179X_SPI is not set
