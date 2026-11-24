@@ -560,6 +560,9 @@ struct twl4030_gpio_platform_data {
 	/* package the two LED signals as output-only GPIOs? */
 	bool		use_leds;
 
+	/* Expose the REGEN signal as an output-only GPIO. */
+	bool		use_regen;
+
 	/* gpio-n should control VMMC(n+1) if BIT(n) in mmc_cd is set */
 	u8		mmc_cd;
 

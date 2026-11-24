@@ -127,7 +127,6 @@ config MACH_INGENIC
 	select GPIOLIB
 	select COMMON_CLK
 	select GENERIC_IRQ_CHIP
-	select BUILTIN_DTB if MIPS_NO_APPENDED_DTB
 	select USE_OF
 	select CPU_SUPPORTS_CPUFREQ
 	select MIPS_EXTERNAL_TIMER
@@ -2194,7 +2193,7 @@ config CPU_R4K_FPU
 
 config CPU_R4K_CACHE_TLB
 	bool
-	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON)
+	default y if !(CPU_R3K_TLB || CPU_SB1 || CPU_CAVIUM_OCTEON || MACH_INGENIC)
 
 config MIPS_MT_SMP
 	bool "MIPS MT SMP support (1 TC on each available VPE)"
@@ -2924,7 +2923,20 @@ config UHI_BOOT
 	bool
 
 config BUILTIN_DTB
-	bool
+	bool "Enable builtin DTB fallback support"
+	depends on USE_OF
+	help
+	  Enable support for a Device Tree Blob built into the kernel.
+	  The built-in DTB can be used when no suitable Device Tree is
+	  supplied by the boot firmware or by another supported mechanism.
+
+	  The DTB to embed is selected using BUILTIN_DTB_NAME. If no
+	  built-in DTB is needed, for example because the bootloader
+	  supplies one, this option can be disabled.
+
+	  This option is independent of the appended-DTB selection below.
+
+	  If unsure, say N.
 
 choice
 	prompt "Kernel appended dtb support"

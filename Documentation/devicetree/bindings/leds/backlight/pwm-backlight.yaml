@@ -49,6 +49,26 @@ properties:
       having to list out every possible value in the brightness-level array.
     $ref: /schemas/types.yaml#/definitions/uint32
 
+  pwm-enable-guard-period-us:
+    description: >
+      Duration in microseconds for which the PWM consumer requests
+      full duty (duty_cycle == period) before applying the requested
+      brightness. The guard is issued if the previous PWM state was
+      disabled or had zero duty cycle, e.g. after power-up or resume.
+
+      This can allow LED drivers with startup mode detection to settle
+      before normal PWM dimming begins. For example, TI TPS61160/61
+      distinguish PWM dimming from EasyScale by the duration of low
+      intervals on CTRL during an initial detection window. The guard
+      duration must cover that window according to the LED driver
+      datasheet.
+
+      The PWM provider may approximate full duty if the hardware
+      cannot represent it exactly. The board must ensure that the
+      resulting waveform meets the LED driver startup requirements
+      and that the input has a defined inactive state while off.
+    default: 0
+
 dependencies:
   default-brightness-level: [brightness-levels]
   num-interpolated-steps: [brightness-levels]
